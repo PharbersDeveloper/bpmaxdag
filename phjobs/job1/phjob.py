@@ -20,7 +20,8 @@ from pyspark.sql import functions as func
 @click.option('--raw_data_path')
 @click.option('--std_names')
 @click.option('--cpa_gyc')
-def execute(uni_path, cpa_pha_mapping_path, raw_data_path, std_names, cpa_gyc):
+@click.option('--raw_data_job1_out_path')
+def execute(uni_path, cpa_pha_mapping_path, raw_data_path, std_names, cpa_gyc, raw_data_job1_out_path):
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("sparkOutlier") \
@@ -127,5 +128,9 @@ def execute(uni_path, cpa_pha_mapping_path, raw_data_path, std_names, cpa_gyc):
     raw_data = raw_data.join(id_city, on=["PHA", "City"], how="left")
 
     raw_data.show(2)
+    
+    raw_data_job1_out = raw_data.repartition(2)
+    raw_data_job1_out.write.format("parquet")\
+        .mode("overwrite").save(raw_data_job1_out_path)
 
     return raw_data

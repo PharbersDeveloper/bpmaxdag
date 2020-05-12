@@ -21,6 +21,8 @@ spec:
         value: "PHA, ID, Year, Month, Molecule, Brand, Form, Specifications, Pack_Number, Manufacturer, Sales, Units, Province, City, Corp, Route"
       - key: cpa_gyc
         value: True
+      - key: raw_data_job1_out_path
+        value: "/user/yyw/max/Sankyo/raw_data_job1_out"       
     outputs:
       - key: a
         value: abcde
