@@ -10,41 +10,36 @@ import numpy as np
 from pyspark.sql import SparkSession
 import time
 from pyspark.sql.types import *
-from pyspark.sql.types import StringType,IntegerType
+from pyspark.sql.types import StringType, IntegerType
 from pyspark.sql import functions as func
 
-    
+
 @click.command()
 @click.option('--uni_path')
 @click.option('--cpa_pha_mapping_path')
 @click.option('--raw_data_path')
 @click.option('--std_names')
 @click.option('--cpa_gyc')
-
-def execute(uni_path, cpa_pha_mapping_path, raw_data_path, std_names, cpa_gyc):    
-  
+def execute(uni_path, cpa_pha_mapping_path, raw_data_path, std_names, cpa_gyc):
     spark = SparkSession.builder \
-    	.master("yarn") \
-    	.appName("sparkOutlier") \
-    	.config("spark.driver.memory", "4g") \
-    	.config("spark.executor.cores", "1") \
-    	.config("spark.executor.instance", "2") \
-    	.config("spark.executor.memory", "2g") \
-    	.getOrCreate()
-    
-    #uni_path = "/common/projects/max/Sankyo/universe_base"
+        .master("yarn") \
+        .appName("sparkOutlier") \
+        .config("spark.driver.memory", "4g") \
+        .config("spark.executor.cores", "1") \
+        .config("spark.executor.instance", "2") \
+        .config("spark.executor.memory", "2g") \
+        .getOrCreate()
+
+    # 1. 首次补数
+    # uni_path = "/common/projects/max/Sankyo/universe_base"
     universe = spark.read.parquet(uni_path)
 
-    if "City_Tier" in universe.columns:
-        universe = universe.withColumnRenamed("City_Tier", "City_Tier_2010")
-    elif "CITYGROUP" in universe.columns:
-        universe = universe.withColumnRenamed("CITYGROUP", "City_Tier_2010")
-    if "Panel_ID" in universe.columns:
-        universe = universe.withColumnRenamed("Panel_ID", "PHA")
-    elif "CITYGROUP" in universe.columns:
-        universe = universe.withColumnRenamed("CITYGROUP", "PHA")
-    if "Hosp_name" in universe.columns:
-        universe = universe.withColumnRenamed("Hosp_name", "HOSP_NAME")
+    # read_universe
+    for col in universe.columns:
+        if col in ["City_Tier", "CITYGROUP"]:
+            universe = universe.withColumnRenamed(col, "City_Tier_2010")
+    universe = universe.withColumnRenamed("Panel_ID", "PHA")
+    universe = universe.withColumnRenamed("Hosp_name", "HOSP_NAME")
 
     universe = universe.withColumn("City_Tier_2010", universe["City_Tier_2010"].cast(StringType()))
 
@@ -74,8 +69,8 @@ def execute(uni_path, cpa_pha_mapping_path, raw_data_path, std_names, cpa_gyc):
                              how="left")
 
     # format_raw_data
-    std_names=std_names.split(', ')
-    #std_names = ['PHA', 'ID', 'Year', 'Month', 'Molecule', 'Brand', 'Form','Specifications', 'Pack_Number', 'Manufacturer', 'Sales', 'Units','Province', 'City', 'Corp', 'Route']
+    std_names = std_names.split(', ')
+    # std_names = ['PHA', 'ID', 'Year', 'Month', 'Molecule', 'Brand', 'Form','Specifications', 'Pack_Number', 'Manufacturer', 'Sales', 'Units','Province', 'City', 'Corp', 'Route']
     # cpa_gyc = True
     for col in raw_data.columns:
         if col in ["数量（支/片）", "最小制剂单位数量", "total_units", "SALES_QTY"]:
@@ -130,5 +125,7 @@ def execute(uni_path, cpa_pha_mapping_path, raw_data_path, std_names, cpa_gyc):
     raw_data.persist()
 
     raw_data = raw_data.join(id_city, on=["PHA", "City"], how="left")
-    
+
     raw_data.show(2)
+
+    return raw_data
