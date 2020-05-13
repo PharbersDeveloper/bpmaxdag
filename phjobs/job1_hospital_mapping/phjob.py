@@ -121,7 +121,7 @@ def execute(uni_path, cpa_pha_mapping_path, raw_data_path, std_names, cpa_gyc, r
     raw_data = raw_data.withColumn("Year", raw_data["Year"].cast(IntegerType())) \
         .withColumn("Month", raw_data["Month"].cast(IntegerType()))
 
-    raw_data = raw_data.select(std_names)
+    #raw_data = raw_data.select(std_names)
 
     raw_data.persist()
 
