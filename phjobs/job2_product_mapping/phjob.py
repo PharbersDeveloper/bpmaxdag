@@ -19,13 +19,13 @@ def execute(a, b):
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("sparkOutlier") \
-        .config("spark.driver.memory", "4g") \
+        .config("spark.driver.memory", "1g") \
         .config("spark.executor.cores", "1") \
         .config("spark.executor.instance", "2") \
         .config("spark.executor.memory", "2g") \
         .getOrCreate()
     
-    raw_data_job1_out_path = "/user/yyw/max/Sankyo/raw_data_job1_out"
+    raw_data_job1_out_path = "/user/ywyuan/max/Sankyo/raw_data_job1_out"
     raw_data = spark.read.parquet(raw_data_job1_out_path)
     raw_data = raw_data.withColumn("Brand", func.when(func.isnull(raw_data.Brand), raw_data.Molecule).
                                    otherwise(raw_data.Brand))
@@ -80,7 +80,7 @@ def execute(a, b):
     
     raw_data_job2_out = raw_data.repartition(2)
     raw_data_job2_out.write.format("parquet") \
-        .mode("overwrite").save("/user/yyw/max/Sankyo/raw_data_job2_out")
+        .mode("overwrite").save("/user/ywyuan/max/Sankyo/raw_data_job2_out")
         
     raw_data.show(2)    
         

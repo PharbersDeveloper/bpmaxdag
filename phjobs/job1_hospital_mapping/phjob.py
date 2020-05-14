@@ -25,7 +25,7 @@ def execute(uni_path, cpa_pha_mapping_path, raw_data_path, std_names, cpa_gyc, r
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("sparkOutlier") \
-        .config("spark.driver.memory", "4g") \
+        .config("spark.driver.memory", "1g") \
         .config("spark.executor.cores", "1") \
         .config("spark.executor.instance", "2") \
         .config("spark.executor.memory", "2g") \
