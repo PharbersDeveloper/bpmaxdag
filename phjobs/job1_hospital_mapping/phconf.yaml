@@ -22,7 +22,7 @@ spec:
       - key: cpa_gyc
         value: True
       - key: raw_data_job1_out_path
-        value: "/user/yyw/max/Sankyo/raw_data_job1_out"       
+        value: "/user/ywyuan/max/Sankyo/raw_data_job1_out"       
     outputs:
       - key: a
         value: abcde
