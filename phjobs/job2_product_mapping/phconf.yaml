@@ -11,10 +11,22 @@ spec:
     code: phmain.py
     config: phconf.yaml
     args:
-      - key: a
-        value: 123
-      - key: b
-        value: 456
+      - key: raw_data_job1_out_path
+        value: "/user/ywyuan/max/Sankyo/raw_data_job1_out"
+      - key: min_content
+        value: "Brand, Form, Specifications, Pack_Number, Manufacturer"
+      - key: min1_sep
+        value: ""
+      - key: new_col
+        value: "min1"
+      - key: map_path
+        value: "/common/projects/max/Sankyo/prod_mapping"
+      - key: need_cleaning_cols
+        value: "Molecule, min1, Route, Corp"    
+      - key: need_cleaning_path
+        value: "need_cleaning.xlsx"
+      - key: raw_data_job2_out_path
+        value: "/user/ywyuan/max/Sankyo/raw_data_job2_out"
     outputs:
       - key: a
         value: abcde
