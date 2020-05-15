@@ -74,6 +74,11 @@ def execute(a, b):
 	
 	distribution = con_dis.select('MAX', 'MIN', 'PHA').distinct() \
 	    .groupBy('MAX', 'MIN').count()
-
+	    
+	con = con.repartition(2, "PHA")
+	
+	years = con.select("Year").distinct().toPandas()["Year"].sort_values().values.tolist()
+	# 数据长变宽
+	con = con.groupBy("PHA").pivot("Year").agg(func.sum('count')).fillna(0)
 	
 	con.show(2)
