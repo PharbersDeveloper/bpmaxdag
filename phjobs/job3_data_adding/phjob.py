@@ -62,4 +62,18 @@ def execute(a, b):
 	model_month_r = 201912
 	raw_data = raw_data.where(raw_data.Year < ((model_month_r // 100) + 1))
 	
-	raw_data.show(2)
+	# 1.4 计算样本医院连续性:
+	# cal_continuity
+	con = raw_data.select("Year", "Month", "PHA").distinct() \
+	    .groupBy("PHA", "Year").count()
+	
+	con_whole_year = con.groupBy("PHA") \
+	    .agg(func.max("count").alias("MAX"), func.min("count").alias("MIN"))
+	con_dis = con.join(con_whole_year, on=["PHA"], how="left") \
+	    .na.fill({'MAX': 0, 'MIN': 0})
+	
+	distribution = con_dis.select('MAX', 'MIN', 'PHA').distinct() \
+	    .groupBy('MAX', 'MIN').count()
+
+	
+	con.show(2)
