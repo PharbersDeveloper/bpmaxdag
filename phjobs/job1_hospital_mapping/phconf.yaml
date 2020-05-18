@@ -11,18 +11,14 @@ spec:
     code: phmain.py
     config: phconf.yaml
     args:
-      - key: uni_path
-        value: "/common/projects/max/Sankyo/universe_base"
-      - key: cpa_pha_mapping_path
-        value: "/common/projects/max/Sankyo/cpa_pha_mapping"
-      - key: raw_data_path
-        value: "/common/projects/max/Sankyo/raw_data"
-      - key: std_names
-        value: "PHA, ID, Year, Month, Molecule, Brand, Form, Specifications, Pack_Number, Manufacturer, Sales, Units, Province, City, Corp, Route"
+      - key: max_path
+        value: "/common/projects/max/"
+      - key: project_name
+        value: "Sankyo"
       - key: cpa_gyc
         value: True
-      - key: raw_data_job1_out_path
-        value: "/user/ywyuan/max/Sankyo/raw_data_job1_out"       
+      - key: test_out_path
+        value: "/user/ywyuan/max/"
     outputs:
       - key: a
         value: abcde

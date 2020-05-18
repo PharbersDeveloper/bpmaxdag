@@ -15,13 +15,12 @@ from pyspark.sql import functions as func
 
 
 @click.command()
-@click.option('--uni_path')
-@click.option('--cpa_pha_mapping_path')
-@click.option('--raw_data_path')
-@click.option('--std_names')
+@click.option('--max_path')
+@click.option('--project_name')
 @click.option('--cpa_gyc')
-@click.option('--raw_data_job1_out_path')
-def execute(uni_path, cpa_pha_mapping_path, raw_data_path, std_names, cpa_gyc, raw_data_job1_out_path):
+@click.option('--test_out_path')
+
+def execute(max_path, project_name, cpa_gyc, test_out_path):
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("sparkOutlier") \
@@ -31,20 +30,26 @@ def execute(uni_path, cpa_pha_mapping_path, raw_data_path, std_names, cpa_gyc, r
         .config("spark.executor.memory", "2g") \
         .getOrCreate()
 
+    # 输入文件
+    universe_path = max_path + "/" + project_name + "/universe_base"
+    cpa_pha_mapping_path = max_path + "/" + project_name + "/cpa_pha_mapping"
+    raw_data_path = max_path + "/" + project_name + "/raw_data"
+    hospital_mapping_out_path = test_out_path + "/" + project_name + "/hospital_mapping_out"
+
     # 1. 首次补数
-    # uni_path = "/common/projects/max/Sankyo/universe_base"
-    universe = spark.read.parquet(uni_path)
+    # universe_path = "/common/projects/max/Sankyo/universe_base"
+    universe = spark.read.parquet(universe_path)
 
     # read_universe
     for col in universe.columns:
         if col in ["City_Tier", "CITYGROUP"]:
             universe = universe.withColumnRenamed(col, "City_Tier_2010")
-    universe = universe.withColumnRenamed("Panel_ID", "PHA")
-    universe = universe.withColumnRenamed("Hosp_name", "HOSP_NAME")
+    universe = universe.withColumnRenamed("Panel_ID", "PHA") \
+        .withColumnRenamed("Hosp_name", "HOSP_NAME")
 
     universe = universe.withColumn("City_Tier_2010", universe["City_Tier_2010"].cast(StringType()))
 
-    id_city = universe.select("PHA", "City", "City_Tier_2010").distinct()
+    PHA_city_in_universe = universe.select("PHA", "City", "City_Tier_2010").distinct()
 
     # 1.2 读取CPA与PHA的匹配关系:
     # map_cpa_pha
@@ -70,8 +75,6 @@ def execute(uni_path, cpa_pha_mapping_path, raw_data_path, std_names, cpa_gyc, r
                              how="left")
 
     # format_raw_data
-    std_names = std_names.split(', ')
-    # std_names = ['PHA', 'ID', 'Year', 'Month', 'Molecule', 'Brand', 'Form','Specifications', 'Pack_Number', 'Manufacturer', 'Sales', 'Units','Province', 'City', 'Corp', 'Route']
     # cpa_gyc = True
     for col in raw_data.columns:
         if col in ["数量（支/片）", "最小制剂单位数量", "total_units", "SALES_QTY"]:
@@ -105,9 +108,14 @@ def execute(uni_path, cpa_pha_mapping_path, raw_data_path, std_names, cpa_gyc, r
         if col in ["PHA_ID_x", "PHA_ID"]:
             raw_data = raw_data.withColumnRenamed(col, "PHA")
 
-    if (cpa_gyc):
+    if (cpa_gyc == True):
+        def distinguish_cpa_gyc(col, gyc_hospital_id_length):
+            # gyc_hospital_id_length是国药诚信医院编码长度，一般是7位数字，cpa医院编码一般是6位数字。医院编码长度可以用来区分cpa和gyc
+            return (func.length(col) < gyc_hospital_id_length)
+
         raw_data = raw_data.withColumn("ID", raw_data["ID"].cast(StringType()))
-        raw_data = raw_data.withColumn("ID", func.when(func.length(raw_data.ID) < 7, func.lpad(raw_data.ID, 6, "0")).
+        raw_data = raw_data.withColumn("ID",
+                                       func.when(distinguish_cpa_gyc(raw_data.ID, 7), func.lpad(raw_data.ID, 6, "0")).
                                        otherwise(func.lpad(raw_data.ID, 7, "0")))
     if "year_month" in raw_data.columns:
         raw_data = raw_data.withColumn("year_month", raw_data["year_month"].cast(IntegerType()))
@@ -121,16 +129,14 @@ def execute(uni_path, cpa_pha_mapping_path, raw_data_path, std_names, cpa_gyc, r
     raw_data = raw_data.withColumn("Year", raw_data["Year"].cast(IntegerType())) \
         .withColumn("Month", raw_data["Month"].cast(IntegerType()))
 
-    #raw_data = raw_data.select(std_names)
-
     raw_data.persist()
 
-    raw_data = raw_data.join(id_city, on=["PHA", "City"], how="left")
+    raw_data = raw_data.join(PHA_city_in_universe, on=["PHA", "City"], how="left")
 
     raw_data.show(2)
-    
-    raw_data_job1_out = raw_data.repartition(2)
-    raw_data_job1_out.write.format("parquet")\
-        .mode("overwrite").save(raw_data_job1_out_path)
+
+    hospital_mapping_out = raw_data.repartition(2)
+    hospital_mapping_out.write.format("parquet") \
+        .mode("overwrite").save(hospital_mapping_out_path)
 
     return raw_data
