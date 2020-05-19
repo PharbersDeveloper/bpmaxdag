@@ -19,7 +19,6 @@ from pyspark.sql import functions as func
 @click.option('--project_name')
 @click.option('--cpa_gyc')
 @click.option('--test_out_path')
-
 def execute(max_path, project_name, cpa_gyc, test_out_path):
     spark = SparkSession.builder \
         .master("yarn") \
@@ -30,15 +29,80 @@ def execute(max_path, project_name, cpa_gyc, test_out_path):
         .config("spark.executor.memory", "2g") \
         .getOrCreate()
 
-    # 输入文件
+    # 输入输出
     universe_path = max_path + "/" + project_name + "/universe_base"
     cpa_pha_mapping_path = max_path + "/" + project_name + "/cpa_pha_mapping"
     raw_data_path = max_path + "/" + project_name + "/raw_data"
     hospital_mapping_out_path = test_out_path + "/" + project_name + "/hospital_mapping_out"
 
-    # 1. 首次补数
+    # =========== 数据检查 =============
+    
+    # 存储文件的缺失列
+    misscols_dict = {}
+
+    # universe file
     # universe_path = "/common/projects/max/Sankyo/universe_base"
     universe = spark.read.parquet(universe_path)
+    colnames_universe = universe.columns
+    misscols_dict.setdefault("universe", [])
+    if ("City_Tier" not in colnames_universe) and ("CITYGROUP" not in colnames_universe) and ("City_Tier_2010" not in colnames_universe):
+        misscols_dict["universe"].append("City_Tier/CITYGROUP")
+    if ("Panel_ID" not in colnames_universe) and ("PHA" not in colnames_universe):
+        misscols_dict["universe"].append("Panel_ID/PHA")
+    if ("Hosp_name" not in colnames_universe) and ("HOSP_NAME" not in colnames_universe):
+        misscols_dict["universe"].append("Hosp_name/HOSP_NAME")
+    if "City" not in colnames_universe:
+        misscols_dict["universe"].append("City")
+    if "Province" not in colnames_universe:
+        misscols_dict["universe"].append("Province")
+
+    # cpa_pha_mapping file
+    # cpa_pha_mapping_path = "/common/projects/max/Sankyo/cpa_pha_mapping"
+    cpa_pha_mapping = spark.read.parquet(cpa_pha_mapping_path)
+    colnames_map = cpa_pha_mapping.columns
+    misscols_dict.setdefault("cpa_pha_mapping", [])
+    if "推荐版本" not in colnames_map:
+        misscols_dict["cpa_pha_mapping"].append("推荐版本")
+    if ("ID" not in colnames_map) and ("BI_hospital_code" not in colnames_map):
+        misscols_dict["cpa_pha_mapping"].append("ID/BI_hospital_code")
+    if ("PHA" not in colnames_map) and ("PHA_ID_x" not in colnames_map):
+        misscols_dict["cpa_pha_mapping"].append("PHA")
+
+    # raw_data file
+    # raw_data_path = "/common/projects/max/Sankyo/raw_data"
+    raw_data = spark.read.parquet(raw_data_path)
+    colnames_raw_data = raw_data.columns
+    misscols_dict.setdefault("raw_data", [])
+    if ("Units" not in colnames_raw_data) and ("数量（支/片）" not in colnames_raw_data) and ("最小制剂单位数量" not in colnames_raw_data) and ("total_units" not in colnames_raw_data) and ("SALES_QTY" not in colnames_raw_data):
+        misscols_dict["raw_data"].append("about Units")
+    if ("Sales" not in colnames_raw_data) and ("金额（元）" not in colnames_raw_data) and ("金额" not in colnames_raw_data) and ("sales_value__rmb_" not in colnames_raw_data) and ("SALES_VALUE" not in colnames_raw_data):
+        misscols_dict["raw_data"].append("about Sales")
+    if ("year_month" not in colnames_raw_data) and ("Yearmonth" not in colnames_raw_data) and ("YM" not in colnames_raw_data) and ("Date" not in colnames_raw_data):
+        misscols_dict["raw_data"].append("about year_month")
+    if "ID" not in colnames_raw_data:
+        misscols_dict["raw_data"].append("ID")
+    if ("Molecule" not in colnames_raw_data) and ("通用名" not in colnames_raw_data) and ("药品名称" not in colnames_raw_data) and ("molecule_name" not in colnames_raw_data) and ("MOLE_NAME" not in colnames_raw_data):
+        misscols_dict["raw_data"].append("about Molecule")
+    if ("Brand" not in colnames_raw_data) and ("商品名" not in colnames_raw_data) and ("药品商品名" not in colnames_raw_data) and ("product_name" not in colnames_raw_data) and ("PRODUCT_NAME" not in colnames_raw_data):
+        misscols_dict["raw_data"].append("about Brand")
+    if ("Specifications" not in colnames_raw_data) and ("规格" not in colnames_raw_data) and ("pack_description" not in colnames_raw_data) and ("SPEC" not in colnames_raw_data):
+        misscols_dict["raw_data"].append("about Specifications")
+    if ("Form" not in colnames_raw_data) and ("剂型" not in colnames_raw_data) and ("formulation_name" not in colnames_raw_data) and ("DOSAGE" not in colnames_raw_data):
+        misscols_dict["raw_data"].append("about Form")
+    if ("Manufacturer" not in colnames_raw_data) and ("生产企业" not in colnames_raw_data) and ("company_name" not in colnames_raw_data) and ("MANUFACTURER_NAME" not in colnames_raw_data):
+        misscols_dict["raw_data"].append("about Manufacturer")
+
+    # 判断输入文件是否有缺失列
+    for eachfile in misscols_dict.keys():
+        if len(misscols_dict[eachfile]) == 0:
+            del misscols_dict[eachfile]
+    # 如果有缺失列，则报错，停止运行
+    if misscols_dict:
+        raise ValueError('miss columns: %s' % (misscols_dict))
+
+    # =========== 数据执行 =============
+
+    # 1. 首次补数
 
     # read_universe
     for col in universe.columns:
@@ -53,8 +117,6 @@ def execute(max_path, project_name, cpa_gyc, test_out_path):
 
     # 1.2 读取CPA与PHA的匹配关系:
     # map_cpa_pha
-    # cpa_pha_mapping_path = "/common/projects/max/Sankyo/cpa_pha_mapping"
-    cpa_pha_mapping = spark.read.parquet(cpa_pha_mapping_path)
     cpa_pha_mapping = cpa_pha_mapping.filter(cpa_pha_mapping["推荐版本"] == 1) \
         .withColumnRenamed("ID", "BI_hospital_code") \
         .withColumnRenamed("PHA", "PHA_ID_x") \
@@ -66,8 +128,6 @@ def execute(max_path, project_name, cpa_gyc, test_out_path):
 
     # 1.3 读取原始样本数据:
     # read_raw_data
-    # raw_data_path = "/common/projects/max/Sankyo/raw_data"
-    raw_data = spark.read.parquet(raw_data_path)
     raw_data = raw_data.withColumnRenamed("ID", "BI_Code") \
         .drop("Province", "City")
     raw_data = raw_data.join(cpa_pha_mapping.select("PHA_ID_x", "BI_hospital_code", 'Province', 'City'),
@@ -114,8 +174,7 @@ def execute(max_path, project_name, cpa_gyc, test_out_path):
             return (func.length(col) < gyc_hospital_id_length)
 
         raw_data = raw_data.withColumn("ID", raw_data["ID"].cast(StringType()))
-        raw_data = raw_data.withColumn("ID",
-                                       func.when(distinguish_cpa_gyc(raw_data.ID, 7), func.lpad(raw_data.ID, 6, "0")).
+        raw_data = raw_data.withColumn("ID", func.when(distinguish_cpa_gyc(raw_data.ID, 7), func.lpad(raw_data.ID, 6, "0")).
                                        otherwise(func.lpad(raw_data.ID, 7, "0")))
     if "year_month" in raw_data.columns:
         raw_data = raw_data.withColumn("year_month", raw_data["year_month"].cast(IntegerType()))

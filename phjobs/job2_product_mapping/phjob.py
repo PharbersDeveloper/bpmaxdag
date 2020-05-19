@@ -32,12 +32,42 @@ def execute(max_path, max_path_local, project_name, minimum_product_columns, min
         .config("spark.executor.instance", "2") \
         .config("spark.executor.memory", "2g") \
         .getOrCreate()
-
+        
+    # 输入输出
     product_map_path = max_path + "/" + project_name + "/prod_mapping"
     hospital_mapping_out_path = test_out_path + "/" + project_name + "/hospital_mapping_out"
     product_mapping_out_path = test_out_path + "/" + project_name + "/product_mapping_out"
     need_cleaning_path = max_path_local + "/" + project_name + "/need_cleaning.xlsx"
+    
+    # =========== 数据检查 =============
+    
+    # 存储文件的缺失列
+    misscols_dict = {}
 
+    # product_map file
+    # product_map_path = "/common/projects/max/Sankyo/prod_mapping"
+    product_map = spark.read.parquet(product_map_path)
+    colnames_product_map = product_map.columns
+    misscols_dict.setdefault("universe", [])
+    if ("标准通用名" not in colnames_product_map) and ("通用名"  not in colnames_product_map):
+        misscols_dict["product_map"].append("标准通用名")
+    if "min1" not in colnames_product_map:
+        misscols_dict["product_map"].append("min1")
+    if "min2" not in colnames_product_map:
+        misscols_dict["product_map"].append("min2")
+    if "标准商品名" not in colnames_product_map:
+        misscols_dict["product_map"].append("标准商品名") 
+    
+    # 判断输入文件是否有缺失列
+    for eachfile in misscols_dict.keys():
+        if len(misscols_dict[eachfile]) == 0:
+            del misscols_dict[eachfile]
+    # 如果有缺失列，则报错，停止运行
+    if misscols_dict:
+        raise ValueError('miss columns: %s' % (misscols_dict))
+        
+    # =========== 数据执行 =============
+    
     # raw_data_job1_out_path = "/user/ywyuan/max/Sankyo/raw_data_job1_out"
     raw_data = spark.read.parquet(hospital_mapping_out_path)
     raw_data = raw_data.withColumn("Brand", func.when(func.isnull(raw_data.Brand), raw_data.Molecule).
@@ -64,8 +94,6 @@ def execute(max_path, max_path_local, project_name, minimum_product_columns, min
     raw_data = raw_data.withColumnRenamed("tmp", minimum_product_newname)
 
     # product_map
-    # product_map_path = "/common/projects/max/Sankyo/prod_mapping"
-    product_map = spark.read.parquet(product_map_path)
     product_map = product_map.withColumnRenamed("标准通用名", "通用名") \
         .withColumnRenamed("标准途径", "std_route")
     if "std_route" not in product_map.columns:
@@ -73,7 +101,7 @@ def execute(max_path, max_path_local, project_name, minimum_product_columns, min
 
     product_map_for_needclean = product_map.select("min1").distinct()
     product_map_for_rawdata = product_map.select("min1", "min2", "通用名", "std_route", "标准商品名").distinct()
-
+    
     # 输出待清洗
     # need_cleaning_cols = ["Molecule", "min1", "Route", "Corp"]
     need_cleaning_cols = need_cleaning_cols.split(", ")
