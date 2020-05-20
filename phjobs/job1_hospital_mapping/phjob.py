@@ -168,7 +168,7 @@ def execute(max_path, project_name, cpa_gyc, test_out_path):
         if col in ["PHA_ID_x", "PHA_ID"]:
             raw_data = raw_data.withColumnRenamed(col, "PHA")
 
-    if (cpa_gyc == True):
+    if (cpa_gyc == "True"):
         def distinguish_cpa_gyc(col, gyc_hospital_id_length):
             # gyc_hospital_id_length是国药诚信医院编码长度，一般是7位数字，cpa医院编码一般是6位数字。医院编码长度可以用来区分cpa和gyc
             return (func.length(col) < gyc_hospital_id_length)
@@ -192,10 +192,33 @@ def execute(max_path, project_name, cpa_gyc, test_out_path):
 
     raw_data = raw_data.join(PHA_city_in_universe, on=["PHA", "City"], how="left")
 
-    raw_data.show(2)
-
     hospital_mapping_out = raw_data.repartition(2)
     hospital_mapping_out.write.format("parquet") \
         .mode("overwrite").save(hospital_mapping_out_path)
+        
+    raw_data.show(2)    
 
+    # =========== 数据验证 =============
+    # 与原R流程运行的结果比较正确性
+    
+    R_hospital_mapping_out_path = "/user/ywyuan/max/Sankyo/Rout/hospital_mapping_out"
+    R_hospital_mapping_out = spark.read.parquet(R_hospital_mapping_out_path)
+    
+    # 检查内容：列的类型，列的值
+    for colname, coltype in raw_data.dtypes:
+        # 数据类型检查
+        if R_hospital_mapping_out.select(colname).dtypes[0][1] != coltype:
+            print ("different type columns:", colname, coltype, "right type: " + R_product_mapping_out.select(colname).dtypes[0][1])
+
+        # 数值列的值检查
+        if coltype == "double":
+            # Sales, Units, Units_Box, BI_hospital_code
+            sum_raw_data = raw_data.groupBy().sum(colname).toPandas().iloc[0,0].round(2)
+            sum_R = R_hospital_mapping_out.groupBy().sum(colname).toPandas().iloc[0,0].round(2)
+            print sum_raw_data, sum_R
+            if (sum_raw_data - sum_R) != 0:
+                print ("different value(sum) columns:", colname, str(sum_raw_data), "right value: " + str(sum_R))
+                
+    # =========== return =============          
     return raw_data
+    

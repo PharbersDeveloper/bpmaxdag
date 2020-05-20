@@ -109,13 +109,13 @@ def execute(max_path, max_path_local, project_name, minimum_product_columns, min
     need_cleaning = raw_data.join(product_map_for_needclean, on="min1", how="left_anti") \
         .select(need_cleaning_cols) \
         .distinct()
-    print(need_cleaning.count())
+    print("待清洗行数:",need_cleaning.count())
 
     # need_cleaning_path = "/user/ywyuan/max/Sankyo/need_cleaning.xlsx"
     if need_cleaning.count() > 0:
         need_cleaning = need_cleaning.toPandas()
         need_cleaning.to_excel(need_cleaning_path)
-        print("已输出待清洗文件至", need_cleaning_path)
+        print("已输出待清洗文件至:", need_cleaning_path)
 
     raw_data = raw_data.join(product_map_for_rawdata, on="min1", how="left") \
         .drop("S_Molecule") \
@@ -126,5 +126,27 @@ def execute(max_path, max_path_local, project_name, minimum_product_columns, min
         .mode("overwrite").save(product_mapping_out_path)
 
     raw_data.show(2)
+    
+    # =========== 数据验证 =============
+    # 与原R流程运行的结果比较正确性
 
+    R_product_mapping_out_path = "/user/ywyuan/max/Sankyo/Rout/product_mapping_out"
+    R_product_mapping_out = spark.read.parquet(R_product_mapping_out_path)
+    
+    # 检查内容：列的类型，列的值
+    for colname, coltype in raw_data.dtypes:
+        # 数据类型检查
+        if R_product_mapping_out.select(colname).dtypes[0][1] != coltype:
+            print ("different type columns:", colname, coltype, "right type: " + R_product_mapping_out.select(colname).dtypes[0][1])
+
+        # 数值列的值检查
+        if coltype == "double":
+            # Sales, Units, Units_Box, BI_hospital_code
+            sum_raw_data = raw_data.groupBy().sum(colname).toPandas().iloc[0,0].round(2)
+            sum_R = R_product_mapping_out.groupBy().sum(colname).toPandas().iloc[0,0].round(2)
+            print sum_raw_data, sum_R
+            if (sum_raw_data - sum_R) != 0:
+                print ("different value(sum) columns:", colname, str(sum_raw_data), "right value: " + str(sum_R))
+
+    # =========== return =============          
     return raw_data
