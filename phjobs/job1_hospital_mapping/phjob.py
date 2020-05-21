@@ -211,11 +211,11 @@ def execute(max_path, project_name, cpa_gyc, test_out_path):
             print ("different type columns:", colname, coltype, "right type: " + R_product_mapping_out.select(colname).dtypes[0][1])
 
         # 数值列的值检查
-        if coltype == "double":
-            # Sales, Units, Units_Box, BI_hospital_code
+        if coltype == "double" or coltype == "int":
+            # year_month, Pack_Number, Sales, Units, Units_Box, BI_hospital_code, Month, Year
             sum_raw_data = raw_data.groupBy().sum(colname).toPandas().iloc[0,0].round(2)
             sum_R = R_hospital_mapping_out.groupBy().sum(colname).toPandas().iloc[0,0].round(2)
-            print sum_raw_data, sum_R
+            print (colname, sum_raw_data, sum_R)
             if (sum_raw_data - sum_R) != 0:
                 print ("different value(sum) columns:", colname, str(sum_raw_data), "right value: " + str(sum_R))
                 
