@@ -6,6 +6,7 @@ This is job template for Pharbers Max Job
 
 import click
 import numpy as np
+import logging
 
 from pyspark.sql import SparkSession
 import time
@@ -28,7 +29,18 @@ def execute(max_path, project_name, cpa_gyc, test_out_path):
         .config("spark.executor.instance", "2") \
         .config("spark.executor.memory", "2g") \
         .getOrCreate()
-
+        
+    # logging配置
+    logger = logging.getLogger("log")
+    logger.setLevel(level=logging.INFO)
+    file_handler = logging.FileHandler('job1_hospital_mapping.log','w')
+    file_handler.setLevel(level=logging.INFO)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - [line:%(lineno)d] - %(levelname)s - %(message)s')
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+    
+    logger.info('job1_hospital_mapping')
+    
     # 输入输出
     universe_path = max_path + "/" + project_name + "/universe_base"
     cpa_pha_mapping_path = max_path + "/" + project_name + "/cpa_pha_mapping"
@@ -36,6 +48,7 @@ def execute(max_path, project_name, cpa_gyc, test_out_path):
     hospital_mapping_out_path = test_out_path + "/" + project_name + "/hospital_mapping_out"
 
     # =========== 数据检查 =============
+    logger.info('数据检查-start')
     
     # 存储文件的缺失列
     misscols_dict = {}
@@ -98,9 +111,13 @@ def execute(max_path, project_name, cpa_gyc, test_out_path):
             del misscols_dict[eachfile]
     # 如果有缺失列，则报错，停止运行
     if misscols_dict:
+        logger.error('miss columns: %s' % (misscols_dict))
         raise ValueError('miss columns: %s' % (misscols_dict))
-
+        
+    logger.info('数据检查-Pass')
+    
     # =========== 数据执行 =============
+    logger.info('数据执行-start')
 
     # 1. 首次补数
 
@@ -196,29 +213,37 @@ def execute(max_path, project_name, cpa_gyc, test_out_path):
     hospital_mapping_out.write.format("parquet") \
         .mode("overwrite").save(hospital_mapping_out_path)
         
-    raw_data.show(2)    
-
+    raw_data.show(2)  
+    
+    logger.info('数据执行-Finish')
+    
     # =========== 数据验证 =============
     # 与原R流程运行的结果比较正确性
     
-    R_hospital_mapping_out_path = "/user/ywyuan/max/Sankyo/Rout/hospital_mapping_out"
-    R_hospital_mapping_out = spark.read.parquet(R_hospital_mapping_out_path)
+    if True:
+        logger.info('数据验证-start')
+        
+        R_hospital_mapping_out_path = "/user/ywyuan/max/Sankyo/Rout/hospital_mapping_out"
+        R_hospital_mapping_out = spark.read.parquet(R_hospital_mapping_out_path)
+        
+        # 检查内容：列的类型，列的值
+        for colname, coltype in raw_data.dtypes:
+            # 数据类型检查
+            if R_hospital_mapping_out.select(colname).dtypes[0][1] != coltype:
+                # print ("different type columns:", colname, coltype, "right type: " + R_product_mapping_out.select(colname).dtypes[0][1])
+                logger.warning ("different type columns: "  + colname + ", " + coltype + ", " + "right type: " + R_product_mapping_out.select(colname).dtypes[0][1])
     
-    # 检查内容：列的类型，列的值
-    for colname, coltype in raw_data.dtypes:
-        # 数据类型检查
-        if R_hospital_mapping_out.select(colname).dtypes[0][1] != coltype:
-            print ("different type columns:", colname, coltype, "right type: " + R_product_mapping_out.select(colname).dtypes[0][1])
-
-        # 数值列的值检查
-        if coltype == "double" or coltype == "int":
-            # year_month, Pack_Number, Sales, Units, Units_Box, BI_hospital_code, Month, Year
-            sum_raw_data = raw_data.groupBy().sum(colname).toPandas().iloc[0,0].round(2)
-            sum_R = R_hospital_mapping_out.groupBy().sum(colname).toPandas().iloc[0,0].round(2)
-            print (colname, sum_raw_data, sum_R)
-            if (sum_raw_data - sum_R) != 0:
-                print ("different value(sum) columns:", colname, str(sum_raw_data), "right value: " + str(sum_R))
-                
+            # 数值列的值检查
+            if coltype == "double" or coltype == "int":
+                # year_month, Pack_Number, Sales, Units, Units_Box, BI_hospital_code, Month, Year
+                sum_raw_data = raw_data.groupBy().sum(colname).toPandas().iloc[0,0]
+                sum_R = R_hospital_mapping_out.groupBy().sum(colname).toPandas().iloc[0,0]
+                # print (colname, sum_raw_data, sum_R)
+                if (sum_raw_data - sum_R) != 0:
+                    logger.warning ("different value(sum) columns: " + colname + ", " + str(sum_raw_data) + ", " + "right value: " + str(sum_R))
+                    
+        logger.info('数据验证-Finish')
+        
     # =========== return =============          
     return raw_data
     

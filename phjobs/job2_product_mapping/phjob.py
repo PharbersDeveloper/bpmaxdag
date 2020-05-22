@@ -5,6 +5,7 @@ This is job template for Pharbers Max Job
 """
 import click
 import numpy as np
+import logging
 
 from pyspark.sql import SparkSession
 import time
@@ -33,6 +34,17 @@ def execute(max_path, max_path_local, project_name, minimum_product_columns, min
         .config("spark.executor.memory", "2g") \
         .getOrCreate()
         
+    # logging配置
+    logger = logging.getLogger("log")
+    logger.setLevel(level=logging.INFO)
+    file_handler = logging.FileHandler('job2_product_mapping.log','w')
+    file_handler.setLevel(level=logging.INFO)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - [line:%(lineno)d] - %(levelname)s - %(message)s')
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+    
+    logger.info('job2_product_mapping')
+        
     # 输入输出
     product_map_path = max_path + "/" + project_name + "/prod_mapping"
     hospital_mapping_out_path = test_out_path + "/" + project_name + "/hospital_mapping_out"
@@ -40,6 +52,7 @@ def execute(max_path, max_path_local, project_name, minimum_product_columns, min
     need_cleaning_path = max_path_local + "/" + project_name + "/need_cleaning.xlsx"
     
     # =========== 数据检查 =============
+    logger.info('数据检查-start')
     
     # 存储文件的缺失列
     misscols_dict = {}
@@ -64,9 +77,13 @@ def execute(max_path, max_path_local, project_name, minimum_product_columns, min
             del misscols_dict[eachfile]
     # 如果有缺失列，则报错，停止运行
     if misscols_dict:
+        logger.error('miss columns: %s' % (misscols_dict))
         raise ValueError('miss columns: %s' % (misscols_dict))
         
+    logger.info('数据检查-Pass')
+    
     # =========== 数据执行 =============
+    logger.info('数据执行-start')
     
     # raw_data_job1_out_path = "/user/ywyuan/max/Sankyo/raw_data_job1_out"
     raw_data = spark.read.parquet(hospital_mapping_out_path)
@@ -109,13 +126,14 @@ def execute(max_path, max_path_local, project_name, minimum_product_columns, min
     need_cleaning = raw_data.join(product_map_for_needclean, on="min1", how="left_anti") \
         .select(need_cleaning_cols) \
         .distinct()
-    print("待清洗行数:",need_cleaning.count())
+    logger.info('待清洗行数: ' + str(need_cleaning.count()))
 
     # need_cleaning_path = "/user/ywyuan/max/Sankyo/need_cleaning.xlsx"
     if need_cleaning.count() > 0:
         need_cleaning = need_cleaning.toPandas()
         need_cleaning.to_excel(need_cleaning_path)
-        print("已输出待清洗文件至:", need_cleaning_path)
+        #print("已输出待清洗文件至:", need_cleaning_path)
+        logger.info('已输出待清洗文件至:  ' + need_cleaning_path)
 
     raw_data = raw_data.join(product_map_for_rawdata, on="min1", how="left") \
         .drop("S_Molecule") \
@@ -127,26 +145,32 @@ def execute(max_path, max_path_local, project_name, minimum_product_columns, min
 
     raw_data.show(2)
     
+    logger.info('数据执行-Finish')
+    
     # =========== 数据验证 =============
     # 与原R流程运行的结果比较正确性
-
-    R_product_mapping_out_path = "/user/ywyuan/max/Sankyo/Rout/product_mapping_out"
-    R_product_mapping_out = spark.read.parquet(R_product_mapping_out_path)
+    if True:
+        logger.info('数据验证-start')
+        
+        R_product_mapping_out_path = "/user/ywyuan/max/Sankyo/Rout/product_mapping_out"
+        R_product_mapping_out = spark.read.parquet(R_product_mapping_out_path)
+        
+        # 检查内容：列的类型，列的值
+        for colname, coltype in raw_data.dtypes:
+            # 数据类型检查
+            if R_product_mapping_out.select(colname).dtypes[0][1] != coltype:
+                logger.warning ("different type columns: "  + colname + ", " + coltype + ", " + "right type: " + R_product_mapping_out.select(colname).dtypes[0][1])
     
-    # 检查内容：列的类型，列的值
-    for colname, coltype in raw_data.dtypes:
-        # 数据类型检查
-        if R_product_mapping_out.select(colname).dtypes[0][1] != coltype:
-            print ("different type columns:", colname, coltype, "right type: " + R_product_mapping_out.select(colname).dtypes[0][1])
-
-        # 数值列的值检查
-        if coltype == "double" or coltype == "int":
-            # year_month, Pack_Number, Sales, Units, Units_Box, BI_hospital_code, Month, Year
-            sum_raw_data = raw_data.groupBy().sum(colname).toPandas().iloc[0,0].round(2)
-            sum_R = R_product_mapping_out.groupBy().sum(colname).toPandas().iloc[0,0].round(2)
-            print (colname, sum_raw_data, sum_R)
-            if (sum_raw_data - sum_R) != 0:
-                print ("different value(sum) columns:", colname, str(sum_raw_data), "right value: " + str(sum_R))
-
+            # 数值列的值检查
+            if coltype == "double" or coltype == "int":
+                # year_month, Pack_Number, Sales, Units, Units_Box, BI_hospital_code, Month, Year
+                sum_raw_data = raw_data.groupBy().sum(colname).toPandas().iloc[0,0]
+                sum_R = R_product_mapping_out.groupBy().sum(colname).toPandas().iloc[0,0]
+                # print (colname, sum_raw_data, sum_R)
+                if (sum_raw_data - sum_R) != 0:
+                    logger.warning ("different value(sum) columns: " + colname + ", " + str(sum_raw_data) + ", " + "right value: " + str(sum_R))
+                    
+        logger.info('数据验证-Finish')
+        
     # =========== return =============          
     return raw_data
