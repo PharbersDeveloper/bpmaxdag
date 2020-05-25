@@ -6,10 +6,21 @@ metadata:
   labels:
     name: alfred
 spec:
-  containers:
-    repository: local
-    code: phmain.py
-    config: phdag.yaml
-    jobs:
-      - a
-      - b
+  description: "A Max Auto Job Example"
+  start_date: 1 # if you don't understand, don't touch it
+  schedule_interval: "days=1" # if you don't understand, don't touch it
+  dag_timeout: 60 # minutes
+  email: ['airflow@example.com']
+  email_on_failure: False
+  email_on_retry: False
+  retries: 1
+  retry_delay: "minutes=5"
+  owner: alfred_owner_plase_change_it
+  dag_id: alfred_test_id_plase_change_it
+  dag_tag: alfred_test_tag_plase_change_it
+  jobs:
+    - name: test1
+      command: python
+    - name: test2
+      command: python
+  linkage: "test1 >> test2"

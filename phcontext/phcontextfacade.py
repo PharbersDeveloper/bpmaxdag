@@ -21,6 +21,9 @@ class PhContextFacade(object):
     def __init__(self, cmd, path):
         self.cmd = cmd
         self.path = path
+        self.job_path = path
+        self.combine_path = path
+        self.dag_path = path
         self.name = ""
         self.job_prefix = "phjobs"
         self.combine_prefix = "phcombines"
@@ -34,18 +37,27 @@ class PhContextFacade(object):
             self.command_combine_exec()
         elif self.cmd == "run":
             self.command_run_exec()
+        elif self.cmd == "dag":
+            self.command_dag_exec()
         else:
             self.command_publish_exec()
 
     def get_destination_path(self):
+        self.job_path = os.getcwd() + "/" + self.job_prefix + "/" + self.name
+        self.combine_path = os.getcwd() + "/" + self.combine_prefix + "/" + self.name
+        self.dag_path = os.getcwd() + "/" + self.dag_prefix + "/"
         if self.cmd == "create":
             return os.getcwd() + "/" + self.job_prefix + "/" + self.name
         elif self.cmd == "combine":
             return os.getcwd() + "/" + self.combine_prefix + "/" + self.name
         elif self.cmd == "dag":
-            return os.getcwd() + "/" + self.dag_prefix + "/" + self.name
+            return os.getcwd() + "/" + self.combine_prefix + "/" + self.name
         else:
             raise Exception("Something goes wrong!!!")
+
+    def check_dag_dir(self, dag_id):
+        if os.path.exists(self.dag_path + "/" + dag_id):
+            raise exception_file_already_exist
 
     def check_dir(self):
         if "/" not in self.path:
@@ -108,14 +120,13 @@ class PhContextFacade(object):
         # subprocess.call(["cp", "-rf", template_path + "session", self.path + "/session"])
         subprocess.call(["cp", template_path + "phdag.yaml", self.path + "/phdag.yaml"])
 
-
     def command_publish_exec(self):
         print("publish")
         config = PhYAMLConfig(self.path)
 
     def command_run_exec(self):
         print("run")
-        config = PhYAMLConfig(self.path, self.name)
+        config = PhYAMLConfig(self.job_path, self.name)
         config.load_yaml()
         if config.spec.containers.repository == "local":
             entry_point = config.spec.containers.code
@@ -127,3 +138,31 @@ class PhContextFacade(object):
                 subprocess.call(cb)
         else:
             raise exception_function_not_implement
+
+    def command_dag_exec(self):
+        print("command dag")
+        config = PhYAMLConfig(self.combine_path, "/phdag.yaml")
+        config.load_yaml()
+        self.check_dag_dir(config.spec.dag_id)
+        # subprocess.call(["mkdir", "-p", self.path])
+
+        template_path = os.getcwd() + "/phcontext/template/"
+        w = open(self.dag_path + "/ph_dag_" + config.spec.dag_id + ".py", "a")
+        f = open(template_path + "/phgraphtemp.tmp", "r")
+        for line in f:
+            w.write(
+                line.replace("$alfred_dag_owner", str(config.spec.owner)) \
+                    .replace("$alfred_email_on_failure", str(config.spec.email_on_failure)) \
+                    .replace("$alfred_email_on_retry", str(config.spec.email_on_retry)) \
+                    .replace("$alfred_email", str(config.spec.email)) \
+                    .replace("$alfred_retries", str(config.spec.retries)) \
+                    .replace("$alfred_retry_delay", str(config.spec.retry_delay)) \
+                    .replace("$alfred_dag_id", str(config.spec.dag_id)) \
+                    .replace("$alfred_schedule_interval", str(config.spec.schedule_interval)) \
+                    .replace("$alfred_description", str(config.spec.description)) \
+                    .replace("$alfred_dag_timeout", str(config.spec.dag_timeout)) \
+                    .replace("$alfred_start_date", str(config.spec.start_date))
+            )
+
+        w.close()
+        f.close()

@@ -4,13 +4,15 @@
 This module document the YAML Config for Pharbers jobs
 """
 import yaml
+
+from config.phdagspec import PhYAMLDAGSpec
 from config.phmetadata import PhYAMLMetadata
 from config.phspec import PhYAMLSpec
 from phcontext.phexceptions import exception_function_not_implement
 
 
 class PhYAMLConfig(object):
-    def __init__(self, path, name=""):
+    def __init__(self, path, name="/phconf.yaml"):
         self.path = path
         self.name = name
         self.apiVersion = ""
@@ -22,11 +24,14 @@ class PhYAMLConfig(object):
         self.__dict__.update(dt)
 
     def load_yaml(self):
-        f = open(self.path + "/phconf.yaml")
+        f = open(self.path + self.name)
         y = yaml.safe_load(f)
         self.dict2obj(y)
         if self.kind == "PhJob":
             self.metadata = PhYAMLMetadata(self.metadata)
             self.spec = PhYAMLSpec(self.spec)
+        elif self.kind == "PhDag":
+            self.metadata = PhYAMLMetadata(self.metadata)
+            self.spec = PhYAMLDAGSpec(self.spec)
         else:
             raise exception_function_not_implement
