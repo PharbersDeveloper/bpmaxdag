@@ -1,10 +1,9 @@
 
 from airflow.operators.bash_operator import BashOperator
-from airflow.operators.dummy_operator import DummyOperator
-from airflow.lineage.datasets import File
 from airflow.models import DAG
 from airflow.utils.dates import days_ago
 from datetime import timedelta
+from config import PhYAMLConfig
 
 args = {
     "owner": "$alfred_dag_owner",
@@ -29,3 +28,5 @@ def create_dag_job(name, command):
         bash_command=command,
         dag=dag,
     )
+
+

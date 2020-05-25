@@ -23,7 +23,11 @@ class PhYAMLDAGSpec(object):
         self.dag_tag = ""
         self.jobs = ""
         self.dict2obj(dt)
-        self.jobs = PhYAMLDAGJobs(self.jobs)
+
+        targs = []
+        for i in range(len(self.jobs)):
+            targs.append(PhYAMLDAGJobs(self.jobs[i]))
+        self.jobs = targs
 
     def dict2obj(self, dt):
         self.__dict__.update(dt)

@@ -163,6 +163,18 @@ class PhContextFacade(object):
                     .replace("$alfred_dag_timeout", str(config.spec.dag_timeout)) \
                     .replace("$alfred_start_date", str(config.spec.start_date))
             )
-
-        w.close()
         f.close()
+        jf = open(template_path + "/phDagJob.tmp", "r")
+        for jt in config.spec.jobs:
+            jf.seek(0)
+            for line in jf:
+                w.write(
+                    line.replace("$alfred_command", str(jt.command)) \
+                        .replace("$alfred_job_path", str(self.job_path))
+                        .replace("$alfred_name", str(jt.name))
+                )
+        jf.close()
+
+        w.write(config.spec.linkage)
+        w.write("\n")
+        w.close()
