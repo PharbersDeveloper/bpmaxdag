@@ -5,10 +5,10 @@ This module document the YAML Config for Pharbers jobs
 """
 import yaml
 
-from config.phdagspec import PhYAMLDAGSpec
-from config.phmetadata import PhYAMLMetadata
-from config.phspec import PhYAMLSpec
-from phcontext.phexceptions import exception_function_not_implement
+from phconfig.phdagspec import PhYAMLDAGSpec
+from phconfig.phmetadata import PhYAMLMetadata
+from phconfig.phspec import PhYAMLSpec
+from phexceptions.phexceptions import exception_function_not_implement
 
 
 class PhYAMLConfig(object):

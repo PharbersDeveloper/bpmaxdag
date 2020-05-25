@@ -3,7 +3,7 @@
 
 This module document the YAML Job Args for Pharbers jobs
 """
-from config.pydagjobs import PhYAMLDAGJobs
+from phconfig.pydagjobs import PhYAMLDAGJobs
 
 
 class PhYAMLDAGSpec(object):

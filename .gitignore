@@ -3,3 +3,7 @@
 *.iml
 .idea
 phjobs/example
+
+build
+dist
+phMaxJobs.egg-info
