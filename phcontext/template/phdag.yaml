@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PhDag
+metadata:
+  name: alfred
+  description: "pharbers job description"
+  labels:
+    name: alfred
+spec:
+  containers:
+    repository: local
+    code: phmain.py
+    config: phdag.yaml
+    jobs:
+      - a
+      - b

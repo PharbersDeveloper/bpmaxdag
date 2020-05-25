@@ -22,7 +22,9 @@ class PhContextFacade(object):
         self.cmd = cmd
         self.path = path
         self.name = ""
-        self.prefix = "phjobs"
+        self.job_prefix = "phjobs"
+        self.combine_prefix = "phcombines"
+        self.dag_prefix = "phdags"
 
     def execute(self):
         self.check_dir()
@@ -35,12 +37,22 @@ class PhContextFacade(object):
         else:
             self.command_publish_exec()
 
+    def get_destination_path(self):
+        if self.cmd == "create":
+            return os.getcwd() + "/" + self.job_prefix + "/" + self.name
+        elif self.cmd == "combine":
+            return os.getcwd() + "/" + self.combine_prefix + "/" + self.name
+        elif self.cmd == "dag":
+            return os.getcwd() + "/" + self.dag_prefix + "/" + self.name
+        else:
+            raise Exception("Something goes wrong!!!")
+
     def check_dir(self):
         if "/" not in self.path:
             self.name = self.path
-            self.path = os.getcwd() + "/" + self.prefix + "/" + self.name
+            self.path = self.get_destination_path()
         try:
-            if self.cmd == "create":
+            if (self.cmd == "create") | (self.cmd == "combine"):
                 if os.path.exists(self.path):
                     raise exception_file_already_exist
             else:
@@ -89,8 +101,13 @@ class PhContextFacade(object):
         e.close()
 
     def command_combine_exec(self):
-        print("combine")
+        print("command combine")
         config = PhYAMLConfig(self.path)
+        template_path = os.getcwd() + "/phcontext/template/"
+        subprocess.call(["mkdir", "-p", self.path])
+        # subprocess.call(["cp", "-rf", template_path + "session", self.path + "/session"])
+        subprocess.call(["cp", template_path + "phdag.yaml", self.path + "/phdag.yaml"])
+
 
     def command_publish_exec(self):
         print("publish")

@@ -10,7 +10,7 @@ from phcontext import PhContextFacade
 
 @click.command()
 @click.option("--cmd", prompt="Your command is", help="The command that you want to process.",
-              type=click.Choice(["create", "combine", "publish", "run"]))
+              type=click.Choice(["create", "combine", "dag", "publish", "run"]))
 @click.option("--path", prompt="Your config and python job file directory", help="The concert job you want the process.")
 def ph_command(cmd, path):
     """The Pharbers Max Job Command Line Interface (CLI)
