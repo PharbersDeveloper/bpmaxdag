@@ -169,4 +169,6 @@ def execute(a, b):
 	    .join(gr, on=["S_Molecule_for_gr", "CITYGROUP"], how="left")
 	
 	seed.repartition(2).write.format("parquet") \
-	    .mode("overwrite").save("/user/yyw/max/Sankyo/seed")
+	    .mode("overwrite").save("/user/ywyuan/max/Sankyo/seed")
+	    
+	seed.show()

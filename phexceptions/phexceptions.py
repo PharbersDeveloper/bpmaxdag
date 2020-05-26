@@ -20,5 +20,5 @@ class PhException(RuntimeError):
 
 
 exception_file_already_exist = PhException(-1, "the dict already exists")
-exception_file_not_exist = PhException(-1, "the dict is not exists")
-exception_function_not_implement = PhException(-1, "the function is not implement, please contact alfredyang@pharbers.com")
+exception_file_not_exist = PhException(-2, "the dict is not exists")
+exception_function_not_implement = PhException(-3, "the function is not implement, please contact alfredyang@pharbers.com")

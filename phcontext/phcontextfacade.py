@@ -4,7 +4,7 @@
 This module document the usage of class pharbers command context,
 """
 import os
-from phexceptions.phexceptions import exception_file_already_exist, PhException, exception_file_not_exist, \
+from phexceptions import exception_file_already_exist, PhException, exception_file_not_exist, \
     exception_function_not_implement
 from phconfig.phconfig import PhYAMLConfig
 import subprocess
