@@ -171,4 +171,115 @@ def execute(a, b):
 	seed.repartition(2).write.format("parquet") \
 	    .mode("overwrite").save("/user/ywyuan/max/Sankyo/seed")
 	    
-	seed.show()
+	seed.persist()    
+	# 1.7 补充各个医院缺失的月份:
+	# add_data
+	# 1. 得到年
+	original_range = seed.select("Year", "Month", "PHA").distinct()
+	
+	years = original_range.select("Year").distinct() \
+	    .orderBy(original_range.Year) \
+	    .toPandas()["Year"].values.tolist()
+	print(years)
+	
+	all_gr_index = [index for index, name in enumerate(seed.columns) if name.startswith("GR")]
+	print(all_gr_index)
+	
+	# 3. 每年的补数
+	# price_path = "/common/projects/max/Sankyo/price"
+	#price_path = "/user/ywyuan/max/Sankyo/price"
+	#price = spark.read.parquet(price_path)
+	
+	# 往下测试
+	#years = [2018, 2019]
+	#all_gr_index = [31]
+	#original_range = spark.read.parquet("/user/ywyuan/max/Sankyo/original_range")
+	#seed = spark.read.parquet("/user/ywyuan/max/Sankyo/seed")
+	
+	empty = 0
+	for eachyear in years:
+	    # cal_time_range
+	    # 当前年的 月份-PHA 集合
+	    current_range_pha_month = original_range.where(original_range.Year == eachyear) \
+	        .select("Month", "PHA").distinct()
+	    # 当前年的 月份 集合
+	    current_range_month = current_range_pha_month.select("Month").distinct()
+	    # 其他年 在当前年有的 月份-PHA
+	    other_years_range = original_range.where(original_range.Year != eachyear) \
+	        .join(current_range_month, on="Month", how="inner") \
+	        .join(current_range_pha_month, on=["Month", "PHA"], how="left_anti")
+	    # 其他年 与 当前年的 差值，比重计算
+	    other_years_range = other_years_range \
+	        .withColumn("time_diff", (other_years_range.Year - eachyear)) \
+	        .withColumn("weight", func.when((other_years_range.Year > eachyear), (other_years_range.Year - eachyear - 0.5)).
+	                    otherwise(other_years_range.Year * (-1) + eachyear))
+	    # 选择比重最小的其他年份
+	    seed_range = other_years_range.orderBy(other_years_range.weight) \
+	        .groupBy("PHA", "Month") \
+	        .agg(func.first(other_years_range.Year).alias("Year"))
+	
+	    # get_seed_data
+	    # 从rawdata根据seed_range获取要补数的数据
+	    seed_for_adding = seed.where(seed.Year != eachyear) \
+	        .join(seed_range, on=["Month", "PHA", "Year"], how="inner")
+	    seed_for_adding = seed_for_adding \
+	        .withColumn("time_diff", (seed_for_adding.Year - eachyear)) \
+	        .withColumn("weight", func.when((seed_for_adding.Year > eachyear), (seed_for_adding.Year - eachyear - 0.5)).
+	                    otherwise(seed_for_adding.Year * (-1) + eachyear))
+	
+	    # cal_seed_with_gr
+	    base_index = eachyear - min(years) + min(all_gr_index)
+	    seed_for_adding = seed_for_adding.withColumn("Sales_bk", seed_for_adding.Sales)
+	
+	    # min_index：seed_for_adding年份小于当前年， time_diff+base_index
+	    # max_index：seed_for_adding年份小于当前年，base_index-1
+	    seed_for_adding = seed_for_adding \
+	        .withColumn("min_index", func.when((seed_for_adding.Year < eachyear), (seed_for_adding.time_diff + base_index)).
+	                    otherwise(base_index)) \
+	        .withColumn("max_index", func.when((seed_for_adding.Year < eachyear), (base_index - 1)).
+	                    otherwise(seed_for_adding.time_diff + base_index - 1)) \
+	        .withColumn("total_gr", func.lit(1))
+	
+	    for i in all_gr_index:
+	        col_name = seed_for_adding.columns[i]
+	        seed_for_adding = seed_for_adding.withColumn(col_name, func.when(
+	            (seed_for_adding.min_index > i) | (seed_for_adding.max_index < i), 1).
+	                                                     otherwise(seed_for_adding[col_name]))
+	        seed_for_adding = seed_for_adding.withColumn(col_name, func.when(seed_for_adding.Year > eachyear,
+	                                                                         seed_for_adding[col_name] ** (-1)).
+	                                                     otherwise(seed_for_adding[col_name]))
+	        seed_for_adding = seed_for_adding.withColumn("total_gr", seed_for_adding.total_gr * seed_for_adding[col_name])
+	
+	    seed_for_adding = seed_for_adding.withColumn("final_gr",
+	                                                 func.when(seed_for_adding.total_gr < 2, seed_for_adding.total_gr).
+	                                                 otherwise(2))
+	    seed_for_adding = seed_for_adding \
+	        .withColumn("Sales", seed_for_adding.Sales * seed_for_adding.final_gr) \
+	        .withColumn("Year", func.lit(eachyear))
+	    seed_for_adding = seed_for_adding.withColumn("year_month", seed_for_adding.Year * 100 + seed_for_adding.Month)
+	    seed_for_adding = seed_for_adding.withColumn("year_month", seed_for_adding["year_month"].cast(DoubleType()))
+	
+	    seed_for_adding = seed_for_adding.withColumnRenamed("CITYGROUP", "City_Tier_2010") \
+	        .join(price, on=["min2", "year_month", "City_Tier_2010"], how="inner")
+	    seed_for_adding = seed_for_adding.withColumn("Units", func.when(seed_for_adding.Sales == 0, 0).
+	                                                 otherwise(seed_for_adding.Sales / seed_for_adding.Price)) \
+	        .na.fill({'Units': 0})
+	
+	    if empty == 0:
+	        adding_data = seed_for_adding
+	    else:
+	        adding_data = adding_data.union(seed_for_adding)
+	    empty = empty + 1
+	
+	# 测试：输出adding_data
+	adding_data.repartition(2).write.format("parquet") \
+	    .mode("overwrite").save("/user/ywyuan/max/Sankyo/adding_data")
+
+
+	# 1.8 合并补数部分和原始部分:
+	# combind_data
+	raw_data_adding = (raw_data.withColumn("add_flag", func.lit(0))) \
+	    .union(adding_data.withColumn("add_flag", func.lit(1)).select(raw_data.columns + ["add_flag"]))
+	raw_data_adding = raw_data_adding.repartition(2)
+	
+	raw_data_adding.show(2)
