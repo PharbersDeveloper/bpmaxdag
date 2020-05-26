@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-from command import ph_command
+from command.phcommand import ph_command
 
 
 if __name__ == '__main__':

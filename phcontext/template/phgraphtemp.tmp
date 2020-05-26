@@ -3,7 +3,7 @@ from airflow.operators.bash_operator import BashOperator
 from airflow.models import DAG
 from airflow.utils.dates import days_ago
 from datetime import timedelta
-from config import PhYAMLConfig
+from phconfig.phconfig import PhYAMLConfig
 
 args = {
     "owner": "$alfred_dag_owner",

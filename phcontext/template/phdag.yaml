@@ -8,7 +8,7 @@ metadata:
 spec:
   description: "A Max Auto Job Example"
   start_date: 1 # if you don't understand, don't touch it
-  schedule_interval: "days=1" # if you don't understand, don't touch it
+  schedule_interval: "" # if you don't understand, don't touch it
   dag_timeout: 60 # minutes
   email: ['airflow@example.com']
   email_on_failure: False

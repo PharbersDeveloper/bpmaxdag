@@ -3,14 +3,14 @@
 
 This module document the YAML Config container for Pharbers jobs
 """
-from phconfig.phcontainer import PhYAMLContainer
+from phcontainer.phcontainer import PhYAMLContainer
 
 
-class PhYAMLDAGJobs(object):
+class PhYAMLSpec(object):
     def __init__(self, dt):
-        self.name = ""
-        self.command = ""
+        self.containers = ""
         self.dict2obj(dt)
+        self.containers = PhYAMLContainer(self.containers)
 
     def dict2obj(self, dt):
         self.__dict__.update(dt)

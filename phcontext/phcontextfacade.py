@@ -6,7 +6,7 @@ This module document the usage of class pharbers command context,
 import os
 from phexceptions.phexceptions import exception_file_already_exist, PhException, exception_file_not_exist, \
     exception_function_not_implement
-from phconfig import PhYAMLConfig
+from phconfig.phconfig import PhYAMLConfig
 import subprocess
 
 
@@ -170,7 +170,7 @@ class PhContextFacade(object):
             for line in jf:
                 w.write(
                     line.replace("$alfred_command", str(jt.command)) \
-                        .replace("$alfred_job_path", str(self.job_path))
+                        .replace("$alfred_job_path", str(self.job_path[0:self.job_path.rindex("/") + 1]))
                         .replace("$alfred_name", str(jt.name))
                 )
         jf.close()

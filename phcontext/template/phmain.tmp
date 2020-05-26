@@ -1,3 +1,8 @@
+# -*- coding: utf-8 -*-
+"""alfredyang@pharbers.com.
+
+This is job template for Pharbers Max Job
+"""
 from phjob import execute
 
 if __name__ == '__main__':

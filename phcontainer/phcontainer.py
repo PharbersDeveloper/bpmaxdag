@@ -3,8 +3,8 @@
 
 This module document the YAML Config container for Pharbers jobs
 """
-from phconfig.phjobargs import PhYAMLJobArgs
-from phconfig.pyoutputs import PhYAMLJobOutputs
+from phspec.phjobargs import PhYAMLJobArgs
+from phspec.pyoutputs import PhYAMLJobOutputs
 
 
 class PhYAMLContainer(object):
