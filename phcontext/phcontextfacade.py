@@ -86,9 +86,9 @@ class PhContextFacade(object):
 
         config.load_yaml()
         w = open(self.path + "/phjob.py", "a")
-        w.write("@click.command()\n")
-        for arg in config.spec.containers.args:
-            w.write("@click.option('--" + arg.key + "')\n")
+        # w.write("@click.command()\n")
+        # for arg in config.spec.containers.args:
+        #     w.write("@click.option('--" + arg.key + "')\n")
         w.write("def execute(")
         for arg_index in range(len(config.spec.containers.args)):
             arg = config.spec.containers.args[arg_index]
@@ -104,11 +104,35 @@ class PhContextFacade(object):
 
         e = open(self.path + "/phmain.py", "w")
         f = open(template_path + "phmain.tmp")
+
         s = []
         for arg in config.spec.containers.args:
             s.append(arg.key)
         for line in f:
-            e.write(line)
+            if line == "$alfred_debug_execute\n":
+                e.write("@click.command()\n")
+                for arg in config.spec.containers.args:
+                    e.write("@click.option('--" + arg.key + "')\n")
+                # e.write("def debug_execute():\n")
+                e.write("def debug_execute(")
+                for arg_index in range(len(config.spec.containers.args)):
+                    arg = config.spec.containers.args[arg_index]
+                    if arg_index == len(config.spec.containers.args) - 1:
+                        e.write(arg.key)
+                    else:
+                        e.write(arg.key + ", ")
+                e.write("):\n")
+                e.write("\texecute(")
+                for arg_index in range(len(config.spec.containers.args)):
+                    arg = config.spec.containers.args[arg_index]
+                    if arg_index == len(config.spec.containers.args) - 1:
+                        e.write(arg.key)
+                    else:
+                        e.write(arg.key + ", ")
+                e.write(")\n")
+            else:
+                e.write(line)
+
         f.close()
         e.close()
 

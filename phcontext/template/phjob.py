@@ -3,6 +3,5 @@
 
 This is job template for Pharbers Max Job
 """
-import click
 
 

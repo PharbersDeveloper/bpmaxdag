@@ -4,6 +4,11 @@
 This is job template for Pharbers Max Job
 """
 from phjob import execute
+import click
+
+
+$alfred_debug_execute
+
 
 if __name__ == '__main__':
-    execute()
+    debug_execute()
