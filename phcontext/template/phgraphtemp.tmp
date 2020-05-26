@@ -1,9 +1,13 @@
 
+import os
 from airflow.operators.bash_operator import BashOperator
+from airflow.operators.python_operator import PythonOperator
 from airflow.models import DAG
 from airflow.utils.dates import days_ago
 from datetime import timedelta
 from phconfig.phconfig import PhYAMLConfig
+$alfred_import_jobs
+
 
 args = {
     "owner": "$alfred_dag_owner",
@@ -21,12 +25,4 @@ dag = DAG(
     description="$alfred_description",
     dagrun_timeout=timedelta(minutes=$alfred_dag_timeout))
 
-
-def create_dag_job(name, command):
-    return BashOperator(
-        task_id=name,
-        bash_command=command,
-        dag=dag,
-    )
-
-
+dags_path = os.getenv('AIRFLOW__CORE__DAGS_FOLDER')
