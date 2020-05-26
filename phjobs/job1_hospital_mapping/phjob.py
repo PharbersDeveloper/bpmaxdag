@@ -4,7 +4,6 @@
 This is job template for Pharbers Max Job
 """
 
-import click
 import numpy as np
 import logging
 
@@ -15,11 +14,6 @@ from pyspark.sql.types import StringType, IntegerType
 from pyspark.sql import functions as func
 
 
-@click.command()
-@click.option('--max_path')
-@click.option('--project_name')
-@click.option('--cpa_gyc')
-@click.option('--test_out_path')
 def execute(max_path, project_name, cpa_gyc, test_out_path):
     spark = SparkSession.builder \
         .master("yarn") \
@@ -29,7 +23,7 @@ def execute(max_path, project_name, cpa_gyc, test_out_path):
         .config("spark.executor.instance", "2") \
         .config("spark.executor.memory", "2g") \
         .getOrCreate()
-        
+
     # logging配置
     logger = logging.getLogger("log")
     logger.setLevel(level=logging.INFO)
@@ -38,9 +32,9 @@ def execute(max_path, project_name, cpa_gyc, test_out_path):
     formatter = logging.Formatter('%(asctime)s - %(name)s - [line:%(lineno)d] - %(levelname)s - %(message)s')
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
-    
+
     logger.info('job1_hospital_mapping')
-    
+
     # 输入输出
     universe_path = max_path + "/" + project_name + "/universe_base"
     cpa_pha_mapping_path = max_path + "/" + project_name + "/cpa_pha_mapping"
@@ -49,7 +43,7 @@ def execute(max_path, project_name, cpa_gyc, test_out_path):
 
     # =========== 数据检查 =============
     logger.info('数据检查-start')
-    
+
     # 存储文件的缺失列
     misscols_dict = {}
 
@@ -113,9 +107,9 @@ def execute(max_path, project_name, cpa_gyc, test_out_path):
     if misscols_dict:
         logger.error('miss columns: %s' % (misscols_dict))
         raise ValueError('miss columns: %s' % (misscols_dict))
-        
+
     logger.info('数据检查-Pass')
-    
+
     # =========== 数据执行 =============
     logger.info('数据执行-start')
 
@@ -213,26 +207,26 @@ def execute(max_path, project_name, cpa_gyc, test_out_path):
     hospital_mapping_out = raw_data.repartition(2)
     hospital_mapping_out.write.format("parquet") \
         .mode("overwrite").save(hospital_mapping_out_path)
-        
-    raw_data.show(2)  
-    
+
+    raw_data.show(2)
+
     logger.info('数据执行-Finish')
-    
+
     # =========== 数据验证 =============
-    
+
     if True:
         logger.info('数据验证-start')
-        
+
         R_hospital_mapping_out_path = "/user/ywyuan/max/Sankyo/Rout/hospital_mapping_out"
         R_hospital_mapping_out = spark.read.parquet(R_hospital_mapping_out_path)
-        
+
         # 检查内容：列的类型，列的值
         for colname, coltype in raw_data.dtypes:
             # 数据类型检查
                 # print ("different type columns:", colname, coltype, "right type: " + R_product_mapping_out.select(colname).dtypes[0][1])
             if R_hospital_mapping_out.select(colname).dtypes[0][1] != coltype:
                 logger.warning ("different type columns: "  + colname + ", " + coltype + ", " + "right type: " + R_product_mapping_out.select(colname).dtypes[0][1])
-    
+
             # 数值列的值检查
             if coltype == "double" or coltype == "int":
                 # year_month, Pack_Number, Sales, Units, Units_Box, BI_hospital_code, Month, Year
@@ -241,11 +235,11 @@ def execute(max_path, project_name, cpa_gyc, test_out_path):
                 # print (colname, sum_raw_data, sum_R)
                 if (sum_raw_data - sum_R) != 0:
                     logger.warning ("different value(sum) columns: " + colname + ", " + str(sum_raw_data) + ", " + "right value: " + str(sum_R))
-                    
+
         logger.info('数据验证-Finish')
-        
+
     return raw_data
-    
+
 
 
 
