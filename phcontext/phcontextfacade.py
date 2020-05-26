@@ -52,6 +52,8 @@ class PhContextFacade(object):
             return os.getcwd() + "/" + self.combine_prefix + "/" + self.name
         elif self.cmd == "dag":
             return os.getcwd() + "/" + self.combine_prefix + "/" + self.name
+        elif self.cmd == "run":
+            return os.getcwd() + "/" + self.job_prefix + "/" + self.name
         else:
             raise Exception("Something goes wrong!!!")
 
@@ -150,7 +152,7 @@ class PhContextFacade(object):
 
     def command_run_exec(self):
         print("run")
-        config = PhYAMLConfig(self.job_path, self.name)
+        config = PhYAMLConfig(self.job_path)
         config.load_yaml()
         if config.spec.containers.repository == "local":
             entry_point = config.spec.containers.code
@@ -174,19 +176,23 @@ class PhContextFacade(object):
         w = open(self.dag_path + "/ph_dag_" + config.spec.dag_id + ".py", "a")
         f = open(template_path + "/phgraphtemp.tmp", "r")
         for line in f:
-            w.write(
-                line.replace("$alfred_dag_owner", str(config.spec.owner)) \
-                    .replace("$alfred_email_on_failure", str(config.spec.email_on_failure)) \
-                    .replace("$alfred_email_on_retry", str(config.spec.email_on_retry)) \
-                    .replace("$alfred_email", str(config.spec.email)) \
-                    .replace("$alfred_retries", str(config.spec.retries)) \
-                    .replace("$alfred_retry_delay", str(config.spec.retry_delay)) \
-                    .replace("$alfred_dag_id", str(config.spec.dag_id)) \
-                    .replace("$alfred_schedule_interval", str(config.spec.schedule_interval)) \
-                    .replace("$alfred_description", str(config.spec.description)) \
-                    .replace("$alfred_dag_timeout", str(config.spec.dag_timeout)) \
-                    .replace("$alfred_start_date", str(config.spec.start_date))
-            )
+            if line == "$alfred_import_jobs\n":
+                for j in config.spec.jobs:
+                    w.write("from phjobs." + j.name + ".phjob import execute as " + j.name + "\n")
+            else:
+                w.write(
+                    line.replace("$alfred_dag_owner", str(config.spec.owner)) \
+                        .replace("$alfred_email_on_failure", str(config.spec.email_on_failure)) \
+                        .replace("$alfred_email_on_retry", str(config.spec.email_on_retry)) \
+                        .replace("$alfred_email", str(config.spec.email)) \
+                        .replace("$alfred_retries", str(config.spec.retries)) \
+                        .replace("$alfred_retry_delay", str(config.spec.retry_delay)) \
+                        .replace("$alfred_dag_id", str(config.spec.dag_id)) \
+                        .replace("$alfred_schedule_interval", str(config.spec.schedule_interval)) \
+                        .replace("$alfred_description", str(config.spec.description)) \
+                        .replace("$alfred_dag_timeout", str(config.spec.dag_timeout)) \
+                        .replace("$alfred_start_date", str(config.spec.start_date))
+                )
         f.close()
         jf = open(template_path + "/phDagJob.tmp", "r")
         for jt in config.spec.jobs:
@@ -197,6 +203,9 @@ class PhContextFacade(object):
                         .replace("$alfred_job_path", str(self.job_path[0:self.job_path.rindex("/") + 1]))
                         .replace("$alfred_name", str(jt.name))
                 )
+            subprocess.call(["cp",
+                             self.job_path[0:self.job_path.rindex("/") + 1] + jt.name + "/phconf.yaml",
+                             self.dag_path + jt.name + ".yaml"])
         jf.close()
 
         w.write(config.spec.linkage)
