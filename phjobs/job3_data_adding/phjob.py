@@ -22,159 +22,157 @@ def execute(a, b):
 		.config("spark.executor.instance", "2") \
 		.config("spark.executor.memory", "2g") \
 		.getOrCreate()
+		
+	# =========== 数据检查 =============
+		
+	
+	# 输入
+	product_mapping_out_path = "/user/ywyuan/max/Sankyo/raw_data_job2_out"
+	products_of_interest_path = "/workspace/BP_Max_AutoJob/Sankyo/poi.xlsx"
+	model_month_right = 201912
+	project_name = "Sankyo"
+	max_month = 12
+	year_missing = []
+	
+	# 输出
+	price_path = "/user/ywyuan/max/Sankyo/price"
+	raw_data_adding_path = "/user/ywyuan/max/Sankyo/raw_data_adding"
+	new_hospital_path = '/workspace/BP_Max_AutoJob/Sankyo/2019new_hospital.xlsx'
+	
+	# =========== 数据执行 =============
+    logger.info('数据执行-start')
 
-	raw_data_job2_out_path = "/user/ywyuan/max/Sankyo/raw_data_job2_out"
-	raw_data = spark.read.parquet(raw_data_job2_out_path)
-
-	poi_path = "/workspace/BP_Max_AutoJob/poi.xlsx"
-	poi = pd.read_excel(poi_path)
-	poi = poi["poi"].values.tolist()
-
-	raw_data = raw_data.withColumn("S_Molecule_for_gr", func.when(raw_data["标准商品名"].isin(poi), raw_data["标准商品名"]).
+	raw_data = spark.read.parquet(product_mapping_out_path)
+	
+	products_of_interest = pd.read_excel(products_of_interest_path)
+	products_of_interest = products_of_interest["poi"].values.tolist()
+	
+	# 新增一列S_Molecule_for_gr：products_of_interest为商品名，其他产品为分子名
+	raw_data = raw_data.withColumn("S_Molecule_for_gr",
+	                               func.when(raw_data["标准商品名"].isin(products_of_interest), raw_data["标准商品名"]).
 	                               otherwise(raw_data.S_Molecule))
-
-	# 补数部分的数量需要用价格得出
-	# cal_price
+	
+	# 1 价格计算：cal_price 补数部分的数量需要用价格得出
 	price = raw_data.groupBy("min2", "year_month", "City_Tier_2010") \
 	    .agg((func.sum("Sales") / func.sum("Units")).alias("Price"))
-
 	price2 = raw_data.groupBy("min2", "year_month") \
 	    .agg((func.sum("Sales") / func.sum("Units")).alias("Price2"))
-
 	price = price.join(price2, on=["min2", "year_month"], how="left")
-
 	price = price.withColumn("Price", func.when(func.isnull(price.Price), price.Price2).
 	                         otherwise(price.Price))
 	price = price.withColumn("Price", func.when(func.isnull(price.Price), func.lit(0)).
 	                         otherwise(price.Price)) \
 	    .drop("Price2")
-
+	
 	# 输出price
-	price_path = "/user/ywyuan/max/Sankyo/price"
 	price = price.repartition(2)
 	price.write.format("parquet") \
 	    .mode("overwrite").save(price_path)
+	
+	raw_data = raw_data.where(raw_data.Year < ((model_month_right // 100) + 1))
+	if project_name == "Sanofi" or project_name == "AZ":
+	    raw_data = raw_data.where(raw_data.Year > 2016 & raw_data.Year < 2020)
 
-	model_month_r = 201912
-	raw_data = raw_data.where(raw_data.Year < ((model_month_r // 100) + 1))
-
-	# 1.4 计算样本医院连续性:
-	# cal_continuity
-	con = raw_data.select("Year", "Month", "PHA").distinct() \
+	# 2 计算样本医院连续性: cal_continuity
+	# 每个医院每年的月份数
+	continuity = raw_data.select("Year", "Month", "PHA").distinct() \
 	    .groupBy("PHA", "Year").count()
-
-	con_whole_year = con.groupBy("PHA") \
+	# 每个医院最大月份数，最小月份数
+	continuity_whole_year = continuity.groupBy("PHA") \
 	    .agg(func.max("count").alias("MAX"), func.min("count").alias("MIN"))
-	con_dis = con.join(con_whole_year, on=["PHA"], how="left") \
-	    .na.fill({'MAX': 0, 'MIN': 0})
-
-	distribution = con_dis.select('MAX', 'MIN', 'PHA').distinct() \
-	    .groupBy('MAX', 'MIN').count()
+	continuity = continuity.repartition(2, "PHA")
 	
-	con = con.repartition(2, "PHA")
-
-	years = con.select("Year").distinct().toPandas()["Year"].sort_values().values.tolist()
+	years = continuity.select("Year").distinct().toPandas()["Year"].sort_values().values.tolist()
 	# 数据长变宽
-	con = con.groupBy("PHA").pivot("Year").agg(func.sum('count')).fillna(0)
-	
+	continuity = continuity.groupBy("PHA").pivot("Year").agg(func.sum('count')).fillna(0)
+	# 列名修改
 	for eachyear in years:
 	    eachyear = str(eachyear)
-	    con = con.withColumn(eachyear, con[eachyear].cast(DoubleType())) \
+	    continuity = continuity.withColumn(eachyear, continuity[eachyear].cast(DoubleType())) \
 	        .withColumnRenamed(eachyear, "Year_" + eachyear)
-	        
 	# year列求和
-	a = ""
-	for i in con.columns[1:]:
-	    a += ("con." + i + "+")
-	a = a.strip('+')
-	# a = con.Year_2018 + con.Year_2019
-	con = con.withColumn("total", eval(a))
+	# month_sum = con.Year_2018 + con.Year_2019
+	month_sum = ""
+	for i in continuity.columns[1:]:
+	    month_sum += ("continuity." + i + "+")
+	month_sum = month_sum.strip('+')
+	continuity = continuity.withColumn("total", eval(month_sum))
 	# 最大最小值
-	con = con.join(con_whole_year, on="PHA", how="left")
+	# ['PHA', 'Year_2018', 'Year_2019', 'total', 'MAX', 'MIN']
+	continuity = continuity.join(continuity_whole_year, on="PHA", how="left")
 	
-	# 1.5 计算样本分子增长率:
-	# cal_growth
-	def cal_growth(raw_data, max_month=12):
+	# 3 计算样本分子增长率: cal_growth
+	def calculate_growth(raw_data, max_month=12):
 	    # TODO: 完整年用完整年增长，不完整年用不完整年增长
 	    if max_month < 12:
 	        raw_data = raw_data.where(raw_data.Month <= max_month)
 	
-	    gr_raw_data = raw_data.na.fill({"City_Tier_2010": 5.0})
-	    gr_raw_data = gr_raw_data.withColumn("CITYGROUP", gr_raw_data.City_Tier_2010)
+	    growth_raw_data = raw_data.na.fill({"City_Tier_2010": 5.0})
+	    growth_raw_data = growth_raw_data.withColumn("CITYGROUP", growth_raw_data.City_Tier_2010)
 	
-	    gr = gr_raw_data.groupBy("S_Molecule_for_gr", "CITYGROUP", "Year") \
-	        .agg(func.sum(gr_raw_data.Sales).alias("value"))
-	    gr = gr.repartition(2, ["S_Molecule_for_gr", "CITYGROUP"])
+	    # 增长率计算过程
+	    growth_calculating = growth_raw_data.groupBy("S_Molecule_for_gr", "CITYGROUP", "Year") \
+	        .agg(func.sum(growth_raw_data.Sales).alias("value"))
 	
-	    years = gr.select("Year").distinct().toPandas()["Year"].sort_values().values.tolist()
+	    years = growth_calculating.select("Year").distinct().toPandas()["Year"].sort_values().values.tolist()
 	    years = [str(i) for i in years]
-	    newyears = ["Year_" + str(i) for i in years]
-	    # 数据长变宽, 展开year
-	    gr = gr.groupBy("S_Molecule_for_gr", "CITYGROUP").pivot("Year").agg(func.sum('value')).fillna(0)
-	    gr = gr.select(["S_Molecule_for_gr", "CITYGROUP"] + years)
-	    # 改名
+	    years_name = ["Year_" + i for i in years]
+	    # 数据长变宽
+	    growth_calculating = growth_calculating.groupBy("S_Molecule_for_gr", "CITYGROUP").pivot("Year").agg(func.sum('value')).fillna(0)
+	    growth_calculating = growth_calculating.select(["S_Molecule_for_gr", "CITYGROUP"] + years)
+	    # 对year列名修改
 	    for i in range(0, len(years)):
-	        gr = gr.withColumnRenamed(years[i], newyears[i])
-	    # 年增长计算 add_gr_cols
+	        growth_calculating = growth_calculating.withColumnRenamed(years[i], years_name[i])
+	
+	    # 计算得到年增长： add_gr_cols
 	    for i in range(0, len(years) - 1):
-	        gr = gr.withColumn(("GR" + years[i][2:4] + years[i + 1][2:4]), gr[newyears[i + 1]] / gr[newyears[i]])
-	    # modify_gr
-	    for y in [name for name in gr.columns if name.startswith("GR")]:
-	        gr = gr.withColumn(y, func.when(func.isnull(gr[y]) | (gr[y] > 10) | (gr[y] < 0.1), 1).
-	                           otherwise(gr[y]))
+	        growth_rate = growth_calculating.withColumn("GR" + years[i][2:4] + years[i + 1][2:4],
+	                                                    growth_calculating[years_name[i + 1]] / growth_calculating[years_name[i]])
+	    # 增长率的调整：modify_gr
+	    for y in [name for name in growth_rate.columns if name.startswith("GR")]:
+	        growth_rate = growth_rate.withColumn(y, func.when(func.isnull(growth_rate[y]) | (growth_rate[y] > 10) | (growth_rate[y] < 0.1), 1).
+	                                             otherwise(growth_rate[y]))
+	    return growth_rate
 	
-	    gr_with_id = gr_raw_data.select('PHA', 'ID', 'City', 'CITYGROUP', 'Molecule', 'S_Molecule_for_gr') \
-	        .distinct() \
-	        .join(gr, on=["CITYGROUP", "S_Molecule_for_gr"], how="left")
-	
-	    return gr
-	
-	
-	project_name = "Sankyo"
 	
 	# AZ-Sanofi 要特殊处理
 	if project_name != "Sanofi" and project_name != "AZ":
-	    gr = cal_growth(raw_data)
+	    growth_rate = calculate_growth(raw_data)
 	else:
-	    # year_missing = [2019]
 	    # 完整年
-	    gr_p1 = cal_growth(raw_data.where(raw_data.Year.isin(year_missing)))
+	    growth_rate_p1 = calculate_growth(raw_data.where(raw_data.Year.isin(year_missing)))
 	    # 不完整年
-	    gr_p2 = cal_growth(raw_data.where(
-	        raw_data.Year.isin(year_missing + [y - 1 for y in year_missing] + [y + 1 for y in year_missing])),
-	        max_month)
+	    growth_rate_p2 = calculate_growth(raw_data.where(raw_data.Year.isin(year_missing + [y - 1 for y in year_missing] + [y + 1 for y in year_missing])), max_month)
 	
-	    gr = (gr_p1.select("S_Molecule_for_gr", "CITYGROUP")).union(gr_p2.select("S_Molecule_for_gr", "CITYGROUP")) \
+	    growth_rate = growth_rate_p1.select("S_Molecule_for_gr", "CITYGROUP") \
+	        .union(growth_rate_p2.select("S_Molecule_for_gr", "CITYGROUP")) \
 	        .distinct()
-	    gr = gr.join(
-	        gr_p1.select("S_Molecule_for_gr", "CITYGROUP", [name for name in gr_p1.columns if name.startswith("GR")]),
-	        on=["S_Molecule_for_gr", "CITYGROUP"], how="left")
-	    gr = gr.join(
-	        gr_p2.select("S_Molecule_for_gr", "CITYGROUP", [name for name in gr_p2.columns if name.startswith("GR")]),
-	        on=["S_Molecule_for_gr", "CITYGROUP"], how="left")
+	    growth_rate = growth_rate.join(
+	        growth_rate_p1.select("S_Molecule_for_gr", "CITYGROUP",[name for name in growth_rate_p1.columns if name.startswith("GR")]),
+	        on=["S_Molecule_for_gr", "CITYGROUP"],
+	        how="left")
+	    growth_rate = growth_rate.join(
+	        growth_rate_p2.select("S_Molecule_for_gr", "CITYGROUP",[name for name in growth_rate_p2.columns if name.startswith("GR")]),
+	        on=["S_Molecule_for_gr", "CITYGROUP"],
+	        how="left")
 	
-	gr = gr.repartition(2)
-	gr_path_online = "/user/ywyuan/max/Sankyo/gr"
-	gr.write.format("parquet") \
-	    .mode("overwrite").save(gr_path_online)
+	# 输出growth_rate结果
+	growth_rate = growth_rate.repartition(2)
+	growth_path_online = "/user/ywyuan/max/Sankyo/gr"
+	growth_rate.write.format("parquet") \
+	    .mode("overwrite").save(growth_path_online)
 	    
-	# 1.6 原始数据格式整理:
-	# trans_raw_data_for_adding
-	gr = gr.select(["CITYGROUP", "S_Molecule_for_gr"] +
-	               [name for name in gr.columns if name.startswith("GR1")]) \
+	# 4 补数: 
+	# 4.1 原始数据格式整理: trans_raw_data_for_adding
+	growth_rate = growth_rate.select(["CITYGROUP", "S_Molecule_for_gr"] + [name for name in growth_rate.columns if name.startswith("GR1")]) \
 	    .distinct()
-	seed = raw_data.where(raw_data.PHA.isNotNull()) \
+	raw_data_for_add = raw_data.where(raw_data.PHA.isNotNull()) \
 	    .orderBy(raw_data.Year.desc()) \
 	    .withColumnRenamed("City_Tier_2010", "CITYGROUP") \
-	    .join(gr, on=["S_Molecule_for_gr", "CITYGROUP"], how="left")
-	
-	seed.repartition(2).write.format("parquet") \
-	    .mode("overwrite").save("/user/ywyuan/max/Sankyo/seed")
-	    
-	seed.persist()    
+	    .join(growth_rate, on=["S_Molecule_for_gr", "CITYGROUP"], how="left")
+
 	# 1.7 补充各个医院缺失的月份:
 	# add_data
-	# 1. 得到年
 	original_range = seed.select("Year", "Month", "PHA").distinct()
 	
 	years = original_range.select("Year").distinct() \
@@ -185,7 +183,7 @@ def execute(a, b):
 	all_gr_index = [index for index, name in enumerate(seed.columns) if name.startswith("GR")]
 	print(all_gr_index)
 	
-	# 3. 每年的补数
+	# 每年的补数
 	# price_path = "/common/projects/max/Sankyo/price"
 	#price_path = "/user/ywyuan/max/Sankyo/price"
 	#price = spark.read.parquet(price_path)
@@ -279,7 +277,7 @@ def execute(a, b):
 	# 输出第一阶段补数结果
 	raw_data_adding = raw_data_adding.repartition(2)
 	raw_data_adding.write.format("parquet") \
-		.mode("overwrite").save("/user/ywyuan/max/Sankyo/raw_data_adding")
+		.mode("overwrite").save(raw_data_adding_path)
 	
 	# 1.9 进一步为最后一年独有的医院补最后一年的缺失月（可能也要考虑第一年）:
 	
@@ -291,7 +289,6 @@ def execute(a, b):
 	    .subtract(original_range.where(original_range.Year != max(years)).select("PHA").distinct()) \
 	    .toPandas()
 	print("以下是最新一年出现的医院:" + str(new_hospital["PHA"].tolist()))
-	new_hospital_path = './Sankyo/2019new_hospital.xlsx'
 	new_hospital.to_excel(new_hospital_path)
 	
 	# 最新年份没有的月份
@@ -320,7 +317,6 @@ def execute(a, b):
 	# 输出补数结果 adding_data_new
 	adding_data_new.repartition(2).write.format("parquet") \
 	    .mode("overwrite").save("/user/ywyuan/max/Sankyo/adding_data_new")
-	    
 	adding_data_new.show(2)
 
 		
