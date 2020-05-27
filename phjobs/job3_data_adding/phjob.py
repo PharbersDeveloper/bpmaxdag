@@ -271,15 +271,56 @@ def execute(a, b):
 	        adding_data = adding_data.union(seed_for_adding)
 	    empty = empty + 1
 	
-	# 测试：输出adding_data
-	adding_data.repartition(2).write.format("parquet") \
-	    .mode("overwrite").save("/user/ywyuan/max/Sankyo/adding_data")
-
 
 	# 1.8 合并补数部分和原始部分:
 	# combind_data
 	raw_data_adding = (raw_data.withColumn("add_flag", func.lit(0))) \
 	    .union(adding_data.withColumn("add_flag", func.lit(1)).select(raw_data.columns + ["add_flag"]))
+	# 输出第一阶段补数结果
 	raw_data_adding = raw_data_adding.repartition(2)
+	raw_data_adding.write.format("parquet") \
+		.mode("overwrite").save("/user/ywyuan/max/Sankyo/raw_data_adding")
 	
-	raw_data_adding.show(2)
+	# 1.9 进一步为最后一年独有的医院补最后一年的缺失月（可能也要考虑第一年）:
+	
+	#      （可能也要考虑第一年）:
+	print(years)
+	
+	# 只在最新年份出现的PHA-医院
+	new_hospital = (original_range.where(original_range.Year == max(years)).select("PHA").distinct()) \
+	    .subtract(original_range.where(original_range.Year != max(years)).select("PHA").distinct()) \
+	    .toPandas()
+	print("以下是最新一年出现的医院:" + str(new_hospital["PHA"].tolist()))
+	new_hospital_path = './Sankyo/2019new_hospital.xlsx'
+	new_hospital.to_excel(new_hospital_path)
+	
+	# 最新年份没有的月份
+	missing_months = (original_range.where(original_range.Year != max(years)).select("Month").distinct()) \
+	    .subtract(original_range.where(original_range.Year == max(years)).select("Month").distinct())
+	
+	# 如果最新年份有缺失月份，特殊处理
+	if missing_months.count() == 0:
+	    adding_data_new = raw_data_adding
+	else:
+	    number_of_existing_months = 12 - missing_months.count()
+	    group_cols = set(raw_data_adding.columns).difference(
+	        set(['Month', 'Sales', 'Units', '季度', "sales_value__rmb_", "total_units", "counting_units", "year_month"]))
+	    adding_data_new = raw_data_adding \
+	        .where(raw_data_adding.add_flag == 1) \
+	        .where(raw_data_adding.PHA.isin(new_hospital["PHA"].tolist())) \
+	        .groupBy(list(group_cols)).agg({"Sales": "sum", "Units": "sum"})
+	    adding_data_new = adding_data_new \
+	        .withColumn("Sales", adding_data_new["sum(Sales)"] / number_of_existing_months) \
+	        .withColumn("Units", adding_data_new["sum(Units)"] / number_of_existing_months) \
+	        .crossJoin(missing_months)
+	    same_names = list(set(raw_data_adding.columns).intersection(set(adding_data_new.columns)))
+	    adding_data_new = raw_data_adding.select(same_names) \
+	        .union(adding_data_new.select(same_names))
+	
+	# 输出补数结果 adding_data_new
+	adding_data_new.repartition(2).write.format("parquet") \
+	    .mode("overwrite").save("/user/ywyuan/max/Sankyo/adding_data_new")
+	    
+	adding_data_new.show(2)
+
+		
