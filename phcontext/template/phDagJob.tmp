@@ -1,16 +1,16 @@
 ############## == $alfred_name == ###################
-config_$alfred_name = PhYAMLConfig("$alfred_job_path" + "$alfred_name")
+config_$alfred_name = PhYAMLConfig(dags_path + "/", "$alfred_name" + ".yaml")
 config_$alfred_name.load_yaml()
-cb_$alfred_name = ""
-entry_point = config_$alfred_name.spec.containers.code
-if "/" not in entry_point:
-    entry_point = "$alfred_job_path" + "$alfred_name" + "/" + entry_point
-    cb = ["$alfred_command", entry_point]
-    for arg in config_$alfred_name.spec.containers.args:
-        cb.append("--" + arg.key + "=" + str(arg.value))
-    cb_$alfred_name = cb
+op_kwargs = {}
+for arg in config_$alfred_name.spec.containers.args:
+    op_kwargs[arg.key] = str(arg.value)
 
-$alfred_name = create_dag_job("$alfred_name", cb_$alfred_name)
+$alfred_name = PythonOperator(
+                    task_id="$alfred_name",
+                    python_callable=$alfred_name,
+                    op_kwargs=op_kwargs,
+                    dag=dag
+               )
 ############## == $alfred_name == ###################
 
 
