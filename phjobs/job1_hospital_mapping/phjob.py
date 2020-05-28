@@ -35,10 +35,11 @@ def execute(max_path, project_name, cpa_gyc, test_out_path):
 
     logger.info('job1_hospital_mapping')
 
-    # 输入输出
+    # 输入
     universe_path = max_path + "/" + project_name + "/universe_base"
     cpa_pha_mapping_path = max_path + "/" + project_name + "/cpa_pha_mapping"
     raw_data_path = max_path + "/" + project_name + "/raw_data"
+    # 输出
     hospital_mapping_out_path = test_out_path + "/" + project_name + "/hospital_mapping_out"
 
     # =========== 数据检查 =============
@@ -199,16 +200,14 @@ def execute(max_path, project_name, cpa_gyc, test_out_path):
     raw_data = raw_data.withColumn("Year", raw_data["Year"].cast(IntegerType())) \
         .withColumn("Month", raw_data["Month"].cast(IntegerType()))
 
-    raw_data.persist()
-
     raw_data = raw_data.join(PHA_city_in_universe, on=["PHA", "City"], how="left")
 
     # 与原R流程运行的结果比较正确性
     hospital_mapping_out = raw_data.repartition(2)
     hospital_mapping_out.write.format("parquet") \
         .mode("overwrite").save(hospital_mapping_out_path)
-
-    raw_data.show(2)
+        
+    logger.info("输出 hospital_mapping 结果：" + str(hospital_mapping_out_path))
 
     logger.info('数据执行-Finish')
 
@@ -226,7 +225,7 @@ def execute(max_path, project_name, cpa_gyc, test_out_path):
         for colname, coltype in R_out.dtypes:
             # 列是否缺失
             if colname not in my_out.columns:
-                print ("miss columns:", colname)
+                logger.warning ("miss columns:", colname)
             else:
                 # 数据类型检查
                 if my_out.select(colname).dtypes[0][1] != coltype:
@@ -234,10 +233,9 @@ def execute(max_path, project_name, cpa_gyc, test_out_path):
             
                 # 数值列的值检查
                 if coltype == "double" or coltype == "int":
-                    # year_month, Pack_Number, Sales, Units, Units_Box, BI_hospital_code, Month, Year
                     sum_my_out = my_out.groupBy().sum(colname).toPandas().iloc[0, 0]
                     sum_R = R_out.groupBy().sum(colname).toPandas().iloc[0, 0]
-                    # print (colname, sum_raw_data, sum_R)
+                    # logger.info(colname, sum_raw_data, sum_R)
                     if (sum_my_out - sum_R) != 0:
                         logger.warning("different value(sum) columns: " + colname + ", " + str(sum_my_out) + ", " + "right value: " + str(sum_R))
 
