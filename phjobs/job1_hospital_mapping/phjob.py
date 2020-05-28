@@ -216,28 +216,34 @@ def execute(max_path, project_name, cpa_gyc, test_out_path):
 
     if True:
         logger.info('数据验证-start')
-
-        R_hospital_mapping_out_path = "/user/ywyuan/max/Sankyo/Rout/hospital_mapping_out"
-        R_hospital_mapping_out = spark.read.parquet(R_hospital_mapping_out_path)
-
-        # 检查内容：列的类型，列的值
-        for colname, coltype in raw_data.dtypes:
-            # 数据类型检查
-                # print ("different type columns:", colname, coltype, "right type: " + R_product_mapping_out.select(colname).dtypes[0][1])
-            if R_hospital_mapping_out.select(colname).dtypes[0][1] != coltype:
-                logger.warning ("different type columns: "  + colname + ", " + coltype + ", " + "right type: " + R_product_mapping_out.select(colname).dtypes[0][1])
-
-            # 数值列的值检查
-            if coltype == "double" or coltype == "int":
-                # year_month, Pack_Number, Sales, Units, Units_Box, BI_hospital_code, Month, Year
-                sum_raw_data = raw_data.groupBy().sum(colname).toPandas().iloc[0,0]
-                sum_R = R_hospital_mapping_out.groupBy().sum(colname).toPandas().iloc[0,0]
-                # print (colname, sum_raw_data, sum_R)
-                if (sum_raw_data - sum_R) != 0:
-                    logger.warning ("different value(sum) columns: " + colname + ", " + str(sum_raw_data) + ", " + "right value: " + str(sum_R))
+        
+        my_out = raw_data
+        
+        R_out_path = "/user/ywyuan/max/Sankyo/Rout/hospital_mapping_out"
+        R_out = spark.read.parquet(R_out_path)
+                    
+        # 检查内容：列缺失，列的类型，列的值
+        for colname, coltype in R_out.dtypes:
+            # 列是否缺失
+            if colname not in my_out.columns:
+                print ("miss columns:", colname)
+            else:
+                # 数据类型检查
+                if my_out.select(colname).dtypes[0][1] != coltype:
+                    logger.warning("different type columns: " + colname + ", " + my_out.select(colname).dtypes[0][1] + ", " + "right type: " + coltype)
+            
+                # 数值列的值检查
+                if coltype == "double" or coltype == "int":
+                    # year_month, Pack_Number, Sales, Units, Units_Box, BI_hospital_code, Month, Year
+                    sum_my_out = my_out.groupBy().sum(colname).toPandas().iloc[0, 0]
+                    sum_R = R_out.groupBy().sum(colname).toPandas().iloc[0, 0]
+                    # print (colname, sum_raw_data, sum_R)
+                    if (sum_my_out - sum_R) != 0:
+                        logger.warning("different value(sum) columns: " + colname + ", " + str(sum_my_out) + ", " + "right value: " + str(sum_R))
 
         logger.info('数据验证-Finish')
-
+        
+    # =========== return =============     
     return raw_data
 
 

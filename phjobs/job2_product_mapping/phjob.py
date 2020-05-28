@@ -13,17 +13,6 @@ from pyspark.sql.types import *
 from pyspark.sql.types import StringType, IntegerType
 from pyspark.sql import functions as func
 
-
-@click.command()
-@click.option('--max_path')
-@click.option('--max_path_local')
-@click.option('--project_name')
-@click.option('--minimum_product_columns')
-@click.option('--minimum_product_sep')
-@click.option('--minimum_product_newname')
-@click.option('--need_cleaning_cols')
-@click.option('--test_out_path')
-
 def execute(max_path, max_path_local, project_name, minimum_product_columns, minimum_product_sep,minimum_product_newname, need_cleaning_cols, test_out_path):
     spark = SparkSession.builder \
         .master("yarn") \
@@ -152,23 +141,29 @@ def execute(max_path, max_path_local, project_name, minimum_product_columns, min
     if True:
         logger.info('数据验证-start')
         
-        R_product_mapping_out_path = "/user/ywyuan/max/Sankyo/Rout/product_mapping_out"
-        R_product_mapping_out = spark.read.parquet(R_product_mapping_out_path)
+        my_out = raw_data
         
-        # 检查内容：列的类型，列的值
-        for colname, coltype in raw_data.dtypes:
-            # 数据类型检查
-            if R_product_mapping_out.select(colname).dtypes[0][1] != coltype:
-                logger.warning ("different type columns: "  + colname + ", " + coltype + ", " + "right type: " + R_product_mapping_out.select(colname).dtypes[0][1])
-    
-            # 数值列的值检查
-            if coltype == "double" or coltype == "int":
-                # year_month, Pack_Number, Sales, Units, Units_Box, BI_hospital_code, Month, Year
-                sum_raw_data = raw_data.groupBy().sum(colname).toPandas().iloc[0,0]
-                sum_R = R_product_mapping_out.groupBy().sum(colname).toPandas().iloc[0,0]
-                # print (colname, sum_raw_data, sum_R)
-                if (sum_raw_data - sum_R) != 0:
-                    logger.warning ("different value(sum) columns: " + colname + ", " + str(sum_raw_data) + ", " + "right value: " + str(sum_R))
+        R_out_path = "/user/ywyuan/max/Sankyo/Rout/product_mapping_out"
+        R_out = spark.read.parquet(R_out_path)
+                    
+        # 检查内容：列缺失，列的类型，列的值
+        for colname, coltype in R_out.dtypes:
+            # 列是否缺失
+            if colname not in my_out.columns:
+                print ("miss columns:", colname)
+            else:
+                # 数据类型检查
+                if my_out.select(colname).dtypes[0][1] != coltype:
+                    logger.warning("different type columns: " + colname + ", " + my_out.select(colname).dtypes[0][1] + ", " + "right type: " + coltype)
+            
+                # 数值列的值检查
+                if coltype == "double" or coltype == "int":
+                    # year_month, Pack_Number, Sales, Units, Units_Box, BI_hospital_code, Month, Year
+                    sum_my_out = my_out.groupBy().sum(colname).toPandas().iloc[0, 0]
+                    sum_R = R_out.groupBy().sum(colname).toPandas().iloc[0, 0]
+                    # print (colname, sum_raw_data, sum_R)
+                    if (sum_my_out - sum_R) != 0:
+                        logger.warning("different value(sum) columns: " + colname + ", " + str(sum_my_out) + ", " + "right value: " + str(sum_R))
                     
         logger.info('数据验证-Finish')
         
