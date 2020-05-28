@@ -1,9 +1,9 @@
 #!/usr/bin/python
 
-from command.phcommand import ph_command
+import subprocess
 
 
 if __name__ == '__main__':
-    ph_command()
+    subprocess.call(["python2", "-m", "phcli"])
 
 

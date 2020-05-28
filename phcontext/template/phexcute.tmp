@@ -1,6 +1,0 @@
-@click.command()
-@click.option('--cmd')
-def execute(self):
-    print(self)
-    # please input your code here
-    print("please input your code here")
