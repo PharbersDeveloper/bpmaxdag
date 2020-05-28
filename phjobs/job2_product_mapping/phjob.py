@@ -34,9 +34,10 @@ def execute(max_path, max_path_local, project_name, minimum_product_columns, min
     
     logger.info('job2_product_mapping')
         
-    # 输入输出
+    # 输入
     product_map_path = max_path + "/" + project_name + "/prod_mapping"
     hospital_mapping_out_path = test_out_path + "/" + project_name + "/hospital_mapping_out"
+    # 输出
     product_mapping_out_path = test_out_path + "/" + project_name + "/product_mapping_out"
     need_cleaning_path = max_path_local + "/" + project_name + "/need_cleaning.xlsx"
     
@@ -50,7 +51,7 @@ def execute(max_path, max_path_local, project_name, minimum_product_columns, min
     # product_map_path = "/common/projects/max/Sankyo/prod_mapping"
     product_map = spark.read.parquet(product_map_path)
     colnames_product_map = product_map.columns
-    misscols_dict.setdefault("universe", [])
+    misscols_dict.setdefault("product_map", [])
     if ("标准通用名" not in colnames_product_map) and ("通用名"  not in colnames_product_map):
         misscols_dict["product_map"].append("标准通用名")
     if "min1" not in colnames_product_map:
@@ -121,7 +122,6 @@ def execute(max_path, max_path_local, project_name, minimum_product_columns, min
     if need_cleaning.count() > 0:
         need_cleaning = need_cleaning.toPandas()
         need_cleaning.to_excel(need_cleaning_path)
-        #print("已输出待清洗文件至:", need_cleaning_path)
         logger.info('已输出待清洗文件至:  ' + need_cleaning_path)
 
     raw_data = raw_data.join(product_map_for_rawdata, on="min1", how="left") \
@@ -131,8 +131,8 @@ def execute(max_path, max_path_local, project_name, minimum_product_columns, min
     product_mapping_out = raw_data.repartition(2)
     product_mapping_out.write.format("parquet") \
         .mode("overwrite").save(product_mapping_out_path)
-
-    raw_data.show(2)
+    
+    logger.info("输出 product_mapping 结果：" + str(product_mapping_out_path))
     
     logger.info('数据执行-Finish')
     
@@ -150,7 +150,7 @@ def execute(max_path, max_path_local, project_name, minimum_product_columns, min
         for colname, coltype in R_out.dtypes:
             # 列是否缺失
             if colname not in my_out.columns:
-                print ("miss columns:", colname)
+                logger.warning ("miss columns:", colname)
             else:
                 # 数据类型检查
                 if my_out.select(colname).dtypes[0][1] != coltype:
@@ -158,10 +158,9 @@ def execute(max_path, max_path_local, project_name, minimum_product_columns, min
             
                 # 数值列的值检查
                 if coltype == "double" or coltype == "int":
-                    # year_month, Pack_Number, Sales, Units, Units_Box, BI_hospital_code, Month, Year
                     sum_my_out = my_out.groupBy().sum(colname).toPandas().iloc[0, 0]
                     sum_R = R_out.groupBy().sum(colname).toPandas().iloc[0, 0]
-                    # print (colname, sum_raw_data, sum_R)
+                    # logger.info(colname, sum_raw_data, sum_R)
                     if (sum_my_out - sum_R) != 0:
                         logger.warning("different value(sum) columns: " + colname + ", " + str(sum_my_out) + ", " + "right value: " + str(sum_R))
                     
