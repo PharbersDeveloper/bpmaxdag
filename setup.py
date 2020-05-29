@@ -5,7 +5,7 @@ with open("./README.md", "r") as fh:
 
 setuptools.setup(
     name="phMaxJobs", # Replace with your own username
-    version="0.0.25",
+    version="0.1.1",
     author="Alfred Yang",
     author_email="alfredyang@pharbers.com",
     description="pharbers dag scheduler config",
