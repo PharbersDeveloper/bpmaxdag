@@ -27,7 +27,7 @@ def execute(max_path, max_path_local, project_name, model_month_right, max_month
     # logging配置
     logger = logging.getLogger("log")
     logger.setLevel(level=logging.INFO)
-    file_handler = logging.FileHandler('job3_data_adding.log','w')
+    file_handler = logging.FileHandler('job3_data_adding_' + project_name +'.log','w')
     file_handler.setLevel(level=logging.INFO)
     formatter = logging.Formatter('%(asctime)s - %(name)s - [line:%(lineno)d] - %(levelname)s - %(message)s')
     file_handler.setFormatter(formatter)
@@ -139,6 +139,7 @@ def execute(max_path, max_path_local, project_name, model_month_right, max_month
     
     logger.info('2 连续性计算')
     
+    
     # 2 计算样本医院连续性: cal_continuity
     # 每个医院每年的月份数
     continuity = raw_data.select("Year", "Month", "PHA").distinct() \
@@ -165,6 +166,7 @@ def execute(max_path, max_path_local, project_name, model_month_right, max_month
     continuity = continuity.withColumn("total", eval(month_sum))
     # ['PHA', 'Year_2018', 'Year_2019', 'total', 'MAX', 'MIN']
     continuity = continuity.join(continuity_whole_year, on="PHA", how="left")
+    
     
     logger.info('3 增长率计算')
     
@@ -251,14 +253,15 @@ def execute(max_path, max_path_local, project_name, model_month_right, max_month
     # add_data
     # 原始数据的 PHA-Month-Year
     original_range = raw_data_for_add.select("Year", "Month", "PHA").distinct()
+    original_range.persist()
     
     years = original_range.select("Year").distinct() \
         .orderBy(original_range.Year) \
         .toPandas()["Year"].values.tolist()
-    print(years)
+    logger.info(years)
     
     growth_rate_index = [index for index, name in enumerate(raw_data_for_add.columns) if name.startswith("GR")]
-    print(growth_rate_index)
+    logger.info(growth_rate_index)
     
     # 对每年的缺失数据分别进行补数
     empty = 0
@@ -279,9 +282,10 @@ def execute(max_path, max_path_local, project_name, model_month_right, max_month
             .withColumn("weight", func.when((other_years_range.Year > eachyear), (other_years_range.Year - eachyear - 0.5)).
                         otherwise(other_years_range.Year * (-1) + eachyear))
         # 选择比重最小的年份：用于补数的 PHA-Month-Year
-        current_range_for_add = other_years_range.orderBy(other_years_range.weight) \
-            .groupBy("PHA", "Month") \
-            .agg(func.first(other_years_range.Year).alias("Year"))
+        current_range_for_add = other_years_range.repartition(1).orderBy(other_years_range.weight.asc())
+        current_range_for_add = current_range_for_add.groupBy("PHA", "Month") \
+            .agg(func.first(current_range_for_add.Year).alias("Year"))
+
     
         # get_seed_data
         # 从 rawdata 根据 current_range_for_add 获取用于补数的数据
@@ -346,6 +350,7 @@ def execute(max_path, max_path_local, project_name, model_month_right, max_month
     # combind_data
     raw_data_adding = (raw_data.withColumn("add_flag", func.lit(0))) \
         .union(adding_data.withColumn("add_flag", func.lit(1)).select(raw_data.columns + ["add_flag"]))
+    raw_data_adding.persist()
     
     # 输出
     raw_data_adding = raw_data_adding.repartition(2)
@@ -358,7 +363,6 @@ def execute(max_path, max_path_local, project_name, model_month_right, max_month
     raw_data.unpersist()
     
     # 1.9 进一步为最后一年独有的医院补最后一年的缺失月（可能也要考虑第一年）:
-    print(years)
     
     # 只在最新一年出现的医院
     new_hospital = (original_range.where(original_range.Year == max(years)).select("PHA").distinct()) \
@@ -374,6 +378,7 @@ def execute(max_path, max_path_local, project_name, model_month_right, max_month
     
     # 如果最新一年有缺失月份，需要处理
     if missing_months.count() == 0:
+        logger.info("missing_months=0")
         raw_data_adding_final = raw_data_adding
     else:
         number_of_existing_months = 12 - missing_months.count()
@@ -403,14 +408,12 @@ def execute(max_path, max_path_local, project_name, model_month_right, max_month
     
     logger.info('数据执行-Finish')
     
-    raw_data_adding_final.show(2)
-    
     # =========== 数据验证 =============
-    # 与原R流程运行的结果比较正确性
+    # 与原R流程运行的结果比较正确性: Sanofi与Sankyo测试通过
     if True:
         logger.info('数据验证-start')
         
-        my_out = raw_data_adding_final
+        my_out = spark.read.parquet(raw_data_adding_final_path)
         
         if project_name == "Sanofi" or project_name == "AZ":
             R_out_path = "/common/projects/max/AZ_Sanofi/adding_data_new"
