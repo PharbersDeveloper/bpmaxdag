@@ -11,10 +11,20 @@ spec:
     code: phmain.py
     config: phconf.yaml
     args:
-      - key: a
-        value: 123
-      - key: b
-        value: 456
+      - key: max_path
+        value: "/common/projects/max/"
+      - key: max_path_local
+        value: "/workspace/BP_Max_AutoJob/"
+      - key: project_name
+        value: "Sankyo"
+      - key: model_month_left
+        value: 201901
+      - key: model_month_right
+        value: 201912
+      - key: paths_foradding
+        value: ""
+      - key: test_out_path
+        value: "/user/ywyuan/max/"
     outputs:
       - key: a
         value: abcde

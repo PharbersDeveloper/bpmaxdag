@@ -14,7 +14,7 @@ from pyspark.sql.types import StringType, IntegerType, DoubleType
 from pyspark.sql import functions as func
 
 
-def execute(a, b):
+def execute(max_path, max_path_local, project_name, model_month_left, model_month_right, paths_foradding, test_out_path):
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("sparkOutlier") \
@@ -23,160 +23,214 @@ def execute(a, b):
         .config("spark.executor.instance", "2") \
         .config("spark.executor.memory", "2g") \
         .getOrCreate()
-        
-    project_name = "Sankyo"
-        
+    
     # logging配置
     logger = logging.getLogger("log")
     logger.setLevel(level=logging.INFO)
-    file_handler = logging.FileHandler('job4_panel_' + project_name +'.log','w')
+    file_handler = logging.FileHandler('job4_panel_' + project_name + '.log','w')
     file_handler.setLevel(level=logging.INFO)
     formatter = logging.Formatter('%(asctime)s - %(name)s - [line:%(lineno)d] - %(levelname)s - %(message)s')
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)	
     
+    logger.info('job4_panel')
+    
     # 输入
-    project_name = "Sankyo"
-    uni_path = "/common/projects/max/Sankyo/universe_base"
-    mkt_path = "/common/projects/max/Sankyo/mkt_mapping"
-    add_data_path = "/user/ywyuan/max/Sankyo/raw_data_adding_final"
-    new_hospital_path = "/workspace/BP_Max_AutoJob/Sankyo/2019new_hospital.xlsx"
-    panel_path = "/user/ywyuan/max/Sankyo/panel_result"
-    model_month_l = 201901
+    if project_name == "Sanofi" or project_name == "AZ":
+        universe_path = max_path + "/AZ_Sanofi/universe_az_sanofi_base"
+        market_path = max_path + u"/AZ_Sanofi/az_sanofi清洗_ma"
+        Notarrive_unpublished_paths = paths_foradding.replace(" ","").split(",")
+    else:
+        universe_path = max_path + "/" + project_name + "/universe_base"
+        market_path  = max_path + "/" + project_name + "/mkt_mapping"
+    
+    raw_data_adding_final_path = test_out_path + "/" + project_name + "/raw_data_adding_final"
+    new_hospital_path = max_path_local + "/" + project_name + "/2019new_hospital.xlsx"
+    
+    
     # 输出
-    panel_path = "/user/ywyuan/max/Sankyo/panel_result"
+    panel_path = test_out_path + "/" + project_name + "/panel_result"
+        
     
-    '''
-    # 输入
-    project_name = "Sanofi"
-    uni_path = "/common/projects/max/AZ_Sanofi/universe_az_sanofi_base"
-    mkt_path = "/common/projects/max/AZ_Sanofi/az_sanofi清洗_ma"
-    add_data_path = "/user/ywyuan/max/Sanofi/raw_data_adding_final"
-    new_hospital_path = "/workspace/BP_Max_AutoJob/Sanofi/2019new_hospital.xlsx"
-    Notarrive_and_unpublished_paths=["/workspace/BP_Max_AutoJob/Sanofi/Not_arrived202001.xlsx",
-                                         "/workspace/BP_Max_AutoJob/Sanofi/No_arrived201912.xlsx",
-                                         "/workspace/BP_Max_AutoJob/Sanofi/Unpublished2020.xlsx"]
-    model_month_l = 201901
-    panel_path = "/user/ywyuan/max/Sanofi/panel_result"
-    '''
+    # =========== 数据检查 =============
+    logger.info('数据检查-start')
+    
+    # 存储文件的缺失列
+    misscols_dict = {}
+
+    # universe file
+    universe = spark.read.parquet(universe_path)
+    colnames_universe = universe.columns
+    misscols_dict.setdefault("universe", [])
+    if ("Panel_ID" not in colnames_universe) and ("PHA" not in colnames_universe):
+        misscols_dict["universe"].append("Panel_ID/PHA")
+    if ("Hosp_name" not in colnames_universe) and ("HOSP_NAME" not in colnames_universe):
+        misscols_dict["universe"].append("Hosp_name/HOSP_NAME")
+    if "City" not in colnames_universe:
+        misscols_dict["universe"].append("City")
+    if "Province" not in colnames_universe:
+        misscols_dict["universe"].append("Province")
+        
+    # market file    
+    market = spark.read.parquet(market_path)
+    colnames_market = market.columns
+    misscols_dict.setdefault("market", [])
+    if ("标准通用名" not in colnames_market) and ("通用名" not in colnames_market):
+        misscols_dict["market"].append("标准通用名")
+    if ("model" not in colnames_market) and ("mkt" not in colnames_market):
+        misscols_dict["market"].append("model")
+        
+    # raw_data_adding_final file
+    raw_data_adding_final = spark.read.parquet(raw_data_adding_final_path)
+    colnames_adding = raw_data_adding_final.columns
+    misscols_dict.setdefault("adding_data", [])
+    colnamelist = ['PHA', 'City', 'ID', 'Molecule', 'Sales', 'Units', 'Province', 'Month', 'Year', 'min2', 'S_Molecule', 'std_route', 'add_flag']
+    # 'min1', 'year_month', 'Brand', 'Form', 'Specifications', 'Pack_Number', 'Manufacturer', 'Source', 'Corp', 'Route', 'Path', 'Sheet', 'BI_hospital_code', 'City_Tier_2010', 
+    # "标准商品名", 'S_Molecule_for_gr', 
+    for each in colnamelist:
+        if each not in colnames_adding:
+            misscols_dict["adding_data"].append(each)
+    
+    # 判断输入文件是否有缺失列
+    for eachfile in misscols_dict.keys():
+        if len(misscols_dict[eachfile]) == 0:
+            del misscols_dict[eachfile]
+    # 如果有缺失列，则报错，停止运行
+    if misscols_dict:
+        logger.error('miss columns: %s' % (misscols_dict))
+        raise ValueError('miss columns: %s' % (misscols_dict))
+        
+    logger.info('数据检查-Pass')
+    
     # =========== 数据执行 =============
+    
     logger.info('数据执行-start')
-    
+ 
     # read_universe
-    uni = spark.read.parquet(uni_path)
-    for col in uni.columns:
+    universe = spark.read.parquet(universe_path)
+    for col in universe.columns:
         if col in ["City_Tier", "CITYGROUP"]:
-            uni = uni.withColumnRenamed(col, "City_Tier_2010")
-    uni = uni.withColumnRenamed("Panel_ID", "PHA") \
-        .withColumnRenamed("Hosp_name", "HOSP_NAME")
-    uni = uni.withColumn("City_Tier_2010", uni["City_Tier_2010"].cast(StringType()))
-    uni = uni.select("PHA", "HOSP_NAME", "Province", "City").distinct()
-    uni.persist()
+            universe = universe.withColumnRenamed(col, "City_Tier_2010")
+    universe = universe \
+        .withColumnRenamed("Panel_ID", "PHA") \
+        .withColumnRenamed("Hosp_name", "HOSP_NAME") \
+        .withColumn("City_Tier_2010", universe["City_Tier_2010"].cast(StringType())) \
+        .select("PHA", "HOSP_NAME", "Province", "City").distinct()
+    universe.persist()
     
-    mkt = spark.read.parquet(mkt_path)
-    mkts = mkt.withColumnRenamed("标准通用名", "通用名") \
+    # 读取 market
+    market = spark.read.parquet(market_path)
+    markets = market.withColumnRenamed("标准通用名", "通用名") \
         .withColumnRenamed("model", "mkt") \
         .select("mkt", "通用名").distinct()
     
-    add_data = spark.read.parquet(add_data_path)
-    add_data = add_data.persist()
-    panel = add_data.join(mkts, add_data.S_Molecule == mkts["通用名"], how="left") \
+    # 读取 raw_data_adding_final
+    raw_data_adding_final = spark.read.parquet(raw_data_adding_final_path)
+    raw_data_adding_final.persist()
+    
+    # 生成 panel
+    panel = raw_data_adding_final \
+        .join(markets, raw_data_adding_final["S_Molecule"] == markets["通用名"], how="left") \
         .drop("Province", "City") \
-        .join(uni, on="PHA", how="left") \
-        .withColumn("Date", add_data.Year * 100 + add_data.Month)
+        .join(universe, on="PHA", how="left") \
+        .withColumn("Date", raw_data_adding_final.Year * 100 + raw_data_adding_final.Month)
     
-    panel = panel.groupBy("ID", "Date", "min2", "mkt", "HOSP_NAME", "PHA", "S_Molecule", "Province", "City", "add_flag", "std_route") \
-            .agg(func.sum("Sales").alias("Sales"), func.sum("Units").alias("Units"))
+    panel = panel \
+        .groupBy("ID", "Date", "min2", "mkt", "HOSP_NAME", "PHA", "S_Molecule", "Province", "City", "add_flag", "std_route") \
+        .agg(func.sum("Sales").alias("Sales"), func.sum("Units").alias("Units"))
     
-    old_names = ["ID", "Date", "min2", "mkt", "HOSP_NAME", "PHA", "S_Molecule", "Province","City", "add_flag", "std_route"]
+    # 对 panel 列名重新命名
+    old_names = ["ID", "Date", "min2", "mkt", "HOSP_NAME", "PHA", "S_Molecule", "Province", "City", "add_flag", "std_route"]
     new_names = ["ID", "Date", "Prod_Name", "DOI", "Hosp_name", "HOSP_ID", "Molecule", "Province", "City", "add_flag", "std_route"]
     for index, name in enumerate(old_names):
         panel = panel.withColumnRenamed(name, new_names[index])
     
-    panel = panel.withColumn("Prod_CNAME", panel.Prod_Name) \
+    panel = panel \
+        .withColumn("Prod_CNAME", panel.Prod_Name) \
         .withColumn("Strength", panel.Prod_Name) \
         .withColumn("DOIE", panel.DOI) \
         .withColumn("Date", panel["Date"].cast(DoubleType()))
-        
     
-    #panel.repartition(2).write.format("parquet") \
-    #    .mode("overwrite").save("/user/yyw/max/Sanofi/panel_tmp")
-    
+    # 拆分 panel_raw_data， panel_add_data
     panel_raw_data = panel.where(panel.add_flag == 0)
+    panel_raw_data.persist()
     panel_add_data = panel.where(panel.add_flag == 1)
+    panel_add_data.persist()
     
-    original_ym_molecule = panel_raw_data.select("Date", "Molecule").distinct()
-    original_ym_min2 = panel_raw_data.select("Date", "Prod_Name").distinct()
+    original_Date_molecule = panel_raw_data.select("Date", "Molecule").distinct()
+    original_Date_ProdName = panel_raw_data.select("Date", "Prod_Name").distinct()
     
     panel_add_data = panel_add_data \
-        .join(original_ym_molecule, on=["Date", "Molecule"], how="inner") \
-        .join(original_ym_min2, on=["Date", "Prod_Name"], how="inner")
+        .join(original_Date_molecule, on=["Date", "Molecule"], how="inner") \
+        .join(original_Date_ProdName, on=["Date", "Prod_Name"], how="inner")
     
     new_hospital = pd.read_excel(new_hospital_path)
     new_hospital = new_hospital["PHA"].tolist()
     
-    print new_hospital
-    
+    # 生成 panel_filtered
     # 早于model所用时间（历史数据），用new_hospital补数;
     # 处于model所用时间（模型数据），不补数；
     # 晚于model所用时间（月更新数据），用unpublished和not arrived补数
-    
-    # 获得 panel_filtered
     if project_name == "Sanofi" or project_name == "AZ":
         kct = [u'北京市', u'长春市', u'长沙市', u'常州市', u'成都市', u'重庆市', u'大连市', u'福厦泉市', u'广州市',
-            u'贵阳市', u'杭州市', u'哈尔滨市', u'济南市', u'昆明市', u'兰州市', u'南昌市', u'南京市', u'南宁市', u'宁波市',
-            u'珠三角市', u'青岛市', u'上海市', u'沈阳市', u'深圳市', u'石家庄市', u'苏州市', u'太原市', u'天津市', u'温州市',
-            u'武汉市', u'乌鲁木齐市', u'无锡市', u'西安市', u'徐州市', u'郑州市', u'合肥市', u'呼和浩特市', u'福州市', u'厦门市',
-            u'泉州市', u'珠海市', u'东莞市', u'佛山市', u'中山市']
+               u'贵阳市', u'杭州市', u'哈尔滨市', u'济南市', u'昆明市', u'兰州市', u'南昌市', u'南京市', u'南宁市', u'宁波市',
+               u'珠三角市', u'青岛市', u'上海市', u'沈阳市', u'深圳市', u'石家庄市', u'苏州市', u'太原市', u'天津市', u'温州市',
+               u'武汉市', u'乌鲁木齐市', u'无锡市', u'西安市', u'徐州市', u'郑州市', u'合肥市', u'呼和浩特市', u'福州市', u'厦门市',
+               u'泉州市', u'珠海市', u'东莞市', u'佛山市', u'中山市']
         city_list = [u'北京市', u'上海市', u'天津市', u'重庆市', u'广州市', u'深圳市', u'西安市', u'大连市', u'成都市', u'厦门市', u'沈阳市']
         Province_list = [u'河北省', u'福建省']
     
-        panel_add_data = panel_add_data.where(~panel_add_data.City.isin(city_list)) \
+        panel_add_data = panel_add_data \
+            .where(~panel_add_data.City.isin(city_list)) \
             .where(~panel_add_data.Province.isin(Province_list)) \
             .where(~(~(panel_add_data.City.isin(kct)) & (panel_add_data.Molecule == u"奥希替尼")))
     
-        for index, eachfile in enumerate(Notarrive_and_unpublished_paths):
+        # 晚于model所用时间（月更新数据），用unpublished和not arrived补数
+        for index, eachfile in enumerate(Notarrive_unpublished_paths):
             if index == 0:
-                Notarrive_and_unpublished = pd.read_excel(eachfile, dtype=str)
+                Notarrive_unpublished = pd.read_excel(eachfile, dtype=str)
             else:
                 tmp_file = pd.read_excel(eachfile, dtype=str)
-                Notarrive_and_unpublished = Notarrive_and_unpublished.append(tmp_file)
+                Notarrive_unpublished = Notarrive_unpublished.append(tmp_file)
     
-        future_range = spark.createDataFrame(Notarrive_and_unpublished,
+        future_range = spark.createDataFrame(Notarrive_unpublished,
                                              schema=StructType([StructField("ID", StringType(), True),
                                                                 StructField("Date", StringType(), True)]))
         future_range = future_range.withColumn("Date", future_range["Date"].cast(DoubleType()))
     
-        # 早于model所用时间（历史数据），用new_hospital补数;
-        panel_add_data_his = panel_add_data.where(panel_add_data.HOSP_ID.isin(new_hospital)) \
-            .where(panel_add_data.Date < 201901) \
-            .select(panel_raw_data.columns)
-        # 晚于model所用时间（月更新数据），用unpublished和not arrived补数
-        panel_add_data_fut = panel_add_data.where(panel_add_data.Date > 201911) \
+        panel_add_data_future = panel_add_data.where(panel_add_data.Date > int(model_month_right)) \
             .join(future_range, on=["Date", "ID"], how="inner") \
             .select(panel_raw_data.columns)
     
-        panel_filtered = (panel_raw_data.union(panel_add_data_his)).union(panel_add_data_fut)
+        # 早于model所用时间（历史数据），用new_hospital补数;
+        panel_add_data_history = panel_add_data.where(panel_add_data.HOSP_ID.isin(new_hospital)) \
+            .where(panel_add_data.Date < int(model_month_left)) \
+            .select(panel_raw_data.columns)
+    
+        panel_filtered = (panel_raw_data.union(panel_add_data_history)).union(panel_add_data_future)
     
     else:
         city_list = [u'北京市', u'上海市', u'天津市', u'重庆市', u'广州市', u'深圳市', u'西安市', u'大连市', u'成都市', u'厦门市', u'沈阳市']
         Province_list = [u'河北省', u'福建省']
     
         # 去除 city_list和 Province_list
-        panel_add_data = panel_add_data.where(~panel_add_data.City.isin(city_list)) \
+        panel_add_data = panel_add_data \
+            .where(~panel_add_data.City.isin(city_list)) \
             .where(~panel_add_data.Province.isin(Province_list))
-    
-        panel_add_data_his = panel_add_data.where(panel_add_data.HOSP_ID.isin(new_hospital))\
-            .where(panel_add_data.Date < int(model_month_l)) \
+        panel_add_data_history = panel_add_data \
+            .where(panel_add_data.HOSP_ID.isin(new_hospital)) \
+            .where(panel_add_data.Date < int(model_month_left)) \
             .select(panel_raw_data.columns)
-        panel_filtered = panel_raw_data.union(panel_add_data_his)
-        
-    #panel_filtered.groupBy("add_flag").agg({"Sales": "sum"}).show()
-    #panel_filtered.groupBy("add_flag").agg({"Sales": "sum"}).show()
+        panel_filtered = panel_raw_data.union(panel_add_data_history)
+    
+    # panel_filtered.groupBy("add_flag").agg({"Sales": "sum"}).show()
+    # panel_filtered.groupBy("add_flag").agg({"Sales": "sum"}).show()
     
     panel_filtered = panel_filtered.repartition(2)
     panel_filtered.write.format("parquet") \
         .mode("overwrite").save(panel_path)
+        
+    logger.info("输出 panel_filtered 结果：" + str(panel_path))
      
     logger.info('数据执行-Finish')
         
@@ -187,12 +241,18 @@ def execute(a, b):
         
         my_out = spark.read.parquet(panel_path)
         
-        if project_name == "Sanofi" or project_name == "AZ":
+        if project_name == "Sanofi":
             R_out_path = "/user/ywyuan/max/Sanofi/Rout/panel-result"
+        elif project_name == "AZ":
+            R_out_path = "/user/ywyuan/max/AZ/Rout/panel-result"
         elif project_name == "Sankyo":
             R_out_path = "/user/ywyuan/max/Sankyo/Rout/panel-result"
+            
         R_out = spark.read.parquet(R_out_path)
         
+        if project_name == "AZ":
+            R_out = R_out.where(R_out.Date/100 < 2020)
+            
         # 检查内容：列缺失，列的类型，列的值
         for colname, coltype in R_out.dtypes:
             # 列是否缺失
