@@ -27,7 +27,7 @@ def execute(max_path, project_name, cpa_gyc, test_out_path):
     # logging配置
     logger = logging.getLogger("log")
     logger.setLevel(level=logging.INFO)
-    file_handler = logging.FileHandler('job1_hospital_mapping.log','w')
+    file_handler = logging.FileHandler('job1_hospital_mapping_' + project_name + '.log','w')
     file_handler.setLevel(level=logging.INFO)
     formatter = logging.Formatter('%(asctime)s - %(name)s - [line:%(lineno)d] - %(levelname)s - %(message)s')
     file_handler.setFormatter(formatter)
@@ -36,9 +36,18 @@ def execute(max_path, project_name, cpa_gyc, test_out_path):
     logger.info('job1_hospital_mapping')
 
     # 输入
-    universe_path = max_path + "/" + project_name + "/universe_base"
-    cpa_pha_mapping_path = max_path + "/" + project_name + "/cpa_pha_mapping"
-    raw_data_path = max_path + "/" + project_name + "/raw_data"
+    if project_name == "Sanofi" or project_name == "AZ":
+        universe_path = max_path + "/AZ_Sanofi/universe_az_sanofi_base"
+        cpa_pha_mapping_path = max_path + u"/AZ_Sanofi/医院匹配_20191031"
+        if project_name == "Sanofi":
+            raw_data_path = max_path + "/AZ_Sanofi/sanofi_raw_data"
+        elif project_name == "AZ":
+            raw_data_path = max_path + "/AZ_Sanofi/az_raw_data"
+    else:    
+        universe_path = max_path + "/" + project_name + "/universe_base"
+        cpa_pha_mapping_path = max_path + "/" + project_name + "/cpa_pha_mapping"
+        raw_data_path = max_path + "/" + project_name + "/raw_data"
+        
     # 输出
     hospital_mapping_out_path = test_out_path + "/" + project_name + "/hospital_mapping_out"
 
@@ -218,7 +227,13 @@ def execute(max_path, project_name, cpa_gyc, test_out_path):
         
         my_out = raw_data
         
-        R_out_path = "/user/ywyuan/max/Sankyo/Rout/hospital_mapping_out"
+        if project_name == "Sanofi":
+            R_out_path = "/common/projects/max/AZ_Sanofi/hospital_mapping/raw_data_with_pha"
+        elif project_name == "AZ":
+            R_out_path = "/common/projects/max/AZ_Sanofi/hospital_mapping/raw_data_with_pha_az"
+        elif project_name == "Sankyo":
+            R_out_path = "/user/ywyuan/max/Sankyo/Rout/hospital_mapping_out"
+            
         R_out = spark.read.parquet(R_out_path)
                     
         # 检查内容：列缺失，列的类型，列的值

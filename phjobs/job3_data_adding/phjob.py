@@ -27,7 +27,7 @@ def execute(max_path, max_path_local, project_name, model_month_right, max_month
     # logging配置
     logger = logging.getLogger("log")
     logger.setLevel(level=logging.INFO)
-    file_handler = logging.FileHandler('job3_data_adding_' + project_name +'.log','w')
+    file_handler = logging.FileHandler('job3_data_adding_' + project_name + '.log','w')
     file_handler.setLevel(level=logging.INFO)
     formatter = logging.Formatter('%(asctime)s - %(name)s - [line:%(lineno)d] - %(levelname)s - %(message)s')
     file_handler.setFormatter(formatter)
@@ -36,19 +36,14 @@ def execute(max_path, max_path_local, project_name, model_month_right, max_month
     logger.info('job3_data_adding')
     
     # 输入
-    if project_name == "Sanofi":
-        product_mapping_out_path = "/common/projects/max/AZ_Sanofi/product_mapping/raw_data_with_std_product"
-    elif project_name == "AZ":
-        product_mapping_out_path = "/common/projects/max/AZ_Sanofi/product_mapping/raw_data_with_std_product_az"
-    else:
-        product_mapping_out_path = test_out_path + "/" + project_name + "/product_mapping_out"
+    product_mapping_out_path = test_out_path + "/" + project_name + "/product_mapping_out"
     products_of_interest_path = max_path_local + "/" + project_name + "/poi.xlsx"
     # model_month_right = 201912
     # project_name = "Sankyo"
     # max_month = 12
     # year_missing = []
     if year_missing:
-        year_missing = year_missing.split(", ")
+        year_missing = year_missing.replace(" ","").split(",")
     else:
         year_missing = []
     year_missing = [int(i) for i in year_missing]
@@ -415,8 +410,10 @@ def execute(max_path, max_path_local, project_name, model_month_right, max_month
         
         my_out = spark.read.parquet(raw_data_adding_final_path)
         
-        if project_name == "Sanofi" or project_name == "AZ":
+        if project_name == "Sanofi":
             R_out_path = "/common/projects/max/AZ_Sanofi/adding_data_new"
+        elif project_name == "AZ":
+            R_out_path = "/user/ywyuan/max/AZ/Rout/adding_data_new"
         elif project_name == "Sankyo":
             R_out_path = "/common/projects/max/Sankyo/adding_data_new"
         R_out = spark.read.parquet(R_out_path)

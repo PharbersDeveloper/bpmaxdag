@@ -13,7 +13,7 @@ from pyspark.sql.types import *
 from pyspark.sql.types import StringType, IntegerType
 from pyspark.sql import functions as func
 
-def execute(max_path, max_path_local, project_name, minimum_product_columns, minimum_product_sep,minimum_product_newname, need_cleaning_cols, test_out_path):
+def execute(max_path, max_path_local, project_name, minimum_product_columns, minimum_product_sep, minimum_product_newname, need_cleaning_cols, test_out_path):
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("sparkOutlier") \
@@ -26,7 +26,7 @@ def execute(max_path, max_path_local, project_name, minimum_product_columns, min
     # logging配置
     logger = logging.getLogger("log")
     logger.setLevel(level=logging.INFO)
-    file_handler = logging.FileHandler('job2_product_mapping.log','w')
+    file_handler = logging.FileHandler('job2_product_mapping_' + project_name + '.log','w')
     file_handler.setLevel(level=logging.INFO)
     formatter = logging.Formatter('%(asctime)s - %(name)s - [line:%(lineno)d] - %(levelname)s - %(message)s')
     file_handler.setFormatter(formatter)
@@ -35,8 +35,13 @@ def execute(max_path, max_path_local, project_name, minimum_product_columns, min
     logger.info('job2_product_mapping')
         
     # 输入
-    product_map_path = max_path + "/" + project_name + "/prod_mapping"
+    if project_name == "Sanofi" or project_name == "AZ":
+        product_map_path = max_path + u"/AZ_Sanofi/az_sanofi清洗_ma"
+    else:
+        product_map_path = max_path + "/" + project_name + "/prod_mapping"
     hospital_mapping_out_path = test_out_path + "/" + project_name + "/hospital_mapping_out"
+    need_cleaning_cols = need_cleaning_cols.replace(" ","").split(",")
+    
     # 输出
     product_mapping_out_path = test_out_path + "/" + project_name + "/product_mapping_out"
     need_cleaning_path = max_path_local + "/" + project_name + "/need_cleaning.xlsx"
@@ -110,8 +115,6 @@ def execute(max_path, max_path_local, project_name, minimum_product_columns, min
     product_map_for_rawdata = product_map.select("min1", "min2", "通用名", "std_route", "标准商品名").distinct()
     
     # 输出待清洗
-    # need_cleaning_cols = ["Molecule", "min1", "Route", "Corp"]
-    need_cleaning_cols = need_cleaning_cols.split(", ")
     need_cleaning_cols[1:1] = minimum_product_columns
     need_cleaning = raw_data.join(product_map_for_needclean, on="min1", how="left_anti") \
         .select(need_cleaning_cols) \
@@ -143,7 +146,12 @@ def execute(max_path, max_path_local, project_name, minimum_product_columns, min
         
         my_out = raw_data
         
-        R_out_path = "/user/ywyuan/max/Sankyo/Rout/product_mapping_out"
+        if project_name == "Sanofi":
+            R_out_path = "/common/projects/max/AZ_Sanofi/product_mapping/raw_data_with_std_product"
+        elif project_name == "AZ":
+            R_out_path = "/common/projects/max/AZ_Sanofi/product_mapping/raw_data_with_std_product_az"
+        elif project_name == "Sankyo":
+            R_out_path = "/user/ywyuan/max/Sankyo/Rout/product_mapping_out"
         R_out = spark.read.parquet(R_out_path)
                     
         # 检查内容：列缺失，列的类型，列的值
