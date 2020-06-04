@@ -5,7 +5,7 @@ This is job template for Pharbers Max Job
 """
 import numpy as np
 import pandas as pd
-import logging
+from phlogs.phlogs import phlogger
 
 from pyspark.sql import SparkSession
 import time
@@ -24,16 +24,8 @@ def execute(max_path, max_path_local, project_name, model_month_left, model_mont
         .config("spark.executor.memory", "2g") \
         .getOrCreate()
     
-    # logging配置
-    logger = logging.getLogger("log")
-    logger.setLevel(level=logging.INFO)
-    file_handler = logging.FileHandler('job4_panel_' + project_name + '.log','w')
-    file_handler.setLevel(level=logging.INFO)
-    formatter = logging.Formatter('%(asctime)s - %(name)s - [line:%(lineno)d] - %(levelname)s - %(message)s')
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)	
     
-    logger.info('job4_panel')
+    phlogger.info('job4_panel')
     
     # 输入
     if project_name == "Sanofi" or project_name == "AZ":
@@ -53,7 +45,7 @@ def execute(max_path, max_path_local, project_name, model_month_left, model_mont
         
     
     # =========== 数据检查 =============
-    logger.info('数据检查-start')
+    phlogger.info('数据检查-start')
     
     # 存储文件的缺失列
     misscols_dict = {}
@@ -97,14 +89,14 @@ def execute(max_path, max_path_local, project_name, model_month_left, model_mont
             del misscols_dict[eachfile]
     # 如果有缺失列，则报错，停止运行
     if misscols_dict:
-        logger.error('miss columns: %s' % (misscols_dict))
+        phlogger.error('miss columns: %s' % (misscols_dict))
         raise ValueError('miss columns: %s' % (misscols_dict))
         
-    logger.info('数据检查-Pass')
+    phlogger.info('数据检查-Pass')
     
     # =========== 数据执行 =============
     
-    logger.info('数据执行-start')
+    phlogger.info('数据执行-start')
  
     # read_universe
     universe = spark.read.parquet(universe_path)
@@ -230,14 +222,14 @@ def execute(max_path, max_path_local, project_name, model_month_left, model_mont
     panel_filtered.write.format("parquet") \
         .mode("overwrite").save(panel_path)
         
-    logger.info("输出 panel_filtered 结果：" + str(panel_path))
+    phlogger.info("输出 panel_filtered 结果：" + str(panel_path))
      
-    logger.info('数据执行-Finish')
+    phlogger.info('数据执行-Finish')
         
     # =========== 数据验证 =============
     # 与原R流程运行的结果比较正确性: Sanofi与Sankyo测试通过
     if True:
-        logger.info('数据验证-start')
+        phlogger.info('数据验证-start')
         
         my_out = spark.read.parquet(panel_path)
         
@@ -257,21 +249,21 @@ def execute(max_path, max_path_local, project_name, model_month_left, model_mont
         for colname, coltype in R_out.dtypes:
             # 列是否缺失
             if colname not in my_out.columns:
-                logger.warning ("miss columns:", colname)
+                phlogger.warning ("miss columns:", colname)
             else:
                 # 数据类型检查
                 if my_out.select(colname).dtypes[0][1] != coltype:
-                    logger.warning("different type columns: " + colname + ", " + my_out.select(colname).dtypes[0][1] + ", " + "right type: " + coltype)
+                    phlogger.warning("different type columns: " + colname + ", " + my_out.select(colname).dtypes[0][1] + ", " + "right type: " + coltype)
             
                 # 数值列的值检查
                 if coltype == "double" or coltype == "int":
                     sum_my_out = my_out.groupBy().sum(colname).toPandas().iloc[0, 0]
                     sum_R = R_out.groupBy().sum(colname).toPandas().iloc[0, 0]
-                    # logger.info(colname, sum_raw_data, sum_R)
+                    # phlogger.info(colname, sum_raw_data, sum_R)
                     if (sum_my_out - sum_R) != 0:
-                        logger.warning("different value(sum) columns: " + colname + ", " + str(sum_my_out) + ", " + "right value: " + str(sum_R))
+                        phlogger.warning("different value(sum) columns: " + colname + ", " + str(sum_my_out) + ", " + "right value: " + str(sum_R))
         
-        logger.info('数据验证-Finish')
+        phlogger.info('数据验证-Finish')
     
 
     

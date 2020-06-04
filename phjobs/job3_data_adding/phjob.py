@@ -5,7 +5,7 @@ This is job template for Pharbers Max Job
 """
 import numpy as np
 import pandas as pd
-import logging
+from phlogs.phlogs import phlogger
 
 from pyspark.sql import SparkSession
 import time
@@ -24,16 +24,8 @@ def execute(max_path, max_path_local, project_name, model_month_right, max_month
         .config("spark.executor.memory", "2g") \
         .getOrCreate()
         
-    # logging配置
-    logger = logging.getLogger("log")
-    logger.setLevel(level=logging.INFO)
-    file_handler = logging.FileHandler('job3_data_adding_' + project_name + '.log','w')
-    file_handler.setLevel(level=logging.INFO)
-    formatter = logging.Formatter('%(asctime)s - %(name)s - [line:%(lineno)d] - %(levelname)s - %(message)s')
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)	
-    
-    logger.info('job3_data_adding')
+
+    phlogger.info('job3_data_adding')
     
     # 输入
     product_mapping_out_path = test_out_path + "/" + project_name + "/product_mapping_out"
@@ -61,7 +53,7 @@ def execute(max_path, max_path_local, project_name, model_month_right, max_month
         
     # =========== 数据检查 =============
         
-    logger.info('数据检查-start')
+    phlogger.info('数据检查-start')
 
     # 存储文件的缺失列
     misscols_dict = {}
@@ -87,13 +79,13 @@ def execute(max_path, max_path_local, project_name, model_month_right, max_month
             del misscols_dict[eachfile]
     # 如果有缺失列，则报错，停止运行
     if misscols_dict:
-        logger.error('miss columns: %s' % (misscols_dict))
+        phlogger.error('miss columns: %s' % (misscols_dict))
         raise ValueError('miss columns: %s' % (misscols_dict))        
             
-    logger.info('数据检查-Pass')        
+    phlogger.info('数据检查-Pass')        
 
     # =========== 数据执行 =============
-    logger.info('数据执行-start')
+    phlogger.info('数据执行-start')
     
     # 数据读取
     raw_data = spark.read.parquet(product_mapping_out_path)
@@ -106,7 +98,7 @@ def execute(max_path, max_path_local, project_name, model_month_right, max_month
                                    func.when(raw_data["标准商品名"].isin(products_of_interest), raw_data["标准商品名"]).
                                    otherwise(raw_data.S_Molecule))
                                    
-    logger.info('1 价格计算')
+    phlogger.info('1 价格计算')
     
     # 1 价格计算：cal_price 补数部分的数量需要用价格得出
     price = raw_data.groupBy("min2", "year_month", "City_Tier_2010") \
@@ -125,14 +117,14 @@ def execute(max_path, max_path_local, project_name, model_month_right, max_month
     price.write.format("parquet") \
         .mode("overwrite").save(price_path)
     
-    logger.info("输出 price：" + str(price_path))
+    phlogger.info("输出 price：" + str(price_path))
     
     # raw_data 处理
     raw_data = raw_data.where(raw_data.Year < ((model_month_right // 100) + 1))
     if project_name == "Sanofi" or project_name == "AZ":
         raw_data = raw_data.where((raw_data.Year > 2016) & (raw_data.Year < 2020))
     
-    logger.info('2 连续性计算')
+    phlogger.info('2 连续性计算')
     
     
     # 2 计算样本医院连续性: cal_continuity
@@ -163,7 +155,7 @@ def execute(max_path, max_path_local, project_name, model_month_right, max_month
     continuity = continuity.join(continuity_whole_year, on="PHA", how="left")
     
     
-    logger.info('3 增长率计算')
+    phlogger.info('3 增长率计算')
     
     # 3 计算样本分子增长率: cal_growth
     def calculate_growth(raw_data, max_month=12):
@@ -229,9 +221,9 @@ def execute(max_path, max_path_local, project_name, model_month_right, max_month
     growth_rate.write.format("parquet") \
         .mode("overwrite").save(growth_rate_path)
         
-    logger.info("输出 growth_rate：" + str(growth_rate_path))
+    phlogger.info("输出 growth_rate：" + str(growth_rate_path))
     
-    logger.info('4 补数')
+    phlogger.info('4 补数')
      
     # 4 补数    
     # 4.1 原始数据格式整理， 用于补数: trans_raw_data_for_adding
@@ -253,10 +245,10 @@ def execute(max_path, max_path_local, project_name, model_month_right, max_month
     years = original_range.select("Year").distinct() \
         .orderBy(original_range.Year) \
         .toPandas()["Year"].values.tolist()
-    logger.info(years)
+    phlogger.info(years)
     
     growth_rate_index = [index for index, name in enumerate(raw_data_for_add.columns) if name.startswith("GR")]
-    logger.info(growth_rate_index)
+    phlogger.info(growth_rate_index)
     
     # 对每年的缺失数据分别进行补数
     empty = 0
@@ -339,7 +331,7 @@ def execute(max_path, max_path_local, project_name, model_month_right, max_month
     adding_data.write.format("parquet") \
         .mode("overwrite").save(adding_data_path)
         
-    logger.info("输出 adding_data：" + str(adding_data_path))
+    phlogger.info("输出 adding_data：" + str(adding_data_path))
     
     # 1.8 合并补数部分和原始部分:
     # combind_data
@@ -352,7 +344,7 @@ def execute(max_path, max_path_local, project_name, model_month_right, max_month
     raw_data_adding.write.format("parquet") \
         .mode("overwrite").save(raw_data_adding_path)
         
-    logger.info("输出 raw_data_adding：" + str(raw_data_adding_path))
+    phlogger.info("输出 raw_data_adding：" + str(raw_data_adding_path))
     
     raw_data_for_add.unpersist()
     raw_data.unpersist()
@@ -363,7 +355,7 @@ def execute(max_path, max_path_local, project_name, model_month_right, max_month
     new_hospital = (original_range.where(original_range.Year == max(years)).select("PHA").distinct()) \
         .subtract(original_range.where(original_range.Year != max(years)).select("PHA").distinct()) \
         .toPandas()
-    logger.info("以下是最新一年出现的医院:" + str(new_hospital["PHA"].tolist()))
+    phlogger.info("以下是最新一年出现的医院:" + str(new_hospital["PHA"].tolist()))
     # 输出
     new_hospital.to_excel(new_hospital_path)
     
@@ -373,7 +365,7 @@ def execute(max_path, max_path_local, project_name, model_month_right, max_month
     
     # 如果最新一年有缺失月份，需要处理
     if missing_months.count() == 0:
-        logger.info("missing_months=0")
+        phlogger.info("missing_months=0")
         raw_data_adding_final = raw_data_adding
     else:
         number_of_existing_months = 12 - missing_months.count()
@@ -399,14 +391,14 @@ def execute(max_path, max_path_local, project_name, model_month_right, max_month
     raw_data_adding_final.write.format("parquet") \
         .mode("overwrite").save(raw_data_adding_final_path)
         
-    logger.info("输出 raw_data_adding_final：" + str(raw_data_adding_final_path))
+    phlogger.info("输出 raw_data_adding_final：" + str(raw_data_adding_final_path))
     
-    logger.info('数据执行-Finish')
+    phlogger.info('数据执行-Finish')
     
     # =========== 数据验证 =============
     # 与原R流程运行的结果比较正确性: Sanofi与Sankyo测试通过
     if True:
-        logger.info('数据验证-start')
+        phlogger.info('数据验证-start')
         
         my_out = spark.read.parquet(raw_data_adding_final_path)
         
@@ -422,21 +414,21 @@ def execute(max_path, max_path_local, project_name, model_month_right, max_month
         for colname, coltype in R_out.dtypes:
             # 列是否缺失
             if colname not in my_out.columns:
-                logger.warning ("miss columns:", colname)
+                phlogger.warning ("miss columns:", colname)
             else:
                 # 数据类型检查
                 if my_out.select(colname).dtypes[0][1] != coltype:
-                    logger.warning("different type columns: " + colname + ", " + my_out.select(colname).dtypes[0][1] + ", " + "right type: " + coltype)
+                    phlogger.warning("different type columns: " + colname + ", " + my_out.select(colname).dtypes[0][1] + ", " + "right type: " + coltype)
             
                 # 数值列的值检查
                 if coltype == "double" or coltype == "int":
                     sum_my_out = my_out.groupBy().sum(colname).toPandas().iloc[0, 0]
                     sum_R = R_out.groupBy().sum(colname).toPandas().iloc[0, 0]
-                    # logger.info(colname, sum_raw_data, sum_R)
+                    # phlogger.info(colname, sum_raw_data, sum_R)
                     if (sum_my_out - sum_R) != 0:
-                        logger.warning("different value(sum) columns: " + colname + ", " + str(sum_my_out) + ", " + "right value: " + str(sum_R))
+                        phlogger.warning("different value(sum) columns: " + colname + ", " + str(sum_my_out) + ", " + "right value: " + str(sum_R))
         
-        logger.info('数据验证-Finish')
+        phlogger.info('数据验证-Finish')
         
     # =========== return =============          
     return raw_data_adding_final
