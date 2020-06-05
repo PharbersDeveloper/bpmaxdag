@@ -11,10 +11,32 @@ spec:
     code: phmain.py
     config: phconf.yaml
     args:
-      - key: a
-        value: 123
-      - key: b
-        value: 456
+      - key: max_path
+        value: "/common/projects/max/"
+      - key: max_path_local
+        value: "/workspace/BP_Max_AutoJob/"
+      - key: project_name
+        value: "AZ"
+      - key: if_base
+        value: "F"
+      - key: time_left
+        value: 201701
+      - key: time_right
+        value: 202002
+      - key: left_models
+        value: "SNY4, SNY5, SNY7, SNY9, SNY14"
+      - key: time_left_models
+        value: 201801
+      - key: rest_models
+        value: "AZ2, AZ4, AZ7, AZ8, AZ10, AZ12, AZ13, AZ14, AZ15, AZ16, AZ17, AZ18, AZ19, AZ20, AZ21, AZ22, AZ23, AZ24, AZ25, AZ26"
+      - key: time_rest_models
+        value: 202002
+      - key: all_models
+        value: "SNY6, SNY5, AZ5"
+      - key: other_models
+        value: "AZ21, AZ16, SNY2"
+      - key: test_out_path
+        value: "/user/ywyuan/max/"
     outputs:
       - key: a
         value: abcde
