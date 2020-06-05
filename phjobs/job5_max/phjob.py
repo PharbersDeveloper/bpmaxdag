@@ -6,7 +6,7 @@ This is job template for Pharbers Max Job
 import numpy as np
 import pandas as pd
 from phlogs.phlogs import phlogger
-import os
+
 
 from pyspark.sql import SparkSession
 import time
@@ -48,9 +48,6 @@ all_models, other_models, test_out_path):
     project_path_local = max_path_local + "/" + project_name
     test_out_path = test_out_path + '/' + project_name
         
-    os.system("mkdir %s" %(project_path_local+'/MODEL/'))
-    
-
     # 计算max 函数
     def calculate_max(market, if_base=False, if_box=False):
         
