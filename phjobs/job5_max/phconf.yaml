@@ -14,7 +14,7 @@ spec:
       - key: max_path
         value: "/common/projects/max/"
       - key: max_path_local
-        value: "/workspace/BP_Max_AutoJob/"
+        value: "s3://ph-max-auto/v0.0.1-2020-06-08"
       - key: project_name
         value: "AZ"
       - key: if_base
@@ -32,9 +32,9 @@ spec:
       - key: time_rest_models
         value: 202002
       - key: all_models
-        value: "SNY6, SNY5, AZ5"
+        value: "SNY6, SNY5"
       - key: other_models
-        value: "AZ21, AZ16, SNY2"
+        value: "AZ21"
       - key: test_out_path
         value: "/user/ywyuan/max/"
     outputs:

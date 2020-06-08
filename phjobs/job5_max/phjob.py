@@ -227,7 +227,10 @@ all_models, other_models, test_out_path):
         if "factor" not in factor.columns:
             factor.withColumnRenamed("factor_new", "factor")
         factor = factor.select('City', 'factor')
-        universe_factor_panel = universe.join(factor, on="City", how="left").where(universe.PANEL == 0) \
+        universe_factor_panel = universe.join(factor, on="City", how="left")
+        universe_factor_panel = universe_factor_panel \
+            .withColumn("factor", func.when(func.isnull(universe_factor_panel.factor), func.lit(1)).otherwise(universe_factor_panel.factor)) \
+            .where(universe_factor_panel.PANEL == 0) \
             .select('Province', 'City', 'PHA', 'Est_DrugIncome_RMB', 'Seg', 'BEDSIZE', 'PANEL', 'factor')
     
         # 为这些非样本医院匹配上样本金额、产品、年月、所在segment的drugincome之和
@@ -325,6 +328,11 @@ all_models, other_models, test_out_path):
             # all_models
             my_out_path = "/user/ywyuan/max/AZ/MAX_result/MAX_result_201801-202002SNY5_hosp_level"
             R_out_path = "/user/ywyuan/max/AZ/Rout/MAX_result/MAX_result_201801-202002SNY5_hosp_level"
+            phlogger.info("if_box=False:" + str(my_out_path))
+            check_out(my_out_path, R_out_path)
+            # all_models
+            my_out_path = "/user/ywyuan/max/AZ/MAX_result/MAX_result_201701-202002SNY6_hosp_level"
+            R_out_path = "/user/ywyuan/max/AZ/Rout/MAX_result/MAX_result_201701-202002SNY6_hosp_level"
             phlogger.info("if_box=False:" + str(my_out_path))
             check_out(my_out_path, R_out_path)
             # other_models

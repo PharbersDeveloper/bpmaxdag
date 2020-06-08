@@ -5,6 +5,7 @@ This is job template for Pharbers Max Job
 """
 import numpy as np
 from phlogs.phlogs import phlogger
+from phs3.phs3 import s3
 
 from pyspark.sql import SparkSession
 import time

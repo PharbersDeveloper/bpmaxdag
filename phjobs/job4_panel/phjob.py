@@ -6,6 +6,7 @@ This is job template for Pharbers Max Job
 import numpy as np
 import pandas as pd
 from phlogs.phlogs import phlogger
+from phs3.phs3 import s3
 
 from pyspark.sql import SparkSession
 import time
@@ -156,7 +157,8 @@ def execute(max_path, max_path_local, project_name, model_month_left, model_mont
         .join(original_Date_molecule, on=["Date", "Molecule"], how="inner") \
         .join(original_Date_ProdName, on=["Date", "Prod_Name"], how="inner")
     
-    new_hospital = pd.read_excel(new_hospital_path)
+    # new_hospital = pd.read_excel(new_hospital_path)
+    new_hospital = s3.get_excel_from_s3(new_hospital_path)
     new_hospital = new_hospital["PHA"].tolist()
     
     # 生成 panel_filtered
@@ -170,7 +172,7 @@ def execute(max_path, max_path_local, project_name, model_month_left, model_mont
                u'武汉市', u'乌鲁木齐市', u'无锡市', u'西安市', u'徐州市', u'郑州市', u'合肥市', u'呼和浩特市', u'福州市', u'厦门市',
                u'泉州市', u'珠海市', u'东莞市', u'佛山市', u'中山市']
         city_list = [u'北京市', u'上海市', u'天津市', u'重庆市', u'广州市', u'深圳市', u'西安市', u'大连市', u'成都市', u'厦门市', u'沈阳市']
-        Province_list = [u'河北省', u'福建省']
+        Province_list = [u'河北省', u'福建省', u'河北', u"福建"]
     
         panel_add_data = panel_add_data \
             .where(~panel_add_data.City.isin(city_list)) \
@@ -180,9 +182,11 @@ def execute(max_path, max_path_local, project_name, model_month_left, model_mont
         # 晚于model所用时间（月更新数据），用unpublished和not arrived补数
         for index, eachfile in enumerate(Notarrive_unpublished_paths):
             if index == 0:
-                Notarrive_unpublished = pd.read_excel(eachfile, dtype=str)
+                # Notarrive_unpublished = pd.read_excel(eachfile, dtype=str)
+                Notarrive_unpublished = s3.get_excel_from_s3(eachfile, dtype=str)
             else:
-                tmp_file = pd.read_excel(eachfile, dtype=str)
+                # tmp_file = pd.read_excel(eachfile, dtype=str)
+                tmp_file = s3.get_excel_from_s3(eachfile, dtype=str)
                 Notarrive_unpublished = Notarrive_unpublished.append(tmp_file)
     
         future_range = spark.createDataFrame(Notarrive_unpublished,
@@ -203,7 +207,7 @@ def execute(max_path, max_path_local, project_name, model_month_left, model_mont
     
     else:
         city_list = [u'北京市', u'上海市', u'天津市', u'重庆市', u'广州市', u'深圳市', u'西安市', u'大连市', u'成都市', u'厦门市', u'沈阳市']
-        Province_list = [u'河北省', u'福建省']
+        Province_list = [u'河北省', u'福建省', u'河北', u"福建"]
     
         # 去除 city_list和 Province_list
         panel_add_data = panel_add_data \

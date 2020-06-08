@@ -6,6 +6,7 @@ This is job template for Pharbers Max Job
 import numpy as np
 import pandas as pd
 from phlogs.phlogs import phlogger
+from phs3.phs3 import s3
 
 from pyspark.sql import SparkSession
 import time
@@ -90,7 +91,8 @@ def execute(max_path, max_path_local, project_name, model_month_right, max_month
     # 数据读取
     raw_data = spark.read.parquet(product_mapping_out_path)
     raw_data.persist()
-    products_of_interest = pd.read_excel(products_of_interest_path)
+    # products_of_interest = pd.read_excel(products_of_interest_path)
+    products_of_interest = s3.get_excel_from_s3(products_of_interest_path)
     products_of_interest = products_of_interest["poi"].values.tolist()
     
     # raw_data 处理

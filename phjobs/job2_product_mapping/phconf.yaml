@@ -14,7 +14,7 @@ spec:
       - key: max_path
         value: "/common/projects/max/"
       - key: max_path_local
-        value: "/workspace/BP_Max_AutoJob/"
+        value: "s3://ph-max-auto/v0.0.1-2020-06-08"
       - key: project_name
         value: "Sankyo"
       - key: minimum_product_columns
