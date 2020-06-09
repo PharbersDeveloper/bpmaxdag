@@ -154,13 +154,14 @@ all_models, other_models, test_out_path):
 
             
         # 判断输入文件是否有缺失列
+        misscols_dict_final = {}
         for eachfile in misscols_dict.keys():
-            if len(misscols_dict[eachfile]) == 0:
-                del misscols_dict[eachfile]
+            if len(misscols_dict[eachfile]) != 0:
+                misscols_dict_final[eachfile] = misscols_dict[eachfile]
         # 如果有缺失列，则报错，停止运行
-        if misscols_dict:
-            phlogger.error('miss columns: %s' % (misscols_dict))
-            raise ValueError('miss columns: %s' % (misscols_dict))
+        if misscols_dict_final:
+            phlogger.error('miss columns: %s' % (misscols_dict_final))
+            raise ValueError('miss columns: %s' % (misscols_dict_final))
         
         phlogger.info('数据检查-Pass')
         

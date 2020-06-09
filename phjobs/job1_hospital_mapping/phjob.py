@@ -98,16 +98,17 @@ def execute(max_path, project_name, cpa_gyc, test_out_path):
         misscols_dict["raw_data"].append("about Form")
     if ("Manufacturer" not in colnames_raw_data) and ("生产企业" not in colnames_raw_data) and ("company_name" not in colnames_raw_data) and ("MANUFACTURER_NAME" not in colnames_raw_data):
         misscols_dict["raw_data"].append("about Manufacturer")
-
+    
     # 判断输入文件是否有缺失列
+    misscols_dict_final = {}
     for eachfile in misscols_dict.keys():
-        if len(misscols_dict[eachfile]) == 0:
-            del misscols_dict[eachfile]
+        if len(misscols_dict[eachfile]) != 0:
+            misscols_dict_final[eachfile] = misscols_dict[eachfile]
     # 如果有缺失列，则报错，停止运行
-    if misscols_dict:
-        phlogger.error('miss columns: %s' % (misscols_dict))
-        raise ValueError('miss columns: %s' % (misscols_dict))
-
+    if misscols_dict_final:
+        phlogger.error('miss columns: %s' % (misscols_dict_final))
+        raise ValueError('miss columns: %s' % (misscols_dict_final))
+    
     phlogger.info('数据检查-Pass')
 
     # =========== 数据执行 =============
