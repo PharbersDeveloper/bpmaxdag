@@ -34,8 +34,9 @@ def execute(max_path, max_path_local, project_name, minimum_product_columns, min
     need_cleaning_cols = need_cleaning_cols.replace(" ","").split(",")
     
     # 输出
+    max_path_local_c9 = "/workspace/BP_Max_AutoJob/"  #临时路径
     product_mapping_out_path = test_out_path + "/" + project_name + "/product_mapping_out"
-    need_cleaning_path = max_path_local + "/" + project_name + "/need_cleaning.xlsx"
+    need_cleaning_path = max_path_local_c9 + "/" + project_name + "/need_cleaning.xlsx"
     
     # =========== 数据检查 =============
     phlogger.info('数据检查-start')
@@ -117,6 +118,8 @@ def execute(max_path, max_path_local, project_name, minimum_product_columns, min
         need_cleaning = need_cleaning.toPandas()
         need_cleaning.to_excel(need_cleaning_path)
         phlogger.info('已输出待清洗文件至:  ' + need_cleaning_path)
+        # 传输到s3
+        s3.put_object("ph-max-auto", max_path_local.split("/")[-1] + "/" + project_name + "/need_cleaning.xlsx", need_cleaning_path)
 
     raw_data = raw_data.join(product_map_for_rawdata, on="min1", how="left") \
         .drop("S_Molecule") \

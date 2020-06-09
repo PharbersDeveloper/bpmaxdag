@@ -38,7 +38,7 @@ def execute(max_path, max_path_local, project_name, model_month_left, model_mont
         market_path  = max_path + "/" + project_name + "/mkt_mapping"
     
     raw_data_adding_final_path = test_out_path + "/" + project_name + "/raw_data_adding_final"
-    new_hospital_path = max_path_local + "/" + project_name + "/2019new_hospital.xlsx"
+    new_hospital_path = max_path_local + "/" + project_name + "/new_hospital.xlsx"
     
     
     # 输出

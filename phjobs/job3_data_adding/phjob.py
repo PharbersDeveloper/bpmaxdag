@@ -44,11 +44,12 @@ def execute(max_path, max_path_local, project_name, model_month_right, max_month
     max_month = int(max_month)
 
     # 输出
+    max_path_local_c9 = "/workspace/BP_Max_AutoJob/"  #临时路径
     price_path = test_out_path + "/" + project_name + "/price"
     growth_rate_path = test_out_path + "/" + project_name + "/growth_rate"
     adding_data_path =  test_out_path + "/" + project_name + "/adding_data"
     raw_data_adding_path =  test_out_path + "/" + project_name + "/raw_data_adding"
-    new_hospital_path = max_path_local + "/" + project_name + "/2019new_hospital.xlsx"
+    new_hospital_path = max_path_local_c9 + "/" + project_name + "/new_hospital.xlsx"
     raw_data_adding_final_path =  test_out_path + "/" + project_name + "/raw_data_adding_final"
 
         
@@ -360,6 +361,8 @@ def execute(max_path, max_path_local, project_name, model_month_right, max_month
     phlogger.info("以下是最新一年出现的医院:" + str(new_hospital["PHA"].tolist()))
     # 输出
     new_hospital.to_excel(new_hospital_path)
+    # 传输到s3
+    s3.put_object("ph-max-auto", max_path_local.split("/")[-1] + "/" + project_name + "/new_hospital.xlsx", new_hospital_path)
     
     # 最新一年没有的月份
     missing_months = (original_range.where(original_range.Year != max(years)).select("Month").distinct()) \

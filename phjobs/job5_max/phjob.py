@@ -6,7 +6,7 @@ This is job template for Pharbers Max Job
 import numpy as np
 import pandas as pd
 from phlogs.phlogs import phlogger
-
+from phs3.phs3 import s3
 
 from pyspark.sql import SparkSession
 import time
@@ -47,6 +47,9 @@ all_models, other_models, test_out_path):
         
     project_path_local = max_path_local + "/" + project_name
     test_out_path = test_out_path + '/' + project_name
+    
+    # 临时路径
+    project_path_local_c9 = "/workspace/BP_Max_AutoJob/" + project_name
         
     # 计算max 函数
     def calculate_max(market, if_base=False, if_box=False):
@@ -276,12 +279,16 @@ all_models, other_models, test_out_path):
     
         if if_box:
             # max_c_path = project_path_local + '/MODEL/' + mkt + '_MAX_result_100bed_' + time_range + '_box' + time.strftime("%Y-%m-%d", time.localtime()) + '.xlsx'
-            max_excel_path = project_path_local + '/MODEL/' + market + '_MAX_result_100bed_' + time_range + '_box' + '.xlsx'
+            max_excel_path = project_path_local_c9 + '/MODEL/' + market + '_MAX_result_100bed_' + time_range + '_box' + '.xlsx'
             max_excel.to_excel(max_excel_path, index=False)
+            # 传输到s3
+            s3.put_object("ph-max-auto", max_path_local.split("/")[-1] + "/" + project_name + "/" + '/'.join(max_excel_path.split("/")[-2:]), max_excel_path)
         else:
             # max_c_path = project_path_local + '/MODEL/' + mkt + '_MAX_result_100bed_' + time_range + time.strftime("%Y-%m-%d", time.localtime()) + '.xlsx'
-            max_excel_path = project_path_local + '/MODEL/' + market + '_MAX_result_100bed_' + time_range + '.xlsx'
+            max_excel_path = project_path_local_c9 + '/MODEL/' + market + '_MAX_result_100bed_' + time_range + '.xlsx'
             max_excel.to_excel(max_excel_path, index=False)
+            # 传输到s3
+            s3.put_object("ph-max-auto", max_path_local.split("/")[-1] + "/" + project_name + "/" + '/'.join(max_excel_path.split("/")[-2:]), max_excel_path)
             
         phlogger.info('数据执行-Finish')
     
@@ -328,17 +335,17 @@ all_models, other_models, test_out_path):
             # all_models
             my_out_path = "/user/ywyuan/max/AZ/MAX_result/MAX_result_201801-202002SNY5_hosp_level"
             R_out_path = "/user/ywyuan/max/AZ/Rout/MAX_result/MAX_result_201801-202002SNY5_hosp_level"
-            phlogger.info("if_box=False:" + str(my_out_path))
+            phlogger.info("if_box=False SNY5:" + str(my_out_path))
             check_out(my_out_path, R_out_path)
             # all_models
             my_out_path = "/user/ywyuan/max/AZ/MAX_result/MAX_result_201701-202002SNY6_hosp_level"
             R_out_path = "/user/ywyuan/max/AZ/Rout/MAX_result/MAX_result_201701-202002SNY6_hosp_level"
-            phlogger.info("if_box=False:" + str(my_out_path))
+            phlogger.info("if_box=False SNY6:" + str(my_out_path))
             check_out(my_out_path, R_out_path)
             # other_models
             my_out_path = "/user/ywyuan/max/AZ/MAX_result/MAX_result_201701-202002AZ21_hosp_level_box"
             R_out_path = "/user/ywyuan/max/AZ/Rout/MAX_result/MAX_result_201701-202002AZ21_hosp_level_box"
-            phlogger.info("if_box=True:" + str(my_out_path))
+            phlogger.info("if_box=True AZ21:" + str(my_out_path))
             check_out(my_out_path, R_out_path)
         elif project_name == "Sankyo":
             R_out_path = ""
