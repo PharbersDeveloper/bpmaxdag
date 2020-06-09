@@ -13,7 +13,7 @@ from pyspark.sql.types import *
 from pyspark.sql.types import StringType, IntegerType
 from pyspark.sql import functions as func
 
-def execute(max_path, max_path_local, project_name, minimum_product_columns, minimum_product_sep, minimum_product_newname, need_cleaning_cols, test_out_path):
+def execute(max_path, max_path_local, project_name, minimum_product_columns, minimum_product_sep, minimum_product_newname, need_cleaning_cols, test_out_path, need_test):
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("sparkOutlier") \
@@ -136,7 +136,7 @@ def execute(max_path, max_path_local, project_name, minimum_product_columns, min
     
     # =========== 数据验证 =============
     # 与原R流程运行的结果比较正确性
-    if True:
+    if int(need_test) > 0:
         phlogger.info('数据验证-start')
         
         my_out = raw_data

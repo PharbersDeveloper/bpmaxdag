@@ -213,7 +213,7 @@ def execute(max_path, project_name, cpa_gyc, test_out_path, need_test):
 
     # =========== 数据验证 =============
 
-    if need_test > 0:
+    if int(need_test) > 0:
         phlogger.info('数据验证-start')
 
         my_out = raw_data

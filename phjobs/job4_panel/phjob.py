@@ -15,7 +15,7 @@ from pyspark.sql.types import StringType, IntegerType, DoubleType
 from pyspark.sql import functions as func
 
 
-def execute(max_path, max_path_local, project_name, model_month_left, model_month_right, paths_foradding, test_out_path):
+def execute(max_path, max_path_local, project_name, model_month_left, model_month_right, paths_foradding, test_out_path, need_test):
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("sparkOutlier") \
@@ -233,7 +233,7 @@ def execute(max_path, max_path_local, project_name, model_month_left, model_mont
         
     # =========== 数据验证 =============
     # 与原R流程运行的结果比较正确性: Sanofi与Sankyo测试通过
-    if True:
+    if int(need_test) > 0:
         phlogger.info('数据验证-start')
         
         my_out = spark.read.parquet(panel_path)

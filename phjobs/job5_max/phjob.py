@@ -16,7 +16,7 @@ from pyspark.sql import functions as func
 
 
 def execute(max_path, max_path_local, project_name, if_base, time_left, time_right, left_models, time_left_models, rest_models, time_rest_models, 
-all_models, other_models, test_out_path):
+all_models, other_models, test_out_path, need_test):
     
     spark = SparkSession.builder \
         .master("yarn") \
@@ -303,7 +303,7 @@ all_models, other_models, test_out_path):
         
     # =========== 数据验证 =============
     # 与原R流程运行的结果比较正确性:
-    if True:
+    if int(need_test) > 0:
         phlogger.info('数据验证-start')
         
         def check_out(my_out_path, R_out_path):

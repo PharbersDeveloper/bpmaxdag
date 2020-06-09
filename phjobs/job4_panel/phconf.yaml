@@ -25,6 +25,8 @@ spec:
         value: ""
       - key: test_out_path
         value: "/user/ywyuan/max/"
+      - key: need_test
+        value: 0
     outputs:
       - key: a
         value: abcde
