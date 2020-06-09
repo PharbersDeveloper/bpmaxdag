@@ -13,7 +13,7 @@ from pyspark.sql.types import StringType, IntegerType
 from pyspark.sql import functions as func
 
 
-def execute(max_path, project_name, cpa_gyc, test_out_path):
+def execute(max_path, project_name, cpa_gyc, test_out_path, need_test):
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("sparkOutlier") \
@@ -33,11 +33,11 @@ def execute(max_path, project_name, cpa_gyc, test_out_path):
             raw_data_path = max_path + "/AZ_Sanofi/sanofi_raw_data"
         elif project_name == "AZ":
             raw_data_path = max_path + "/AZ_Sanofi/az_raw_data"
-    else:    
+    else:
         universe_path = max_path + "/" + project_name + "/universe_base"
         cpa_pha_mapping_path = max_path + "/" + project_name + "/cpa_pha_mapping"
         raw_data_path = max_path + "/" + project_name + "/raw_data"
-        
+
     # 输出
     hospital_mapping_out_path = test_out_path + "/" + project_name + "/hospital_mapping_out"
 
@@ -98,7 +98,7 @@ def execute(max_path, project_name, cpa_gyc, test_out_path):
         misscols_dict["raw_data"].append("about Form")
     if ("Manufacturer" not in colnames_raw_data) and ("生产企业" not in colnames_raw_data) and ("company_name" not in colnames_raw_data) and ("MANUFACTURER_NAME" not in colnames_raw_data):
         misscols_dict["raw_data"].append("about Manufacturer")
-    
+
     # 判断输入文件是否有缺失列
     misscols_dict_final = {}
     for eachfile in misscols_dict.keys():
@@ -108,7 +108,7 @@ def execute(max_path, project_name, cpa_gyc, test_out_path):
     if misscols_dict_final:
         phlogger.error('miss columns: %s' % (misscols_dict_final))
         raise ValueError('miss columns: %s' % (misscols_dict_final))
-    
+
     phlogger.info('数据检查-Pass')
 
     # =========== 数据执行 =============
@@ -206,27 +206,27 @@ def execute(max_path, project_name, cpa_gyc, test_out_path):
     hospital_mapping_out = raw_data.repartition(2)
     hospital_mapping_out.write.format("parquet") \
         .mode("overwrite").save(hospital_mapping_out_path)
-        
+
     phlogger.info("输出 hospital_mapping 结果：" + str(hospital_mapping_out_path))
 
     phlogger.info('数据执行-Finish')
 
     # =========== 数据验证 =============
 
-    if True:
+    if need_test > 0:
         phlogger.info('数据验证-start')
-        
+
         my_out = raw_data
-        
+
         if project_name == "Sanofi":
             R_out_path = "/common/projects/max/AZ_Sanofi/hospital_mapping/raw_data_with_pha"
         elif project_name == "AZ":
             R_out_path = "/common/projects/max/AZ_Sanofi/hospital_mapping/raw_data_with_pha_az"
         elif project_name == "Sankyo":
             R_out_path = "/user/ywyuan/max/Sankyo/Rout/hospital_mapping_out"
-            
+
         R_out = spark.read.parquet(R_out_path)
-                    
+
         # 检查内容：列缺失，列的类型，列的值
         for colname, coltype in R_out.dtypes:
             # 列是否缺失
@@ -236,7 +236,7 @@ def execute(max_path, project_name, cpa_gyc, test_out_path):
                 # 数据类型检查
                 if my_out.select(colname).dtypes[0][1] != coltype:
                     phlogger.warning("different type columns: " + colname + ", " + my_out.select(colname).dtypes[0][1] + ", " + "right type: " + coltype)
-            
+
                 # 数值列的值检查
                 if coltype == "double" or coltype == "int":
                     sum_my_out = my_out.groupBy().sum(colname).toPandas().iloc[0, 0]
@@ -246,8 +246,8 @@ def execute(max_path, project_name, cpa_gyc, test_out_path):
                         phlogger.warning("different value(sum) columns: " + colname + ", " + str(sum_my_out) + ", " + "right value: " + str(sum_R))
 
         phlogger.info('数据验证-Finish')
-        
-    # =========== return =============     
+
+    # =========== return =============
     return raw_data
 
 
