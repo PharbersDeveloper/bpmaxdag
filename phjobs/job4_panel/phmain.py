@@ -16,11 +16,10 @@ import click
 @click.option('--paths_foradding')
 @click.option('--test_out_path')
 @click.option('--need_test')
-
 def debug_execute(max_path, max_path_local, project_name, model_month_left, model_month_right, paths_foradding, test_out_path, need_test):
 	execute(max_path, max_path_local, project_name, model_month_left, model_month_right, paths_foradding, test_out_path, need_test)
 
 
 if __name__ == '__main__':
-    debug_execute()
+	debug_execute()
 

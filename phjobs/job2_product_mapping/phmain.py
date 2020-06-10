@@ -12,7 +12,6 @@ import click
 @click.option('--need_cleaning_cols')
 @click.option('--test_out_path')
 @click.option('--need_test')
-
 def debug_execute(max_path, max_path_local, project_name, minimum_product_columns, minimum_product_sep, minimum_product_newname, need_cleaning_cols, test_out_path, need_test):
     execute(max_path, max_path_local, project_name, minimum_product_columns, minimum_product_sep, minimum_product_newname, need_cleaning_cols, test_out_path, need_test)
 
