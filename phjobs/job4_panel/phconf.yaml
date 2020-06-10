@@ -14,7 +14,7 @@ spec:
       - key: max_path
         value: "/common/projects/max/"
       - key: max_path_local
-        value: "s3://ph-max-auto/v0.0.1-2020-06-08"
+        value: "s3a://ph-max-auto/v0.0.1-2020-06-08"
       - key: project_name
         value: "Sankyo"
       - key: model_month_left

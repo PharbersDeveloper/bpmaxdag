@@ -6,7 +6,7 @@ This is job template for Pharbers Max Job
 import numpy as np
 from phlogs.phlogs import phlogger
 from phs3.phs3 import s3
-
+import os
 from pyspark.sql import SparkSession
 import time
 from pyspark.sql.types import *
@@ -16,12 +16,22 @@ from pyspark.sql import functions as func
 def execute(max_path, max_path_local, project_name, minimum_product_columns, minimum_product_sep, minimum_product_newname, need_cleaning_cols, test_out_path, need_test):
     spark = SparkSession.builder \
         .master("yarn") \
-        .appName("sparkOutlier") \
+        .appName("data from s3") \
         .config("spark.driver.memory", "1g") \
         .config("spark.executor.cores", "1") \
-        .config("spark.executor.instance", "2") \
-        .config("spark.executor.memory", "2g") \
+        .config("spark.executor.instance", "1") \
+        .config("spark.executor.memory", "1g") \
+        .config('spark.sql.codegen.wholeStage', False) \
         .getOrCreate()
+
+    access_key = os.getenv("AWS_ACCESS_KEY_ID")
+    secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+    spark._jsc.hadoopConfiguration().set("fs.s3a.access.key", access_key)
+    spark._jsc.hadoopConfiguration().set("fs.s3a.secret.key", secret_key)
+    spark._jsc.hadoopConfiguration().set("fs.s3a.impl","org.apache.hadoop.fs.s3a.S3AFileSystem")
+    spark._jsc.hadoopConfiguration().set("com.amazonaws.services.s3.enableV4", "true")
+    # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
+    spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
     
     phlogger.info('job2_product_mapping')
         
@@ -34,9 +44,8 @@ def execute(max_path, max_path_local, project_name, minimum_product_columns, min
     need_cleaning_cols = need_cleaning_cols.replace(" ","").split(",")
     
     # 输出
-    max_path_local_c9 = "/workspace/BP_Max_AutoJob/"  #临时路径
     product_mapping_out_path = test_out_path + "/" + project_name + "/product_mapping_out"
-    need_cleaning_path = max_path_local_c9 + "/" + project_name + "/need_cleaning.xlsx"
+    need_cleaning_path = test_out_path + "/" + project_name + "/need_cleaning"
     
     # =========== 数据检查 =============
     phlogger.info('数据检查-start')
@@ -114,13 +123,12 @@ def execute(max_path, max_path_local, project_name, minimum_product_columns, min
         .distinct()
     phlogger.info('待清洗行数: ' + str(need_cleaning.count()))
 
-    # need_cleaning_path = "/user/ywyuan/max/Sankyo/need_cleaning.xlsx"
     if need_cleaning.count() > 0:
-        need_cleaning = need_cleaning.toPandas()
-        need_cleaning.to_excel(need_cleaning_path)
-        phlogger.info('已输出待清洗文件至:  ' + need_cleaning_path)
-        # 传输到s3
-        s3.put_object("ph-max-auto", max_path_local.split("/")[-1] + "/" + project_name + "/need_cleaning.xlsx", need_cleaning_path)
+        need_cleaning = need_cleaning.repartition(2)
+        need_cleaning.write.format("parquet") \
+            .mode("overwrite").save(need_cleaning_path)
+        phlogger.info("已输出待清洗文件至:  " + str(need_cleaning_path))
+
 
     raw_data = raw_data.join(product_map_for_rawdata, on="min1", how="left") \
         .drop("S_Molecule") \
