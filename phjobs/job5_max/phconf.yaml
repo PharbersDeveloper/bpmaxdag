@@ -14,13 +14,13 @@ spec:
       - key: max_path
         value: "/common/projects/max/"
       - key: max_path_local
-        value: "s3://ph-max-auto/v0.0.1-2020-06-08"
+        value: "s3a://ph-max-auto/v0.0.1-2020-06-08"
       - key: project_name
-        value: "AZ"
+        value: "Sankyo"
       - key: if_base
-        value: "F"
+        value: "T"
       - key: time_left
-        value: 201701
+        value: 201801
       - key: time_right
         value: 202002
       - key: left_models
@@ -28,13 +28,13 @@ spec:
       - key: time_left_models
         value: 201801
       - key: rest_models
-        value: "AZ2, AZ4, AZ7, AZ8, AZ10, AZ12, AZ13, AZ14, AZ15, AZ16, AZ17, AZ18, AZ19, AZ20, AZ21, AZ22, AZ23, AZ24, AZ25, AZ26"
+        value: ""
       - key: time_rest_models
-        value: 202002
+        value: 0
       - key: all_models
-        value: "SNY6, SNY5"
+        value: "CV IV, OLM"
       - key: other_models
-        value: "AZ21"
+        value: ""
       - key: test_out_path
         value: "/user/ywyuan/max/"
       - key: need_test

@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 from phlogs.phlogs import phlogger
 from phs3.phs3 import s3
+import os
 
 from pyspark.sql import SparkSession
 import time
@@ -18,13 +19,22 @@ from pyspark.sql import functions as func
 def execute(max_path, max_path_local, project_name, model_month_left, model_month_right, paths_foradding, test_out_path, need_test):
     spark = SparkSession.builder \
         .master("yarn") \
-        .appName("sparkOutlier") \
+        .appName("data from s3") \
         .config("spark.driver.memory", "1g") \
         .config("spark.executor.cores", "1") \
-        .config("spark.executor.instance", "2") \
-        .config("spark.executor.memory", "2g") \
+        .config("spark.executor.instance", "1") \
+        .config("spark.executor.memory", "1g") \
+        .config('spark.sql.codegen.wholeStage', False) \
         .getOrCreate()
-    
+
+    access_key = os.getenv("AWS_ACCESS_KEY_ID")
+    secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+    spark._jsc.hadoopConfiguration().set("fs.s3a.access.key", access_key)
+    spark._jsc.hadoopConfiguration().set("fs.s3a.secret.key", secret_key)
+    spark._jsc.hadoopConfiguration().set("fs.s3a.impl","org.apache.hadoop.fs.s3a.S3AFileSystem")
+    spark._jsc.hadoopConfiguration().set("com.amazonaws.services.s3.enableV4", "true")
+    # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
+    spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
     
     phlogger.info('job4_panel')
     
@@ -38,7 +48,7 @@ def execute(max_path, max_path_local, project_name, model_month_left, model_mont
         market_path  = max_path + "/" + project_name + "/mkt_mapping"
     
     raw_data_adding_final_path = test_out_path + "/" + project_name + "/raw_data_adding_final"
-    new_hospital_path = max_path_local + "/" + project_name + "/new_hospital.xlsx"
+    new_hospital_path = test_out_path + "/" + project_name + "/new_hospital"
     
     
     # 输出
@@ -159,8 +169,8 @@ def execute(max_path, max_path_local, project_name, model_month_left, model_mont
         .join(original_Date_ProdName, on=["Date", "Prod_Name"], how="inner")
     
     # new_hospital = pd.read_excel(new_hospital_path)
-    new_hospital = s3.get_excel_from_s3(new_hospital_path)
-    new_hospital = new_hospital["PHA"].tolist()
+    new_hospital = spark.read.parquet(new_hospital_path)
+    new_hospital = new_hospital.toPandas()["PHA"].tolist()
     
     # 生成 panel_filtered
     # 早于model所用时间（历史数据），用new_hospital补数;
@@ -184,16 +194,13 @@ def execute(max_path, max_path_local, project_name, model_month_left, model_mont
         for index, eachfile in enumerate(Notarrive_unpublished_paths):
             if index == 0:
                 # Notarrive_unpublished = pd.read_excel(eachfile, dtype=str)
-                Notarrive_unpublished = s3.get_excel_from_s3(eachfile, dtype=str)
+                Notarrive_unpublished = spark.read.csv(eachfile, header=True)
             else:
                 # tmp_file = pd.read_excel(eachfile, dtype=str)
-                tmp_file = s3.get_excel_from_s3(eachfile, dtype=str)
-                Notarrive_unpublished = Notarrive_unpublished.append(tmp_file)
+                tmp_file =  spark.read.csv(eachfile, header=True)
+                Notarrive_unpublished = Notarrive_unpublished.union(tmp_file)
     
-        future_range = spark.createDataFrame(Notarrive_unpublished,
-                                             schema=StructType([StructField("ID", StringType(), True),
-                                                                StructField("Date", StringType(), True)]))
-        future_range = future_range.withColumn("Date", future_range["Date"].cast(DoubleType()))
+        future_range = Notarrive_unpublished.withColumn("Date", Notarrive_unpublished["Date"].cast(DoubleType()))
     
         panel_add_data_future = panel_add_data.where(panel_add_data.Date > int(model_month_right)) \
             .join(future_range, on=["Date", "ID"], how="inner") \
@@ -259,7 +266,6 @@ def execute(max_path, max_path_local, project_name, model_month_left, model_mont
                 # 数据类型检查
                 if my_out.select(colname).dtypes[0][1] != coltype:
                     phlogger.warning("different type columns: " + colname + ", " + my_out.select(colname).dtypes[0][1] + ", " + "right type: " + coltype)
-            
                 # 数值列的值检查
                 if coltype == "double" or coltype == "int":
                     sum_my_out = my_out.groupBy().sum(colname).toPandas().iloc[0, 0]

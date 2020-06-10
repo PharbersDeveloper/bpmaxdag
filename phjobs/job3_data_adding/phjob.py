@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from phlogs.phlogs import phlogger
 from phs3.phs3 import s3
-
+import os
 from pyspark.sql import SparkSession
 import time
 from pyspark.sql.types import *
@@ -18,23 +18,28 @@ from pyspark.sql import functions as func
 def execute(max_path, max_path_local, project_name, model_month_right, max_month, year_missing, test_out_path, need_test):
     spark = SparkSession.builder \
         .master("yarn") \
-        .appName("sparkOutlier") \
+        .appName("data from s3") \
         .config("spark.driver.memory", "1g") \
         .config("spark.executor.cores", "1") \
-        .config("spark.executor.instance", "2") \
-        .config("spark.executor.memory", "2g") \
+        .config("spark.executor.instance", "1") \
+        .config("spark.executor.memory", "1g") \
+        .config('spark.sql.codegen.wholeStage', False) \
         .getOrCreate()
-        
+
+    access_key = os.getenv("AWS_ACCESS_KEY_ID")
+    secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+    spark._jsc.hadoopConfiguration().set("fs.s3a.access.key", access_key)
+    spark._jsc.hadoopConfiguration().set("fs.s3a.secret.key", secret_key)
+    spark._jsc.hadoopConfiguration().set("fs.s3a.impl","org.apache.hadoop.fs.s3a.S3AFileSystem")
+    spark._jsc.hadoopConfiguration().set("com.amazonaws.services.s3.enableV4", "true")
+    # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
+    spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
 
     phlogger.info('job3_data_adding')
     
     # 输入
     product_mapping_out_path = test_out_path + "/" + project_name + "/product_mapping_out"
-    products_of_interest_path = max_path_local + "/" + project_name + "/poi.xlsx"
-    # model_month_right = 201912
-    # project_name = "Sankyo"
-    # max_month = 12
-    # year_missing = []
+    products_of_interest_path = max_path_local + "/" + project_name + "/poi.csv"
     if year_missing:
         year_missing = year_missing.replace(" ","").split(",")
     else:
@@ -44,12 +49,11 @@ def execute(max_path, max_path_local, project_name, model_month_right, max_month
     max_month = int(max_month)
 
     # 输出
-    max_path_local_c9 = "/workspace/BP_Max_AutoJob/"  #临时路径
     price_path = test_out_path + "/" + project_name + "/price"
     growth_rate_path = test_out_path + "/" + project_name + "/growth_rate"
     adding_data_path =  test_out_path + "/" + project_name + "/adding_data"
     raw_data_adding_path =  test_out_path + "/" + project_name + "/raw_data_adding"
-    new_hospital_path = max_path_local_c9 + "/" + project_name + "/new_hospital.xlsx"
+    new_hospital_path = test_out_path + "/" + project_name + "/new_hospital"
     raw_data_adding_final_path =  test_out_path + "/" + project_name + "/raw_data_adding_final"
 
         
@@ -94,8 +98,9 @@ def execute(max_path, max_path_local, project_name, model_month_right, max_month
     raw_data = spark.read.parquet(product_mapping_out_path)
     raw_data.persist()
     # products_of_interest = pd.read_excel(products_of_interest_path)
-    products_of_interest = s3.get_excel_from_s3(products_of_interest_path)
-    products_of_interest = products_of_interest["poi"].values.tolist()
+    # products_of_interest = s3.get_excel_from_s3(products_of_interest_path)
+    products_of_interest = spark.read.csv(products_of_interest_path, header=True)
+    products_of_interest = products_of_interest.toPandas()["poi"].values.tolist()
     
     # raw_data 处理
     raw_data = raw_data.withColumn("S_Molecule_for_gr",
@@ -344,11 +349,11 @@ def execute(max_path, max_path_local, project_name, model_month_right, max_month
     raw_data_adding.persist()
     
     # 输出
-    raw_data_adding = raw_data_adding.repartition(2)
-    raw_data_adding.write.format("parquet") \
-        .mode("overwrite").save(raw_data_adding_path)
+    # raw_data_adding = raw_data_adding.repartition(2)
+    # raw_data_adding.write.format("parquet") \
+    #    .mode("overwrite").save(raw_data_adding_path)
         
-    phlogger.info("输出 raw_data_adding：" + str(raw_data_adding_path))
+    # phlogger.info("输出 raw_data_adding：" + str(raw_data_adding_path))
     
     raw_data_for_add.unpersist()
     raw_data.unpersist()
@@ -357,13 +362,14 @@ def execute(max_path, max_path_local, project_name, model_month_right, max_month
     
     # 只在最新一年出现的医院
     new_hospital = (original_range.where(original_range.Year == max(years)).select("PHA").distinct()) \
-        .subtract(original_range.where(original_range.Year != max(years)).select("PHA").distinct()) \
-        .toPandas()
-    phlogger.info("以下是最新一年出现的医院:" + str(new_hospital["PHA"].tolist()))
+        .subtract(original_range.where(original_range.Year != max(years)).select("PHA").distinct())
+    phlogger.info("以下是最新一年出现的医院:" + str(new_hospital.toPandas()["PHA"].tolist()))
     # 输出
-    new_hospital.to_excel(new_hospital_path)
-    # 传输到s3
-    s3.put_object("ph-max-auto", max_path_local.split("/")[-1] + "/" + project_name + "/new_hospital.xlsx", new_hospital_path)
+    new_hospital = new_hospital.repartition(2)
+    new_hospital.write.format("parquet") \
+        .mode("overwrite").save(new_hospital_path)
+    
+    phlogger.info("输出 new_hospital：" + str(new_hospital_path))
     
     # 最新一年没有的月份
     missing_months = (original_range.where(original_range.Year != max(years)).select("Month").distinct()) \

@@ -5,7 +5,7 @@ This is job template for Pharbers Max Job
 """
 import numpy as np
 from phlogs.phlogs import phlogger
-
+import os
 from pyspark.sql import SparkSession
 import time
 from pyspark.sql.types import *
@@ -16,12 +16,22 @@ from pyspark.sql import functions as func
 def execute(max_path, project_name, cpa_gyc, test_out_path, need_test):
     spark = SparkSession.builder \
         .master("yarn") \
-        .appName("sparkOutlier") \
+        .appName("data from s3") \
         .config("spark.driver.memory", "1g") \
         .config("spark.executor.cores", "1") \
-        .config("spark.executor.instance", "2") \
-        .config("spark.executor.memory", "2g") \
+        .config("spark.executor.instance", "1") \
+        .config("spark.executor.memory", "1g") \
+        .config('spark.sql.codegen.wholeStage', False) \
         .getOrCreate()
+
+    access_key = os.getenv("AWS_ACCESS_KEY_ID")
+    secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+    spark._jsc.hadoopConfiguration().set("fs.s3a.access.key", access_key)
+    spark._jsc.hadoopConfiguration().set("fs.s3a.secret.key", secret_key)
+    spark._jsc.hadoopConfiguration().set("fs.s3a.impl","org.apache.hadoop.fs.s3a.S3AFileSystem")
+    spark._jsc.hadoopConfiguration().set("com.amazonaws.services.s3.enableV4", "true")
+    # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
+    spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
 
     phlogger.info('job1_hospital_mapping')
 

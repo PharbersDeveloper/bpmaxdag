@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from phlogs.phlogs import phlogger
 from phs3.phs3 import s3
-
+import os
 from pyspark.sql import SparkSession
 import time
 from pyspark.sql.types import *
@@ -17,15 +17,24 @@ from pyspark.sql import functions as func
 
 def execute(max_path, max_path_local, project_name, if_base, time_left, time_right, left_models, time_left_models, rest_models, time_rest_models, 
 all_models, other_models, test_out_path, need_test):
-    
     spark = SparkSession.builder \
         .master("yarn") \
-        .appName("sparkOutlier") \
+        .appName("data from s3") \
         .config("spark.driver.memory", "1g") \
         .config("spark.executor.cores", "1") \
-        .config("spark.executor.instance", "2") \
-        .config("spark.executor.memory", "2g") \
+        .config("spark.executor.instance", "1") \
+        .config("spark.executor.memory", "1g") \
+        .config('spark.sql.codegen.wholeStage', False) \
         .getOrCreate()
+
+    access_key = os.getenv("AWS_ACCESS_KEY_ID")
+    secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+    spark._jsc.hadoopConfiguration().set("fs.s3a.access.key", access_key)
+    spark._jsc.hadoopConfiguration().set("fs.s3a.secret.key", secret_key)
+    spark._jsc.hadoopConfiguration().set("fs.s3a.impl","org.apache.hadoop.fs.s3a.S3AFileSystem")
+    spark._jsc.hadoopConfiguration().set("com.amazonaws.services.s3.enableV4", "true")
+    # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
+    spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
     
     phlogger.info('job5_max')
     
@@ -34,11 +43,13 @@ all_models, other_models, test_out_path, need_test):
         if_base = False
     elif if_base == "T":
         if_base = True
-    left_models = left_models.replace(" ","").split(",")
-    rest_models = rest_models.replace(" ","").split(",")
+    left_models = left_models.replace(", ",",").split(",")
+    rest_models = rest_models.replace(", ",",").split(",")
     time_parameters = [int(time_left), int(time_right), left_models, int(time_left_models), rest_models, int(time_rest_models)]
-    all_models = all_models.replace(" ","").split(",")
-    other_models = other_models.replace(" ","").split(",")
+    if all_models:
+        all_models = all_models.replace(", ",",").split(",")
+    if other_models:
+        other_models = other_models.replace(", ",",").split(",")
     
     if project_name == "Sanofi" or project_name == "AZ":
         project_path = max_path + "/AZ_Sanofi/"
@@ -47,9 +58,7 @@ all_models, other_models, test_out_path, need_test):
         
     project_path_local = max_path_local + "/" + project_name
     test_out_path = test_out_path + '/' + project_name
-    
-    # 临时路径
-    project_path_local_c9 = "/workspace/BP_Max_AutoJob/" + project_name
+    # project_path_local_c9 = "/workspace/BP_Max_AutoJob/" + project_name
         
     # 计算max 函数
     def calculate_max(market, if_base=False, if_box=False):
@@ -260,18 +269,19 @@ all_models, other_models, test_out_path, need_test):
         max_result = max_result.union(panel.select(max_result.columns))
     
         # 输出结果
-        if if_base == False:
-            max_result = max_result.repartition(2)
-            if if_box:
-                max_path = test_out_path + "/MAX_result/MAX_result_" + time_range + market + "_hosp_level_box"
-                max_result.write.format("parquet") \
-                    .mode("overwrite").save(max_path)
-            else:
-                max_path = test_out_path + "/MAX_result/MAX_result_" + time_range + market + "_hosp_level"
-                max_result.write.format("parquet") \
-                    .mode("overwrite").save(max_path)
+        # if if_base == False:
+        max_result = max_result.repartition(2)
+        if if_box:
+            max_path = test_out_path + "/MAX_result/MAX_result_" + time_range + market + "_hosp_level_box"
+            max_result.write.format("parquet") \
+                .mode("overwrite").save(max_path)
+        else:
+            max_path = test_out_path + "/MAX_result/MAX_result_" + time_range + market + "_hosp_level"
+            max_result.write.format("parquet") \
+                .mode("overwrite").save(max_path)
     
         # 输出excel
+        '''
         max_excel = max_result.where(max_result.BEDSIZE > 99) \
             .groupBy('Province', 'City', 'PANEL', "Prod_Name", 'Date') \
             .agg(func.sum("Predict_Sales").alias("Predict_Sales"), func.sum("Predict_Unit").alias("Predict_Unit"))
@@ -290,16 +300,19 @@ all_models, other_models, test_out_path, need_test):
             max_excel.to_excel(max_excel_path, index=False)
             # 传输到s3
             s3.put_object("ph-max-auto", max_path_local.split("/")[-1] + "/" + project_name + "/" + '/'.join(max_excel_path.split("/")[-2:]), max_excel_path)
-            
+        '''
+        
         phlogger.info('数据执行-Finish')
     
     
     # 执行函数
-    for i in all_models:
-        calculate_max(i, if_base=if_base, if_box=False)
+    if all_models:
+        for i in all_models:
+            calculate_max(i, if_base=if_base, if_box=False)
     
-    for i in other_models:
-        calculate_max(i, if_base=if_base, if_box=True)
+    if other_models:
+        for i in other_models:
+            calculate_max(i, if_base=if_base, if_box=True)
         
     # =========== 数据验证 =============
     # 与原R流程运行的结果比较正确性:
@@ -349,6 +362,9 @@ all_models, other_models, test_out_path, need_test):
             phlogger.info("if_box=True AZ21:" + str(my_out_path))
             check_out(my_out_path, R_out_path)
         elif project_name == "Sankyo":
-            R_out_path = ""
+            my_out_path = "/user/ywyuan/max/Sankyo/MAX_result/MAX_result_201801-202002OLM_hosp_level"
+            R_out_path = "/user/ywyuan/max/Sankyo/Rout/MAX_result/MAX_result_201801-202002OLM_hosp_level"
+            phlogger.info("if_base=True OLM:" + str(my_out_path))
+            check_out(my_out_path, R_out_path)
             
         phlogger.info('数据验证-Finish')
