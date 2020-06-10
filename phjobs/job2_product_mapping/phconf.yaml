@@ -26,7 +26,7 @@ spec:
       - key: need_cleaning_cols
         value: "Molecule, min1, Route, Corp"
       - key: test_out_path
-        value: "/user/ywyuan/max/"
+        value: "/max_auto/max/"
       - key: need_test
         value: 0
     outputs:

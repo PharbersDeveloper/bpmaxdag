@@ -3,6 +3,9 @@
 *.iml
 .idea
 phjobs/example
+phdags/*
+phcombines/*
+
 
 build
 dist
