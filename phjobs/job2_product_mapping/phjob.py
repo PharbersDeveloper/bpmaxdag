@@ -26,15 +26,16 @@ def execute(max_path, max_path_local, project_name, minimum_product_columns, min
 
     access_key = os.getenv("AWS_ACCESS_KEY_ID")
     secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
-    spark._jsc.hadoopConfiguration().set("fs.s3a.access.key", access_key)
-    spark._jsc.hadoopConfiguration().set("fs.s3a.secret.key", secret_key)
-    spark._jsc.hadoopConfiguration().set("fs.s3a.impl","org.apache.hadoop.fs.s3a.S3AFileSystem")
-    spark._jsc.hadoopConfiguration().set("com.amazonaws.services.s3.enableV4", "true")
-    # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
-    spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
-    
+    if access_key is not None:
+        spark._jsc.hadoopConfiguration().set("fs.s3a.access.key", access_key)
+        spark._jsc.hadoopConfiguration().set("fs.s3a.secret.key", secret_key)
+        spark._jsc.hadoopConfiguration().set("fs.s3a.impl","org.apache.hadoop.fs.s3a.S3AFileSystem")
+        spark._jsc.hadoopConfiguration().set("com.amazonaws.services.s3.enableV4", "true")
+        # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
+        spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
+
     phlogger.info('job2_product_mapping')
-        
+
     # 输入
     if project_name == "Sanofi" or project_name == "AZ":
         product_map_path = max_path + u"/AZ_Sanofi/az_sanofi清洗_ma"
@@ -42,14 +43,14 @@ def execute(max_path, max_path_local, project_name, minimum_product_columns, min
         product_map_path = max_path + "/" + project_name + "/prod_mapping"
     hospital_mapping_out_path = test_out_path + "/" + project_name + "/hospital_mapping_out"
     need_cleaning_cols = need_cleaning_cols.replace(" ","").split(",")
-    
+
     # 输出
     product_mapping_out_path = test_out_path + "/" + project_name + "/product_mapping_out"
     need_cleaning_path = test_out_path + "/" + project_name + "/need_cleaning"
-    
+
     # =========== 数据检查 =============
     phlogger.info('数据检查-start')
-    
+
     # 存储文件的缺失列
     misscols_dict = {}
 
@@ -65,8 +66,8 @@ def execute(max_path, max_path_local, project_name, minimum_product_columns, min
     if "min2" not in colnames_product_map:
         misscols_dict["product_map"].append("min2")
     if "标准商品名" not in colnames_product_map:
-        misscols_dict["product_map"].append("标准商品名") 
-    
+        misscols_dict["product_map"].append("标准商品名")
+
     # 判断输入文件是否有缺失列
     misscols_dict_final = {}
     for eachfile in misscols_dict.keys():
@@ -76,12 +77,12 @@ def execute(max_path, max_path_local, project_name, minimum_product_columns, min
     if misscols_dict_final:
         phlogger.error('miss columns: %s' % (misscols_dict_final))
         raise ValueError('miss columns: %s' % (misscols_dict_final))
-        
+
     phlogger.info('数据检查-Pass')
-    
+
     # =========== 数据执行 =============
     phlogger.info('数据执行-start')
-    
+
     # raw_data_job1_out_path = "/user/ywyuan/max/Sankyo/raw_data_job1_out"
     raw_data = spark.read.parquet(hospital_mapping_out_path)
     raw_data = raw_data.withColumn("Brand", func.when(func.isnull(raw_data.Brand), raw_data.Molecule).
@@ -115,7 +116,7 @@ def execute(max_path, max_path_local, project_name, minimum_product_columns, min
 
     product_map_for_needclean = product_map.select("min1").distinct()
     product_map_for_rawdata = product_map.select("min1", "min2", "通用名", "std_route", "标准商品名").distinct()
-    
+
     # 输出待清洗
     need_cleaning_cols[1:1] = minimum_product_columns
     need_cleaning = raw_data.join(product_map_for_needclean, on="min1", how="left_anti") \
@@ -137,18 +138,18 @@ def execute(max_path, max_path_local, project_name, minimum_product_columns, min
     product_mapping_out = raw_data.repartition(2)
     product_mapping_out.write.format("parquet") \
         .mode("overwrite").save(product_mapping_out_path)
-    
+
     phlogger.info("输出 product_mapping 结果：" + str(product_mapping_out_path))
-    
+
     phlogger.info('数据执行-Finish')
-    
+
     # =========== 数据验证 =============
     # 与原R流程运行的结果比较正确性
     if int(need_test) > 0:
         phlogger.info('数据验证-start')
-        
+
         my_out = raw_data
-        
+
         if project_name == "Sanofi":
             R_out_path = "/common/projects/max/AZ_Sanofi/product_mapping/raw_data_with_std_product"
         elif project_name == "AZ":
@@ -156,7 +157,7 @@ def execute(max_path, max_path_local, project_name, minimum_product_columns, min
         elif project_name == "Sankyo":
             R_out_path = "/user/ywyuan/max/Sankyo/Rout/product_mapping_out"
         R_out = spark.read.parquet(R_out_path)
-                    
+
         # 检查内容：列缺失，列的类型，列的值
         for colname, coltype in R_out.dtypes:
             # 列是否缺失
@@ -166,7 +167,7 @@ def execute(max_path, max_path_local, project_name, minimum_product_columns, min
                 # 数据类型检查
                 if my_out.select(colname).dtypes[0][1] != coltype:
                     phlogger.warning("different type columns: " + colname + ", " + my_out.select(colname).dtypes[0][1] + ", " + "right type: " + coltype)
-            
+
                 # 数值列的值检查
                 if coltype == "double" or coltype == "int":
                     sum_my_out = my_out.groupBy().sum(colname).toPandas().iloc[0, 0]
@@ -174,8 +175,8 @@ def execute(max_path, max_path_local, project_name, minimum_product_columns, min
                     # phlogger.info(colname, sum_raw_data, sum_R)
                     if (sum_my_out - sum_R) != 0:
                         phlogger.warning("different value(sum) columns: " + colname + ", " + str(sum_my_out) + ", " + "right value: " + str(sum_R))
-                    
+
         phlogger.info('数据验证-Finish')
-        
-    # =========== return =============          
+
+    # =========== return =============
     return raw_data

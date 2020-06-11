@@ -26,12 +26,13 @@ def execute(max_path, project_name, cpa_gyc, test_out_path, need_test):
 
     access_key = os.getenv("AWS_ACCESS_KEY_ID")
     secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
-    spark._jsc.hadoopConfiguration().set("fs.s3a.access.key", access_key)
-    spark._jsc.hadoopConfiguration().set("fs.s3a.secret.key", secret_key)
-    spark._jsc.hadoopConfiguration().set("fs.s3a.impl","org.apache.hadoop.fs.s3a.S3AFileSystem")
-    spark._jsc.hadoopConfiguration().set("com.amazonaws.services.s3.enableV4", "true")
-    # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
-    spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
+    if access_key is not None:
+        spark._jsc.hadoopConfiguration().set("fs.s3a.access.key", access_key)
+        spark._jsc.hadoopConfiguration().set("fs.s3a.secret.key", secret_key)
+        spark._jsc.hadoopConfiguration().set("fs.s3a.impl","org.apache.hadoop.fs.s3a.S3AFileSystem")
+        spark._jsc.hadoopConfiguration().set("com.amazonaws.services.s3.enableV4", "true")
+        # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
+        spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
 
     phlogger.info('job1_hospital_mapping')
 
