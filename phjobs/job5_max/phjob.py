@@ -39,8 +39,14 @@ all_models, other_models, out_path, need_test):
         if_base = False
     elif if_base == "T":
         if_base = True
-    left_models = left_models.replace(", ",",").split(",")
-    rest_models = rest_models.replace(", ",",").split(",")
+    if left_models:
+        left_models = left_models.replace(", ",",").split(",")
+    else:
+        left_models = []
+    if rest_models:
+        rest_models = rest_models.replace(", ",",").split(",")
+    else:
+        rest_models = []
     time_parameters = [int(time_left), int(time_right), left_models, int(time_left_models), rest_models, int(time_rest_models)]
     if all_models:
         all_models = all_models.replace(", ",",").split(",")
