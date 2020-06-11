@@ -3,13 +3,8 @@
 
 This is job template for Pharbers Max Job
 """
-import numpy as np
-import pandas as pd
 from phlogs.phlogs import phlogger
-from phs3.phs3 import s3
-import os
 from pyspark.sql import SparkSession
-import time
 from pyspark.sql.types import *
 from pyspark.sql.types import StringType, IntegerType, DoubleType
 from pyspark.sql import functions as func

@@ -3,12 +3,9 @@
 
 This is job template for Pharbers Max Job
 """
-import numpy as np
 from phlogs.phlogs import phlogger
-from phs3.phs3 import s3
 import os
 from pyspark.sql import SparkSession
-import time
 from pyspark.sql.types import *
 from pyspark.sql.types import StringType, IntegerType
 from pyspark.sql import functions as func
