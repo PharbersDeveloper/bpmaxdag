@@ -8,10 +8,10 @@ from pyspark.sql import SparkSession
 from pyspark.sql.types import *
 from pyspark.sql.types import StringType, IntegerType, DoubleType
 from pyspark.sql import functions as func
+import os
 
-
-def execute(max_path, max_path_local, project_name, if_base, time_left, time_right, left_models, time_left_models, rest_models, time_rest_models,
-all_models, other_models, test_out_path, need_test):
+def execute(max_path, project_name, if_base, time_left, time_right, left_models, time_left_models, rest_models, time_rest_models,
+all_models, other_models, out_path, need_test):
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \
@@ -52,9 +52,7 @@ all_models, other_models, test_out_path, need_test):
     else:
         project_path = max_path + "/" + project_name
 
-    project_path_local = max_path_local + "/" + project_name
-    test_out_path = test_out_path + '/' + project_name
-    # project_path_local_c9 = "/workspace/BP_Max_AutoJob/" + project_name
+    out_path = out_path + '/' + project_name
 
     # 计算max 函数
     def calculate_max(market, if_base=False, if_box=False):
@@ -268,11 +266,11 @@ all_models, other_models, test_out_path, need_test):
         # if if_base == False:
         max_result = max_result.repartition(2)
         if if_box:
-            max_path = test_out_path + "/MAX_result/MAX_result_" + time_range + market + "_hosp_level_box"
+            max_path = out_path + "/MAX_result/MAX_result_" + time_range + market + "_hosp_level_box"
             max_result.write.format("parquet") \
                 .mode("overwrite").save(max_path)
         else:
-            max_path = test_out_path + "/MAX_result/MAX_result_" + time_range + market + "_hosp_level"
+            max_path = out_path + "/MAX_result/MAX_result_" + time_range + market + "_hosp_level"
             max_result.write.format("parquet") \
                 .mode("overwrite").save(max_path)
 
@@ -338,28 +336,32 @@ all_models, other_models, test_out_path, need_test):
                             phlogger.warning("different value(sum) columns: " + colname + ", " + str(sum_my_out) + ", " + "right value: " + str(sum_R))
 
         if project_name == "Sanofi":
-            my_out_path = "/user/ywyuan/max/Sanofi/MAX_result/MAX_result_202003-202003SNY6_hosp_level"
+            my_out_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/Sanofi/MAX_result/MAX_result_202003-202003SNY6_hosp_level"
             R_out_path = "/user/ywyuan/max/Sanofi/Rout/MAX_result/MAX_result_202003-202003SNY6_hosp_level"
             check_out(my_out_path, R_out_path)
         elif project_name == "AZ":
             # all_models
-            my_out_path = "/user/ywyuan/max/AZ/MAX_result/MAX_result_201801-202002SNY5_hosp_level"
+            my_out_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/MAX_result/MAX_result_201801-202002SNY5_hosp_level"
             R_out_path = "/user/ywyuan/max/AZ/Rout/MAX_result/MAX_result_201801-202002SNY5_hosp_level"
             phlogger.info("if_box=False SNY5:" + str(my_out_path))
             check_out(my_out_path, R_out_path)
             # all_models
-            my_out_path = "/user/ywyuan/max/AZ/MAX_result/MAX_result_201701-202002SNY6_hosp_level"
+            my_out_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/MAX_result/MAX_result_201701-202002SNY6_hosp_level"
             R_out_path = "/user/ywyuan/max/AZ/Rout/MAX_result/MAX_result_201701-202002SNY6_hosp_level"
             phlogger.info("if_box=False SNY6:" + str(my_out_path))
             check_out(my_out_path, R_out_path)
             # other_models
-            my_out_path = "/user/ywyuan/max/AZ/MAX_result/MAX_result_201701-202002AZ21_hosp_level_box"
+            my_out_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/MAX_result/MAX_result_201701-202002AZ21_hosp_level_box"
             R_out_path = "/user/ywyuan/max/AZ/Rout/MAX_result/MAX_result_201701-202002AZ21_hosp_level_box"
             phlogger.info("if_box=True AZ21:" + str(my_out_path))
             check_out(my_out_path, R_out_path)
         elif project_name == "Sankyo":
-            my_out_path = "/user/ywyuan/max/Sankyo/MAX_result/MAX_result_201801-202002OLM_hosp_level"
+            my_out_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/Sankyo/MAX_result/MAX_result_201801-202002OLM_hosp_level"
             R_out_path = "/user/ywyuan/max/Sankyo/Rout/MAX_result/MAX_result_201801-202002OLM_hosp_level"
+            phlogger.info("if_base=True OLM:" + str(my_out_path))
+            check_out(my_out_path, R_out_path)
+            my_out_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/Sankyo/MAX_result/MAX_result_201801-202002CV IV_hosp_level"
+            R_out_path = "/user/ywyuan/max/Sankyo/Rout/MAX_result/MAX_result_201801-202002CV IV_hosp_level"
             phlogger.info("if_base=True OLM:" + str(my_out_path))
             check_out(my_out_path, R_out_path)
 

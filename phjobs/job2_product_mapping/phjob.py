@@ -10,7 +10,7 @@ from pyspark.sql.types import *
 from pyspark.sql.types import StringType, IntegerType
 from pyspark.sql import functions as func
 
-def execute(max_path, max_path_local, project_name, minimum_product_columns, minimum_product_sep, minimum_product_newname, need_cleaning_cols, test_out_path, need_test):
+def execute(max_path, project_name, minimum_product_columns, minimum_product_sep, minimum_product_newname, need_cleaning_cols, out_path, need_test):
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \
@@ -38,12 +38,12 @@ def execute(max_path, max_path_local, project_name, minimum_product_columns, min
         product_map_path = max_path + u"/AZ_Sanofi/az_sanofi清洗_ma"
     else:
         product_map_path = max_path + "/" + project_name + "/prod_mapping"
-    hospital_mapping_out_path = test_out_path + "/" + project_name + "/hospital_mapping_out"
+    hospital_mapping_out_path = out_path + "/" + project_name + "/hospital_mapping_out"
     need_cleaning_cols = need_cleaning_cols.replace(" ","").split(",")
 
     # 输出
-    product_mapping_out_path = test_out_path + "/" + project_name + "/product_mapping_out"
-    need_cleaning_path = test_out_path + "/" + project_name + "/need_cleaning"
+    product_mapping_out_path = out_path + "/" + project_name + "/product_mapping_out"
+    need_cleaning_path = out_path + "/" + project_name + "/need_cleaning"
 
     # =========== 数据检查 =============
     phlogger.info('数据检查-start')

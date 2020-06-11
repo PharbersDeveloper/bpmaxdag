@@ -12,7 +12,7 @@ from pyspark.sql.types import StringType, IntegerType, DoubleType
 from pyspark.sql import functions as func
 
 
-def execute(max_path, max_path_local, project_name, model_month_left, model_month_right, paths_foradding, test_out_path, need_test):
+def execute(max_path, project_name, model_month_left, model_month_right, paths_foradding, out_path, need_test):
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \
@@ -44,12 +44,12 @@ def execute(max_path, max_path_local, project_name, model_month_left, model_mont
         universe_path = max_path + "/" + project_name + "/universe_base"
         market_path  = max_path + "/" + project_name + "/mkt_mapping"
 
-    raw_data_adding_final_path = test_out_path + "/" + project_name + "/raw_data_adding_final"
-    new_hospital_path = test_out_path + "/" + project_name + "/new_hospital"
+    raw_data_adding_final_path = out_path + "/" + project_name + "/raw_data_adding_final"
+    new_hospital_path = out_path + "/" + project_name + "/new_hospital"
 
 
     # 输出
-    panel_path = test_out_path + "/" + project_name + "/panel_result"
+    panel_path = out_path + "/" + project_name + "/panel_result"
 
 
     # =========== 数据检查 =============

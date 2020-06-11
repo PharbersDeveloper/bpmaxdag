@@ -12,7 +12,7 @@ from pyspark.sql.types import StringType, IntegerType, DoubleType
 from pyspark.sql import functions as func
 
 
-def execute(max_path, max_path_local, project_name, model_month_right, max_month, year_missing, test_out_path, need_test):
+def execute(max_path, project_name, model_month_right, max_month, year_missing, out_path, need_test):
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \
@@ -36,8 +36,8 @@ def execute(max_path, max_path_local, project_name, model_month_right, max_month
     phlogger.info('job3_data_adding')
 
     # 输入
-    product_mapping_out_path = test_out_path + "/" + project_name + "/product_mapping_out"
-    products_of_interest_path = max_path_local + "/" + project_name + "/poi.csv"
+    product_mapping_out_path = out_path + "/" + project_name + "/product_mapping_out"
+    products_of_interest_path = max_path + "/" + project_name + "/poi.csv"
     if year_missing:
         year_missing = year_missing.replace(" ","").split(",")
     else:
@@ -47,12 +47,12 @@ def execute(max_path, max_path_local, project_name, model_month_right, max_month
     max_month = int(max_month)
 
     # 输出
-    price_path = test_out_path + "/" + project_name + "/price"
-    growth_rate_path = test_out_path + "/" + project_name + "/growth_rate"
-    adding_data_path =  test_out_path + "/" + project_name + "/adding_data"
-    raw_data_adding_path =  test_out_path + "/" + project_name + "/raw_data_adding"
-    new_hospital_path = test_out_path + "/" + project_name + "/new_hospital"
-    raw_data_adding_final_path =  test_out_path + "/" + project_name + "/raw_data_adding_final"
+    price_path = out_path + "/" + project_name + "/price"
+    growth_rate_path = out_path + "/" + project_name + "/growth_rate"
+    adding_data_path =  out_path + "/" + project_name + "/adding_data"
+    raw_data_adding_path =  out_path + "/" + project_name + "/raw_data_adding"
+    new_hospital_path = out_path + "/" + project_name + "/new_hospital"
+    raw_data_adding_final_path =  out_path + "/" + project_name + "/raw_data_adding_final"
 
 
     # =========== 数据检查 =============

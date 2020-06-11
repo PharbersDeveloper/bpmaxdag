@@ -12,12 +12,12 @@ spec:
     config: phconf.yaml
     args:
       - key: max_path
-        value: "/common/projects/max/"
+        value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
       - key: project_name
         value: "Sankyo"
       - key: cpa_gyc
         value: True
-      - key: test_out_path
+      - key: out_path
         value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
       - key: need_test
         value: 0

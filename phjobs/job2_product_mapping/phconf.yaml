@@ -12,9 +12,7 @@ spec:
     config: phconf.yaml
     args:
       - key: max_path
-        value: "/common/projects/max/"
-      - key: max_path_local
-        value: "s3a://ph-max-auto/v0.0.1-2020-06-08"
+        value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
       - key: project_name
         value: "Sankyo"
       - key: minimum_product_columns
@@ -25,8 +23,8 @@ spec:
         value: "min1"
       - key: need_cleaning_cols
         value: "Molecule, min1, Route, Corp"
-      - key: test_out_path
-        value: "/max_auto/max/"
+      - key: out_path
+        value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
       - key: need_test
         value: 0
     outputs:
