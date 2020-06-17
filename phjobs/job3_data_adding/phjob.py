@@ -190,8 +190,9 @@ def execute(max_path, project_name, model_month_right, max_month, year_missing, 
 
         # 计算得到年增长： add_gr_cols
         for i in range(0, len(years) - 1):
-            growth_rate = growth_calculating.withColumn("GR" + years[i][2:4] + years[i + 1][2:4],
+            growth_calculating = growth_calculating.withColumn("GR" + years[i][2:4] + years[i + 1][2:4],
                                                         growth_calculating[years_name[i + 1]] / growth_calculating[years_name[i]])
+        growth_rate = growth_calculating
         # 增长率的调整：modify_gr
         for y in [name for name in growth_rate.columns if name.startswith("GR")]:
             growth_rate = growth_rate.withColumn(y, func.when(func.isnull(growth_rate[y]) | (growth_rate[y] > 10) | (growth_rate[y] < 0.1), 1).

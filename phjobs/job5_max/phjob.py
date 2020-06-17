@@ -90,10 +90,10 @@ all_models, other_models, out_path, need_test):
             panel_path = project_path + "/panel-result_Sanofi"
         elif project_name == "AZ":
             panel_box_path = project_path + "/panel_box-result_AZ"
-            panel_path = project_path + "/panel-result_AZ"
+            panel_path = max_path + "/AZ/" + "/panel_result"
         else:
             panel_box_path = project_path + "/panel_box-result"
-            panel_path = project_path + "/panel-result"
+            panel_path = project_path + "/panel_result"
 
         if if_box:
             original_panel_path = panel_box_path
