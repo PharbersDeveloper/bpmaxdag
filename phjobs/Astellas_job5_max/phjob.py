@@ -315,7 +315,7 @@ all_models, other_models, out_path, need_test):
     #all_models = [u"痛风市场", u"普乐可复市场"]
     if all_models:
         for i in all_models:
-            i = i.decode("gb18030")
+            # i = i.decode("gb18030")
             calculate_max(i, if_base=if_base, if_box=False)
 
     if other_models:
