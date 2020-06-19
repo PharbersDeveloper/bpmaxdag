@@ -260,7 +260,7 @@ def execute(max_path, project_name, model_month_left, model_month_right, paths_f
         
         R_out = spark.read.parquet(R_out_path)
 
-        if project_name == "AZ" or project_name == "京新".decode("utf-8"):
+        if project_name == "AZ" or project_name == "Astellas" or project_name == "京新".decode("utf-8"):
             R_out = R_out.where(R_out.Date/100 < 2020)
 
         # 检查内容：列缺失，列的类型，列的值
