@@ -249,6 +249,8 @@ def execute(max_path, project_name, model_month_left, model_month_right, paths_f
 
         R_out_path = "/common/projects/max/Astellas/panel-result"
         R_out = spark.read.parquet(R_out_path)
+        
+        R_out = R_out.where(R_out.Date/100 < 2020)
 
         if project_name == "AZ":
             R_out = R_out.where(R_out.Date/100 < 2020)

@@ -238,7 +238,7 @@ all_models, other_models, out_path, need_test):
         # 将非样本的segment和factor等信息合并起来：get_uni_with_factor
         # factor = spark.read.parquet(factor_path)
         if "factor" not in factor.columns:
-            factor.withColumnRenamed("factor_new", "factor")
+            factor = factor.withColumnRenamed("factor_new", "factor")
         factor = factor.select('City', 'factor')
         universe_factor_panel = universe.join(factor, on="City", how="left")
         universe_factor_panel = universe_factor_panel \

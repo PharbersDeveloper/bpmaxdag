@@ -99,7 +99,6 @@ all_models, other_models, out_path, need_test):
         else:
             panel_box_path = project_path + "/panel_box-result"
             panel_path = project_path + "/panel_result"
-            # panel_path = "/common/projects/max/Astellas/panel-result"
 
         if if_box:
             original_panel_path = panel_box_path
@@ -244,7 +243,7 @@ all_models, other_models, out_path, need_test):
         # 将非样本的segment和factor等信息合并起来：get_uni_with_factor
         # factor = spark.read.parquet(factor_path)
         if "factor" not in factor.columns:
-            factor.withColumnRenamed("factor_new", "factor")
+            factor = factor.withColumnRenamed("factor_new", "factor")
         factor = factor.select('City', 'factor')
         universe_factor_panel = universe.join(factor, on="City", how="left")
         universe_factor_panel = universe_factor_panel \
@@ -330,6 +329,8 @@ all_models, other_models, out_path, need_test):
         def check_out(my_out_path, R_out_path):
             my_out = spark.read.parquet(my_out_path)
             R_out = spark.read.parquet(R_out_path)
+            
+            R_out = R_out.where(R_out.Date/100 < 2020)
 
             # 检查内容：列缺失，列的类型，列的值
             for colname, coltype in R_out.dtypes:
