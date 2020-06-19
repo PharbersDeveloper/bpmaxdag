@@ -14,13 +14,13 @@ spec:
       - key: max_path
         value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
       - key: project_name
-        value: "Astellas"
-      - key: model_month_left
-        value: 201901
+        value: "京新"
       - key: model_month_right
         value: 201912
-      - key: paths_foradding
-        value: ""
+      - key: max_month
+        value: 4
+      - key: year_missing
+        value: "2020"
       - key: out_path
         value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
       - key: need_test
@@ -30,4 +30,3 @@ spec:
         value: abcde
       - key: b
         value: 6789
-

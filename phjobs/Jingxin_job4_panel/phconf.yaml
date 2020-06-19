@@ -14,7 +14,7 @@ spec:
       - key: max_path
         value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
       - key: project_name
-        value: "Astellas"
+        value: "京新"
       - key: model_month_left
         value: 201901
       - key: model_month_right
