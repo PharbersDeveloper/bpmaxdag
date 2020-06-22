@@ -39,7 +39,8 @@ def execute(max_path, project_name, minimum_product_columns, minimum_product_sep
     else:
         product_map_path = max_path + "/" + project_name + "/prod_mapping"
     hospital_mapping_out_path = out_path + "/" + project_name + "/hospital_mapping_out"
-    need_cleaning_cols = need_cleaning_cols.replace(" ","").split(",")
+    need_cleaning_cols = need_cleaning_cols.replace(", ",",").split(",")
+    minimum_product_columns = minimum_product_columns.replace(", ",",").split(",")
 
     # 输出
     product_mapping_out_path = out_path + "/" + project_name + "/product_mapping_out"
@@ -89,7 +90,6 @@ def execute(max_path, project_name, minimum_product_columns, minimum_product_sep
     # minimum_product_columns = ["Brand", "Form", "Specifications", "Pack_Number", "Manufacturer"]
     # minimum_product_sep = ""
     # minimum_product_newname = "min1"
-    minimum_product_columns = minimum_product_columns.split(", ")
     for colname, coltype in raw_data.dtypes:
         if coltype == "logical":
             raw_data = raw_data.withColumn(colname, raw_data[colname].cast(StringType()))
