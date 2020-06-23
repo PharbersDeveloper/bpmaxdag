@@ -11,7 +11,7 @@ from pyspark.sql import functions as func
 import os
 
 def execute(max_path, project_name, if_base, time_left, time_right, left_models, time_left_models, rest_models, time_rest_models,
-all_models, other_models, universe_choice, out_path, need_test):
+all_models, other_models, universe_choice, out_path, out_dir, need_test):
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \
@@ -39,22 +39,22 @@ all_models, other_models, universe_choice, out_path, need_test):
         if_base = False
     elif if_base == "T":
         if_base = True
-    if left_models != "test":
+    if left_models != "Empty":
         left_models = left_models.replace(", ",",").split(",")
     else:
         left_models = []
-    if rest_models != "test":
+    if rest_models != "Empty":
         rest_models = rest_models.replace(", ",",").split(",")
     else:
         rest_models = []
         
     time_parameters = [int(time_left), int(time_right), left_models, int(time_left_models), rest_models, int(time_rest_models)]
     
-    if all_models != "test":
+    if all_models != "Empty":
         all_models = all_models.replace(", ",",").split(",")
     else:
         all_models = []
-    if other_models != "test":
+    if other_models != "Empty":
         other_models = other_models.replace(", ",",").split(",")
     else:
         other_models = []
@@ -64,11 +64,11 @@ all_models, other_models, universe_choice, out_path, need_test):
     else:
         project_path = max_path + "/" + project_name
 
-    out_path = out_path + '/' + project_name
+    out_path_dir = out_path + "/" + project_name + '/' + out_dir
     
     # 市场的universe文件
     universe_choice_dict={}
-    if universe_choice != "test":
+    if universe_choice != "Empty":
         for each in universe_choice.replace(", ",",").split(","):
             market_name = each.split(":")[0]
             universe_name = each.split(":")[1]
@@ -303,11 +303,11 @@ all_models, other_models, universe_choice, out_path, need_test):
         # if if_base == False:
         max_result = max_result.repartition(2)
         if if_box:
-            max_path = out_path + "/MAX_result/MAX_result_" + time_range + market + "_hosp_level_box"
+            max_path = out_path_dir + "/MAX_result/MAX_result_" + time_range + market + "_hosp_level_box"
             max_result.write.format("parquet") \
                 .mode("overwrite").save(max_path)
         else:
-            max_path = out_path + "/MAX_result/MAX_result_" + time_range + market + "_hosp_level"
+            max_path = out_path_dir + "/MAX_result/MAX_result_" + time_range + market + "_hosp_level"
             max_result.write.format("parquet") \
                 .mode("overwrite").save(max_path)
 

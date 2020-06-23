@@ -11,7 +11,7 @@ from pyspark.sql.types import StringType, IntegerType
 from pyspark.sql import functions as func
 
 
-def execute(max_path, project_name, cpa_gyc, out_path, need_test):
+def execute(max_path, project_name, cpa_gyc, out_path, out_dir, need_test):
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \
@@ -48,7 +48,7 @@ def execute(max_path, project_name, cpa_gyc, out_path, need_test):
         raw_data_path = max_path + "/" + project_name + "/raw_data"
         
     # 输出
-    hospital_mapping_out_path = out_path + "/" + project_name + "/hospital_mapping_out"
+    hospital_mapping_out_path = out_path + "/" + project_name + '/' + out_dir  + "/hospital_mapping_out"
 
     # =========== 数据检查 =============
     phlogger.info('数据检查-start')

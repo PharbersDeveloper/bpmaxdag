@@ -14,15 +14,17 @@ spec:
       - key: max_path
         value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
       - key: project_name
-        value: "test"
+        value: "Empty"
       - key: model_month_left
         value: "0"
       - key: model_month_right
         value: "0"
       - key: paths_foradding
-        value: "test"
+        value: "Empty"
       - key: out_path
         value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
+      - key: out_dir
+        value: "Empty"  
       - key: need_test
         value: 0
     outputs:

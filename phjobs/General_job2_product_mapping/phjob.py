@@ -10,7 +10,7 @@ from pyspark.sql.types import *
 from pyspark.sql.types import StringType, IntegerType
 from pyspark.sql import functions as func
 
-def execute(max_path, project_name, minimum_product_columns, minimum_product_sep, minimum_product_newname, need_cleaning_cols, out_path, need_test):
+def execute(max_path, project_name, minimum_product_columns, minimum_product_sep, minimum_product_newname, need_cleaning_cols, out_path, out_dir, need_test):
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \
@@ -32,20 +32,22 @@ def execute(max_path, project_name, minimum_product_columns, minimum_product_sep
         spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
 
     phlogger.info('job2_product_mapping')
+    
+    out_path_dir = out_path + "/" + project_name + '/' + out_dir
 
     # 输入
     if project_name == "Sanofi" or project_name == "AZ":
         product_map_path = max_path + u"/AZ_Sanofi/az_sanofi清洗_ma"
     else:
         product_map_path = max_path + "/" + project_name + "/prod_mapping"
-    hospital_mapping_out_path = out_path + "/" + project_name + "/hospital_mapping_out"
+    hospital_mapping_out_path = out_path_dir + "/hospital_mapping_out"
     need_cleaning_cols = need_cleaning_cols.replace(", ",",").split(",")
     minimum_product_columns = minimum_product_columns.replace(", ",",").split(",")
     if minimum_product_sep == "kong":
         minimum_product_sep = ""
     # 输出
-    product_mapping_out_path = out_path + "/" + project_name + "/product_mapping_out"
-    need_cleaning_path = out_path + "/" + project_name + "/need_cleaning"
+    product_mapping_out_path = out_path_dir + "/product_mapping_out"
+    need_cleaning_path = out_path_dir + "/need_cleaning"
 
     # =========== 数据检查 =============
     phlogger.info('数据检查-start')

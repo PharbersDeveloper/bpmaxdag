@@ -9,10 +9,11 @@ import click
 @click.option('--max_month')
 @click.option('--year_missing')
 @click.option('--out_path')
+@click.option('--out_dir')
 @click.option('--need_test')
 
-def debug_execute(max_path, project_name, model_month_right, max_month, year_missing, out_path, need_test):
-    execute(max_path, project_name, model_month_right, max_month, year_missing, out_path, need_test)
+def debug_execute(max_path, project_name, model_month_right, max_month, year_missing, out_path, out_dir, need_test):
+    execute(max_path, project_name, model_month_right, max_month, year_missing, out_path, out_dir, need_test)
 
 
 if __name__ == '__main__':

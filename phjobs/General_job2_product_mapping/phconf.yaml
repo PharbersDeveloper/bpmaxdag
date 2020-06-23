@@ -14,17 +14,19 @@ spec:
       - key: max_path
         value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
       - key: project_name
-        value: "test"
+        value: "Empty"
       - key: minimum_product_columns
-        value: "test"
+        value: "Brand, Form, Specifications, Pack_Number, Manufacturer"
       - key: minimum_product_sep
         value: "|"
       - key: minimum_product_newname
-        value: "test"
+        value: "min1"
       - key: need_cleaning_cols
-        value: "test"
+        value: "Molecule, Brand, Form, Specifications, Pack_Number, Manufacturer, min1, Route, Corp"
       - key: out_path
         value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
+      - key: out_dir
+        value: "Empty"  
       - key: need_test
         value: 0
     outputs:

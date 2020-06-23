@@ -12,14 +12,14 @@ from pyspark.sql.types import StringType, IntegerType, DoubleType
 from pyspark.sql import functions as func
 
 
-def execute(max_path, project_name, model_month_right, max_month, year_missing, out_path, need_test):
+def execute(max_path, project_name, model_month_right, max_month, year_missing, out_path, out_dir, need_test):
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \
         .config("spark.driver.memory", "1g") \
         .config("spark.executor.cores", "1") \
         .config("spark.executor.instance", "1") \
-        .config("spark.executor.memory", "1g") \
+        .config("spark.executor.memory", "2g") \
         .config('spark.sql.codegen.wholeStage', False) \
         .getOrCreate()
 
@@ -34,9 +34,11 @@ def execute(max_path, project_name, model_month_right, max_month, year_missing, 
         spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
 
     phlogger.info('job3_data_adding')
+    
+    out_path_dir = out_path + "/" + project_name + '/' + out_dir
 
     # 输入
-    product_mapping_out_path = out_path + "/" + project_name + "/product_mapping_out"
+    product_mapping_out_path = out_path_dir + "/product_mapping_out"
     products_of_interest_path = max_path + "/" + project_name + "/poi.csv"
     if year_missing:
         year_missing = year_missing.replace(" ","").split(",")
@@ -47,12 +49,12 @@ def execute(max_path, project_name, model_month_right, max_month, year_missing, 
     max_month = int(max_month)
 
     # 输出
-    price_path = out_path + "/" + project_name + "/price"
-    growth_rate_path = out_path + "/" + project_name + "/growth_rate"
-    adding_data_path =  out_path + "/" + project_name + "/adding_data"
-    raw_data_adding_path =  out_path + "/" + project_name + "/raw_data_adding"
-    new_hospital_path = out_path + "/" + project_name + "/new_hospital"
-    raw_data_adding_final_path =  out_path + "/" + project_name + "/raw_data_adding_final"
+    price_path = out_path_dir + "/price"
+    growth_rate_path = out_path_dir + "/growth_rate"
+    adding_data_path =  out_path_dir + "/adding_data"
+    raw_data_adding_path =  out_path_dir + "/raw_data_adding"
+    new_hospital_path = out_path_dir + "/new_hospital"
+    raw_data_adding_final_path =  out_path_dir + "/raw_data_adding_final"
 
 
     # =========== 数据检查 =============

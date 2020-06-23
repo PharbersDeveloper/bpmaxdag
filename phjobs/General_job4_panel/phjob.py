@@ -12,7 +12,7 @@ from pyspark.sql.types import StringType, IntegerType, DoubleType
 from pyspark.sql import functions as func
 
 
-def execute(max_path, project_name, model_month_left, model_month_right, paths_foradding, out_path, need_test):
+def execute(max_path, project_name, model_month_left, model_month_right, paths_foradding, out_path, out_dir, need_test):
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \
@@ -34,6 +34,8 @@ def execute(max_path, project_name, model_month_left, model_month_right, paths_f
         spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
 
     phlogger.info('job4_panel')
+    
+    out_path_dir = out_path + "/" + project_name + '/' + out_dir
 
     # 输入
     if project_name == "Sanofi" or project_name == "AZ":
@@ -44,14 +46,14 @@ def execute(max_path, project_name, model_month_left, model_month_right, paths_f
         universe_path = max_path + "/" + project_name + "/universe_base"
         market_path  = max_path + "/" + project_name + "/mkt_mapping"
 
-    raw_data_adding_final_path = out_path + "/" + project_name + "/raw_data_adding_final"
-    new_hospital_path = out_path + "/" + project_name + "/new_hospital"
+    raw_data_adding_final_path = out_path_dir + "/raw_data_adding_final"
+    new_hospital_path = out_path_dir + "/new_hospital"
     
     #raw_data_adding_final_path = "/common/projects/max/Astellas/adding_data_new"
 
 
     # 输出
-    panel_path = out_path + "/" + project_name + "/panel_result"
+    panel_path = out_path_dir + "/panel_result"
 
 
     # =========== 数据检查 =============
