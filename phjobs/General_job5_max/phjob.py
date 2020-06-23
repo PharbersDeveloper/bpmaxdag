@@ -11,7 +11,7 @@ from pyspark.sql import functions as func
 import os
 
 def execute(max_path, project_name, if_base, time_left, time_right, left_models, time_left_models, rest_models, time_rest_models,
-all_models, other_models, out_path, need_test):
+all_models, other_models, universe_choice, out_path, need_test):
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \
@@ -65,6 +65,14 @@ all_models, other_models, out_path, need_test):
         project_path = max_path + "/" + project_name
 
     out_path = out_path + '/' + project_name
+    
+    # 市场的universe文件
+    universe_choice_dict={}
+    if universe_choice != "test":
+        for each in universe_choice.replace(", ",",").split(","):
+            market_name = each.split(":")[0]
+            universe_name = each.split(":")[1]
+            universe_choice_dict[market_name]=universe_name
 
     # 计算max 函数
     def calculate_max(market, if_base=False, if_box=False):
@@ -80,6 +88,7 @@ all_models, other_models, out_path, need_test):
                 universe_path = project_path + '/universe_az_sanofi_mch'
             else:
                 universe_path = project_path + '/universe_az_sanofi_base'
+        '''
         elif project_name == "Astellas":
             if market in ["卫喜康市场".decode("utf-8")]:
                 universe_path = project_path + u'/universe_卫喜康市场'
@@ -91,6 +100,11 @@ all_models, other_models, out_path, need_test):
             else:
                 universe_path = project_path + '/universe_base'
             
+        else:
+            universe_path = project_path + '/universe_base'
+        '''
+        if market in universe_choice_dict.keys():
+            universe_path = project_path + '/' + universe_choice_dict[market]
         else:
             universe_path = project_path + '/universe_base'
 
