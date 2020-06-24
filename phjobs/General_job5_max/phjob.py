@@ -58,12 +58,12 @@ all_models, other_models, universe_choice, out_path, out_dir, need_test):
         other_models = other_models.replace(", ",",").split(",")
     else:
         other_models = []
-
+        
     if project_name == "Sanofi" or project_name == "AZ":
         project_path = max_path + "/AZ_Sanofi/"
     else:
         project_path = max_path + "/" + project_name
-
+        
     out_path_dir = out_path + "/" + project_name + '/' + out_dir
     
     # 市场的universe文件
@@ -88,25 +88,11 @@ all_models, other_models, universe_choice, out_path, out_dir, need_test):
                 universe_path = project_path + '/universe_az_sanofi_mch'
             else:
                 universe_path = project_path + '/universe_az_sanofi_base'
-        '''
-        elif project_name == "Astellas":
-            if market in ["卫喜康市场".decode("utf-8")]:
-                universe_path = project_path + u'/universe_卫喜康市场'
-            else:
-                universe_path = project_path + u'/universe_其他'
-        elif project_name == "京新".decode("utf-8"):
-            if market in ["他汀".decode("utf-8")]:
-                universe_path = project_path + u'/universe_他汀'
+        else:
+            if market in universe_choice_dict.keys():
+                universe_path = project_path + '/' + universe_choice_dict[market]
             else:
                 universe_path = project_path + '/universe_base'
-            
-        else:
-            universe_path = project_path + '/universe_base'
-        '''
-        if market in universe_choice_dict.keys():
-            universe_path = project_path + '/' + universe_choice_dict[market]
-        else:
-            universe_path = project_path + '/universe_base'
 
         # universe_outlier_path 以及 factor_path 文件选择
         universe_outlier_path = project_path + "/universe/universe_ot_" + market
@@ -118,10 +104,10 @@ all_models, other_models, universe_choice, out_path, out_dir, need_test):
         # panel 文件选择与读取 获得 original_panel
         if project_name == "Sanofi":
             panel_box_path = project_path + "/panel_box-result_Sanofi"
-            panel_path = project_path + "/panel-result_Sanofi"
+            panel_path = out_path_dir + "/panel_result"
         elif project_name == "AZ":
             panel_box_path = project_path + "/panel_box-result_AZ"
-            panel_path = max_path + "/AZ/" + "/panel_result"
+            panel_path = out_path_dir + "/panel_result"
         else:
             panel_box_path = project_path + "/panel_box-result"
             panel_path = project_path + "/panel_result"

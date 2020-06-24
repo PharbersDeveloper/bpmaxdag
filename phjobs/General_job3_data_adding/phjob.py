@@ -39,7 +39,10 @@ def execute(max_path, project_name, model_month_right, max_month, year_missing, 
 
     # 输入
     product_mapping_out_path = out_path_dir + "/product_mapping_out"
-    products_of_interest_path = max_path + "/" + project_name + "/poi.csv"
+    if project_name == "Sanofi" or project_name == "AZ":
+        products_of_interest_path = max_path + "/AZ_Sanofi/poi.csv"
+    else:
+        products_of_interest_path = max_path + "/" + project_name + "/poi.csv"
     if year_missing:
         year_missing = year_missing.replace(" ","").split(",")
     else:
