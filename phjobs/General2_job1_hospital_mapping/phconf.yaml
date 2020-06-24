@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: alfred
+  description: "pharbers job description"
+  labels:
+    name: alfred
+spec:
+  containers:
+    repository: local
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: max_path
+        value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
+      - key: project_name
+        value: "Empty"
+      - key: cpa_gyc
+        value: "True"
+      - key: out_path
+        value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
+      - key: out_dir
+        value: "Empty"        
+      - key: need_test
+        value: 0
+    outputs:
+      - key: a
+        value: abcde
+      - key: b
+        value: 6789
