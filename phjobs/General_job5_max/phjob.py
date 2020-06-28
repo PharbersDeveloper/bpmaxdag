@@ -110,7 +110,7 @@ all_models, other_models, universe_choice, out_path, out_dir, need_test):
             panel_path = out_path_dir + "/panel_result"
         else:
             panel_box_path = project_path + "/panel_box-result"
-            panel_path = project_path + "/panel_result"
+            panel_path = out_path_dir + "/panel_result"
 
         if if_box:
             original_panel_path = panel_box_path
