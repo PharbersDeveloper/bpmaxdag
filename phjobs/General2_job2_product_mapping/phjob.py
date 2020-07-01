@@ -101,6 +101,7 @@ def execute(max_path, project_name, minimum_product_columns, minimum_product_sep
                                    otherwise(raw_data[minimum_product_columns[0]]))
 
     for col in minimum_product_columns[1:]:
+        raw_data = raw_data.withColumn(col, raw_data[col].cast(StringType()))
         raw_data = raw_data.withColumn("tmp", func.concat(
             raw_data["tmp"],
             func.lit(minimum_product_sep),

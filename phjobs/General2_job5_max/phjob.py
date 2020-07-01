@@ -35,9 +35,9 @@ all_models, other_models, universe_choice, out_path, out_dir, need_test):
     phlogger.info('job5_max')
 
     # 输入输出
-    if if_base == "F":
+    if if_base == "False":
         if_base = False
-    elif if_base == "T":
+    elif if_base == "True":
         if_base = True
     if left_models != "Empty":
         left_models = left_models.replace(", ",",").split(",")

@@ -13,7 +13,7 @@ from pyspark.sql import functions as func
 
 
 def execute(max_path, project_name, model_month_right, max_month, year_missing, current_year, first_month, current_month, 
-if_box, monthly_update, not_arrived_path, published_path, out_path, out_dir, need_test):
+if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, need_test):
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \
@@ -70,7 +70,7 @@ if_box, monthly_update, not_arrived_path, published_path, out_path, out_dir, nee
     # published_right_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/Common_files/Published2020.csv"
 
     # 输出
-    if if_box == "True":
+    if if_others == "True":
         price_path = out_path_dir + "/price_box"
     else:
         price_path = out_path_dir + "/price"

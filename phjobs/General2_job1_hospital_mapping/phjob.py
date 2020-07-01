@@ -11,7 +11,7 @@ from pyspark.sql.types import StringType, IntegerType
 from pyspark.sql import functions as func
 
 
-def execute(max_path, project_name, cpa_gyc, if_box, out_path, out_dir, need_test):
+def execute(max_path, project_name, cpa_gyc, if_others, out_path, out_dir, need_test):
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \
@@ -41,14 +41,14 @@ def execute(max_path, project_name, cpa_gyc, if_box, out_path, out_dir, need_tes
         if project_name == "Sanofi":
             raw_data_path = max_path + "/AZ_Sanofi/sanofi_raw_data"
         elif project_name == "AZ":
-            if if_box == "True":
+            if if_others == "True":
                 raw_data_path = max_path + "/AZ_Sanofi/az_others_box"
             else:
                 raw_data_path = max_path + "/AZ_Sanofi/az_raw_data"
     else:
         universe_path = max_path + "/" + project_name + "/universe_base"
         cpa_pha_mapping_path = max_path + "/" + project_name + "/cpa_pha_mapping"
-        if if_box == "True":
+        if if_others == "True":
             raw_data_path = max_path + "/" + project_name + "/others_box"
         else:
             raw_data_path = max_path + "/" + project_name + "/raw_data"

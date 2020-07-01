@@ -16,7 +16,7 @@ spec:
       - key: project_name
         value: "Empty"
       - key: if_base
-        value: "F"
+        value: "False"
       - key: time_left
         value: "0"
       - key: time_right

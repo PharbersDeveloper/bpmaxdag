@@ -11,7 +11,7 @@ import click
 @click.option('--current_year')
 @click.option('--first_month')
 @click.option('--current_month')
-@click.option('--if_box')
+@click.option('--if_others')
 @click.option('--monthly_update')
 @click.option('--not_arrived_path')
 @click.option('--published_path')
@@ -19,9 +19,9 @@ import click
 @click.option('--out_dir')
 @click.option('--need_test')
 
-def debug_execute(max_path, project_name, model_month_right, max_month, year_missing, current_year, first_month, current_month, if_box, 
+def debug_execute(max_path, project_name, model_month_right, max_month, year_missing, current_year, first_month, current_month, if_others, 
 monthly_update, not_arrived_path, published_path, out_path, out_dir, need_test):
-    execute(max_path, project_name, model_month_right, max_month, year_missing, current_year, first_month, current_month, if_box, 
+    execute(max_path, project_name, model_month_right, max_month, year_missing, current_year, first_month, current_month, if_others, 
     monthly_update, not_arrived_path, published_path, out_path, out_dir, need_test)
 
 
