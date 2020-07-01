@@ -10,7 +10,7 @@ from pyspark.sql.types import StringType, IntegerType, DoubleType
 from pyspark.sql import functions as func
 import os
 
-def execute(max_path, project_name, if_base, time_left, time_right, left_models, time_left_models, rest_models, time_rest_models,
+def execute(max_path, project_name, if_base, time_left, time_right, left_models, left_models_time_left, right_models, right_models_time_right,
 all_models, other_models, universe_choice, out_path, out_dir, need_test):
     spark = SparkSession.builder \
         .master("yarn") \
@@ -43,12 +43,16 @@ all_models, other_models, universe_choice, out_path, out_dir, need_test):
         left_models = left_models.replace(", ",",").split(",")
     else:
         left_models = []
-    if rest_models != "Empty":
-        rest_models = rest_models.replace(", ",",").split(",")
+    if right_models != "Empty":
+        right_models = right_models.replace(", ",",").split(",")
     else:
-        rest_models = []
+        right_models = []
+    if left_models_time_left == "Empty":
+        left_models_time_left = 0
+    if right_models_time_right == "Empty":
+        right_models_time_right = 0
         
-    time_parameters = [int(time_left), int(time_right), left_models, int(time_left_models), rest_models, int(time_rest_models)]
+    time_parameters = [int(time_left), int(time_right), left_models, int(left_models_time_left), right_models, int(right_models_time_right)]
     
     if all_models != "Empty":
         all_models = all_models.replace(", ",",").split(",")
@@ -110,7 +114,7 @@ all_models, other_models, universe_choice, out_path, out_dir, need_test):
             panel_path = out_path_dir + "/panel_result"
         else:
             panel_box_path = project_path + "/panel_box-result"
-            panel_path = project_path + "/panel_result"
+            panel_path = out_path_dir + "/panel_result"
 
         if if_box:
             original_panel_path = panel_box_path
@@ -199,15 +203,15 @@ all_models, other_models, universe_choice, out_path, out_dir, need_test):
         time_left = time_parameters[0]
         time_right = time_parameters[1]
         left_models = time_parameters[2]
-        time_left_models = time_parameters[3]
-        rest_models = time_parameters[4]
-        time_rest_models = time_parameters[5]
+        left_models_time_left = time_parameters[3]
+        right_models = time_parameters[4]
+        right_models_time_right = time_parameters[5]
 
         if market in left_models:
-            time_left = time_left_models
-        if market in rest_models:
-            time_right = time_rest_models
-        time_range = str(time_left) + '-' + str(time_right)
+            time_left = left_models_time_left
+        if market in right_models:
+            time_right = right_models_time_right
+        time_range = str(time_left) + '_' + str(time_right)
 
         # universe_outlier 文件读取与处理：read_uni_ot
         # universe_outlier = spark.read.parquet(universe_outlier_path)
@@ -289,11 +293,11 @@ all_models, other_models, universe_choice, out_path, out_dir, need_test):
         # if if_base == False:
         max_result = max_result.repartition(2)
         if if_box:
-            max_path = out_path_dir + "/MAX_result/MAX_result_" + time_range + market + "_hosp_level_box"
+            max_path = out_path_dir + "/MAX_result/MAX_result_" + time_range + '_'  + market + "_hosp_level_box"
             max_result.write.format("parquet") \
                 .mode("overwrite").save(max_path)
         else:
-            max_path = out_path_dir + "/MAX_result/MAX_result_" + time_range + market + "_hosp_level"
+            max_path = out_path_dir + "/MAX_result/MAX_result_" + time_range + '_' + market + "_hosp_level"
             max_result.write.format("parquet") \
                 .mode("overwrite").save(max_path)
 
@@ -325,7 +329,6 @@ all_models, other_models, universe_choice, out_path, out_dir, need_test):
     # 执行函数
     if all_models:
         for i in all_models:
-            # i = i.decode("gb18030")
             calculate_max(i, if_base=if_base, if_box=False)
 
     if other_models:

@@ -12,7 +12,8 @@ from pyspark.sql.types import StringType, IntegerType, DoubleType
 from pyspark.sql import functions as func
 
 
-def execute(max_path, project_name, model_month_right, max_month, year_missing, out_path, out_dir, need_test):
+def execute(max_path, project_name, model_month_right, max_month, year_missing, current_year, first_month, current_month, 
+if_box, monthly_update, not_arrived_path, published_path, out_path, out_dir, need_test):
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \
@@ -51,19 +52,32 @@ def execute(max_path, project_name, model_month_right, max_month, year_missing, 
     model_month_right = int(model_month_right)
     max_month = int(max_month)
     
-    c_year = 2020
-    first_adding_month =1
-    c_month = 4
-    if_box = False
-    monthly_update = True
-    not_arrived_path = max_path + "/" + project_name + "/Not arrived" + c_year*100+c_month + ".xlsx"
+    # 月更新相关参数
+    if monthly_update != "False" and monthly_update != "True":
+        phlogger.error('wrong input: monthly_update, False or True') 
+        raise ValueError('wrong input: monthly_update, False or True')
+    if monthly_update == "True":
+        current_year = int(current_year)
+        first_month = int(first_month)
+        current_month = int(current_month)
+        if not_arrived_path == "Empty":    
+            not_arrived_path = max_path + "/Common_files/Not_arrived" + str(current_year*100 + current_month) + ".csv"
+        published_path  = published_path.replace(", ",",").split(",")
+        published_left_path = published_path[0]
+        published_right_path = published_path[1]
+    # not_arrived_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/Common_files/Not_arrived202004.csv"
+    # published_left_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/Common_files/Published2019.csv"
+    # published_right_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/Common_files/Published2020.csv"
 
     # 输出
-    price_path = out_path_dir + "/price"
+    if if_box == "True":
+        price_path = out_path_dir + "/price_box"
+    else:
+        price_path = out_path_dir + "/price"
     growth_rate_path = out_path_dir + "/growth_rate"
     adding_data_path =  out_path_dir + "/adding_data"
     raw_data_adding_path =  out_path_dir + "/raw_data_adding"
-    new_hospital_path = out_path_dir + "/new_hospital"
+    new_hospital_path = out_path + "/" + project_name  + "/new_hospital"
     raw_data_adding_final_path =  out_path_dir + "/raw_data_adding_final"
 
 
@@ -107,8 +121,6 @@ def execute(max_path, project_name, model_month_right, max_month, year_missing, 
     # 数据读取
     raw_data = spark.read.parquet(product_mapping_out_path)
     raw_data.persist()
-    # products_of_interest = pd.read_excel(products_of_interest_path)
-    # products_of_interest = s3.get_excel_from_s3(products_of_interest_path)
     products_of_interest = spark.read.csv(products_of_interest_path, header=True)
     products_of_interest = products_of_interest.toPandas()["poi"].values.tolist()
 
@@ -139,12 +151,15 @@ def execute(max_path, project_name, model_month_right, max_month, year_missing, 
     phlogger.info("输出 price：".decode("utf-8") + price_path)
 
     # raw_data 处理
-    raw_data = raw_data.where(raw_data.Year < ((model_month_right // 100) + 1))
-    if project_name == "Sanofi" or project_name == "AZ":
-        raw_data = raw_data.where((raw_data.Year > 2016) & (raw_data.Year < 2020))
+    if monthly_update == "False":
+        raw_data = raw_data.where(raw_data.Year < ((model_month_right // 100) + 1))
+        if project_name == "Sanofi" or project_name == "AZ":
+            raw_data = raw_data.where((raw_data.Year > 2016) & (raw_data.Year < 2020))
+    elif monthly_update == "True":
+        if project_name == "Sanofi" or project_name == "AZ":
+            raw_data = raw_data.where(raw_data.Year > 2016)
 
     phlogger.info('2 连续性计算')
-
 
     # 2 计算样本医院连续性: cal_continuity
     # 每个医院每年的月份数
@@ -172,9 +187,6 @@ def execute(max_path, project_name, model_month_right, max_month, year_missing, 
     continuity = continuity.withColumn("total", eval(month_sum))
     # ['PHA', 'Year_2018', 'Year_2019', 'total', 'MAX', 'MIN']
     continuity = continuity.join(continuity_whole_year, on="PHA", how="left")
-
-
-    phlogger.info('3 增长率计算')
 
     # 3 计算样本分子增长率: cal_growth
     def calculate_growth(raw_data, max_month=12):
@@ -211,9 +223,113 @@ def execute(max_path, project_name, model_month_right, max_month, year_missing, 
                                                  otherwise(growth_rate[y]))
         return growth_rate
 
+    # 4 补数
+    def add_data(raw_data, growth_rate):
+        # 4.1 原始数据格式整理， 用于补数: trans_raw_data_for_adding
+        growth_rate = growth_rate.select(["CITYGROUP", "S_Molecule_for_gr"] + [name for name in growth_rate.columns if name.startswith("GR1")]) \
+            .distinct()
+        raw_data_for_add = raw_data.where(raw_data.PHA.isNotNull()) \
+            .orderBy(raw_data.Year.desc()) \
+            .withColumnRenamed("City_Tier_2010", "CITYGROUP") \
+            .join(growth_rate, on=["S_Molecule_for_gr", "CITYGROUP"], how="left")
+        raw_data_for_add.persist()
+    
+        # 4.2 补充各个医院缺失的月份数据:
+        # add_data
+        # 原始数据的 PHA-Month-Year
+        original_range = raw_data_for_add.select("Year", "Month", "PHA").distinct()
+        original_range.persist()
+    
+        years = original_range.select("Year").distinct() \
+            .orderBy(original_range.Year) \
+            .toPandas()["Year"].values.tolist()
+        phlogger.info(years)
+    
+        growth_rate_index = [index for index, name in enumerate(raw_data_for_add.columns) if name.startswith("GR")]
+        phlogger.info(growth_rate_index)
+    
+        # 对每年的缺失数据分别进行补数
+        empty = 0
+        for eachyear in years:
+            # cal_time_range
+            # 当前年：月份-PHA
+            current_range_pha_month = original_range.where(original_range.Year == eachyear) \
+                .select("Month", "PHA").distinct()
+            # 当前年：月份
+            current_range_month = current_range_pha_month.select("Month").distinct()
+            # 其他年：月份-当前年有的月份，PHA-当前年没有的医院
+            other_years_range = original_range.where(original_range.Year != eachyear) \
+                .join(current_range_month, on="Month", how="inner") \
+                .join(current_range_pha_month, on=["Month", "PHA"], how="left_anti")
+            # 其他年：与当前年的年份差值，比重计算
+            other_years_range = other_years_range \
+                .withColumn("time_diff", (other_years_range.Year - eachyear)) \
+                .withColumn("weight", func.when((other_years_range.Year > eachyear), (other_years_range.Year - eachyear - 0.5)).
+                            otherwise(other_years_range.Year * (-1) + eachyear))
+            # 选择比重最小的年份：用于补数的 PHA-Month-Year
+            current_range_for_add = other_years_range.repartition(1).orderBy(other_years_range.weight.asc())
+            current_range_for_add = current_range_for_add.groupBy("PHA", "Month") \
+                .agg(func.first(current_range_for_add.Year).alias("Year"))
 
-    # AZ-Sanofi 要特殊处理
-    if monthly_update = "False":
+            # get_seed_data
+            # 从 rawdata 根据 current_range_for_add 获取用于补数的数据
+            current_raw_data_for_add = raw_data_for_add.where(raw_data_for_add.Year != eachyear) \
+                .join(current_range_for_add, on=["Month", "PHA", "Year"], how="inner")
+            current_raw_data_for_add = current_raw_data_for_add \
+                .withColumn("time_diff", (current_raw_data_for_add.Year - eachyear)) \
+                .withColumn("weight", func.when((current_raw_data_for_add.Year > eachyear), (current_raw_data_for_add.Year - eachyear - 0.5)).
+                            otherwise(current_raw_data_for_add.Year * (-1) + eachyear))
+    
+            # cal_seed_with_gr
+            # 当前年与(当前年+1)的增长率所在列的index
+            base_index = eachyear - min(years) + min(growth_rate_index)
+            current_raw_data_for_add = current_raw_data_for_add.withColumn("Sales_bk", current_raw_data_for_add.Sales)
+    
+            # 为补数计算增长率
+            current_raw_data_for_add = current_raw_data_for_add \
+                .withColumn("min_index", func.when((current_raw_data_for_add.Year < eachyear), (current_raw_data_for_add.time_diff + base_index)).
+                            otherwise(base_index)) \
+                .withColumn("max_index", func.when((current_raw_data_for_add.Year < eachyear), (base_index - 1)).
+                            otherwise(current_raw_data_for_add.time_diff + base_index - 1)) \
+                .withColumn("total_gr", func.lit(1))
+    
+            for i in growth_rate_index:
+                col_name = current_raw_data_for_add.columns[i]
+                current_raw_data_for_add = current_raw_data_for_add.withColumn(col_name, func.when((current_raw_data_for_add.min_index > i) | (current_raw_data_for_add.max_index < i), 1).
+                                                             otherwise(current_raw_data_for_add[col_name]))
+                current_raw_data_for_add = current_raw_data_for_add.withColumn(col_name, func.when(current_raw_data_for_add.Year > eachyear, current_raw_data_for_add[col_name] ** (-1)).
+                                                             otherwise(current_raw_data_for_add[col_name]))
+                current_raw_data_for_add = current_raw_data_for_add.withColumn("total_gr", current_raw_data_for_add.total_gr * current_raw_data_for_add[col_name])
+    
+            current_raw_data_for_add = current_raw_data_for_add.withColumn("final_gr", func.when(current_raw_data_for_add.total_gr < 2, current_raw_data_for_add.total_gr).
+                                                         otherwise(2))
+    
+            # 为当前年的缺失数据补数：根据增长率计算 Sales，匹配 price，计算 Units=Sales/price
+            current_adding_data = current_raw_data_for_add \
+                .withColumn("Sales", current_raw_data_for_add.Sales * current_raw_data_for_add.final_gr) \
+                .withColumn("Year", func.lit(eachyear))
+            current_adding_data = current_adding_data.withColumn("year_month", current_adding_data.Year * 100 + current_adding_data.Month)
+            current_adding_data = current_adding_data.withColumn("year_month", current_adding_data["year_month"].cast(DoubleType()))
+    
+            current_adding_data = current_adding_data.withColumnRenamed("CITYGROUP", "City_Tier_2010") \
+                .join(price, on=["min2", "year_month", "City_Tier_2010"], how="inner")
+            current_adding_data = current_adding_data.withColumn("Units", func.when(current_adding_data.Sales == 0, 0).
+                                                         otherwise(current_adding_data.Sales / current_adding_data.Price)) \
+                .na.fill({'Units': 0})
+    
+            if empty == 0:
+                adding_data = current_adding_data
+            else:
+                adding_data = adding_data.union(current_adding_data)
+            empty = empty + 1
+            
+        return adding_data, original_range
+            
+    # 执行函数 calculate_growth, add_data
+    if monthly_update == "False":
+        
+        phlogger.info('3 增长率计算')
+        # AZ-Sanofi 要特殊处理
         if project_name != "Sanofi" and project_name != "AZ":
             growth_rate = calculate_growth(raw_data)
         else:
@@ -236,122 +352,46 @@ def execute(max_path, project_name, model_month_right, max_month, year_missing, 
                 growth_rate_p2.select(["S_Molecule_for_gr", "CITYGROUP"] + [name for name in growth_rate_p2.columns if name.startswith("GR")]),
                 on=["S_Molecule_for_gr", "CITYGROUP"],
                 how="left")
-    else:
-        for index, month in enumerate():
+                
+        phlogger.info('4 补数')
+        # 补数：add_data
+        add_data_out = add_data(raw_data, growth_rate)
+        adding_data = add_data_out[0]
+        original_range = add_data_out[1]
             
-        growth_rate = calculate_growth(raw_data)
-
+    elif monthly_update == "True":
+        published_left = spark.read.csv(published_left_path, header=True)
+        published_right = spark.read.csv(published_right_path, header=True)
+        not_arrived =  spark.read.csv(not_arrived_path, header=True)
+        
+        phlogger.info('3 增长率计算 + 4 补数')
+        
+        for index, month in enumerate(range(first_month, current_month + 1)):
+            # publish交集，去除当月未到
+            month_hospital = published_left.intersect(published_right) \
+                .exceptAll(not_arrived.where(not_arrived.Date == current_year*100 + month).select("ID")) \
+                .toPandas()["ID"].tolist()
+            
+            raw_data_month = raw_data.where(raw_data.Month == month)
+            
+            growth_rate = calculate_growth(raw_data_month.where(raw_data_month.ID.isin(month_hospital)))
+            
+            # 补数：add_data
+            adding_data_monthly = add_data(raw_data_month, growth_rate)[0]
+            
+            if index == 0:
+                adding_data = adding_data_monthly
+            else:
+                adding_data = adding_data.union(adding_data_monthly)
+        
     # 输出growth_rate结果
     growth_rate = growth_rate.repartition(2)
     growth_rate.write.format("parquet") \
         .mode("overwrite").save(growth_rate_path)
-
+        
     phlogger.info("输出 growth_rate：".decode("utf-8") + growth_rate_path)
-
-    phlogger.info('4 补数')
-
-    # 4 补数
-    # 4.1 原始数据格式整理， 用于补数: trans_raw_data_for_adding
-    growth_rate = growth_rate.select(["CITYGROUP", "S_Molecule_for_gr"] + [name for name in growth_rate.columns if name.startswith("GR1")]) \
-        .distinct()
-    raw_data_for_add = raw_data.where(raw_data.PHA.isNotNull()) \
-        .orderBy(raw_data.Year.desc()) \
-        .withColumnRenamed("City_Tier_2010", "CITYGROUP") \
-        .join(growth_rate, on=["S_Molecule_for_gr", "CITYGROUP"], how="left")
-    raw_data_for_add.persist()
-
-    # 4.2 补充各个医院缺失的月份数据:
-
-    # add_data
-    # 原始数据的 PHA-Month-Year
-    original_range = raw_data_for_add.select("Year", "Month", "PHA").distinct()
-    original_range.persist()
-
-    years = original_range.select("Year").distinct() \
-        .orderBy(original_range.Year) \
-        .toPandas()["Year"].values.tolist()
-    phlogger.info(years)
-
-    growth_rate_index = [index for index, name in enumerate(raw_data_for_add.columns) if name.startswith("GR")]
-    phlogger.info(growth_rate_index)
-
-    # 对每年的缺失数据分别进行补数
-    empty = 0
-    for eachyear in years:
-        # cal_time_range
-        # 当前年：月份-PHA
-        current_range_pha_month = original_range.where(original_range.Year == eachyear) \
-            .select("Month", "PHA").distinct()
-        # 当前年：月份
-        current_range_month = current_range_pha_month.select("Month").distinct()
-        # 其他年：月份-当前年有的月份，PHA-当前年没有的医院
-        other_years_range = original_range.where(original_range.Year != eachyear) \
-            .join(current_range_month, on="Month", how="inner") \
-            .join(current_range_pha_month, on=["Month", "PHA"], how="left_anti")
-        # 其他年：与当前年的年份差值，比重计算
-        other_years_range = other_years_range \
-            .withColumn("time_diff", (other_years_range.Year - eachyear)) \
-            .withColumn("weight", func.when((other_years_range.Year > eachyear), (other_years_range.Year - eachyear - 0.5)).
-                        otherwise(other_years_range.Year * (-1) + eachyear))
-        # 选择比重最小的年份：用于补数的 PHA-Month-Year
-        current_range_for_add = other_years_range.repartition(1).orderBy(other_years_range.weight.asc())
-        current_range_for_add = current_range_for_add.groupBy("PHA", "Month") \
-            .agg(func.first(current_range_for_add.Year).alias("Year"))
-
-
-        # get_seed_data
-        # 从 rawdata 根据 current_range_for_add 获取用于补数的数据
-        current_raw_data_for_add = raw_data_for_add.where(raw_data_for_add.Year != eachyear) \
-            .join(current_range_for_add, on=["Month", "PHA", "Year"], how="inner")
-        current_raw_data_for_add = current_raw_data_for_add \
-            .withColumn("time_diff", (current_raw_data_for_add.Year - eachyear)) \
-            .withColumn("weight", func.when((current_raw_data_for_add.Year > eachyear), (current_raw_data_for_add.Year - eachyear - 0.5)).
-                        otherwise(current_raw_data_for_add.Year * (-1) + eachyear))
-
-        # cal_seed_with_gr
-        # 当前年与(当前年+1)的增长率所在列的index
-        base_index = eachyear - min(years) + min(growth_rate_index)
-        current_raw_data_for_add = current_raw_data_for_add.withColumn("Sales_bk", current_raw_data_for_add.Sales)
-
-        # 为补数计算增长率
-        current_raw_data_for_add = current_raw_data_for_add \
-            .withColumn("min_index", func.when((current_raw_data_for_add.Year < eachyear), (current_raw_data_for_add.time_diff + base_index)).
-                        otherwise(base_index)) \
-            .withColumn("max_index", func.when((current_raw_data_for_add.Year < eachyear), (base_index - 1)).
-                        otherwise(current_raw_data_for_add.time_diff + base_index - 1)) \
-            .withColumn("total_gr", func.lit(1))
-
-        for i in growth_rate_index:
-            col_name = current_raw_data_for_add.columns[i]
-            current_raw_data_for_add = current_raw_data_for_add.withColumn(col_name, func.when((current_raw_data_for_add.min_index > i) | (current_raw_data_for_add.max_index < i), 1).
-                                                         otherwise(current_raw_data_for_add[col_name]))
-            current_raw_data_for_add = current_raw_data_for_add.withColumn(col_name, func.when(current_raw_data_for_add.Year > eachyear, current_raw_data_for_add[col_name] ** (-1)).
-                                                         otherwise(current_raw_data_for_add[col_name]))
-            current_raw_data_for_add = current_raw_data_for_add.withColumn("total_gr", current_raw_data_for_add.total_gr * current_raw_data_for_add[col_name])
-
-        current_raw_data_for_add = current_raw_data_for_add.withColumn("final_gr", func.when(current_raw_data_for_add.total_gr < 2, current_raw_data_for_add.total_gr).
-                                                     otherwise(2))
-
-        # 为当前年的缺失数据补数：根据增长率计算 Sales，匹配 price，计算 Units=Sales/price
-        current_adding_data = current_raw_data_for_add \
-            .withColumn("Sales", current_raw_data_for_add.Sales * current_raw_data_for_add.final_gr) \
-            .withColumn("Year", func.lit(eachyear))
-        current_adding_data = current_adding_data.withColumn("year_month", current_adding_data.Year * 100 + current_adding_data.Month)
-        current_adding_data = current_adding_data.withColumn("year_month", current_adding_data["year_month"].cast(DoubleType()))
-
-        current_adding_data = current_adding_data.withColumnRenamed("CITYGROUP", "City_Tier_2010") \
-            .join(price, on=["min2", "year_month", "City_Tier_2010"], how="inner")
-        current_adding_data = current_adding_data.withColumn("Units", func.when(current_adding_data.Sales == 0, 0).
-                                                     otherwise(current_adding_data.Sales / current_adding_data.Price)) \
-            .na.fill({'Units': 0})
-
-        if empty == 0:
-            adding_data = current_adding_data
-        else:
-            adding_data = adding_data.union(current_adding_data)
-        empty = empty + 1
-
-    # 测试：输出adding_data
+        
+    # 输出adding_data
     adding_data = adding_data.repartition(2)
     adding_data.write.format("parquet") \
         .mode("overwrite").save(adding_data_path)
@@ -369,49 +409,53 @@ def execute(max_path, project_name, model_month_right, max_month, year_missing, 
     # raw_data_adding.write.format("parquet") \
     #     .mode("overwrite").save(raw_data_adding_path)
     # phlogger.info("输出 raw_data_adding：".decode("utf-8") + raw_data_adding_path)
-
-    raw_data_for_add.unpersist()
-    raw_data.unpersist()
-
-    # 1.9 进一步为最后一年独有的医院补最后一年的缺失月（可能也要考虑第一年）:
-
-    # 只在最新一年出现的医院
-    new_hospital = (original_range.where(original_range.Year == max(years)).select("PHA").distinct()) \
-        .subtract(original_range.where(original_range.Year != max(years)).select("PHA").distinct())
-    phlogger.info("以下是最新一年出现的医院:" + str(new_hospital.toPandas()["PHA"].tolist()))
-    # 输出
-    new_hospital = new_hospital.repartition(2)
-    new_hospital.write.format("parquet") \
-        .mode("overwrite").save(new_hospital_path)
-
-    phlogger.info("输出 new_hospital：".decode("utf-8") + new_hospital_path)
-
-    # 最新一年没有的月份
-    missing_months = (original_range.where(original_range.Year != max(years)).select("Month").distinct()) \
-        .subtract(original_range.where(original_range.Year == max(years)).select("Month").distinct())
-
-    # 如果最新一年有缺失月份，需要处理
-    if missing_months.count() == 0:
-        phlogger.info("missing_months=0")
-        raw_data_adding_final = raw_data_adding
-    else:
-        number_of_existing_months = 12 - missing_months.count()
-        # 用于groupBy的列名：raw_data_adding列名去除list中的列名
-        group_columns = set(raw_data_adding.columns) \
-            .difference(set(['Month', 'Sales', 'Units', '季度', "sales_value__rmb_", "total_units", "counting_units", "year_month"]))
-        # 补数重新计算
-        adding_data_new = raw_data_adding \
-            .where(raw_data_adding.add_flag == 1) \
-            .where(raw_data_adding.PHA.isin(new_hospital["PHA"].tolist())) \
-            .groupBy(list(group_columns)).agg({"Sales": "sum", "Units": "sum"})
-        adding_data_new = adding_data_new \
-            .withColumn("Sales", adding_data_new["sum(Sales)"] / number_of_existing_months) \
-            .withColumn("Units", adding_data_new["sum(Units)"] / number_of_existing_months) \
-            .crossJoin(missing_months)
-        # 生成最终补数结果
-        same_names = list(set(raw_data_adding.columns).intersection(set(adding_data_new.columns)))
-        raw_data_adding_final = raw_data_adding.select(same_names) \
-            .union(adding_data_new.select(same_names))
+    
+    if monthly_update == "False":
+        # 1.9 进一步为最后一年独有的医院补最后一年的缺失月（可能也要考虑第一年）:add_data_new_hosp
+        years = original_range.select("Year").distinct() \
+            .orderBy(original_range.Year) \
+            .toPandas()["Year"].values.tolist()
+    
+        # 只在最新一年出现的医院
+        new_hospital = (original_range.where(original_range.Year == max(years)).select("PHA").distinct()) \
+            .subtract(original_range.where(original_range.Year != max(years)).select("PHA").distinct())
+        phlogger.info("以下是最新一年出现的医院:" + str(new_hospital.toPandas()["PHA"].tolist()))
+        # 输出
+        new_hospital = new_hospital.repartition(2)
+        new_hospital.write.format("parquet") \
+            .mode("overwrite").save(new_hospital_path)
+    
+        phlogger.info("输出 new_hospital：".decode("utf-8") + new_hospital_path)
+    
+        # 最新一年没有的月份
+        missing_months = (original_range.where(original_range.Year != max(years)).select("Month").distinct()) \
+            .subtract(original_range.where(original_range.Year == max(years)).select("Month").distinct())
+    
+        # 如果最新一年有缺失月份，需要处理
+        if missing_months.count() == 0:
+            phlogger.info("missing_months=0")
+            raw_data_adding_final = raw_data_adding
+        else:
+            number_of_existing_months = 12 - missing_months.count()
+            # 用于groupBy的列名：raw_data_adding列名去除list中的列名
+            group_columns = set(raw_data_adding.columns) \
+                .difference(set(['Month', 'Sales', 'Units', '季度', "sales_value__rmb_", "total_units", "counting_units", "year_month"]))
+            # 补数重新计算
+            adding_data_new = raw_data_adding \
+                .where(raw_data_adding.add_flag == 1) \
+                .where(raw_data_adding.PHA.isin(new_hospital["PHA"].tolist())) \
+                .groupBy(list(group_columns)).agg({"Sales": "sum", "Units": "sum"})
+            adding_data_new = adding_data_new \
+                .withColumn("Sales", adding_data_new["sum(Sales)"] / number_of_existing_months) \
+                .withColumn("Units", adding_data_new["sum(Units)"] / number_of_existing_months) \
+                .crossJoin(missing_months)
+            # 生成最终补数结果
+            same_names = list(set(raw_data_adding.columns).intersection(set(adding_data_new.columns)))
+            raw_data_adding_final = raw_data_adding.select(same_names) \
+                .union(adding_data_new.select(same_names))
+    elif monthly_update == "True":
+        raw_data_adding_final = raw_data_adding.where(raw_data_adding.Year == current_year)
+        
             
     # 输出补数结果 raw_data_adding_final
     raw_data_adding_final = raw_data_adding_final.repartition(2)

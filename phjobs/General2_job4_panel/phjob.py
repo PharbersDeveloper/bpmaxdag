@@ -12,7 +12,8 @@ from pyspark.sql.types import StringType, IntegerType, DoubleType
 from pyspark.sql import functions as func
 
 
-def execute(max_path, project_name, model_month_left, model_month_right, paths_foradding, out_path, out_dir, need_test):
+def execute(max_path, project_name, model_month_left, model_month_right, current_year, current_month, paths_foradding, not_arrived_path, unpublished_path, 
+monthly_update, panel_for_union_dir, out_path, out_dir, need_test):
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \
@@ -41,20 +42,31 @@ def execute(max_path, project_name, model_month_left, model_month_right, paths_f
     if project_name == "Sanofi" or project_name == "AZ":
         universe_path = max_path + "/AZ_Sanofi/universe_az_sanofi_base"
         market_path = max_path + u"/AZ_Sanofi/az_sanofi清洗_ma"
-        Notarrive_unpublished_paths = paths_foradding.replace(" ","").split(",")
     else:
         universe_path = max_path + "/" + project_name + "/universe_base"
         market_path  = max_path + "/" + project_name + "/mkt_mapping"
-
+        
     raw_data_adding_final_path = out_path_dir + "/raw_data_adding_final"
-    new_hospital_path = out_path_dir + "/new_hospital"
+    panel_for_union_path = out_path + "/" + project_name + '/' + panel_for_union_dir + "/panel_result"
     
-    #raw_data_adding_final_path = "/common/projects/max/Astellas/adding_data_new"
-
-
+    new_hospital_path = out_path + "/" + project_name  + "/new_hospital"
+    
+    # 月更新相关输入
+    if monthly_update != "False" and monthly_update != "True":
+        phlogger.error('wrong input: monthly_update, False or True') 
+        raise ValueError('wrong input: monthly_update, False or True')
+    if monthly_update == "False":
+        Notarrive_unpublished_paths = paths_foradding.replace(", ",",").split(",")
+    elif monthly_update == "True":
+        current_year = int(current_year)
+        current_month = int(current_month)
+        if not_arrived_path == "Empty":    
+            not_arrived_path = max_path + "/Common_files/Not_arrived" + str(current_year*100 + current_month) + ".csv"
+        Notarrive_unpublished_paths = unpublished_path.replace(", ",",").split(",") + not_arrived_path.replace(", ",",").split(",")
+        
+        
     # 输出
     panel_path = out_path_dir + "/panel_result"
-
 
     # =========== 数据检查 =============
     phlogger.info('数据检查-start')
@@ -190,29 +202,27 @@ def execute(max_path, project_name, model_month_left, model_month_right, paths_f
             .where(~panel_add_data.City.isin(city_list)) \
             .where(~panel_add_data.Province.isin(Province_list)) \
             .where(~(~(panel_add_data.City.isin(kct)) & (panel_add_data.Molecule == u"奥希替尼")))
-
-        # 晚于model所用时间（月更新数据），用unpublished和not arrived补数
-        for index, eachfile in enumerate(Notarrive_unpublished_paths):
-            if index == 0:
-                # Notarrive_unpublished = pd.read_excel(eachfile, dtype=str)
-                Notarrive_unpublished = spark.read.csv(eachfile, header=True)
-            else:
-                # tmp_file = pd.read_excel(eachfile, dtype=str)
-                tmp_file =  spark.read.csv(eachfile, header=True)
-                Notarrive_unpublished = Notarrive_unpublished.union(tmp_file)
-
-        future_range = Notarrive_unpublished.withColumn("Date", Notarrive_unpublished["Date"].cast(DoubleType()))
-
-        panel_add_data_future = panel_add_data.where(panel_add_data.Date > int(model_month_right)) \
-            .join(future_range, on=["Date", "ID"], how="inner") \
-            .select(panel_raw_data.columns)
-
-        # 早于model所用时间（历史数据），用new_hospital补数;
-        panel_add_data_history = panel_add_data.where(panel_add_data.HOSP_ID.isin(new_hospital)) \
-            .where(panel_add_data.Date < int(model_month_left)) \
-            .select(panel_raw_data.columns)
-
-        panel_filtered = (panel_raw_data.union(panel_add_data_history)).union(panel_add_data_future)
+        if monthly_update == "False":
+            # 晚于model所用时间（月更新数据），用unpublished和not arrived补数
+            for index, eachfile in enumerate(Notarrive_unpublished_paths):
+                if index == 0:
+                    # Notarrive_unpublished = pd.read_excel(eachfile, dtype=str)
+                    Notarrive_unpublished = spark.read.csv(eachfile, header=True)
+                else:
+                    # tmp_file = pd.read_excel(eachfile, dtype=str)
+                    tmp_file =  spark.read.csv(eachfile, header=True)
+                    Notarrive_unpublished = Notarrive_unpublished.union(tmp_file)
+    
+            future_range = Notarrive_unpublished.withColumn("Date", Notarrive_unpublished["Date"].cast(DoubleType()))
+    
+            panel_add_data_future = panel_add_data.where(panel_add_data.Date > int(model_month_right)) \
+                .join(future_range, on=["Date", "ID"], how="inner") \
+                .select(panel_raw_data.columns)
+            # 早于model所用时间（历史数据），用new_hospital补数;
+            panel_add_data_history = panel_add_data.where(panel_add_data.HOSP_ID.isin(new_hospital)) \
+                .where(panel_add_data.Date < int(model_month_left)) \
+                .select(panel_raw_data.columns)
+            panel_filtered = (panel_raw_data.union(panel_add_data_history)).union(panel_add_data_future)
 
     else:
         city_list = [u'北京市', u'上海市', u'天津市', u'重庆市', u'广州市', u'深圳市', u'西安市', u'大连市', u'成都市', u'厦门市', u'沈阳市']
@@ -222,12 +232,29 @@ def execute(max_path, project_name, model_month_left, model_month_right, paths_f
         panel_add_data = panel_add_data \
             .where(~panel_add_data.City.isin(city_list)) \
             .where(~panel_add_data.Province.isin(Province_list))
-        panel_add_data_history = panel_add_data \
-            .where(panel_add_data.HOSP_ID.isin(new_hospital)) \
-            .where(panel_add_data.Date < int(model_month_left)) \
+        if monthly_update == "False":
+            panel_add_data_history = panel_add_data \
+                .where(panel_add_data.HOSP_ID.isin(new_hospital)) \
+                .where(panel_add_data.Date < int(model_month_left)) \
+                .select(panel_raw_data.columns)
+            panel_filtered = panel_raw_data.union(panel_add_data_history)
+    
+    if monthly_update == "True":
+        for index, eachfile in enumerate(Notarrive_unpublished_paths):
+            if index == 0:
+                Notarrive_unpublished = spark.read.csv(eachfile, header=True)
+            else:
+                tmp_file =  spark.read.csv(eachfile, header=True)
+                Notarrive_unpublished = Notarrive_unpublished.union(tmp_file)
+        future_range = Notarrive_unpublished.withColumn("Date", Notarrive_unpublished["Date"].cast(DoubleType()))
+        panel_add_data_future = panel_add_data.where(panel_add_data.Date > int(model_month_right)) \
+            .join(future_range, on=["Date", "ID"], how="inner") \
             .select(panel_raw_data.columns)
-        panel_filtered = panel_raw_data.union(panel_add_data_history)
-
+        panel_filtered = panel_raw_data.union(panel_add_data_future)
+        # 与之前的panel结果合并
+        panel_for_union = spark.read.parquet(panel_for_union_path)
+        panel_filtered = panel_for_union.union(panel_filtered)
+        
     # panel_filtered.groupBy("add_flag").agg({"Sales": "sum"}).show()
     # panel_filtered.groupBy("add_flag").agg({"Sales": "sum"}).show()
 

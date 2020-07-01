@@ -14,17 +14,17 @@ import click
 @click.option('--time_left')
 @click.option('--time_right')
 @click.option('--left_models')
-@click.option('--time_left_models')
-@click.option('--rest_models')
-@click.option('--time_rest_models')
+@click.option('--left_models_time_left')
+@click.option('--right_models')
+@click.option('--right_models_time_right')
 @click.option('--all_models')
 @click.option('--other_models')
 @click.option('--universe_choice')
 @click.option('--out_path')
 @click.option('--out_dir')
 @click.option('--need_test')
-def debug_execute(max_path, project_name, if_base, time_left, time_right, left_models, time_left_models, rest_models, time_rest_models, all_models, other_models, universe_choice, out_path, out_dir, need_test):
-	execute(max_path, project_name, if_base, time_left, time_right, left_models, time_left_models, rest_models, time_rest_models, all_models, other_models, universe_choice, out_path, out_dir, need_test)
+def debug_execute(max_path, project_name, if_base, time_left, time_right, left_models, left_models_time_left, right_models, right_models_time_right, all_models, other_models, universe_choice, out_path, out_dir, need_test):
+	execute(max_path, project_name, if_base, time_left, time_right, left_models, left_models_time_left, right_models, right_models_time_right, all_models, other_models, universe_choice, out_path, out_dir, need_test)
 
 
 if __name__ == '__main__':

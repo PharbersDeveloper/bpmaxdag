@@ -23,12 +23,12 @@ spec:
         value: "0"
       - key: left_models
         value: "Empty"
-      - key: time_left_models
-        value: "0"
-      - key: rest_models
+      - key: left_models_time_left
         value: "Empty"
-      - key: time_rest_models
-        value: "0"
+      - key: right_models
+        value: "Empty"
+      - key: right_models_time_right
+        value: "Empty"
       - key: all_models
         value: "Empty"
       - key: other_models

@@ -21,6 +21,20 @@ spec:
         value: "0"
       - key: year_missing
         value: "0"
+      - key: current_year
+        value: "2020"
+      - key: first_month
+        value: "Empty"
+      - key: current_month
+        value: "Empty"
+      - key: if_box
+        value: "False"
+      - key: monthly_update
+        value: "False"
+      - key: not_arrived_path
+        value: "Empty"
+      - key: published_path
+        value: "s3a://ph-max-auto/v0.0.1-2020-06-08/Common_files/Published2019.csv, s3a://ph-max-auto/v0.0.1-2020-06-08/Common_files/Published2020.csv"        
       - key: out_path
         value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
       - key: out_dir
