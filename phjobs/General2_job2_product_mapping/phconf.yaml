@@ -23,6 +23,8 @@ spec:
         value: "min1"
       - key: need_cleaning_cols
         value: "Molecule, Brand, Form, Specifications, Pack_Number, Manufacturer, min1, Route, Corp"
+      - key: if_others
+        value: "False"
       - key: out_path
         value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
       - key: out_dir

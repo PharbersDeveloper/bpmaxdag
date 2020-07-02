@@ -19,6 +19,8 @@ spec:
         value: "0"
       - key: model_month_right
         value: "0"
+      - key: if_others
+        value: "False"
       - key: current_year
         value: "2020"
       - key: current_month
@@ -29,8 +31,8 @@ spec:
         value: "Empty"
       - key: unpublished_path
         value: "s3a://ph-max-auto/v0.0.1-2020-06-08/Common_files/Unpublished2020.csv"
-      - key: panel_for_union_dir
-        value: "result_201912"
+      - key: panel_for_union
+        value: "Empty"
       - key: monthly_update
         value: "False"
       - key: out_path

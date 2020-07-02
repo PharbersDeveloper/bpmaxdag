@@ -20,11 +20,12 @@ import click
 @click.option('--all_models')
 @click.option('--other_models')
 @click.option('--universe_choice')
+@click.option('--if_others')
 @click.option('--out_path')
 @click.option('--out_dir')
 @click.option('--need_test')
-def debug_execute(max_path, project_name, if_base, time_left, time_right, left_models, left_models_time_left, right_models, right_models_time_right, all_models, other_models, universe_choice, out_path, out_dir, need_test):
-	execute(max_path, project_name, if_base, time_left, time_right, left_models, left_models_time_left, right_models, right_models_time_right, all_models, other_models, universe_choice, out_path, out_dir, need_test)
+def debug_execute(max_path, project_name, if_base, time_left, time_right, left_models, left_models_time_left, right_models, right_models_time_right, all_models, other_models, universe_choice, if_others, out_path, out_dir, need_test):
+	execute(max_path, project_name, if_base, time_left, time_right, left_models, left_models_time_left, right_models, right_models_time_right, all_models, other_models, universe_choice, if_others, out_path, out_dir, need_test)
 
 
 if __name__ == '__main__':

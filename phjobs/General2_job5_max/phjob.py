@@ -11,7 +11,7 @@ from pyspark.sql import functions as func
 import os
 
 def execute(max_path, project_name, if_base, time_left, time_right, left_models, left_models_time_left, right_models, right_models_time_right,
-all_models, other_models, universe_choice, out_path, out_dir, need_test):
+all_models, other_models, universe_choice, if_others, out_path, out_dir, need_test):
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \
@@ -67,7 +67,9 @@ all_models, other_models, universe_choice, out_path, out_dir, need_test):
         project_path = max_path + "/AZ_Sanofi/"
     else:
         project_path = max_path + "/" + project_name
-        
+    
+    if if_others == "True":
+        out_dir = out_dir + "/others_box/"
     out_path_dir = out_path + "/" + project_name + '/' + out_dir
     
     # 市场的universe文件
@@ -106,15 +108,8 @@ all_models, other_models, universe_choice, out_path, out_dir, need_test):
             factor_path = project_path + "/factor/factor_" + market
 
         # panel 文件选择与读取 获得 original_panel
-        if project_name == "Sanofi":
-            panel_box_path = project_path + "/panel_box-result_Sanofi"
-            panel_path = out_path_dir + "/panel_result"
-        elif project_name == "AZ":
-            panel_box_path = project_path + "/panel_box-result_AZ"
-            panel_path = out_path_dir + "/panel_result"
-        else:
-            panel_box_path = project_path + "/panel_box-result"
-            panel_path = out_path_dir + "/panel_result"
+        panel_box_path = out_path_dir + "/others_box/panel_result_box"
+        panel_path = out_path_dir + "/panel_result"
 
         if if_box:
             original_panel_path = panel_box_path

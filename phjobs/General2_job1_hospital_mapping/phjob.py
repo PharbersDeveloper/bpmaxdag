@@ -54,7 +54,9 @@ def execute(max_path, project_name, cpa_gyc, if_others, out_path, out_dir, need_
             raw_data_path = max_path + "/" + project_name + "/raw_data"
         
     # 输出
-    hospital_mapping_out_path = out_path + "/" + project_name + '/' + out_dir  + "/hospital_mapping_out"
+    if if_others == "True":
+        out_dir = out_dir + "/others_box/"
+    hospital_mapping_out_path = out_path + "/" + project_name + "/" + out_dir  + "/hospital_mapping_out"
 
     # =========== 数据检查 =============
     phlogger.info('数据检查-start')

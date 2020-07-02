@@ -27,7 +27,7 @@ spec:
         value: "Empty"
       - key: current_month
         value: "Empty"
-      - key: if_box
+      - key: if_others
         value: "False"
       - key: monthly_update
         value: "False"

@@ -12,8 +12,8 @@ from pyspark.sql.types import StringType, IntegerType, DoubleType
 from pyspark.sql import functions as func
 
 
-def execute(max_path, project_name, model_month_left, model_month_right, current_year, current_month, paths_foradding, not_arrived_path, unpublished_path, 
-monthly_update, panel_for_union_dir, out_path, out_dir, need_test):
+def execute(max_path, project_name, model_month_left, model_month_right, if_others, current_year, current_month, paths_foradding, not_arrived_path, unpublished_path, 
+monthly_update, panel_for_union, out_path, out_dir, need_test):
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \
@@ -36,6 +36,9 @@ monthly_update, panel_for_union_dir, out_path, out_dir, need_test):
 
     phlogger.info('job4_panel')
     
+    if if_others == "True":
+        out_dir = out_dir + "/others_box/"
+    
     out_path_dir = out_path + "/" + project_name + '/' + out_dir
 
     # 输入
@@ -47,9 +50,11 @@ monthly_update, panel_for_union_dir, out_path, out_dir, need_test):
         market_path  = max_path + "/" + project_name + "/mkt_mapping"
         
     raw_data_adding_final_path = out_path_dir + "/raw_data_adding_final"
-    panel_for_union_path = out_path + "/" + project_name + '/' + panel_for_union_dir + "/panel_result"
-    
     new_hospital_path = out_path + "/" + project_name  + "/new_hospital"
+    if panel_for_union != "Empty":
+        panel_for_union_path = out_path + "/" + project_name + '/' + panel_for_union
+    else:
+        panel_for_union_path = "Empty"
     
     # 月更新相关输入
     if monthly_update != "False" and monthly_update != "True":
@@ -64,9 +69,11 @@ monthly_update, panel_for_union_dir, out_path, out_dir, need_test):
             not_arrived_path = max_path + "/Common_files/Not_arrived" + str(current_year*100 + current_month) + ".csv"
         Notarrive_unpublished_paths = unpublished_path.replace(", ",",").split(",") + not_arrived_path.replace(", ",",").split(",")
         
-        
     # 输出
-    panel_path = out_path_dir + "/panel_result"
+    if if_others == "True":
+        panel_path = out_path_dir + "/panel_result_box"
+    else:
+        panel_path = out_path_dir + "/panel_result"
 
     # =========== 数据检查 =============
     phlogger.info('数据检查-start')
@@ -252,8 +259,10 @@ monthly_update, panel_for_union_dir, out_path, out_dir, need_test):
             .select(panel_raw_data.columns)
         panel_filtered = panel_raw_data.union(panel_add_data_future)
         # 与之前的panel结果合并
-        panel_for_union = spark.read.parquet(panel_for_union_path)
-        panel_filtered = panel_for_union.union(panel_filtered)
+        if panel_for_union_path != "Empty":
+            panel_for_union = spark.read.parquet(panel_for_union_path)
+            panel_filtered = panel_for_union.union(panel_filtered)
+            
         
     # panel_filtered.groupBy("add_flag").agg({"Sales": "sum"}).show()
     # panel_filtered.groupBy("add_flag").agg({"Sales": "sum"}).show()
