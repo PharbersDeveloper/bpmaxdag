@@ -77,7 +77,7 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
     growth_rate_path = out_path_dir + "/growth_rate"
     adding_data_path =  out_path_dir + "/adding_data"
     raw_data_adding_path =  out_path_dir + "/raw_data_adding"
-    new_hospital_path = out_path + "/" + project_name  + "/new_hospital"
+    new_hospital_path = out_path_dir + "/" + project_name  + "/new_hospital"
     raw_data_adding_final_path =  out_path_dir + "/raw_data_adding_final"
 
 

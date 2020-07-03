@@ -30,7 +30,7 @@ spec:
       - key: if_others
         value: "False"
       - key: monthly_update
-        value: "False"
+        value: "Empty"
       - key: not_arrived_path
         value: "Empty"
       - key: published_path
