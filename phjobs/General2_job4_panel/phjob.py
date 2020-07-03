@@ -50,7 +50,7 @@ monthly_update, panel_for_union, out_path, out_dir, need_test):
         market_path  = max_path + "/" + project_name + "/mkt_mapping"
         
     raw_data_adding_final_path = out_path_dir + "/raw_data_adding_final"
-    new_hospital_path = out_path + "/" + project_name  + "/new_hospital"
+    new_hospital_path = out_path_dir  + "/new_hospital"
     if panel_for_union != "Empty":
         panel_for_union_path = out_path + "/" + project_name + '/' + panel_for_union
     else:
