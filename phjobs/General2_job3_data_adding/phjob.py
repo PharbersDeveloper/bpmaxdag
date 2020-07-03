@@ -20,7 +20,7 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
         .config("spark.driver.memory", "1g") \
         .config("spark.executor.cores", "1") \
         .config("spark.executor.instance", "1") \
-        .config("spark.executor.memory", "2g") \
+        .config("spark.executor.memory", "3g") \
         .config('spark.sql.codegen.wholeStage', False) \
         .getOrCreate()
 
@@ -456,9 +456,9 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
             raw_data_adding_final = raw_data_adding.select(same_names) \
                 .union(adding_data_new.select(same_names))
     elif monthly_update == "True":
-        raw_data_adding_final = raw_data_adding.where(raw_data_adding.Year == current_year)
+        raw_data_adding_final = raw_data_adding \
+        .where((raw_data_adding.Year == current_year) & (raw_data_adding.Month >= first_month) & (raw_data_adding.Month <= current_month) )
         
-            
     # 输出补数结果 raw_data_adding_final
     raw_data_adding_final = raw_data_adding_final.repartition(2)
     raw_data_adding_final.write.format("parquet") \
