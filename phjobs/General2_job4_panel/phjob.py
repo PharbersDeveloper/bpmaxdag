@@ -189,8 +189,9 @@ monthly_update, panel_for_union, out_path, out_dir, need_test):
         .join(original_Date_ProdName, on=["Date", "Prod_Name"], how="inner")
 
     # new_hospital = pd.read_excel(new_hospital_path)
-    new_hospital = spark.read.parquet(new_hospital_path)
-    new_hospital = new_hospital.toPandas()["PHA"].tolist()
+    if monthly_update == "False":
+        new_hospital = spark.read.parquet(new_hospital_path)
+        new_hospital = new_hospital.toPandas()["PHA"].tolist()
 
     # 生成 panel_filtered
     # 早于model所用时间（历史数据），用new_hospital补数;
