@@ -211,8 +211,11 @@ all_models, other_models, universe_choice, if_others, out_path, out_dir, need_te
         # universe_outlier 文件读取与处理：read_uni_ot
         # universe_outlier = spark.read.parquet(universe_outlier_path)
         for col in universe_outlier.columns:
-            if col in ["City_Tier", "CITYGROUP"]:
+            if col == "City_Tier":
                 universe_outlier = universe_outlier.withColumnRenamed(col, "City_Tier_2010")
+            elif col == "CITYGROUP":
+                universe_outlier = universe_outlier.withColumnRenamed(col, "City_Tier_2010")
+                
         universe_outlier = universe_outlier.withColumnRenamed("Panel_ID", "PHA") \
             .withColumnRenamed("Hosp_name", "HOSP_NAME")
         universe_outlier = universe_outlier.withColumn("City_Tier_2010", universe_outlier["City_Tier_2010"].cast(StringType()))
