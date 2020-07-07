@@ -147,6 +147,8 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
     price = price.repartition(2)
     price.write.format("parquet") \
         .mode("overwrite").save(price_path)
+    # 读取price
+    price = spark.read.parquet(price_path)
 
     phlogger.info("输出 price：".decode("utf-8") + price_path)
 
@@ -397,6 +399,8 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
     adding_data = adding_data.repartition(2)
     adding_data.write.format("parquet") \
         .mode("overwrite").save(adding_data_path)
+    # 读取adding_data
+    adding_data = spark.read.parquet(adding_data_path)
 
     phlogger.info("输出 adding_data：".decode("utf-8") + adding_data_path)
 

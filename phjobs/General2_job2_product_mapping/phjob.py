@@ -63,13 +63,13 @@ def execute(max_path, project_name, minimum_product_columns, minimum_product_sep
     product_map = spark.read.parquet(product_map_path)
     colnames_product_map = product_map.columns
     misscols_dict.setdefault("product_map", [])
-    if ("标准通用名" not in colnames_product_map) and ("通用名"  not in colnames_product_map):
+    if ("标准通用名" not in colnames_product_map) and ("通用名_标准"  not in colnames_product_map) and ("通用名"  not in colnames_product_map):
         misscols_dict["product_map"].append("标准通用名")
     if "min1" not in colnames_product_map:
         misscols_dict["product_map"].append("min1")
     if "min2" not in colnames_product_map:
         misscols_dict["product_map"].append("min2")
-    if "标准商品名" not in colnames_product_map:
+    if ("标准商品名" not in colnames_product_map) and ("商品名_标准"  not in colnames_product_map) :
         misscols_dict["product_map"].append("标准商品名")
 
     # 判断输入文件是否有缺失列
@@ -113,8 +113,13 @@ def execute(max_path, project_name, minimum_product_columns, minimum_product_sep
     raw_data = raw_data.withColumnRenamed("tmp", minimum_product_newname)
 
     # product_map
-    product_map = product_map.withColumnRenamed("标准通用名", "通用名") \
-        .withColumnRenamed("标准途径", "std_route")
+    for col in product_map.columns:
+        if col in ["标准通用名", "通用名_标准"]:
+            product_map = product_map.withColumnRenamed(col, "通用名")
+        if col in ["商品名_标准"]:
+            product_map = product_map.withColumnRenamed(col, "标准商品名")
+        if col in ["标准途径"]:
+            product_map = product_map.withColumnRenamed(col, "std_route")
     if "std_route" not in product_map.columns:
         product_map = product_map.withColumn("std_route", func.lit(''))
 
