@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: alfred
+  description: "pharbers job description"
+  labels:
+    name: alfred
+spec:
+  containers:
+    repository: local
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: max_path
+        value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
+      - key: project_name
+        value: "京新"
+      - key: model_month_right
+        value: "201912"
+      - key: max_month
+        value: "0"
+      - key: year_missing
+        value: "0"
+      - key: current_year
+        value: "2020"
+      - key: first_month
+        value: "1"
+      - key: current_month
+        value: "4"
+      - key: if_others
+        value: "False"
+      - key: monthly_update
+        value: "True"
+      - key: not_arrived_path
+        value: "Empty"
+      - key: published_path
+        value: "s3a://ph-max-auto/v0.0.1-2020-06-08/Common_files/Published2019.csv, s3a://ph-max-auto/v0.0.1-2020-06-08/Common_files/Published2020.csv"        
+      - key: out_path
+        value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
+      - key: out_dir
+        value: "result_202001_04_test"  
+      - key: need_test
+        value: 0
+    outputs:
+      - key: a
+        value: abcde
+      - key: b
+        value: 6789
