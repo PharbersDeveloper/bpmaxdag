@@ -11,7 +11,11 @@ from pyspark.sql.types import StringType, IntegerType
 from pyspark.sql import functions as func
 
 
-def execute(max_path, project_name, cpa_gyc, if_others, out_path, out_dir, need_test):
+def execute(max_path, project_name, cpa_gyc, if_others, out_path, out_dir, auto_max, need_test):
+    
+    if auto_max == "False":
+        raise ValueError('auto_max: False 非自动化')
+    
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \

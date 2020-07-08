@@ -22,7 +22,9 @@ spec:
       - key: out_path
         value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
       - key: out_dir
-        value: "Empty"        
+        value: "Empty"
+      - key: auto_max
+        value: "True"
       - key: need_test
         value: 0
     outputs:

@@ -39,6 +39,8 @@ all_models, other_models, universe_choice, if_others, out_path, out_dir, need_te
         if_base = False
     elif if_base == "True":
         if_base = True
+    else:
+        raise ValueError('if_base: False or True'))
     if left_models != "Empty":
         left_models = left_models.replace(", ",",").split(",")
     else:
@@ -210,12 +212,10 @@ all_models, other_models, universe_choice, if_others, out_path, out_dir, need_te
 
         # universe_outlier 文件读取与处理：read_uni_ot
         # universe_outlier = spark.read.parquet(universe_outlier_path)
-        for col in universe_outlier.columns:
-            if col == "City_Tier":
-                universe_outlier = universe_outlier.withColumnRenamed(col, "City_Tier_2010")
-            elif col == "CITYGROUP":
-                universe_outlier = universe_outlier.withColumnRenamed(col, "City_Tier_2010")
-                
+        if "City_Tier" in universe_outlier.columns:
+            universe_outlier = universe_outlier.withColumnRenamed("City_Tier", "City_Tier_2010")
+        elif "CITYGROUP" in universe_outlier.columns:
+            universe_outlier = universe_outlier.withColumnRenamed("CITYGROUP", "City_Tier_2010")
         universe_outlier = universe_outlier.withColumnRenamed("Panel_ID", "PHA") \
             .withColumnRenamed("Hosp_name", "HOSP_NAME")
         universe_outlier = universe_outlier.withColumn("City_Tier_2010", universe_outlier["City_Tier_2010"].cast(StringType()))

@@ -261,9 +261,9 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
         
         for index, month in enumerate(range(first_month, current_month + 1)):
             # publish交集，去除当月未到
-            month_hospital = published_left.intersect(published_right) \
-                .exceptAll(not_arrived.where(not_arrived.Date == current_year*100 + month).select("ID")) \
-                .toPandas()["ID"].tolist()
+            # month_hospital = published_left.intersect(published_right) \
+            #     .exceptAll(not_arrived.where(not_arrived.Date == current_year*100 + month).select("ID")) \
+            #     .toPandas()["ID"].tolist()
             
             raw_data_month = raw_data.where(raw_data.Month == month)
             
