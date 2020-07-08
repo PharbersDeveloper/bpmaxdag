@@ -133,8 +133,8 @@ all_models, other_models, universe_choice, if_others, out_path, out_dir, need_te
             misscols_dict["universe"].append("City_Tier/CITYGROUP")
         if ("Panel_ID" not in colnames_universe) and ("PHA" not in colnames_universe):
             misscols_dict["universe"].append("Panel_ID/PHA")
-        if ("Hosp_name" not in colnames_universe) and ("HOSP_NAME" not in colnames_universe):
-            misscols_dict["universe"].append("Hosp_name/HOSP_NAME")
+        # if ("Hosp_name" not in colnames_universe) and ("HOSP_NAME" not in colnames_universe):
+        #     misscols_dict["universe"].append("Hosp_name/HOSP_NAME")
         if "PANEL" not in colnames_universe:
             misscols_dict["universe"].append("PANEL")
         if "BEDSIZE" not in colnames_universe:
@@ -150,8 +150,8 @@ all_models, other_models, universe_choice, if_others, out_path, out_dir, need_te
             misscols_dict["universe_outlier"].append("City_Tier/CITYGROUP")
         if ("Panel_ID" not in colnames_universe) and ("PHA" not in colnames_universe):
             misscols_dict["universe_outlier"].append("Panel_ID/PHA")
-        if ("Hosp_name" not in colnames_universe) and ("HOSP_NAME" not in colnames_universe):
-            misscols_dict["universe_outlier"].append("Hosp_name/HOSP_NAME")
+        # if ("Hosp_name" not in colnames_universe) and ("HOSP_NAME" not in colnames_universe):
+        #     misscols_dict["universe_outlier"].append("Hosp_name/HOSP_NAME")
         if "PANEL" not in colnames_universe:
             misscols_dict["universe_outlier"].append("PANEL")
         if "BEDSIZE" not in colnames_universe:

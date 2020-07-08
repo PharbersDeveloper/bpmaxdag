@@ -87,8 +87,8 @@ monthly_update, panel_for_union, out_path, out_dir, need_test):
     misscols_dict.setdefault("universe", [])
     if ("Panel_ID" not in colnames_universe) and ("PHA" not in colnames_universe):
         misscols_dict["universe"].append("Panel_ID/PHA")
-    if ("Hosp_name" not in colnames_universe) and ("HOSP_NAME" not in colnames_universe):
-        misscols_dict["universe"].append("Hosp_name/HOSP_NAME")
+    # if ("Hosp_name" not in colnames_universe) and ("HOSP_NAME" not in colnames_universe):
+    #     misscols_dict["universe"].append("Hosp_name/HOSP_NAME")
     if "City" not in colnames_universe:
         misscols_dict["universe"].append("City")
     if "Province" not in colnames_universe:
@@ -138,8 +138,10 @@ monthly_update, panel_for_union, out_path, out_dir, need_test):
     universe = universe \
         .withColumnRenamed("Panel_ID", "PHA") \
         .withColumnRenamed("Hosp_name", "HOSP_NAME") \
-        .withColumn("City_Tier_2010", universe["City_Tier_2010"].cast(StringType())) \
-        .select("PHA", "HOSP_NAME", "Province", "City").distinct()
+        .withColumn("City_Tier_2010", universe["City_Tier_2010"].cast(StringType()))
+    if "HOSP_NAME" not in universe.columns:
+        universe.withColumn("HOSP_NAME",func.lit("0"))
+    universe = universe.select("PHA", "HOSP_NAME", "Province", "City").distinct()
     universe.persist()
 
     # 读取 market

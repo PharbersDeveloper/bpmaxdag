@@ -77,8 +77,8 @@ def execute(max_path, project_name, cpa_gyc, if_others, out_path, out_dir, auto_
         misscols_dict["universe"].append("City_Tier/CITYGROUP")
     if ("Panel_ID" not in colnames_universe) and ("PHA" not in colnames_universe):
         misscols_dict["universe"].append("Panel_ID/PHA")
-    if ("Hosp_name" not in colnames_universe) and ("HOSP_NAME" not in colnames_universe):
-        misscols_dict["universe"].append("Hosp_name/HOSP_NAME")
+    # if ("Hosp_name" not in colnames_universe) and ("HOSP_NAME" not in colnames_universe):
+    #    misscols_dict["universe"].append("Hosp_name/HOSP_NAME")
     if "City" not in colnames_universe:
         misscols_dict["universe"].append("City")
     if "Province" not in colnames_universe:
@@ -143,7 +143,7 @@ def execute(max_path, project_name, cpa_gyc, if_others, out_path, out_dir, auto_
             universe = universe.withColumnRenamed(col, "City_Tier_2010")
     universe = universe.withColumnRenamed("Panel_ID", "PHA") \
         .withColumnRenamed("Hosp_name", "HOSP_NAME")
-
+        
     universe = universe.withColumn("City_Tier_2010", universe["City_Tier_2010"].cast(StringType()))
 
     PHA_city_in_universe = universe.select("PHA", "City", "City_Tier_2010").distinct()
