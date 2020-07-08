@@ -138,9 +138,10 @@ def execute(max_path, project_name, cpa_gyc, if_others, out_path, out_dir, auto_
     # 1. 首次补数
 
     # read_universe
-    for col in universe.columns:
-        if col in ["City_Tier", "CITYGROUP"]:
-            universe = universe.withColumnRenamed(col, "City_Tier_2010")
+    if "City_Tier" in universe.columns:
+        universe = universe.withColumnRenamed("City_Tier", "City_Tier_2010")
+    elif "CITYGROUP" in universe.columns:
+        universe = universe.withColumnRenamed("CITYGROUP", "City_Tier_2010")
     universe = universe.withColumnRenamed("Panel_ID", "PHA") \
         .withColumnRenamed("Hosp_name", "HOSP_NAME")
         
