@@ -80,7 +80,6 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
     new_hospital_path = out_path_dir + "/new_hospital"
     raw_data_adding_final_path =  out_path_dir + "/raw_data_adding_final"
 
-
     # =========== 数据检查 =============
 
     phlogger.info('数据检查-start')
@@ -257,7 +256,7 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
         published_right = spark.read.csv(published_right_path, header=True)
         not_arrived =  spark.read.csv(not_arrived_path, header=True)
         
-        phlogger.info('3 增长率计算 + 4 补数')
+        phlogger.info('4 补数')
         
         for index, month in enumerate(range(first_month, current_month + 1)):
             # publish交集，去除当月未到
@@ -272,19 +271,21 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
             # 补数：add_data
             adding_data_monthly = add_data(raw_data_month, growth_rate_month)[0]
             
+            # 输出adding_data
             if index == 0:
-                adding_data = adding_data_monthly
+                # adding_data = adding_data_monthly
+                adding_data_monthly = adding_data_monthly.repartition(1)
+                adding_data_monthly.write.format("parquet") \
+                    .mode("overwrite").save(adding_data_path)
             else:
-                adding_data = adding_data.union(adding_data_monthly)
-        
-    # 输出adding_data
-    adding_data = adding_data.repartition(2)
-    adding_data.write.format("parquet") \
-        .mode("overwrite").save(adding_data_path)
-    # 读取adding_data
-    adding_data = spark.read.parquet(adding_data_path)
-
+                # adding_data = adding_data.union(adding_data_monthly)
+                adding_data_monthly = adding_data_monthly.repartition(1)
+                adding_data_monthly.write.format("parquet") \
+                    .mode("append").save(adding_data_path)
+                
     phlogger.info("输出 adding_data：".decode("utf-8") + adding_data_path)
+    
+    adding_data = spark.read.parquet(adding_data_path)
 
     # 1.8 合并补数部分和原始部分:
     # combind_data

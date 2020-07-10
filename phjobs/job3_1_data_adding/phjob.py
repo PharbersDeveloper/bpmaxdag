@@ -270,17 +270,21 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
             # 标记是哪个月补数要用的growth_rate
             growth_rate_month = growth_rate_month.withColumn("month_for_monthly_add", func.lit(month))
             
+            # 输出growth_rate结果
             if index == 0:
-                growth_rate = growth_rate_month
+                # growth_rate = growth_rate_month
+                growth_rate_month = growth_rate_month.repartition(1)
+                growth_rate_month.write.format("parquet") \
+                    .mode("overwrite").save(growth_rate_path)
             else:
-                growth_rate = growth_rate.union(growth_rate_month)
-        
-    # 输出growth_rate结果
-    growth_rate = growth_rate.repartition(2)
-    growth_rate.write.format("parquet") \
-        .mode("overwrite").save(growth_rate_path)
-        
+                # growth_rate = growth_rate.union(growth_rate_month)
+                growth_rate_month = growth_rate_month.repartition(1)
+                growth_rate_month.write.format("parquet") \
+                    .mode("append").save(growth_rate_path)
+                
     phlogger.info("输出 growth_rate：".decode("utf-8") + growth_rate_path)
+    
+    growth_rate = spark.read.parquet(growth_rate_path)
 
     phlogger.info('数据执行-Finish')
 
