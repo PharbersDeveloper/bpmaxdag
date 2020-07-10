@@ -281,10 +281,17 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
                 growth_rate_month = growth_rate_month.repartition(1)
                 growth_rate_month.write.format("parquet") \
                     .mode("append").save(growth_rate_path)
+                    
+            phlogger.info("输出 growth_rate：".decode("utf-8") + growth_rate_path)
                 
-    phlogger.info("输出 growth_rate：".decode("utf-8") + growth_rate_path)
     
-    growth_rate = spark.read.parquet(growth_rate_path)
+    if monthly_update == "False":
+        growth_rate = growth_rate.repartition(2)
+        growth_rate.write.format("parquet") \
+            .mode("overwrite").save(growth_rate_path)
+        phlogger.info("输出 growth_rate：".decode("utf-8") + growth_rate_path)
+    elif monthly_update == "True":
+        growth_rate = spark.read.parquet(growth_rate_path)
 
     phlogger.info('数据执行-Finish')
 

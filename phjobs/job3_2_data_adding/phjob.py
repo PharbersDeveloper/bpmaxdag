@@ -282,10 +282,16 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
                 adding_data_monthly = adding_data_monthly.repartition(1)
                 adding_data_monthly.write.format("parquet") \
                     .mode("append").save(adding_data_path)
+            phlogger.info("输出 adding_data：".decode("utf-8") + adding_data_path)
                 
-    phlogger.info("输出 adding_data：".decode("utf-8") + adding_data_path)
-    
-    adding_data = spark.read.parquet(adding_data_path)
+                
+    if monthly_update == "False":
+        adding_data = adding_data.repartition(2)
+        adding_data.write.format("parquet") \
+            .mode("overwrite").save(adding_data_path)
+        phlogger.info("输出 adding_data：".decode("utf-8") + adding_data_path)
+    elif monthly_update == "True":
+        adding_data = spark.read.parquet(adding_data_path)
 
     # 1.8 合并补数部分和原始部分:
     # combind_data
