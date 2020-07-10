@@ -224,7 +224,7 @@ def execute(max_path, project_name, cpa_gyc, if_others, out_path, out_dir, auto_
 
     raw_data = raw_data.join(PHA_city_in_universe, on=["PHA", "City"], how="left")
 
-    # 与原R流程运行的结果比较正确性
+    
     hospital_mapping_out = raw_data.repartition(2)
     hospital_mapping_out.write.format("parquet") \
         .mode("overwrite").save(hospital_mapping_out_path)

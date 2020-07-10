@@ -141,7 +141,7 @@ monthly_update, panel_for_union, out_path, out_dir, need_test):
         .withColumnRenamed("Hosp_name", "HOSP_NAME") \
         .withColumn("City_Tier_2010", universe["City_Tier_2010"].cast(StringType()))
     if "HOSP_NAME" not in universe.columns:
-        universe.withColumn("HOSP_NAME",func.lit("0"))
+        universe = universe.withColumn("HOSP_NAME",func.lit("0"))
     universe = universe.select("PHA", "HOSP_NAME", "Province", "City").distinct()
     universe.persist()
 

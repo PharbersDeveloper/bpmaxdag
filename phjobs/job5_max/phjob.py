@@ -40,7 +40,7 @@ all_models, other_models, universe_choice, if_others, out_path, out_dir, need_te
     elif if_base == "True":
         if_base = True
     else:
-        raise ValueError('if_base: False or True'))
+        raise ValueError('if_base: False or True')
     if left_models != "Empty":
         left_models = left_models.replace(", ",",").split(",")
     else:
