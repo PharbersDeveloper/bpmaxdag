@@ -227,31 +227,28 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
     # 执行函数 calculate_growth
     if monthly_update == "False":
         # AZ-Sanofi 要特殊处理
-        if if_others == "True":
-            growth_rate = spark.read.parquet("/".join(out_path_dir.split("/")[0:-1]) + "/growth_rate")
+        if project_name != "Sanofi" and project_name != "AZ":
+            growth_rate = calculate_growth(raw_data)
         else:
-            if project_name != "Sanofi" and project_name != "AZ":
-                growth_rate = calculate_growth(raw_data)
-            else:
-                year_missing_df = pd.DataFrame(year_missing, columns=["Year"])
-                year_missing_df = spark.createDataFrame(year_missing_df)
-                year_missing_df = year_missing_df.withColumn("Year", year_missing_df["Year"].cast(IntegerType()))
-                # 完整年
-                growth_rate_p1 = calculate_growth(raw_data.join(year_missing_df, on=["Year"], how="left_anti"))
-                # 不完整年
-                growth_rate_p2 = calculate_growth(raw_data.where(raw_data.Year.isin(year_missing + [y - 1 for y in year_missing] + [y + 1 for y in year_missing])), max_month)
-        
-                growth_rate = growth_rate_p1.select("S_Molecule_for_gr", "CITYGROUP") \
-                    .union(growth_rate_p2.select("S_Molecule_for_gr", "CITYGROUP")) \
-                    .distinct()
-                growth_rate = growth_rate.join(
-                    growth_rate_p1.select(["S_Molecule_for_gr", "CITYGROUP"] + [name for name in growth_rate_p1.columns if name.startswith("GR")]),
-                    on=["S_Molecule_for_gr", "CITYGROUP"],
-                    how="left")
-                growth_rate = growth_rate.join(
-                    growth_rate_p2.select(["S_Molecule_for_gr", "CITYGROUP"] + [name for name in growth_rate_p2.columns if name.startswith("GR")]),
-                    on=["S_Molecule_for_gr", "CITYGROUP"],
-                    how="left")
+            year_missing_df = pd.DataFrame(year_missing, columns=["Year"])
+            year_missing_df = spark.createDataFrame(year_missing_df)
+            year_missing_df = year_missing_df.withColumn("Year", year_missing_df["Year"].cast(IntegerType()))
+            # 完整年
+            growth_rate_p1 = calculate_growth(raw_data.join(year_missing_df, on=["Year"], how="left_anti"))
+            # 不完整年
+            growth_rate_p2 = calculate_growth(raw_data.where(raw_data.Year.isin(year_missing + [y - 1 for y in year_missing] + [y + 1 for y in year_missing])), max_month)
+    
+            growth_rate = growth_rate_p1.select("S_Molecule_for_gr", "CITYGROUP") \
+                .union(growth_rate_p2.select("S_Molecule_for_gr", "CITYGROUP")) \
+                .distinct()
+            growth_rate = growth_rate.join(
+                growth_rate_p1.select(["S_Molecule_for_gr", "CITYGROUP"] + [name for name in growth_rate_p1.columns if name.startswith("GR")]),
+                on=["S_Molecule_for_gr", "CITYGROUP"],
+                how="left")
+            growth_rate = growth_rate.join(
+                growth_rate_p2.select(["S_Molecule_for_gr", "CITYGROUP"] + [name for name in growth_rate_p2.columns if name.startswith("GR")]),
+                on=["S_Molecule_for_gr", "CITYGROUP"],
+                how="left")
             
     elif monthly_update == "True":
         published_left = spark.read.csv(published_left_path, header=True)
