@@ -42,13 +42,8 @@ monthly_update, panel_for_union, out_path, out_dir, need_test):
     out_path_dir = out_path + "/" + project_name + '/' + out_dir
 
     # 输入
-    if project_name == "Sanofi" or project_name == "AZ":
-        universe_path = max_path + "/AZ_Sanofi/universe_az_sanofi_base"
-        market_path = max_path + u"/AZ_Sanofi/az_sanofi清洗_ma"
-    else:
-        universe_path = max_path + "/" + project_name + "/universe_base"
-        market_path  = max_path + "/" + project_name + "/mkt_mapping"
-        
+    universe_path = max_path + "/" + project_name + "/universe_base"
+    market_path  = max_path + "/" + project_name + "/mkt_mapping"
     raw_data_adding_final_path = out_path_dir + "/raw_data_adding_final"
     new_hospital_path = out_path_dir  + "/new_hospital"
     if panel_for_union != "Empty":

@@ -43,10 +43,7 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
 
     # 输入
     product_mapping_out_path = out_path_dir + "/product_mapping_out"
-    if project_name == "Sanofi" or project_name == "AZ":
-        products_of_interest_path = max_path + "/AZ_Sanofi/poi.csv"
-    else:
-        products_of_interest_path = max_path + "/" + project_name + "/poi.csv"
+    products_of_interest_path = max_path + "/" + project_name + "/poi.csv"
     if year_missing:
         year_missing = year_missing.replace(" ","").split(",")
     else:
@@ -65,7 +62,7 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
         current_month = int(current_month)
         if not_arrived_path == "Empty":    
             not_arrived_path = max_path + "/Common_files/Not_arrived" + str(current_year*100 + current_month) + ".csv"
-        published_path  = published_path.replace(", ",",").split(",")
+        published_path  = published_path.replace(" ","").split(",")
         published_left_path = published_path[0]
         published_right_path = published_path[1]
     # not_arrived_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/Common_files/Not_arrived202004.csv"

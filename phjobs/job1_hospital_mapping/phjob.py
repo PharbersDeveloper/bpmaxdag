@@ -39,23 +39,12 @@ def execute(max_path, project_name, cpa_gyc, if_others, out_path, out_dir, auto_
     phlogger.info('job1_hospital_mapping')
 
     # 输入
-    if project_name == "Sanofi" or project_name == "AZ":
-        universe_path = max_path + "/AZ_Sanofi/universe_az_sanofi_base"
-        cpa_pha_mapping_path = max_path + u"/AZ_Sanofi/医院匹配_20191031"
-        if project_name == "Sanofi":
-            raw_data_path = max_path + "/AZ_Sanofi/sanofi_raw_data"
-        elif project_name == "AZ":
-            if if_others == "True":
-                raw_data_path = max_path + "/AZ_Sanofi/az_others_box"
-            else:
-                raw_data_path = max_path + "/AZ_Sanofi/az_raw_data"
+    universe_path = max_path + "/" + project_name + "/universe_base"
+    cpa_pha_mapping_path = max_path + "/" + project_name + "/cpa_pha_mapping"
+    if if_others == "True":
+        raw_data_path = max_path + "/" + project_name + "/" + out_dir + "/others_box"
     else:
-        universe_path = max_path + "/" + project_name + "/universe_base"
-        cpa_pha_mapping_path = max_path + "/" + project_name + "/cpa_pha_mapping"
-        if if_others == "True":
-            raw_data_path = max_path + "/" + project_name + "/" + out_dir + "/others_box"
-        else:
-            raw_data_path = max_path + "/" + project_name + "/" + out_dir + "/raw_data"
+        raw_data_path = max_path + "/" + project_name + "/" + out_dir + "/raw_data"
         
     # 输出
     if if_others == "True":

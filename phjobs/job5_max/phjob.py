@@ -65,10 +65,7 @@ all_models, other_models, universe_choice, if_others, out_path, out_dir, need_te
     else:
         other_models = []
         
-    if project_name == "Sanofi" or project_name == "AZ":
-        project_path = max_path + "/AZ_Sanofi/"
-    else:
-        project_path = max_path + "/" + project_name
+    project_path = max_path + "/" + project_name
     
     if if_others == "True":
         out_dir = out_dir + "/others_box/"
@@ -95,7 +92,7 @@ all_models, other_models, universe_choice, if_others, out_path, out_dir, need_te
             elif market in ['SNY5', 'SNY9', 'AZ10', 'AZ11', 'AZ15', 'AZ16', 'AZ14', 'AZ26', 'AZ24']:
                 universe_path = project_path + '/universe_az_sanofi_mch'
             else:
-                universe_path = project_path + '/universe_az_sanofi_base'
+                universe_path = project_path + '/universe_base'
         else:
             if market in universe_choice_dict.keys():
                 universe_path = project_path + '/' + universe_choice_dict[market]

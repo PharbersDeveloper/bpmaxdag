@@ -39,13 +39,10 @@ def execute(max_path, project_name, minimum_product_columns, minimum_product_sep
     out_path_dir = out_path + "/" + project_name + '/' + out_dir
 
     # 输入
-    if project_name == "Sanofi" or project_name == "AZ":
-        product_map_path = max_path + u"/AZ_Sanofi/az_sanofi清洗_ma"
-    else:
-        product_map_path = out_path_dir + "/prod_mapping"
+    product_map_path = out_path_dir + "/prod_mapping"
     hospital_mapping_out_path = out_path_dir + "/hospital_mapping_out"
-    need_cleaning_cols = need_cleaning_cols.replace(", ",",").split(",")
-    minimum_product_columns = minimum_product_columns.replace(", ",",").split(",")
+    need_cleaning_cols = need_cleaning_cols.replace(" ","").split(",")
+    minimum_product_columns = minimum_product_columns.replace(" ","").split(",")
     if minimum_product_sep == "kong":
         minimum_product_sep = ""
     # 输出
