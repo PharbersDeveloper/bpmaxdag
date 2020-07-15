@@ -132,7 +132,6 @@ def execute(max_path, project_name, minimum_product_columns, minimum_product_sep
     product_map_for_rawdata = product_map.select("min1", "min2", "通用名", "std_route", "标准商品名").distinct()
 
     # 输出待清洗
-    need_cleaning_cols[1:1] = minimum_product_columns
     need_cleaning = raw_data.join(product_map_for_needclean, on="min1", how="left_anti") \
         .select(need_cleaning_cols) \
         .distinct()
