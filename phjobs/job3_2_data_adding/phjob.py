@@ -90,10 +90,10 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
     misscols_dict.setdefault("product_mapping_out", [])
 
     colnamelist = ['min1', 'PHA', 'City', 'year_month', 'ID',  'Brand', 'Form',
-    'Specifications', 'Pack_Number', 'Manufacturer', 'Molecule', 'Source', 'Corp', 'Route',
-    'Sales', 'Units', 'Path', 'Sheet', 'BI_hospital_code', 'Province',
+    'Specifications', 'Pack_Number', 'Manufacturer', 'Molecule', 'Source',
+    'Sales', 'Units', 'Path', 'Sheet', 'BI_hospital_code', 'Province', 
     'Month', 'Year', 'City_Tier_2010', 'min2', 'S_Molecule', 'std_route', "标准商品名"]
-    #'Raw_Hosp_Name','ORG_Measure','Units_Box'
+    #'Raw_Hosp_Name','ORG_Measure','Units_Box', 'Corp', 'Route',
 
     for each in colnamelist:
         if each not in colnames_raw_data:

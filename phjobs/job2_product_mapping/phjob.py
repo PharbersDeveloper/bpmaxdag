@@ -109,7 +109,9 @@ def execute(max_path, project_name, minimum_product_columns, minimum_product_sep
             raw_data["tmp"],
             func.lit(minimum_product_sep),
             func.when(func.isnull(raw_data[col]), func.lit("NA")).otherwise(raw_data[col])))
-
+    
+    if minimum_product_newname in raw_data.columns:
+        raw_data = raw_data.drop(minimum_product_newname)
     raw_data = raw_data.withColumnRenamed("tmp", minimum_product_newname)
 
     # product_map
