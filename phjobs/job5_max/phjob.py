@@ -209,10 +209,10 @@ all_models, other_models, universe_choice, if_others, out_path, out_dir, need_te
 
         # universe_outlier 文件读取与处理：read_uni_ot
         # universe_outlier = spark.read.parquet(universe_outlier_path)
-        if "City_Tier" in universe_outlier.columns:
-            universe_outlier = universe_outlier.withColumnRenamed("City_Tier", "City_Tier_2010")
-        elif "CITYGROUP" in universe_outlier.columns:
+        if "CITYGROUP" in universe_outlier.columns:
             universe_outlier = universe_outlier.withColumnRenamed("CITYGROUP", "City_Tier_2010")
+        elif "City_Tier" in universe_outlier.columns:
+            universe_outlier = universe_outlier.withColumnRenamed("City_Tier", "City_Tier_2010")
         universe_outlier = universe_outlier.withColumnRenamed("Panel_ID", "PHA") \
             .withColumnRenamed("Hosp_name", "HOSP_NAME")
         universe_outlier = universe_outlier.withColumn("City_Tier_2010", universe_outlier["City_Tier_2010"].cast(StringType()))
@@ -220,10 +220,10 @@ all_models, other_models, universe_choice, if_others, out_path, out_dir, need_te
 
         # universe 文件读取与处理：read_universe
         # universe = spark.read.parquet(universe_path)
-        if "City_Tier" in universe.columns:
-            universe = universe.withColumnRenamed("City_Tier", "City_Tier_2010")
-        elif "CITYGROUP" in universe.columns:
+        if "CITYGROUP" in universe.columns:
             universe = universe.withColumnRenamed("CITYGROUP", "City_Tier_2010")
+        elif "City_Tier" in universe.columns:
+            universe = universe.withColumnRenamed("City_Tier", "City_Tier_2010")
         universe = universe.withColumnRenamed("Panel_ID", "PHA") \
             .withColumnRenamed("Hosp_name", "HOSP_NAME")
         universe = universe.withColumn("City_Tier_2010", universe["City_Tier_2010"].cast(StringType()))

@@ -127,10 +127,10 @@ monthly_update, panel_for_union, out_path, out_dir, need_test):
 
     # read_universe
     universe = spark.read.parquet(universe_path)
-    if "City_Tier" in universe.columns:
-        universe = universe.withColumnRenamed("City_Tier", "City_Tier_2010")
-    elif "CITYGROUP" in universe.columns:
+    if "CITYGROUP" in universe.columns:
         universe = universe.withColumnRenamed("CITYGROUP", "City_Tier_2010")
+    elif "City_Tier" in universe.columns:
+        universe = universe.withColumnRenamed("City_Tier", "City_Tier_2010")
     universe = universe \
         .withColumnRenamed("Panel_ID", "PHA") \
         .withColumnRenamed("Hosp_name", "HOSP_NAME") \
