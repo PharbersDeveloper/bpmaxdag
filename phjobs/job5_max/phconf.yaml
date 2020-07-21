@@ -31,8 +31,6 @@ spec:
         value: "Empty"
       - key: all_models
         value: "Empty"
-      - key: other_models
-        value: "Empty"
       - key: universe_choice
         value: "Empty"
       - key: if_others

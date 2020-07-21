@@ -11,7 +11,7 @@ from pyspark.sql import functions as func
 import os
 
 def execute(max_path, project_name, if_base, time_left, time_right, left_models, left_models_time_left, right_models, right_models_time_right,
-all_models, other_models, universe_choice, if_others, out_path, out_dir, need_test):
+all_models, universe_choice, if_others, out_path, out_dir, need_test):
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \
@@ -60,10 +60,6 @@ all_models, other_models, universe_choice, if_others, out_path, out_dir, need_te
         all_models = all_models.replace(", ",",").split(",")
     else:
         all_models = []
-    if other_models != "Empty":
-        other_models = other_models.replace(", ",",").split(",")
-    else:
-        other_models = []
         
     project_path = max_path + "/" + project_name
     
@@ -323,12 +319,11 @@ all_models, other_models, universe_choice, if_others, out_path, out_dir, need_te
 
 
     # 执行函数
-    if all_models:
+    if if_others == "False":
         for i in all_models:
             calculate_max(i, if_base=if_base, if_box=False)
-
-    if other_models:
-        for i in other_models:
+    elif if_others == "True":
+        for i in all_models:
             calculate_max(i, if_base=if_base, if_box=True)
 
     # =========== 数据验证 =============

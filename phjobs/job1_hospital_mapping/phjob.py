@@ -39,6 +39,10 @@ def execute(max_path, project_name, cpa_gyc, if_others, out_path, out_dir, auto_
     phlogger.info('job1_hospital_mapping')
 
     # 输入
+    if if_others != "False" and if_others != "True":
+        phlogger.error('wrong input: if_others, False or True') 
+        raise ValueError('wrong input: if_others, False or True')
+        
     universe_path = max_path + "/" + project_name + "/universe_base"
     cpa_pha_mapping_path = max_path + "/" + project_name + "/cpa_pha_mapping"
     if if_others == "True":
