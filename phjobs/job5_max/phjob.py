@@ -107,7 +107,7 @@ all_models, other_models, universe_choice, if_others, out_path, out_dir, need_te
             factor_path = project_path + "/factor/factor_" + market
 
         # panel 文件选择与读取 获得 original_panel
-        panel_box_path = out_path_dir + "/others_box/panel_result_box"
+        panel_box_path = out_path_dir + "/panel_result_box"
         panel_path = out_path_dir + "/panel_result"
 
         if if_box:

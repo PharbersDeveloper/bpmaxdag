@@ -33,13 +33,15 @@ def execute(max_path, project_name, minimum_product_columns, minimum_product_sep
 
     phlogger.info('job2_product_mapping')
     
-    if if_others == "True":
-        out_dir = out_dir + "/others_box/"
-    
-    out_path_dir = out_path + "/" + project_name + '/' + out_dir
+
 
     # 输入
-    product_map_path = out_path_dir + "/prod_mapping"
+    product_map_path = out_path + "/" + project_name + '/' + out_dir + "/prod_mapping"
+    
+    if if_others == "True":
+        out_dir = out_dir + "/others_box/"
+    out_path_dir = out_path + "/" + project_name + '/' + out_dir
+    
     hospital_mapping_out_path = out_path_dir + "/hospital_mapping_out"
     need_cleaning_cols = need_cleaning_cols.replace(" ","").split(",")
     minimum_product_columns = minimum_product_columns.replace(" ","").split(",")

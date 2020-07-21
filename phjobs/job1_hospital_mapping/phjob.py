@@ -42,7 +42,7 @@ def execute(max_path, project_name, cpa_gyc, if_others, out_path, out_dir, auto_
     universe_path = max_path + "/" + project_name + "/universe_base"
     cpa_pha_mapping_path = max_path + "/" + project_name + "/cpa_pha_mapping"
     if if_others == "True":
-        raw_data_path = max_path + "/" + project_name + "/" + out_dir + "/others_box"
+        raw_data_path = max_path + "/" + project_name + "/" + out_dir + "/raw_data_box"
     else:
         raw_data_path = max_path + "/" + project_name + "/" + out_dir + "/raw_data"
         
