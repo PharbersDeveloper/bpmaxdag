@@ -5,6 +5,7 @@ This is job template for Pharbers Max Job
 """
 from phlogs.phlogs import phlogger
 import os
+import pandas as pd
 
 from pyspark.sql import SparkSession
 from pyspark.sql.types import *
@@ -12,8 +13,8 @@ from pyspark.sql.types import StringType, IntegerType, DoubleType
 from pyspark.sql import functions as func
 
 
-def execute(max_path, project_name, model_month_left, model_month_right, if_others, current_year, current_month, paths_foradding, not_arrived_path, unpublished_path, 
-monthly_update, panel_for_union, out_path, out_dir, need_test):
+def execute(max_path, project_name, model_month_left, model_month_right, if_others, current_year, current_month, 
+paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_union, out_path, out_dir, need_test):
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \
@@ -62,7 +63,13 @@ monthly_update, panel_for_union, out_path, out_dir, need_test):
         current_month = int(current_month)
         if not_arrived_path == "Empty":    
             not_arrived_path = max_path + "/Common_files/Not_arrived" + str(current_year*100 + current_month) + ".csv"
-        Notarrive_unpublished_paths = unpublished_path.replace(", ",",").split(",") + not_arrived_path.replace(", ",",").split(",")
+        if published_path == "Empty":
+            published_right_path = max_path + "/Common_files/Published" + str(current_year) + ".csv"
+            published_left_path = max_path + "/Common_files/Published" + str(current_year - 1) + ".csv"
+        else:
+            published_path  = published_path.replace(" ","").split(",")
+            published_left_path = published_path[0]
+            published_right_path = published_path[1]
         
     # 输出
     if if_others == "True":
@@ -246,13 +253,20 @@ monthly_update, panel_for_union, out_path, out_dir, need_test):
             panel_filtered = panel_raw_data.union(panel_add_data_history)
     
     if monthly_update == "True":
-        for index, eachfile in enumerate(Notarrive_unpublished_paths):
-            if index == 0:
-                Notarrive_unpublished = spark.read.csv(eachfile, header=True)
-            else:
-                tmp_file =  spark.read.csv(eachfile, header=True)
-                Notarrive_unpublished = Notarrive_unpublished.union(tmp_file)
-        future_range = Notarrive_unpublished.withColumn("Date", Notarrive_unpublished["Date"].cast(DoubleType()))
+        # unpublished 列表创建：published_left中有而published_right没有的ID列表，然后重复12次，时间为current_year*100 + i
+        published_left = spark.read.csv(published_left_path, header=True)
+        published_right = spark.read.csv(published_right_path, header=True)
+        
+        unpublished_ID=published_left.subtract(published_right).toPandas()['ID'].values.tolist()
+        unpublished_ID_num=len(unpublished_ID)
+        all_month=range(1,13,1)*unpublished_ID_num
+        all_month.sort()
+        unpublished_dict={"ID":unpublished_ID*12,"Date":[current_year*100 + i for i in all_month]}
+        
+        df = pd.DataFrame(data=unpublished_dict)
+        unpublished = spark.createDataFrame(df)
+        future_range = unpublished.withColumn("Date", unpublished["Date"].cast(DoubleType()))
+        
         panel_add_data_future = panel_add_data.where(panel_add_data.Date > int(model_month_right)) \
             .join(future_range, on=["Date", "ID"], how="inner") \
             .select(panel_raw_data.columns)

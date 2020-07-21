@@ -62,9 +62,13 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
         current_month = int(current_month)
         if not_arrived_path == "Empty":    
             not_arrived_path = max_path + "/Common_files/Not_arrived" + str(current_year*100 + current_month) + ".csv"
-        published_path  = published_path.replace(" ","").split(",")
-        published_left_path = published_path[0]
-        published_right_path = published_path[1]
+        if published_path == "Empty":
+            published_right_path = max_path + "/Common_files/Published" + str(current_year) + ".csv"
+            published_left_path = max_path + "/Common_files/Published" + str(current_year - 1) + ".csv"
+        else:
+            published_path  = published_path.replace(" ","").split(",")
+            published_left_path = published_path[0]
+            published_right_path = published_path[1]
     # not_arrived_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/Common_files/Not_arrived202004.csv"
     # published_left_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/Common_files/Published2019.csv"
     # published_right_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/Common_files/Published2020.csv"

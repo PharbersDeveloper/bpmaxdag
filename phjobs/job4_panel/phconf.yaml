@@ -29,8 +29,8 @@ spec:
         value: "s3a://ph-max-auto/v0.0.1-2020-06-08/Common_files/Not_arrived202001.csv, s3a://ph-max-auto/v0.0.1-2020-06-08/Common_files/Not_arrived201912.csv, s3a://ph-max-auto/v0.0.1-2020-06-08/Common_files/Unpublished2020.csv"
       - key: not_arrived_path
         value: "Empty"
-      - key: unpublished_path
-        value: "s3a://ph-max-auto/v0.0.1-2020-06-08/Common_files/Unpublished2020.csv"
+      - key: published_path
+        value: "Empty"
       - key: panel_for_union
         value: "Empty"
       - key: monthly_update

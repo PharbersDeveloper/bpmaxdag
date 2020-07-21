@@ -34,7 +34,7 @@ spec:
       - key: not_arrived_path
         value: "Empty"
       - key: published_path
-        value: "s3a://ph-max-auto/v0.0.1-2020-06-08/Common_files/Published2019.csv, s3a://ph-max-auto/v0.0.1-2020-06-08/Common_files/Published2020.csv"        
+        value: "Empty"        
       - key: out_path
         value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
       - key: out_dir
