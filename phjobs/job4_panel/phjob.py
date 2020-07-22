@@ -63,6 +63,7 @@ paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_uni
         current_month = int(current_month)
         if not_arrived_path == "Empty":    
             not_arrived_path = max_path + "/Common_files/Not_arrived" + str(current_year*100 + current_month) + ".csv"
+            
         if published_path == "Empty":
             published_right_path = max_path + "/Common_files/Published" + str(current_year) + ".csv"
             published_left_path = max_path + "/Common_files/Published" + str(current_year - 1) + ".csv"
@@ -253,6 +254,7 @@ paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_uni
             panel_filtered = panel_raw_data.union(panel_add_data_history)
     
     if monthly_update == "True":
+        # unpublished文件
         # unpublished 列表创建：published_left中有而published_right没有的ID列表，然后重复12次，时间为current_year*100 + i
         published_left = spark.read.csv(published_left_path, header=True)
         published_right = spark.read.csv(published_right_path, header=True)
@@ -265,8 +267,15 @@ paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_uni
         
         df = pd.DataFrame(data=unpublished_dict)
         unpublished = spark.createDataFrame(df)
-        future_range = unpublished.withColumn("Date", unpublished["Date"].cast(DoubleType()))
+        unpublished = unpublished.select("ID","Date")
         
+        # not_arrive文件
+        Notarrive = spark.read.csv(not_arrived_path, header=True)
+        
+        # 合并unpublished和not_arrive文件
+        Notarrive_unpublished = unpublished.union(Notarrive).distinct()
+        
+        future_range = Notarrive_unpublished.withColumn("Date", Notarrive_unpublished["Date"].cast(DoubleType()))
         panel_add_data_future = panel_add_data.where(panel_add_data.Date > int(model_month_right)) \
             .join(future_range, on=["Date", "ID"], how="inner") \
             .select(panel_raw_data.columns)
