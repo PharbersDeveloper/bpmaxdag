@@ -33,7 +33,8 @@ def execute(max_path, project_name, minimum_product_columns, minimum_product_sep
 
     phlogger.info('job2_product_mapping')
     
-
+    # 注意
+    # Mylan不做Brand判断，写死了
 
     # 输入
     product_map_path = out_path + "/" + project_name + '/' + out_dir + "/prod_mapping"
@@ -91,7 +92,8 @@ def execute(max_path, project_name, minimum_product_columns, minimum_product_sep
 
     # raw_data_job1_out_path = "/user/ywyuan/max/Sankyo/raw_data_job1_out"
     raw_data = spark.read.parquet(hospital_mapping_out_path)
-    raw_data = raw_data.withColumn("Brand", func.when(func.isnull(raw_data.Brand), raw_data.Molecule).
+    if project_name != "Mylan":
+        raw_data = raw_data.withColumn("Brand", func.when(func.isnull(raw_data.Brand), raw_data.Molecule).
                                    otherwise(raw_data.Brand))
 
     # concat_multi_cols
