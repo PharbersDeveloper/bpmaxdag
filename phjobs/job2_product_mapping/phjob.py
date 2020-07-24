@@ -103,7 +103,7 @@ def execute(max_path, project_name, minimum_product_columns, minimum_product_sep
     for colname, coltype in raw_data.dtypes:
         if coltype == "logical":
             raw_data = raw_data.withColumn(colname, raw_data[colname].cast(StringType()))
-
+    
     raw_data = raw_data.withColumn("tmp", func.when(func.isnull(raw_data[minimum_product_columns[0]]), func.lit("NA")).
                                    otherwise(raw_data[minimum_product_columns[0]]))
 
@@ -116,7 +116,12 @@ def execute(max_path, project_name, minimum_product_columns, minimum_product_sep
     
     if minimum_product_newname in raw_data.columns:
         raw_data = raw_data.drop(minimum_product_newname)
-    raw_data = raw_data.withColumnRenamed("tmp", minimum_product_newname)
+    
+    # Mylan不重新生成min1，其他项目生成min1
+    if project_name == "Mylan":
+        raw_data = raw_data.drop("tmp")
+    else:
+        raw_data = raw_data.withColumnRenamed("tmp", minimum_product_newname)
 
     # product_map
     for col in product_map.columns:
