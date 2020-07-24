@@ -33,8 +33,9 @@ def execute(max_path, project_name, minimum_product_columns, minimum_product_sep
 
     phlogger.info('job2_product_mapping')
     
-    # 注意
+    # 注意：
     # Mylan不做Brand判断，写死了
+    # Mylan不重新生成minimum_product_newname: min1
 
     # 输入
     product_map_path = out_path + "/" + project_name + '/' + out_dir + "/prod_mapping"
@@ -113,14 +114,13 @@ def execute(max_path, project_name, minimum_product_columns, minimum_product_sep
             raw_data["tmp"],
             func.lit(minimum_product_sep),
             func.when(func.isnull(raw_data[col]), func.lit("NA")).otherwise(raw_data[col])))
-    
-    if minimum_product_newname in raw_data.columns:
-        raw_data = raw_data.drop(minimum_product_newname)
-    
-    # Mylan不重新生成min1，其他项目生成min1
+
+    # Mylan不重新生成minimum_product_newname: min1，其他项目生成min1
     if project_name == "Mylan":
         raw_data = raw_data.drop("tmp")
     else:
+        if minimum_product_newname in raw_data.columns:
+            raw_data = raw_data.drop(minimum_product_newname)
         raw_data = raw_data.withColumnRenamed("tmp", minimum_product_newname)
 
     # product_map
