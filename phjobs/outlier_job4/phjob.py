@@ -15,7 +15,7 @@ from pyspark.sql.functions import udf
 import numpy as np
 import pandas as pd
 
-def execute(a, b):
+def execute(max_path, project_name, out_path, out_dir, doi, product_input):
     
     spark = SparkSession.builder \
         .master("yarn") \
@@ -37,15 +37,23 @@ def execute(a, b):
         # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
         spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
 
-
+    out_path_dir = out_path + "/" + project_name + '/' + out_dir + '/' + doi
+    
     # 输入
-    doi = "AZ16"
-    df_ims_share_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_ims_share"
-    product_input = [u"普米克令舒", u"Others-Pulmicort", u"益索"]
+    # doi = "AZ16"
+    # df_ims_share_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_ims_share"
+    # product_input = [u"普米克令舒", u"Others-Pulmicort", u"益索"]
+    
+    df_ims_share_path = out_path_dir + "/df_ims_share"
+    product_input = product_input.replace(" ","").split(',')
+    
 
     # 输出
-    df_ims_share_res_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/" + doi + "/df_ims_share_res"
-    df_cities_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/" + doi + "/df_cities"
+    # df_ims_share_res_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/" + doi + "/df_ims_share_res"
+    # df_cities_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/" + doi + "/df_cities"
+    
+    df_ims_share_res_path = out_path_dir + "/df_ims_share_res"
+    df_cities_path = out_path_dir + "/df_cities"
     
     # ============== 函数定义 ================
     

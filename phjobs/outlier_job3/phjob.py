@@ -10,7 +10,7 @@ from phlogs.phlogs import phlogger
 import os
 
 
-def execute(a, b):
+def execute(max_path, project_name, out_path, out_dir, doi):
     
     spark = SparkSession.builder \
         .master("yarn") \
@@ -32,15 +32,24 @@ def execute(a, b):
         # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
         spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
 
+    out_path_dir = out_path + "/" + project_name + '/' + out_dir + '/' + doi
+    
     # 输入
-    doi = "AZ16"
-    df_EIA_path =  u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/" + doi + "/df_EIA"
-    df_universe_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_universe"
-    df_PHA_city_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_PHA_city"
+    # doi = "AZ16"
+    # df_EIA_path =  u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/" + doi + "/df_EIA"
+    # df_universe_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_universe"
+    # df_PHA_city_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_PHA_city"
+    
+    df_EIA_path = out_path_dir + "/df_EIA"
+    df_universe_path = out_path_dir + "/df_universe"
+    df_PHA_city_path = out_path_dir + "/df_PHA_city"
     
     # 输出
-    df_pnl_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/" + doi + "/df_pnl"
-    df_pnl_mkt_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/" + doi + "/df_pnl_mkt"
+    # df_pnl_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/" + doi + "/df_pnl"
+    # df_pnl_mkt_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/" + doi + "/df_pnl_mkt"
+    
+    df_pnl_path = out_path_dir + "/df_pnl"
+    df_pnl_mkt_path = out_path_dir + "/df_pnl_mkt"
     
     # 数据读取
     df_EIA = spark.read.parquet(df_EIA_path)
