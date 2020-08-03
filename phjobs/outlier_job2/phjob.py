@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 import itertools
 
-def execute(a, b):
+def execute(max_path, project_name, out_path, out_dir, doi, product_input, cities, sql_content2):
     
     spark = SparkSession.builder \
         .master("yarn") \
@@ -40,18 +40,29 @@ def execute(a, b):
 
 
     # 输入
-    doi = "AZ16"
-    df_EIA_res_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_EIA_res"
-    df_seg_city_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_seg_city"
-    cities = [u"长春市",u"长沙市",u"成都市"]
-    product_input = [u"普米克令舒", u"Others-Pulmicort", u"益索"]
-    sql_content2 = '''select `mkt_vol`, `scen_id`, `scen`, `city`, `num_ot`, `vol_ot`,
-                 stack(3, '普米克令舒', `普米克令舒`, 'Others-Pulmicort', `Others-Pulmicort`, '益索', `益索`) as (`poi`, `poi_vol` )
-                 from  v_pivot
-              '''
+    # doi = "AZ16"
+    # df_EIA_res_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_EIA_res"
+    # df_seg_city_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_seg_city"
+    # cities = [u"长春市",u"长沙市",u"成都市"]
+    # product_input = [u"普米克令舒", u"Others-Pulmicort", u"益索"]
+    
+              
+    out_path_dir = out_path + "/" + project_name + '/' + out_dir + '/' + doi
+    df_EIA_res_path = out_path_dir + "/df_EIA_res"
+    df_seg_city_path = out_path_dir + "/df_seg_city"
+    cities = cities.replace(" ","").split(',')
+    product_input = product_input.replace(" ","").split(',')
+    # sql_content2 = '''select `mkt_vol`, `scen_id`, `scen`, `city`, `num_ot`, `vol_ot`,
+    #              stack(3, '普米克令舒', `普米克令舒`, 'Others-Pulmicort', `Others-Pulmicort`, '益索', `益索`) as (`poi`, `poi_vol` )
+    #             from  v_pivot
+    #          '''
+    print sql_content2
+    
+    
     
     # 输出
-    tmp_df_result_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/" + doi + "/df_result_tmp"
+    # tmp_df_result_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/" + doi + "/df_result_tmp"
+    tmp_df_result_path = out_path_dir + "/df_result_tmp"
 
     
     # ==============  函数定义 ================

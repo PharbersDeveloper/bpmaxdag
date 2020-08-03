@@ -12,7 +12,7 @@ import os
 from pyspark.sql.functions import udf, from_json
 import json
 
-def execute(a, b):
+def execute(max_path, project_name, out_path, out_dir, panel_path, universe_path, doi, product_input, model_month_left, model_month_right, arg_year):
 
     spark = SparkSession.builder \
         .master("yarn") \
@@ -37,21 +37,36 @@ def execute(a, b):
         
     # 输入
     doi = "AZ16"
-    panel_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/panel-result_AZ_Sanofi"
-    universe_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/universe_az_sanofi_mch"
-    ims_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/ims_info/"+doi+"_ims_info_1901-1911"
-    model_month_left = 201901
-    model_month_right = 201911
-    product_input = [u"普米克令舒", u"Others-Pulmicort", u"益索"]
-    arg_year = 2019
+    # panel_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/panel-result_AZ_Sanofi"
+    # universe_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/universe_az_sanofi_mch"
+    # ims_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/ims_info/"+doi+"_ims_info_1901-1911"
+    # model_month_left = 201901
+    # model_month_right = 201911
+    # product_input = [u"普米克令舒", u"Others-Pulmicort", u"益索"]
+    # arg_year = 2019
+    product_input = product_input.replace(" ","").split(',')
+    arg_year = int(arg_year)
+    model_month_left = int(model_month_left)
+    model_month_right = int(model_month_right) 
+    
+    ims_path = max_path + "/" + project_name + "/ims_info/" + doi + "_ims_info_1901-1911"
     
     # 输出
-    df_EIA_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_EIA"
-    df_EIA_res_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_EIA_res"
-    df_universe_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_universe"
-    df_seg_city_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_seg_city"
-    df_PHA_city_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_PHA_city"
-    df_ims_share_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_ims_share"
+    out_path_dir = out_path + "/" + project_name + '/' + out_dir + '/' + doi
+    
+    df_EIA_path = out_path_dir + "/df_EIA"
+    df_EIA_res_path = out_path_dir + "/df_EIA_res"
+    df_universe_path = out_path_dir + "/df_universe"
+    df_seg_city_path = out_path_dir + "/df_seg_city"
+    df_PHA_city_path = out_path_dir + "/df_PHA_city"
+    df_ims_share_path = out_path_dir + "/df_ims_share"
+    
+    #df_EIA_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_EIA"
+    #df_EIA_res_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_EIA_res"
+    #df_universe_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_universe"
+    #df_seg_city_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_seg_city"
+    #df_PHA_city_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_PHA_city"
+    #df_ims_share_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_ims_share"
     
     # =========== 数据检查 =============
     phlogger.info('数据检查-start')

@@ -8,10 +8,16 @@ import click
 
 
 @click.command()
-@click.option('--a')
-@click.option('--b')
-def debug_execute(a, b):
-	execute(a, b)
+@click.option('--max_path')
+@click.option('--project_name')
+@click.option('--out_path')
+@click.option('--out_dir')
+@click.option('--doi')
+@click.option('--product_input')
+@click.option('--cities')
+@click.option('--sql_content2')
+def debug_execute(max_path, project_name, out_path, out_dir, doi, product_input, cities, sql_content2):
+	execute(max_path, project_name, out_path, out_dir, doi, product_input, cities, sql_content2)
 
 
 if __name__ == '__main__':
