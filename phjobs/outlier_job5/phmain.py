@@ -8,10 +8,14 @@ import click
 
 
 @click.command()
-@click.option('--a')
-@click.option('--b')
-def debug_execute(a, b):
-	execute(a, b)
+@click.option('--max_path')
+@click.option('--project_name')
+@click.option('--out_path')
+@click.option('--out_dir')
+@click.option('--doi')
+@click.option('--product_input')
+def debug_execute(max_path, project_name, out_path, out_dir, doi, product_input):
+	execute(max_path, project_name, out_path, out_dir, doi, product_input)
 
 
 if __name__ == '__main__':

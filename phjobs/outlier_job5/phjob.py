@@ -15,8 +15,7 @@ from copy import deepcopy
 from pyspark.sql.types import StringType,DoubleType
 from pyspark.sql.functions import pandas_udf, PandasUDFType
 
-
-def execute(a, b):
+def execute(max_path, project_name, out_path, out_dir, doi, product_input):
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \
@@ -39,21 +38,35 @@ def execute(a, b):
         # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
         spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
         
+    out_path_dir = out_path + "/" + project_name + '/' + out_dir + '/' + doi
+        
     # 输入
-    doi = "AZ16"
-    df_result_tmp_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_result_tmp"
-    df_pnl_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_pnl"
-    df_pnl_mkt_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_pnl_mkt"
-    df_ims_shr_res_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/" + doi + "/df_ims_shr_res"
-    prd_input = [u"普米克令舒", u"Others-Pulmicort", u"益索"]
+    #doi = "AZ16"
+    #df_result_tmp_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_result_tmp"
+    #df_pnl_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_pnl"
+    #df_pnl_mkt_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_pnl_mkt"
+    #df_ims_share_res_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/" + doi + "/df_ims_share_res"
+    #product_input = [u"普米克令舒", u"Others-Pulmicort", u"益索"]
+
+    df_result_tmp_path = out_path_dir + "/df_result_tmp"
+    df_pnl_path = out_path_dir + "/df_pnl"
+    df_pnl_mkt_path = out_path_dir + "/df_pnl_mkt"
+    df_ims_share_res_path = out_path_dir + "/df_ims_share_res"
+    product_input = product_input.replace(" ","").split(',')
+
 
     # 输出
-    df_result_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/" + doi + "/df_result"
-    df_factor_result_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/" + doi + "/df_factor_result"
-    df_rlt_brf_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/" + doi + "/df_rlt_brf"
+    #df_result_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/" + doi + "/df_result"
+    #df_factor_result_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/" + doi + "/df_factor_result"
+    #df_rlt_brf_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/" + doi + "/df_rlt_brf"
+    
+    df_result_path = out_path_dir + "/df_result"
+    df_factor_result_path = out_path_dir + "/df_factor_result"
+    df_rlt_brf_path = out_path_dir + "/df_rlt_brf"
     
     
     # ============== 函数定义 ================
+    
     def cvxpy_func(rltsc):
         # rltsc is a pandas.DataFrame
       
@@ -107,19 +120,19 @@ def execute(a, b):
         #    scennew = ",".join(rltsc["scen"][i])
           
         return rltsc.assign(factor=f.value)
-        
+    
     
     # ============== 数据执行 ================
     # 数据读取
     df_result = spark.read.parquet(df_result_tmp_path)
     df_pnl = spark.read.parquet(df_pnl_path)
     df_pnl_mkt = spark.read.parquet(df_pnl_mkt_path)
-    df_ims_shr_res = spark.read.parquet(df_ims_shr_res_path)
+    df_ims_share_res = spark.read.parquet(df_ims_share_res_path)
     
     # df_result 处理
     df_result = df_result.join(df_pnl, on=["city", "poi"], how="left") \
         .join(df_pnl_mkt, on=["city"], how="left") \
-        .join(df_ims_shr_res, on=["city", "poi"], how="left")
+        .join(df_ims_share_res, on=["city", "poi"], how="left")
         
     df_result = df_result.withColumn("scen", df_result["scen"].cast(StringType()))
     
@@ -169,4 +182,4 @@ def execute(a, b):
                                          
                                  
     return [df_factor_result, df_rlt_brf]    
-    
+
