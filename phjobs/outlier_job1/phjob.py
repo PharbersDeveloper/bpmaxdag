@@ -37,23 +37,26 @@ def execute(a, b):
         
     # 输入
     doi = "AZ16"
-    pnl_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/panel-result_AZ_Sanofi"
-    uni_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/universe_az_sanofi_mch"
+    panel_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/panel-result_AZ_Sanofi"
+    universe_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/universe_az_sanofi_mch"
     ims_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/ims_info/"+doi+"_ims_info_1901-1911"
     model_month_left = 201901
     model_month_right = 201911
-    prd_input = [u"普米克令舒", u"Others-Pulmicort", u"益索"]
+    product_input = [u"普米克令舒", u"Others-Pulmicort", u"益索"]
     arg_year = 2019
     
     # 输出
     df_EIA_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_EIA"
     df_EIA_res_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_EIA_res"
-    df_uni_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_uni"
+    df_universe_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_universe"
     df_seg_city_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_seg_city"
-    df_hos_city_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_hos_city"
-    df_ims_shr_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_ims_shr"
+    df_PHA_city_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_PHA_city"
+    df_ims_share_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_ims_share"
     
+    # =========== 数据检查 =============
+    phlogger.info('数据检查-start')
     
+    phlogger.info('数据检查-Pass')
     
     # ==============  函数定义 ================
     
@@ -77,9 +80,9 @@ def execute(a, b):
     
     # max_outlier_poi_job
     def udf_get_poi(pdn):
-        #prd_input = [u"加罗宁", u"凯纷", u"诺扬"]
+        #product_input = [u"加罗宁", u"凯纷", u"诺扬"]
         result = ""
-        for item in prd_input:
+        for item in product_input:
             if item in pdn:
                 result = item
         if result == "":
@@ -88,7 +91,7 @@ def execute(a, b):
             return result
         
     def udf_poi_stack(p, s):
-        dic_stack = dict([(i,0) for i in prd_input])
+        dic_stack = dict([(i,0) for i in product_input])
         dic_stack.update({"other": 0, p: s})
         return json.dumps(dic_stack)
         
@@ -116,16 +119,19 @@ def execute(a, b):
     
     # ==============  数据执行 ================
     
-    # max_outlier_read_df：生成df_EIA, df_uni, df_seg_city, df_hos_city, df_ims_shr
+    phlogger.info('数据执行-start')
+    
+    # max_outlier_read_df：生成df_EIA, df_uni, df_seg_city, df_PHA_city, df_ims_share
     # max_outlier_poi_job：处理df_EIA，生成df_EIA_res
     # max_outlier_eia_join_uni：处理df_EIA_res
-    # max_outlier_tmp_mod：处理df_EIA_res, df_seg_city, df_hos_city
+    # max_outlier_tmp_mod：处理df_EIA_res, df_seg_city, df_PHA_city
     
     # 1. panel 数据处理，产生df_EIA
-    df_EIA = spark.read.parquet(pnl_path)
+    df_EIA = spark.read.parquet(panel_path)
     df_EIA.persist()
 
     df_EIA = df_EIA.where((df_EIA.DOI == doi) & (df_EIA.Date >= model_month_left) & (df_EIA.Date <= model_month_right))
+    
     if(doi == "SNY9"):
         df_EIA = df_EIA.where(~df_EIA.Prod_Name.contains("SOLN"))
     if(doi == "AZ7"):
@@ -148,23 +154,27 @@ def execute(a, b):
     df_EIA = df_EIA.withColumn("Year", func.bround(df_EIA.Date / 100))
     
     # 2. uni 数据处理，生成df_uni
-    df_uni = spark.read.parquet(uni_path)
+    df_uni = spark.read.parquet(universe_path)
     df_seg_city = df_uni.select("City", "Seg").distinct()
-    df_hos_city = df_uni.select("Panel_ID", "City").distinct()
+    df_PHA_city = df_uni.select("Panel_ID", "City").distinct()
     df_uni = df_uni.select("Panel_ID", "Seg", "City", "BEDSIZE", "Est_DrugIncome_RMB", "PANEL")
     df_uni = df_uni.withColumn("key", func.lit(1)).withColumnRenamed("Panel_ID", "HOSP_ID")
     
     df_uni = df_uni.repartition(2)
     df_uni.write.format("parquet") \
-        .mode("overwrite").save(df_uni_path)
+        .mode("overwrite").save(df_universe_path)
+        
+    phlogger.info("输出 df_uni 结果：".decode("utf-8") + df_universe_path)
 
-    # 3. ims 数据处理，生成df_ims_shr
-    df_ims_shr = spark.read.parquet(ims_path)\
+    # 3. ims 数据处理，生成df_ims_share
+    df_ims_share = spark.read.parquet(ims_path)\
         .select("city", "poi", "ims_share", "ims_poi_vol")
         
-    df_ims_shr = df_ims_shr.repartition(2)
-    df_ims_shr.write.format("parquet") \
-        .mode("overwrite").save(df_ims_shr_path)
+    df_ims_share = df_ims_share.repartition(2)
+    df_ims_share.write.format("parquet") \
+        .mode("overwrite").save(df_ims_share_path)
+    
+    phlogger.info("输出 df_ims_share 结果：".decode("utf-8") + df_ims_share_path)
         
     # 4. max_outlier_poi_job：df_EIA 处理，df_EIA_res 生成
     # df_EIA 处理
@@ -191,7 +201,7 @@ def execute(a, b):
         
     df_EIA_res.persist()
     df_EIA_res = df_EIA_res.withColumn("value", max_outlier_poi_stack_udf(df_EIA_res.POI, df_EIA_res.Sales))
-    schema = udf_add_struct(prd_input+["other"])       
+    schema = udf_add_struct(product_input+["other"])       
     
     df_EIA_res = df_EIA_res.select(
         "ID", "Date", "Hosp_name", "HOSP_ID", "Year",
@@ -201,9 +211,9 @@ def execute(a, b):
         "json.*")
 
     df_EIA_res = df_EIA_res.groupBy("ID", "Date", "Hosp_name", "HOSP_ID", "Year").\
-        sum(*prd_input+["other"])
+        sum(*product_input+["other"])
     print df_EIA_res.columns
-    df_EIA_res = udf_rename(df_EIA_res, prd_input + ["other"])
+    df_EIA_res = udf_rename(df_EIA_res, product_input + ["other"])
         
     # 4. max_outlier_eia_join_uni：处理universe join EIA
     # arg_year = 2019
@@ -216,11 +226,13 @@ def execute(a, b):
     # 5. max_outlier_tmp_mod：对福建，厦门，泉州，珠江三角的调整需要
     df_EIA_res = df_EIA_res.withColumn("City", max_outlier_city_udf(df_EIA_res.City))
     df_seg_city = df_seg_city.withColumn("City", max_outlier_city_udf(df_seg_city.City))
-    df_hos_city = df_hos_city.withColumn("City", max_outlier_city_udf(df_hos_city.City))
+    df_PHA_city = df_PHA_city.withColumn("City", max_outlier_city_udf(df_PHA_city.City))
     
     df_EIA = df_EIA.repartition(2)
     df_EIA.write.format("parquet") \
         .mode("overwrite").save(df_EIA_path)
+        
+    phlogger.info("输出 df_EIA 结果：".decode("utf-8") + df_EIA_path)
         
     df_EIA_res = df_EIA_res.repartition(2)
     df_EIA_res.write.format("parquet") \
@@ -230,10 +242,12 @@ def execute(a, b):
     df_seg_city.write.format("parquet") \
         .mode("overwrite").save(df_seg_city_path)
         
-    df_hos_city = df_hos_city.repartition(2)
-    df_hos_city.write.format("parquet") \
-        .mode("overwrite").save(df_hos_city_path)
+    df_PHA_city = df_PHA_city.repartition(2)
+    df_PHA_city.write.format("parquet") \
+        .mode("overwrite").save(df_PHA_city_path)
+        
+    phlogger.info('数据执行-Finish')
     
-    return [df_EIA, df_EIA_res, df_uni, df_seg_city, df_hos_city, df_ims_shr]
+    return [df_EIA, df_EIA_res, df_uni, df_seg_city, df_PHA_city, df_ims_share]
         
     

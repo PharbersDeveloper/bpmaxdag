@@ -40,11 +40,11 @@ def execute(a, b):
 
     # 输入
     doi = "AZ16"
-    df_ims_shr_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_ims_shr"
-    prd_input = [u"普米克令舒", u"Others-Pulmicort", u"益索"]
+    df_ims_share_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_ims_share"
+    product_input = [u"普米克令舒", u"Others-Pulmicort", u"益索"]
 
     # 输出
-    df_ims_shr_res_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/" + doi + "/df_ims_shr_res"
+    df_ims_share_res_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/" + doi + "/df_ims_share_res"
     df_cities_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/" + doi + "/df_cities"
     
     # ============== 函数定义 ================
@@ -57,20 +57,20 @@ def execute(a, b):
     
     # ============== 数据执行 ================ 
     # 数据读取
-    df_ims_shr = spark.read.parquet(df_ims_shr_path)
+    df_ims_share = spark.read.parquet(df_ims_share_path)
     
     # ims 个城市产品市场份额：max_outlier_ims_shr_job
-    df_ims_shr = df_ims_shr.where(
-        (df_ims_shr.city != "CHPA")
-        & (df_ims_shr.city != 'KEY-54')
-        & (df_ims_shr.city != 'ROC-54')
-        # & (df_ims_shr.city == "珠三角市")
+    df_ims_share = df_ims_share.where(
+        (df_ims_share.city != "CHPA")
+        & (df_ims_share.city != 'KEY-54')
+        & (df_ims_share.city != 'ROC-54')
+        # & (df_ims_share.city == "珠三角市")
     )
-    df_cities = df_ims_shr.select("city").distinct().withColumn("key", func.lit(1))
+    df_cities = df_ims_share.select("city").distinct().withColumn("key", func.lit(1))
 
-    # prd_input = [u"加罗宁", u"凯纷", u"诺扬"]
+    # product_input = [u"加罗宁", u"凯纷", u"诺扬"]
     schema = StructType([StructField("key", IntegerType(), True), StructField("poi", StringType(), True)])
-    df_tmp_poi = spark.createDataFrame(gen_poi_with_input(prd_input), schema)
+    df_tmp_poi = spark.createDataFrame(gen_poi_with_input(product_input), schema)
 
     df_ct_pd = df_cities.join(df_tmp_poi, on="key", how="outer") \
         .withColumn("ims_share", func.lit(0)) \
@@ -78,22 +78,22 @@ def execute(a, b):
         .drop("key")
     # df_ct_pd.show()
 
-    df_ims_shr_mkt = df_ims_shr.groupBy("city").sum("ims_poi_vol").withColumnRenamed("sum(ims_poi_vol)", "ims_mkt_vol")
-    df_ims_shr_poi = df_ims_shr.union(df_ct_pd)
-    df_ims_shr_res = df_ims_shr_mkt.join(df_ims_shr_poi, on="city").groupby(["city", "poi"]) \
+    df_ims_share_mkt = df_ims_share.groupBy("city").sum("ims_poi_vol").withColumnRenamed("sum(ims_poi_vol)", "ims_mkt_vol")
+    df_ims_share_poi = df_ims_share.union(df_ct_pd)
+    df_ims_share_res = df_ims_share_mkt.join(df_ims_share_poi, on="city").groupby(["city", "poi"]) \
         .agg({"ims_share": "sum", "ims_poi_vol": "sum", "ims_mkt_vol": "first"}) \
         .withColumnRenamed("sum(ims_poi_vol)", "ims_poi_vol") \
         .withColumnRenamed("sum(ims_share)", "ims_share") \
         .withColumnRenamed("first(ims_mkt_vol)", "ims_mkt_vol")
 
     # 输出结果
-    df_ims_shr_res = df_ims_shr_res.repartition(2)
-    df_ims_shr_res.write.format("parquet") \
-        .mode("overwrite").save(df_ims_shr_res_path)
+    df_ims_share_res = df_ims_share_res.repartition(2)
+    df_ims_share_res.write.format("parquet") \
+        .mode("overwrite").save(df_ims_share_res_path)
     
     df_cities = df_cities.repartition(2)
     df_cities.write.format("parquet") \
         .mode("overwrite").save(df_cities_path)
         
-    return [df_ims_shr_res, df_cities]
+    return [df_ims_share_res, df_cities]
     

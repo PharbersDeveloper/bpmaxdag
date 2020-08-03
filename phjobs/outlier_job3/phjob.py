@@ -35,8 +35,8 @@ def execute(a, b):
     # 输入
     doi = "AZ16"
     df_EIA_path =  u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/" + doi + "/df_EIA"
-    df_uni_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_uni"
-    df_hos_city_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_hos_city"
+    df_universe_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_universe"
+    df_PHA_city_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_PHA_city"
     
     # 输出
     df_pnl_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/" + doi + "/df_pnl"
@@ -44,14 +44,14 @@ def execute(a, b):
     
     # 数据读取
     df_EIA = spark.read.parquet(df_EIA_path)
-    df_uni = spark.read.parquet(df_uni_path)
-    df_hos_city = spark.read.parquet(df_hos_city_path)
+    df_uni = spark.read.parquet(df_universe_path)
+    df_PHA_city = spark.read.parquet(df_PHA_city_path)
     
     # 对Panel医院的数据整理， 用户factor的计算：max_outlier_pnl_job
     df_panel_hos = df_uni.where(df_uni.PANEL == 1).select("HOSP_ID").withColumnRenamed("HOSP_ID", "HOSP_ID1")
     if("City" in df_EIA.columns):
         df_EIA = df_EIA.drop("City")
-    df_pnl = df_EIA.join(df_hos_city, df_EIA.HOSP_ID == df_hos_city.Panel_ID, how="left").\
+    df_pnl = df_EIA.join(df_PHA_city, df_EIA.HOSP_ID == df_PHA_city.Panel_ID, how="left").\
         join(df_panel_hos, df_EIA.HOSP_ID == df_panel_hos.HOSP_ID1, how="right")
 
     df_pnl = df_pnl.groupBy(["City", "POI"]).sum("Sales").withColumnRenamed("sum(Sales)", "Sales")
