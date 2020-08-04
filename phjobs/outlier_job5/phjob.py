@@ -41,13 +41,6 @@ def execute(max_path, project_name, out_path, out_dir, doi, product_input):
     out_path_dir = out_path + "/" + project_name + '/' + out_dir + '/' + doi
         
     # 输入
-    #doi = "AZ16"
-    #df_result_tmp_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_result_tmp"
-    #df_pnl_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_pnl"
-    #df_pnl_mkt_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_pnl_mkt"
-    #df_ims_share_res_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/" + doi + "/df_ims_share_res"
-    #product_input = [u"普米克令舒", u"Others-Pulmicort", u"益索"]
-
     df_result_tmp_path = out_path_dir + "/df_result_tmp"
     df_pnl_path = out_path_dir + "/df_pnl"
     df_pnl_mkt_path = out_path_dir + "/df_pnl_mkt"
@@ -56,10 +49,6 @@ def execute(max_path, project_name, out_path, out_dir, doi, product_input):
 
 
     # 输出
-    #df_result_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/" + doi + "/df_result"
-    #df_factor_result_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/" + doi + "/df_factor_result"
-    #df_rlt_brf_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/" + doi + "/df_rlt_brf"
-    
     df_result_path = out_path_dir + "/df_result"
     df_factor_result_path = out_path_dir + "/df_factor_result"
     df_rlt_brf_path = out_path_dir + "/df_rlt_brf"
@@ -67,19 +56,17 @@ def execute(max_path, project_name, out_path, out_dir, doi, product_input):
     
     # ============== 函数定义 ================
     
-    def cvxpy_func(rltsc):
+    def cvxpy_func_pre(rltsc, product_input):
         # rltsc is a pandas.DataFrame
       
         import numpy as np
         import cvxpy as cp
         #from cvxpy import Variable, Problem, Minimize, maximum, abs, ECOS
-        #from phOutlierParameters import prd_input
-        prd_input = [u"普米克令舒", u"Others-Pulmicort", u"益索"]
         
-        fst_prd=3
-        bias=2
+        fst_prd = 3
+        bias = 2
         
-        rltsc=rltsc.fillna(0)
+        rltsc = rltsc.fillna(0)
         print (len(rltsc))
         f = cp.Variable()
         poi_ratio = {}
@@ -101,7 +88,7 @@ def execute(max_path, project_name, out_path, out_dir, doi, product_input):
     
         par = []
         for s in range(len(rltsc.index)):
-            if rltsc["poi"][s] in prd_input[:fst_prd]:
+            if rltsc["poi"][s] in product_input[:fst_prd]:
                 par += ["np.divide(cp.abs(poi_ratio[%s])," % s + str(bias) + ")"]
                 par += ["cp.abs(mkt_ratio[%s])" % s]
                 
@@ -119,10 +106,16 @@ def execute(max_path, project_name, out_path, out_dir, doi, product_input):
         #for i in range(len(rltsc)):
         #    scennew = ",".join(rltsc["scen"][i])
           
-        return rltsc.assign(factor=f.value)
+        return rltsc.assign(factor = f.value)
+        
+    def cvxpy_func(rltsc):
+        return cvxpy_func_pre(rltsc, product_input)
     
     
     # ============== 数据执行 ================
+    
+    phlogger.info('数据执行-start')
+    
     # 数据读取
     df_result = spark.read.parquet(df_result_tmp_path)
     df_pnl = spark.read.parquet(df_pnl_path)
@@ -175,11 +168,16 @@ def execute(max_path, project_name, out_path, out_dir, doi, product_input):
     df_factor_result = df_factor_result.repartition(2)
     df_factor_result.write.format("parquet") \
         .mode("overwrite").save(df_factor_result_path)
+    
+    phlogger.info("输出 df_factor_result 结果：".decode("utf-8") + df_factor_result_path)
         
     df_rlt_brf = df_rlt_brf.repartition(2)
     df_rlt_brf.write.format("parquet") \
         .mode("overwrite").save(df_rlt_brf_path)
-                                         
+        
+    phlogger.info("输出 df_rlt_brf 结果：".decode("utf-8") + df_rlt_brf_path)
+    
+    phlogger.info('数据执行-Finish')                                     
                                  
     return [df_factor_result, df_rlt_brf]    
 
