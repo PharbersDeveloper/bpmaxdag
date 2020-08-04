@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 import itertools
 
-def execute(max_path, project_name, out_path, out_dir, doi, product_input, cities, sql_content2):
+def execute(max_path, project_name, out_path, out_dir, doi, product_input, cities):
     
     spark = SparkSession.builder \
         .master("yarn") \
@@ -45,30 +45,44 @@ def execute(max_path, project_name, out_path, out_dir, doi, product_input, citie
     # df_seg_city_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_seg_city"
     # cities = [u"长春市",u"长沙市",u"成都市"]
     # product_input = [u"普米克令舒", u"Others-Pulmicort", u"益索"]
-    
-              
+
     out_path_dir = out_path + "/" + project_name + '/' + out_dir + '/' + doi
     df_EIA_res_path = out_path_dir + "/df_EIA_res"
     df_seg_city_path = out_path_dir + "/df_seg_city"
     cities = cities.replace(" ","").split(',')
     product_input = product_input.replace(" ","").split(',')
-    # sql_content2 = '''select `mkt_vol`, `scen_id`, `scen`, `city`, `num_ot`, `vol_ot`,
-    #              stack(3, '普米克令舒', `普米克令舒`, 'Others-Pulmicort', `Others-Pulmicort`, '益索', `益索`) as (`poi`, `poi_vol` )
-    #             from  v_pivot
-    #          '''
-    print sql_content2
-    
-    
     
     # 输出
-    # tmp_df_result_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/" + doi + "/df_result_tmp"
     tmp_df_result_path = out_path_dir + "/df_result_tmp"
+    
+    # 根据 product_input 构造sql_content 语句
+    product_for_sql = [i for i in product_input for n in range(2)]
+    product_for_sql = str(product_for_sql).replace("[","").replace("]","").replace("u'","'")
+    
+    new_product_for_sql =""
+    for n, i in enumerate(product_for_sql.split(",")):
+        if n == 0:
+            new_product_for_sql += i
+        elif (n % 2) == 0:
+            new_product_for_sql += ',' + i
+        else:
+            i = i.replace("'","`")
+            new_product_for_sql += ',' + i
+    
+    sql_content = "select `mkt_vol`, `scen_id`, `scen`, `city`, `num_ot`, `vol_ot`, stack("  + \
+                str(len(product_input)) + ',' + \
+                new_product_for_sql + \
+                ") as (`poi`, `poi_vol` ) from  v_pivot"
+
+    sql_content = eval('u"%s"' % sql_content)
+
+    #sql_content = '''select `mkt_vol`, `scen_id`, `scen`, `city`, `num_ot`, `vol_ot`,
+    #             stack(3, '普米克令舒', `普米克令舒`, 'Others-Pulmicort', `Others-Pulmicort`, '益索', `益索`) as (`poi`, `poi_vol` )
+    #             from  v_pivot
+    #          '''
 
     
     # ==============  函数定义 ================
-    
-
-            
     def cal_mkt(list_prod, df_eia):
         df_eia = df_eia.withColumn("mkt_size", func.lit(0))
         for p in list_prod:
@@ -228,7 +242,7 @@ def execute(max_path, project_name, out_path, out_dir, doi, product_input, citie
     
         df_scen_ot_seg = df_scen_ot_seg.withColumn("num_ot", func.size("scen"))
     
-        # 有问题,后期修改
+        # monotonically_increasing_id 有问题
         # df_scen_ot_seg = df_scen_ot_seg.repartition(1).withColumn("scen_id", func.monotonically_increasing_id()) \
         #     .withColumn("num_ot", func.size("scen"))
     
@@ -400,7 +414,7 @@ def execute(max_path, project_name, out_path, out_dir, doi, product_input, citie
         #                  from  v_pivot
         #               '''
     
-        df_result = spark.sql(sql_content2)
+        df_result = spark.sql(sql_content)
         df_result = df_result.withColumn("share", df_result.poi_vol / df_result.mkt_vol) \
             .select("poi", "scen_id", "share", "num_ot", "vol_ot", "poi_vol", "mkt_vol", "scen", "city")
         #df_result.show()

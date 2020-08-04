@@ -15,9 +15,8 @@ import click
 @click.option('--doi')
 @click.option('--product_input')
 @click.option('--cities')
-@click.option('--sql_content2')
-def debug_execute(max_path, project_name, out_path, out_dir, doi, product_input, cities, sql_content2):
-	execute(max_path, project_name, out_path, out_dir, doi, product_input, cities, sql_content2)
+def debug_execute(max_path, project_name, out_path, out_dir, doi, product_input, cities):
+	execute(max_path, project_name, out_path, out_dir, doi, product_input, cities)
 
 
 if __name__ == '__main__':
