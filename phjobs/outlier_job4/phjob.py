@@ -40,18 +40,10 @@ def execute(max_path, project_name, out_path, out_dir, doi, product_input):
     out_path_dir = out_path + "/" + project_name + '/' + out_dir + '/' + doi
     
     # 输入
-    # doi = "AZ16"
-    # df_ims_share_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_ims_share"
-    # product_input = [u"普米克令舒", u"Others-Pulmicort", u"益索"]
-    
     df_ims_share_path = out_path_dir + "/df_ims_share"
     product_input = product_input.replace(" ","").split(',')
-    
 
     # 输出
-    # df_ims_share_res_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/" + doi + "/df_ims_share_res"
-    # df_cities_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/" + doi + "/df_cities"
-    
     df_ims_share_res_path = out_path_dir + "/df_ims_share_res"
     df_cities_path = out_path_dir + "/df_cities"
     
@@ -64,6 +56,9 @@ def execute(max_path, project_name, out_path, out_dir, doi, product_input):
         return result
     
     # ============== 数据执行 ================ 
+    
+    phlogger.info('数据执行-start')
+    
     # 数据读取
     df_ims_share = spark.read.parquet(df_ims_share_path)
     
@@ -102,6 +97,8 @@ def execute(max_path, project_name, out_path, out_dir, doi, product_input):
     df_cities = df_cities.repartition(2)
     df_cities.write.format("parquet") \
         .mode("overwrite").save(df_cities_path)
+        
+    phlogger.info('数据执行-Finish')
         
     return [df_ims_share_res, df_cities]
     

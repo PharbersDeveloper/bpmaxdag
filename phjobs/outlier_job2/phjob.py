@@ -40,12 +40,6 @@ def execute(max_path, project_name, out_path, out_dir, doi, product_input, citie
 
 
     # 输入
-    # doi = "AZ16"
-    # df_EIA_res_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_EIA_res"
-    # df_seg_city_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_seg_city"
-    # cities = [u"长春市",u"长沙市",u"成都市"]
-    # product_input = [u"普米克令舒", u"Others-Pulmicort", u"益索"]
-
     out_path_dir = out_path + "/" + project_name + '/' + out_dir + '/' + doi
     df_EIA_res_path = out_path_dir + "/df_EIA_res"
     df_seg_city_path = out_path_dir + "/df_seg_city"
@@ -59,7 +53,7 @@ def execute(max_path, project_name, out_path, out_dir, doi, product_input, citie
     product_for_sql = [i for i in product_input for n in range(2)]
     product_for_sql = str(product_for_sql).replace("[","").replace("]","").replace("u'","'")
     
-    new_product_for_sql =""
+    new_product_for_sql = ""
     for n, i in enumerate(product_for_sql.split(",")):
         if n == 0:
             new_product_for_sql += i

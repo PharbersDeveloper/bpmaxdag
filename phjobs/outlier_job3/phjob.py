@@ -35,21 +35,17 @@ def execute(max_path, project_name, out_path, out_dir, doi):
     out_path_dir = out_path + "/" + project_name + '/' + out_dir + '/' + doi
     
     # 输入
-    # doi = "AZ16"
-    # df_EIA_path =  u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/" + doi + "/df_EIA"
-    # df_universe_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_universe"
-    # df_PHA_city_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_PHA_city"
-    
     df_EIA_path = out_path_dir + "/df_EIA"
     df_universe_path = out_path_dir + "/df_universe"
     df_PHA_city_path = out_path_dir + "/df_PHA_city"
     
     # 输出
-    # df_pnl_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/" + doi + "/df_pnl"
-    # df_pnl_mkt_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/" + doi + "/df_pnl_mkt"
-    
     df_pnl_path = out_path_dir + "/df_pnl"
     df_pnl_mkt_path = out_path_dir + "/df_pnl_mkt"
+    
+    # ==============  数据执行 ================
+    
+    phlogger.info('数据执行-start')
     
     # 数据读取
     df_EIA = spark.read.parquet(df_EIA_path)
@@ -87,5 +83,7 @@ def execute(max_path, project_name, out_path, out_dir, doi):
     df_pnl_mkt = df_pnl_mkt.repartition(2)
     df_pnl_mkt.write.format("parquet") \
         .mode("overwrite").save(df_pnl_mkt_path)
+    
+    phlogger.info('数据执行-Finish')
     
     return [df_pnl, df_pnl_mkt]

@@ -14,15 +14,15 @@ spec:
       - key: max_path
         value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
       - key: project_name
-        value: "AZ"
+        value: "Empty"
       - key: out_path
         value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
       - key: out_dir
         value: "outlier"
       - key: doi
-        value: "AZ16"
+        value: "Empty"
       - key: product_input
-        value: "普米克令舒, Others-Pulmicort, 益索"
+        value: "Empty"
     outputs:
       - key: a
         value: abcde

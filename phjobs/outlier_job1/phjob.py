@@ -36,20 +36,16 @@ def execute(max_path, project_name, out_path, out_dir, panel_path, universe_path
         spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
         
     # 输入
-    doi = "AZ16"
-    # panel_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/panel-result_AZ_Sanofi"
-    # universe_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/universe_az_sanofi_mch"
-    # ims_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/ims_info/"+doi+"_ims_info_1901-1911"
-    # model_month_left = 201901
-    # model_month_right = 201911
-    # product_input = [u"普米克令舒", u"Others-Pulmicort", u"益索"]
-    # arg_year = 2019
+    # panel_path 参数给路径
+    # universe_path 参数给路径
+    if project_name == 'AZ' or project_name == 'Sanofi':
+        ims_path = max_path + "/" + project_name + "/ims_info/" + doi + "_ims_info_1901-1911"
+    else:
+        ims_path = max_path + "/" + project_name + "/ims_info/" + doi + "_ims_info"
     product_input = product_input.replace(" ","").split(',')
     arg_year = int(arg_year)
     model_month_left = int(model_month_left)
     model_month_right = int(model_month_right) 
-    
-    ims_path = max_path + "/" + project_name + "/ims_info/" + doi + "_ims_info_1901-1911"
     
     # 输出
     out_path_dir = out_path + "/" + project_name + '/' + out_dir + '/' + doi
@@ -61,15 +57,52 @@ def execute(max_path, project_name, out_path, out_dir, panel_path, universe_path
     df_PHA_city_path = out_path_dir + "/df_PHA_city"
     df_ims_share_path = out_path_dir + "/df_ims_share"
     
-    #df_EIA_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_EIA"
-    #df_EIA_res_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_EIA_res"
-    #df_universe_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_universe"
-    #df_seg_city_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_seg_city"
-    #df_PHA_city_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_PHA_city"
-    #df_ims_share_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/outlier/"+doi+"/df_ims_share"
-    
     # =========== 数据检查 =============
     phlogger.info('数据检查-start')
+
+    # 存储文件的缺失列
+    misscols_dict = {}
+    
+    # panel
+    df_EIA = spark.read.parquet(panel_path)
+    colnames= df_EIA.columns
+    misscols_dict.setdefault("panel", [])
+
+    colnamelist = ['ID', 'Date', 'Prod_Name', 'DOI', 'Hosp_name', 'HOSP_ID', 'Molecule', 'Province', 'City', 
+    'add_flag', 'std_route', 'Sales', 'Units', 'Prod_CNAME', 'Strength', 'DOIE']
+    for each in colnamelist:
+        if each not in colnames:
+            misscols_dict["panel"].append(each)
+            
+    # universe
+    df_uni = spark.read.parquet(universe_path)
+    colnames= df_uni.columns
+    misscols_dict.setdefault("universe", [])
+
+    colnamelist = ["Panel_ID", "Seg", "City", "BEDSIZE", "Est_DrugIncome_RMB", "PANEL"]
+    for each in colnamelist:
+        if each not in colnames:
+            misscols_dict["universe"].append(each)  
+    
+    # ims
+    df_ims = spark.read.parquet(ims_path)
+    colnames= df_ims.columns
+    misscols_dict.setdefault("ims", [])
+
+    colnamelist = ["city", "poi", "ims_share", "ims_poi_vol"]
+    for each in colnamelist:
+        if each not in colnames:
+            misscols_dict["ims"].append(each)
+    
+    # 判断输入文件是否有缺失列
+    misscols_dict_final = {}
+    for eachfile in misscols_dict.keys():
+        if len(misscols_dict[eachfile]) != 0:
+            misscols_dict_final[eachfile] = misscols_dict[eachfile]
+    # 如果有缺失列，则报错，停止运行
+    if misscols_dict_final:
+        phlogger.error('miss columns: %s' % (misscols_dict_final))
+        raise ValueError('miss columns: %s' % (misscols_dict_final))    
     
     phlogger.info('数据检查-Pass')
     
@@ -141,7 +174,7 @@ def execute(max_path, project_name, out_path, out_dir, panel_path, universe_path
     # max_outlier_eia_join_uni：处理df_EIA_res
     # max_outlier_tmp_mod：处理df_EIA_res, df_seg_city, df_PHA_city
     
-    # 1. panel 数据处理，产生df_EIA
+    # 1. panel 数据读取与处理，生成 df_EIA
     df_EIA = spark.read.parquet(panel_path)
     df_EIA.persist()
 
@@ -168,12 +201,15 @@ def execute(max_path, project_name, out_path, out_dir, panel_path, universe_path
 
     df_EIA = df_EIA.withColumn("Year", func.bround(df_EIA.Date / 100))
     
-    # 2. uni 数据处理，生成df_uni
+    # 2. universe 数据处理，生成df_uni
     df_uni = spark.read.parquet(universe_path)
     df_seg_city = df_uni.select("City", "Seg").distinct()
     df_PHA_city = df_uni.select("Panel_ID", "City").distinct()
-    df_uni = df_uni.select("Panel_ID", "Seg", "City", "BEDSIZE", "Est_DrugIncome_RMB", "PANEL")
-    df_uni = df_uni.withColumn("key", func.lit(1)).withColumnRenamed("Panel_ID", "HOSP_ID")
+    
+    df_uni = df_uni \
+        .select("Panel_ID", "Seg", "City", "BEDSIZE", "Est_DrugIncome_RMB", "PANEL") \
+        .withColumn("key", func.lit(1)) \
+        .withColumnRenamed("Panel_ID", "HOSP_ID")
     
     df_uni = df_uni.repartition(2)
     df_uni.write.format("parquet") \
@@ -230,7 +266,7 @@ def execute(max_path, project_name, out_path, out_dir, panel_path, universe_path
     print df_EIA_res.columns
     df_EIA_res = udf_rename(df_EIA_res, product_input + ["other"])
         
-    # 4. max_outlier_eia_join_uni：处理universe join EIA
+    # 4. max_outlier_eia_join_uni：处理universe join df_EIA_res
     # arg_year = 2019
     date = gen_date_with_year(arg_year)
     schema = StructType([StructField("key", IntegerType(), True), StructField("Date", IntegerType(), True)])

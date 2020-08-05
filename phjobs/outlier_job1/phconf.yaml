@@ -14,25 +14,25 @@ spec:
       - key: max_path
         value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
       - key: project_name
-        value: "AZ"
+        value: "Empty"
       - key: out_path
         value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
       - key: out_dir
         value: "outlier"
       - key: panel_path
-        value: "s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/panel-result_AZ_Sanofi"
+        value: "Empty"
       - key: universe_path
-        value: "s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/universe_az_sanofi_mch"
+        value: "Empty"
       - key: doi
-        value: "AZ16"
+        value: "Empty"
       - key: product_input
-        value: "普米克令舒, Others-Pulmicort, 益索"
+        value: "Empty"
       - key: model_month_left
-        value: "201901"
+        value: "Empty"
       - key: model_month_right
-        value: "201911"
+        value: "Empty"
       - key: arg_year
-        value: "2019"
+        value: "Empty"
     outputs:
       - key: a
         value: abcde
