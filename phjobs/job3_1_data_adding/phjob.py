@@ -34,6 +34,10 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
         # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
         spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
 
+    '''
+    注意：杨森，月更新补数脚本特殊处理已经写脚本中
+    '''
+    
     phlogger.info('job3_data_adding')
     
     if if_others == "True":
@@ -257,15 +261,19 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
         not_arrived =  spark.read.csv(not_arrived_path, header=True)
        
         for index, month in enumerate(range(first_month, current_month + 1)):
-            # publish交集，去除当月未到
-            month_hospital = published_left.intersect(published_right) \
-                .exceptAll(not_arrived.where(not_arrived.Date == current_year*100 + month).select("ID")) \
-                .toPandas()["ID"].tolist()
             
             raw_data_month = raw_data.where(raw_data.Month == month)
             
-            growth_rate_month = calculate_growth(raw_data_month.where(raw_data_month.ID.isin(month_hospital)))
-            # 标记是哪个月补数要用的growth_rate
+            if project_name == "杨森":
+                growth_rate_month = calculate_growth(raw_data_month)
+            else:
+                # publish交集，去除当月未到
+                month_hospital = published_left.intersect(published_right) \
+                    .exceptAll(not_arrived.where(not_arrived.Date == current_year*100 + month).select("ID")) \
+                    .toPandas()["ID"].tolist()
+                growth_rate_month = calculate_growth(raw_data_month.where(raw_data_month.ID.isin(month_hospital)))
+                # 标记是哪个月补数要用的growth_rate
+                
             growth_rate_month = growth_rate_month.withColumn("month_for_monthly_add", func.lit(month))
             
             # 输出growth_rate结果
