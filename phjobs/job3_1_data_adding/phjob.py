@@ -264,7 +264,7 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
             
             raw_data_month = raw_data.where(raw_data.Month == month)
             
-            if project_name == "杨森":
+            if project_name == "Janssen":
                 growth_rate_month = calculate_growth(raw_data_month)
             else:
                 # publish交集，去除当月未到
