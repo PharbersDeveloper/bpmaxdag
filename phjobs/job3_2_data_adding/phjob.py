@@ -252,7 +252,7 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
         adding_data = add_data_out[0]
         original_range = add_data_out[1]
             
-    elif monthly_update == "True":
+    elif monthly_update == "True" and project_name != "Janssen":
         published_left = spark.read.csv(published_left_path, header=True)
         published_right = spark.read.csv(published_right_path, header=True)
         not_arrived =  spark.read.csv(not_arrived_path, header=True)
@@ -291,13 +291,16 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
         adding_data.write.format("parquet") \
             .mode("overwrite").save(adding_data_path)
         phlogger.info("输出 adding_data：".decode("utf-8") + adding_data_path)
-    elif monthly_update == "True":
+    elif monthly_update == "True" and project_name != "Janssen":
         adding_data = spark.read.parquet(adding_data_path)
 
     # 1.8 合并补数部分和原始部分:
     # combind_data
-    raw_data_adding = (raw_data.withColumn("add_flag", func.lit(0))) \
-        .union(adding_data.withColumn("add_flag", func.lit(1)).select(raw_data.columns + ["add_flag"]))
+    if project_name != "Janssen":
+        raw_data_adding = (raw_data.withColumn("add_flag", func.lit(0))) \
+            .union(adding_data.withColumn("add_flag", func.lit(1)).select(raw_data.columns + ["add_flag"]))
+    else:
+        raw_data_adding = raw_data.withColumn("add_flag", func.lit(0))
     raw_data_adding.persist()
 
     # 输出
