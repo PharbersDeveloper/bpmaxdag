@@ -26,8 +26,10 @@ def execute(max_path, project_name, cpa_gyc, if_others, out_path, out_dir, auto_
         .config('spark.sql.codegen.wholeStage', False) \
         .getOrCreate()
 
-    access_key = os.getenv("AWS_ACCESS_KEY_ID")
-    secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+    # access_key = os.getenv("AWS_ACCESS_KEY_ID")
+    # secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+    access_key = "AKIAWPBDTVEAJ6CCFVCP"
+    secret_key = "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"
     if access_key is not None:
         spark._jsc.hadoopConfiguration().set("fs.s3a.access.key", access_key)
         spark._jsc.hadoopConfiguration().set("fs.s3a.secret.key", secret_key)
