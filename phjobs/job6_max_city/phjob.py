@@ -72,14 +72,16 @@ all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, mi
     
     if if_others == "True":
         out_dir = out_dir + "/others_box/"
-        
+
+    
+    province_city_mapping_path = max_path + "/" + project_name + '/province_city_mapping'
+    hospital_ot_path = max_path + "/" + project_name + '/hospital_ot.csv'
+    market_mapping_path = max_path + "/" + project_name + '/mkt_mapping'
+    cpa_pha_mapping_path = max_path + "/" + project_name + "/cpa_pha_mapping"
+    ID_Bedsize_path = max_path + "/Common_files/ID_Bedsize"
+    
     out_path_dir = out_path + "/" + project_name + '/' + out_dir
-    
     product_map_path = out_path_dir + "/prod_mapping"
-    province_city_mapping_path = out_path + "/" + project_name + '/province_city_mapping'
-    hospital_ot_path = out_path + "/" + project_name + '/hospital_ot.csv'
-    market_mapping_path = out_path + "/" + project_name + '/mkt_mapping'
-    
     if if_two_source == "False":
         raw_data_std_path = out_path_dir + "/product_mapping_out"
     else:
@@ -93,14 +95,42 @@ all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, mi
     '''
     合并raw_data 和 max 结果
     '''
+    
+    raw_data = spark.read.parquet(raw_data_std_path)
+    
     if if_two_source == "False":
-        raw_data = spark.read.parquet(raw_data_std_path)
+        raw_data = raw_data.where((raw_data.year_month >=time_left) & (raw_data.year_month <=time_right))
         
     else:
-        # 1. raw_data_std 文件处理
-        raw_data = spark.read.parquet(raw_data_std_path)
+        # job1: raw_data 处理，匹配PHA，部分job1
+        for col in raw_data.columns:
+            if col in ["数量（支/片）", "最小制剂单位数量", "total_units", "SALES_QTY"]:
+                raw_data = raw_data.withColumnRenamed(col, "Units")
+            if col in ["金额（元）", "金额", "sales_value__rmb_", "SALES_VALUE"]:
+                raw_data = raw_data.withColumnRenamed(col, "Sales")
+            if col in ["Yearmonth", "YM", "Date"]:
+                raw_data = raw_data.withColumnRenamed(col, "year_month")
+            if col in ["医院编码", "BI_Code", "HOSP_CODE"]:
+                raw_data = raw_data.withColumnRenamed(col, "ID")
+                
+        raw_data = raw_data.withColumn("year_month", raw_data["year_month"].cast(IntegerType()))
+        raw_data = raw_data.where((raw_data.year_month >=time_left) & (raw_data.year_month <=time_right))
         
-        # raw_data 处理，生成min1，匹配获得min2（Prod_Name），同job2
+        cpa_pha_mapping = spark.read.parquet(cpa_pha_mapping_path)
+        cpa_pha_mapping = cpa_pha_mapping.where(cpa_pha_mapping["推荐版本"] == 1) \
+            .select("ID", "PHA").distinct()
+            
+        raw_data = raw_data.join(cpa_pha_mapping, on="ID", how="left")
+        
+        def distinguish_cpa_gyc(col, gyc_hospital_id_length):
+            # gyc_hospital_id_length是国药诚信医院编码长度，一般是7位数字，cpa医院编码一般是6位数字。医院编码长度可以用来区分cpa和gyc
+            return (func.length(col) < gyc_hospital_id_length)
+        raw_data = raw_data.withColumn("ID", raw_data["ID"].cast(StringType()))
+        raw_data = raw_data.withColumn("ID", func.when(distinguish_cpa_gyc(raw_data.ID, 7), func.lpad(raw_data.ID, 6, "0")).
+                                       otherwise(func.lpad(raw_data.ID, 7, "0")))
+
+        
+        # job2: raw_data 处理，生成min1，用product_map 匹配获得min2（Prod_Name），同job2
         if project_name != "Mylan":
             raw_data = raw_data.withColumn("Brand", func.when(func.isnull(raw_data.Brand), raw_data.Molecule).
                                        otherwise(raw_data.Brand))
@@ -141,10 +171,12 @@ all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, mi
         if "std_route" not in product_map.columns:
             product_map = product_map.withColumn("std_route", func.lit(''))	
             
-        product_map_for_rawdata = product_map.select("min1", "min2").distinct()
+        product_map_for_rawdata = product_map.select("min1", "min2", "通用名").distinct()
         
-        raw_data = raw_data.join(product_map_for_rawdata, on="min1", how="left")
-    
+        raw_data = raw_data.join(product_map_for_rawdata, on="min1", how="left") \
+            .drop("S_Molecule") \
+            .withColumnRenamed("通用名", "S_Molecule")
+        
      
     # 匹配市场名
     market_mapping = spark.read.parquet(market_mapping_path)
@@ -158,7 +190,7 @@ all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, mi
     raw_data = raw_data.withColumnRenamed("mkt", "DOI") \
                 .withColumnRenamed("min2", "Prod_Name") \
                 .withColumnRenamed("year_month", "Date") \
-                .select("ID", "Date", "Prod_Name", "Sales", "Units", "DOI")
+                .select("ID", "Date", "Prod_Name", "Sales", "Units", "DOI", "PHA")
     
     # 匹配通用cpa_city
     province_city_mapping = spark.read.parquet(province_city_mapping_path)
@@ -166,18 +198,22 @@ all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, mi
             .withColumn("PANEL", func.lit(1))
             
     # 删除医院
-    hospital_ot = spark.read.csv(hospital_ot_path, header=True)
-    raw_data = raw_data.join(hospital_ot, on="ID", how="left_anti")
+    # hospital_ot = spark.read.csv(hospital_ot_path, header=True)
+    # raw_data = raw_data.join(hospital_ot, on="ID", how="left_anti")
+
+    # raw_data 医院列表
+    raw_data_PHA = raw_data.select("PHA", "Date").distinct()
     
+    # ID_Bedsize 匹配
+    ID_Bedsize = spark.read.parquet(ID_Bedsize_path)
+    raw_data = raw_data.join(ID_Bedsize, on="ID", how="left")
     
-    # 计算		
-    raw_data_city = raw_data \
+    # 计算
+    raw_data_city = raw_data.where(raw_data.Bedsize > 99) \
             .groupBy("Province", "City", "Date", "Prod_Name", "PANEL", "DOI") \
             .agg({"Sales":"sum", "Units":"sum"}) \
             .withColumnRenamed("sum(Sales)", "Predict_Sales") \
-            .withColumnRenamed("sum(Units)", "Predict_Unit")
-    
-    
+            .withColumnRenamed("sum(Units)", "Predict_Unit")    
     
     # 2. max文件处理
     index = 0
@@ -197,7 +233,11 @@ all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, mi
             
         max_result = spark.read.parquet(max_path)
         
-        max_result = max_result.where((max_result.PANEL == 0) & (max_result.BEDSIZE > 99)) \
+        # max_result 筛选 BEDSIZE > 99， 且医院不在raw_data_PHA 中
+        max_result = max_result.where(max_result.BEDSIZE > 99) \
+            .join(raw_data_PHA, on=["PHA", "Date"], how="left_anti")
+        
+        max_result = max_result \
             .groupBy("Province", "City", "Date", "Prod_Name", "PANEL") \
             .agg({"Predict_Sales":"sum", "Predict_Unit":"sum"}) \
             .withColumnRenamed("sum(Predict_Sales)", "Predict_Sales") \
