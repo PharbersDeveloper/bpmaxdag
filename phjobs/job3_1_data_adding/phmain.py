@@ -18,11 +18,12 @@ import click
 @click.option('--out_path')
 @click.option('--out_dir')
 @click.option('--need_test')
+@click.option('--if_add_data')
 
 def debug_execute(max_path, project_name, model_month_right, max_month, year_missing, current_year, first_month, current_month, if_others, 
-monthly_update, not_arrived_path, published_path, out_path, out_dir, need_test):
+monthly_update, not_arrived_path, published_path, out_path, out_dir, need_test, if_add_data):
     execute(max_path, project_name, model_month_right, max_month, year_missing, current_year, first_month, current_month, if_others, 
-    monthly_update, not_arrived_path, published_path, out_path, out_dir, need_test)
+    monthly_update, not_arrived_path, published_path, out_path, out_dir, need_test, if_add_data)
 
 
 if __name__ == '__main__':

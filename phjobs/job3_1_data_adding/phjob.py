@@ -13,7 +13,7 @@ from pyspark.sql import functions as func
 
 
 def execute(max_path, project_name, model_month_right, max_month, year_missing, current_year, first_month, current_month, 
-if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, need_test):
+if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, need_test, if_add_data):
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \
@@ -39,6 +39,10 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
     '''
     
     phlogger.info('job3_data_adding')
+    
+    if if_add_data != "False" and if_add_data != "True":
+        phlogger.error('wrong input: if_add_data, False or True') 
+        raise ValueError('wrong input: if_add_data, False or True')
     
     if if_others == "True":
         out_dir = out_dir + "/others_box/"
@@ -264,7 +268,7 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
             
             raw_data_month = raw_data.where(raw_data.Month == month)
             
-            if project_name == "Janssen":
+            if if_add_data == "False":
                 growth_rate_month = calculate_growth(raw_data_month)
             else:
                 # publish交集，去除当月未到

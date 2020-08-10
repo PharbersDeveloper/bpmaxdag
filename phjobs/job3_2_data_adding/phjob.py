@@ -13,7 +13,7 @@ from pyspark.sql import functions as func
 
 
 def execute(max_path, project_name, model_month_right, max_month, year_missing, current_year, first_month, current_month, 
-if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, need_test):
+if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, need_test, if_add_data):
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \
@@ -35,6 +35,10 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
         spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
 
     phlogger.info('job3_data_adding')
+    
+    if if_add_data != "False" and if_add_data != "True":
+        phlogger.error('wrong input: if_add_data, False or True') 
+        raise ValueError('wrong input: if_add_data, False or True')
     
     if if_others == "True":
         out_dir = out_dir + "/others_box/"
@@ -291,12 +295,12 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
         adding_data.write.format("parquet") \
             .mode("overwrite").save(adding_data_path)
         phlogger.info("输出 adding_data：".decode("utf-8") + adding_data_path)
-    elif monthly_update == "True" and project_name != "Janssen":
+    elif monthly_update == "True" and if_add_data == "True":
         adding_data = spark.read.parquet(adding_data_path)
 
     # 1.8 合并补数部分和原始部分:
     # combind_data
-    if project_name != "Janssen":
+    if if_add_data == "True":
         raw_data_adding = (raw_data.withColumn("add_flag", func.lit(0))) \
             .union(adding_data.withColumn("add_flag", func.lit(1)).select(raw_data.columns + ["add_flag"]))
     else:

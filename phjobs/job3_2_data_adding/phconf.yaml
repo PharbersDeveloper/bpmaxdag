@@ -41,6 +41,8 @@ spec:
         value: "Empty"  
       - key: need_test
         value: 0
+      - key: if_add_data
+        value: "True"
     outputs:
       - key: a
         value: abcde
