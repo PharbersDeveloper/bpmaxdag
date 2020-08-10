@@ -154,7 +154,7 @@ all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, mi
     raw_data = raw_data.join(market_mapping, raw_data["S_Molecule"] == market_mapping["通用名"], how="left")
                 
      
-    # min2 重命名为 Prod_Name
+    # 列重命名
     raw_data = raw_data.withColumnRenamed("mkt", "DOI") \
                 .withColumnRenamed("min2", "Prod_Name") \
                 .withColumnRenamed("year_month", "Date") \
@@ -176,6 +176,7 @@ all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, mi
             .agg({"Sales":"sum", "Units":"sum"}) \
             .withColumnRenamed("sum(Sales)", "Predict_Sales") \
             .withColumnRenamed("sum(Units)", "Predict_Unit")
+    
     
     
     # 2. max文件处理
@@ -213,6 +214,9 @@ all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, mi
         
     
     # 3. 合并raw_data 和 max文件处理
+    
+    raw_data_city = raw_data_city.select("Province", "City", "Date", "Prod_Name", "PANEL", "DOI", "Predict_Sales", "Predict_Unit")
+    max_result_all = max_result_all.select("Province", "City", "Date", "Prod_Name", "PANEL", "DOI", "Predict_Sales", "Predict_Unit")
     
     max_result_city = max_result_all.union(raw_data_city)
         
