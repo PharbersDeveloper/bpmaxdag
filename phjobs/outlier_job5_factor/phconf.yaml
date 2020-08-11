@@ -14,7 +14,7 @@ spec:
       - key: max_path
         value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
       - key: project_name
-        value: "Test"
+        value: "Test/AZ"
       - key: out_path
         value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
       - key: out_dir
@@ -23,6 +23,10 @@ spec:
         value: "AZ16"
       - key: product_input
         value: "普米克令舒,Others-Pulmicort,益索"
+      - key: fst_prd
+        value: "3"
+      - key: bias
+        value: "2"
     outputs:
       - key: a
         value: abcde

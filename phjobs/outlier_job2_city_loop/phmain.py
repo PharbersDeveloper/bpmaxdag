@@ -15,8 +15,10 @@ import click
 @click.option('--doi')
 @click.option('--product_input')
 @click.option('--cities')
-def debug_execute(max_path, project_name, out_path, out_dir, doi, product_input, cities):
-	execute(max_path, project_name, out_path, out_dir, doi, product_input, cities)
+@click.option('--num_ot_max')
+@click.option('--sample_max')
+def debug_execute(max_path, project_name, out_path, out_dir, doi, product_input, cities, num_ot_max, sample_max):
+	execute(max_path, project_name, out_path, out_dir, doi, product_input, cities, num_ot_max, sample_max)
 
 
 if __name__ == '__main__':

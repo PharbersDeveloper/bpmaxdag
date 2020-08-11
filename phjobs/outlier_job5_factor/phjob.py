@@ -15,7 +15,7 @@ from copy import deepcopy
 from pyspark.sql.types import StringType,DoubleType
 from pyspark.sql.functions import pandas_udf, PandasUDFType
 
-def execute(max_path, project_name, out_path, out_dir, doi, product_input):
+def execute(max_path, project_name, out_path, out_dir, doi, product_input, fst_prd, bias):
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \
@@ -46,7 +46,13 @@ def execute(max_path, project_name, out_path, out_dir, doi, product_input):
     df_pnl_mkt_path = out_path_dir + "/df_pnl_mkt"
     df_ims_share_res_path = out_path_dir + "/df_ims_share_res"
     product_input = product_input.replace(" ","").split(',')
-
+    '''
+        @fst_prd: 计算factor时，仅考虑前几个产品
+        @bias: 计算factor时，偏重于调准mkt的程度（数字越大越准）
+    '''    
+            
+    fst_prd = int(fst_prd)
+    bias = int(bias)
 
     # 输出
     df_result_path = out_path_dir + "/df_result"
@@ -56,15 +62,12 @@ def execute(max_path, project_name, out_path, out_dir, doi, product_input):
     
     # ============== 函数定义 ================
     
-    def cvxpy_func_pre(rltsc, product_input):
+    def cvxpy_func_pre(rltsc, product_input, fst_prd, bias):
         # rltsc is a pandas.DataFrame
       
         import numpy as np
         import cvxpy as cp
         #from cvxpy import Variable, Problem, Minimize, maximum, abs, ECOS
-        
-        fst_prd = 3
-        bias = 2
         
         rltsc = rltsc.fillna(0)
         #print (len(rltsc))
@@ -109,7 +112,7 @@ def execute(max_path, project_name, out_path, out_dir, doi, product_input):
         return rltsc.assign(factor = f.value)
         
     def cvxpy_func(rltsc):
-        return cvxpy_func_pre(rltsc, product_input)
+        return cvxpy_func_pre(rltsc, product_input, fst_prd, bias)
     
     
     # ============== 数据执行 ================
@@ -180,7 +183,7 @@ def execute(max_path, project_name, out_path, out_dir, doi, product_input):
     phlogger.info('数据执行-Finish')
     
     # =========== 数据验证 =============
-    if project_name == "Test":
+    if project_name == "Test/AZ":
         phlogger.info('数据验证-start')
 
         def check_out(my_out_path, R_out_path):
@@ -205,13 +208,13 @@ def execute(max_path, project_name, out_path, out_dir, doi, product_input):
                         if (sum_my_out - sum_R) != 0:
                             phlogger.warning("different value(sum) columns: " + colname + ", " + str(sum_my_out) + ", " + "right value: " + str(sum_R))
         
-        my_out_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/Test/outlier/AZ16/df_result"
-        R_out_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/Test/outlier/AZ16df_result"
+        my_out_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/Test/AZ/outlier/AZ16/df_result"
+        R_out_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/Test/AZ/outlier/AZ16df_result"
         print(u"df_result")
         check_out(my_out_path, R_out_path)
 
-        my_out_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/Test/outlier/AZ16/df_factor_result"
-        R_out_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/Test/outlier/AZ16_df_factor_result"
+        my_out_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/Test/AZ/outlier/AZ16/df_factor_result"
+        R_out_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/Test/AZ/outlier/AZ16_df_factor_result"
         print(u"df_factor")
         check_out(my_out_path, R_out_path)
 

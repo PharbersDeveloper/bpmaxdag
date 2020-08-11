@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 import itertools
 
-def execute(max_path, project_name, out_path, out_dir, doi, product_input, cities):
+def execute(max_path, project_name, out_path, out_dir, doi, product_input, cities, num_ot_max, sample_max):
     
     spark = SparkSession.builder \
         .master("yarn") \
@@ -45,6 +45,13 @@ def execute(max_path, project_name, out_path, out_dir, doi, product_input, citie
     df_seg_city_path = out_path_dir + "/df_seg_city"
     cities = cities.replace(" ","").split(',')
     product_input = product_input.replace(" ","").split(',')
+    
+    '''
+    @num_ot_max: 为每个城市选择outlier的数量上限
+    @sample_max: 选outlier的范围，该城市最大的sample_max家医院
+    '''
+    num_ot_max = int(num_ot_max)
+    sample_max = int(sample_max)
     
     # 输出
     tmp_df_result_path = out_path_dir + "/df_result_tmp"
@@ -419,18 +426,11 @@ def execute(max_path, project_name, out_path, out_dir, doi, product_input, citie
     
     # ==============  数据执行 ================
     
-    '''
-    @num_ot_max: 为每个城市选择outlier的数量上限
-    @smpl_max: 选outlier的范围，该城市最大的smpl_max家医院
-    '''
-    
     # 数据读取
     df_EIA_res = spark.read.parquet(df_EIA_res_path)
     df_seg_city = spark.read.parquet(df_seg_city_path)
     
     # max_outlier_city_loop_template
-    num_ot_max = 8
-    smpl_max = 8
     
     index = 0
     for ct in cities:
@@ -464,9 +464,9 @@ def execute(max_path, project_name, out_path, out_dir, doi, product_input, citie
 
             scen[ot_city[i][0]] = []
 
-        # 当医院的最大数量大于规定数量，取销量最多smpl_max个的医院
-        if len(cd_arr[ot_seg]) > smpl_max:
-            # smpl=np.random.choice(cd_arr[ot_seg], smpl_max,p=DrugIncome_std, replace=False).tolist()
+        # 当医院的最大数量大于规定数量，取销量最多sample_max个的医院
+        if len(cd_arr[ot_seg]) > sample_max:
+            # smpl=np.random.choice(cd_arr[ot_seg], sample_max,p=DrugIncome_std, replace=False).tolist()
             # print ct
             if ct in [u"珠三角市", u"福厦泉市",u'金台嘉绍']:
                 # print u"珠福特殊条件"
@@ -482,7 +482,7 @@ def execute(max_path, project_name, out_path, out_dir, doi, product_input, citie
                 )
 
             smpl = df_tmp.orderBy(df_tmp.Est_DrugIncome_RMB.desc()) \
-                .limit(smpl_max).toPandas()["HOSP_ID"].to_numpy()
+                .limit(sample_max).toPandas()["HOSP_ID"].to_numpy()
         else:
             smpl = cd_arr[ot_seg]
 

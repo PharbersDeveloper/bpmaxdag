@@ -14,13 +14,13 @@ spec:
       - key: max_path
         value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
       - key: project_name
-        value: "Test"
+        value: "Test/AZ"
       - key: out_path
         value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
       - key: out_dir
         value: "outlier"
       - key: panel_path
-        value: "s3a://ph-max-auto/v0.0.1-2020-06-08/Test/panel-result_AZ_Sanofi"
+        value: "s3a://ph-max-auto/v0.0.1-2020-06-08/Test/AZ/panel-result_AZ_Sanofi"
       - key: universe_path
         value: "s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/universe_az_sanofi_mch"
       - key: doi

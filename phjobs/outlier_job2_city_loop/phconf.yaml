@@ -14,7 +14,7 @@ spec:
       - key: max_path
         value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
       - key: project_name
-        value: "Test"
+        value: "Test/AZ"
       - key: out_path
         value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
       - key: out_dir
@@ -25,6 +25,11 @@ spec:
         value: "普米克令舒,Others-Pulmicort,益索"
       - key: cities
         value: "长春市,长沙市,成都市"
+      - key: num_ot_max
+        value: "8"
+      - key: sample_max
+        value: "8"
+
     outputs:
       - key: a
         value: abcde

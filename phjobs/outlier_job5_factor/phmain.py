@@ -14,8 +14,10 @@ import click
 @click.option('--out_dir')
 @click.option('--doi')
 @click.option('--product_input')
-def debug_execute(max_path, project_name, out_path, out_dir, doi, product_input):
-	execute(max_path, project_name, out_path, out_dir, doi, product_input)
+@click.option('--fst_prd')
+@click.option('--bias')
+def debug_execute(max_path, project_name, out_path, out_dir, doi, product_input, fst_prd, bias):
+	execute(max_path, project_name, out_path, out_dir, doi, product_input, fst_prd, bias)
 
 
 if __name__ == '__main__':
