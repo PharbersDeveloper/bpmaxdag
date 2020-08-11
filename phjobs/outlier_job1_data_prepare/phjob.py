@@ -38,7 +38,7 @@ def execute(max_path, project_name, out_path, out_dir, panel_path, universe_path
     # 输入
     # panel_path 参数给路径
     # universe_path 参数给路径
-    if project_name == 'AZ' or project_name == 'Sanofi':
+    if project_name == 'AZ' or project_name == 'Sanofi' or project_name == 'Test':
         ims_path = max_path + "/" + project_name + "/ims_info/" + doi + "_ims_info_1901-1911"
     else:
         ims_path = max_path + "/" + project_name + "/ims_info/" + doi + "_ims_info"
@@ -263,7 +263,7 @@ def execute(max_path, project_name, out_path, out_dir, panel_path, universe_path
 
     df_EIA_res = df_EIA_res.groupBy("ID", "Date", "Hosp_name", "HOSP_ID", "Year").\
         sum(*product_input+["other"])
-    print df_EIA_res.columns
+    # print df_EIA_res.columns
     df_EIA_res = udf_rename(df_EIA_res, product_input + ["other"])
         
     # 4. max_outlier_eia_join_uni：处理universe join df_EIA_res

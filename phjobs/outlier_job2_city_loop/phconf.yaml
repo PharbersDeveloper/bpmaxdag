@@ -14,17 +14,17 @@ spec:
       - key: max_path
         value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
       - key: project_name
-        value: "Empty"
+        value: "Test"
       - key: out_path
         value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
       - key: out_dir
         value: "outlier"
       - key: doi
-        value: "Empty"
+        value: "AZ16"
       - key: product_input
-        value: "Empty"
+        value: "普米克令舒,Others-Pulmicort,益索"
       - key: cities
-        value: "Empty"
+        value: "长春市,长沙市,成都市"
     outputs:
       - key: a
         value: abcde

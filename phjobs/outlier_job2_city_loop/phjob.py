@@ -77,6 +77,8 @@ def execute(max_path, project_name, out_path, out_dir, doi, product_input, citie
 
     
     # ==============  函数定义 ================
+    
+    # 对 product_input每列 + other列 累加求和，生成mkt_size列
     def cal_mkt(list_prod, df_eia):
         df_eia = df_eia.withColumn("mkt_size", func.lit(0))
         for p in list_prod:
@@ -204,13 +206,13 @@ def execute(max_path, project_name, out_path, out_dir, doi, product_input, citie
             # [p+"_fd" for p in product_input], "other_fd"
         sum_result = df_result.groupBy().sum(*[p+"_fd" for p in product_input]+["other_fd"]).toPandas()
         #sum_result = udf_rename(sum_result, [p+"_fd" for p in product_input]+["other_fd"]).toPandas()
-        print sum_result.columns
-        print sum_result
+        # print sum_result.columns
+        # print sum_result
         #chk = sum_result.at[0, 1]
         other_seg_oth = sum_result.at[0, "sum(other_fd)"]
         other_seg_poi = {}
         for iprd in product_input:
-            print "sum(" + iprd + "_fd)"
+            #print "sum(" + iprd + "_fd)"
             #other_seg_poi[iprd] = sum_result.at[0, iprd+"_fd"]
             other_seg_poi[iprd] = sum_result.at[0, ("sum(" + iprd + "_fd)").encode("utf-8")]
     
@@ -417,6 +419,11 @@ def execute(max_path, project_name, out_path, out_dir, doi, product_input, citie
     
     # ==============  数据执行 ================
     
+    '''
+    @num_ot_max: 为每个城市选择outlier的数量上限
+    @smpl_max: 选outlier的范围，该城市最大的smpl_max家医院
+    '''
+    
     # 数据读取
     df_EIA_res = spark.read.parquet(df_EIA_res_path)
     df_seg_city = spark.read.parquet(df_seg_city_path)
@@ -427,25 +434,25 @@ def execute(max_path, project_name, out_path, out_dir, doi, product_input, citie
     
     index = 0
     for ct in cities:
-        print(ct)
+        phlogger.info(ct)
+
         # 通过Seg来过滤数据
         df_seg_city_iter = df_seg_city.where(df_seg_city.City == ct).select("Seg").distinct()
         df_EIA_res_iter = df_EIA_res.join(df_seg_city_iter, on=["Seg"], how="inner")
-        # df_EIA_res_iter = df_EIA_res_iter.withColumn("mkt_size",
-        #                                              df_EIA_res_iter["加罗宁"] + df_EIA_res_iter["凯纷"] +
-        #                                              df_EIA_res_iter["诺扬"] + df_EIA_res_iter["其它"])
+        # 对 product_input每列 + other列 累加求和，生成mkt_size列
         df_EIA_res_iter = cal_mkt(product_input, df_EIA_res_iter)
 
         # 策略 1: 选择最大的Seg
-        # TODO: 策略2 我没写，@luke
-        # print ct
+        # ot_seg：Est_DrugIncome_RMB最大的Seg编号
         ot_seg = df_EIA_res_iter.where(df_EIA_res_iter.PANEL == 1) \
             .groupBy("Seg").sum("Est_DrugIncome_RMB") \
             .orderBy(func.desc("sum(Est_DrugIncome_RMB)")).toPandas()["Seg"].to_numpy()[0]
-
+        
         df_ot_city = df_EIA_res_iter.where(df_EIA_res_iter.PANEL == 1).select("Seg", "HOSP_ID").distinct()
 
-        # 这部分计算量很小，在Driver机器单线程计算。
+        # 这部分计算量很小，在Driver机器单线程计算
+        # cd_arr={Seg:[多个HOSP_ID]} 存储每个Seg的医院信息
+        # scen={Seg:[]}
         ot_city = df_ot_city.toPandas().values
         cd_arr = {}
         scen = {}
@@ -457,7 +464,7 @@ def execute(max_path, project_name, out_path, out_dir, doi, product_input, citie
 
             scen[ot_city[i][0]] = []
 
-        # 当医院的最大数量大于规定数量，取销量最多的医院
+        # 当医院的最大数量大于规定数量，取销量最多smpl_max个的医院
         if len(cd_arr[ot_seg]) > smpl_max:
             # smpl=np.random.choice(cd_arr[ot_seg], smpl_max,p=DrugIncome_std, replace=False).tolist()
             # print ct

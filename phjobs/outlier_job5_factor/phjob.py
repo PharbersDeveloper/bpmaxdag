@@ -67,7 +67,7 @@ def execute(max_path, project_name, out_path, out_dir, doi, product_input):
         bias = 2
         
         rltsc = rltsc.fillna(0)
-        print (len(rltsc))
+        #print (len(rltsc))
         f = cp.Variable()
         poi_ratio = {}
         mkt_ratio = {}
@@ -177,7 +177,45 @@ def execute(max_path, project_name, out_path, out_dir, doi, product_input):
         
     phlogger.info("输出 df_rlt_brf 结果：".decode("utf-8") + df_rlt_brf_path)
     
-    phlogger.info('数据执行-Finish')                                     
+    phlogger.info('数据执行-Finish')
+    
+    # =========== 数据验证 =============
+    if project_name == "Test":
+        phlogger.info('数据验证-start')
+
+        def check_out(my_out_path, R_out_path):
+            my_out = spark.read.parquet(my_out_path)
+            R_out = spark.read.parquet(R_out_path)
+
+            # 检查内容：列缺失，列的类型，列的值
+            for colname, coltype in R_out.dtypes:
+                # 列是否缺失
+                if colname not in my_out.columns:
+                    phlogger.warning ("miss columns:", colname)
+                else:
+                    # 数据类型检查
+                    if my_out.select(colname).dtypes[0][1] != coltype:
+                        phlogger.warning("different type columns: " + colname + ", " + my_out.select(colname).dtypes[0][1] + ", " + "right type: " + coltype)
+
+                    # 数值列的值检查
+                    if coltype == "double" or coltype == "int":
+                        sum_my_out = my_out.groupBy().sum(colname).toPandas().iloc[0, 0].round(2)
+                        sum_R = R_out.groupBy().sum(colname).toPandas().iloc[0, 0].round(2)
+                        # phlogger.info(colname, sum_raw_data, sum_R)
+                        if (sum_my_out - sum_R) != 0:
+                            phlogger.warning("different value(sum) columns: " + colname + ", " + str(sum_my_out) + ", " + "right value: " + str(sum_R))
+        
+        my_out_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/Test/outlier/AZ16/df_result"
+        R_out_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/Test/outlier/AZ16df_result"
+        print(u"df_result")
+        check_out(my_out_path, R_out_path)
+
+        my_out_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/Test/outlier/AZ16/df_factor_result"
+        R_out_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/Test/outlier/AZ16_df_factor_result"
+        print(u"df_factor")
+        check_out(my_out_path, R_out_path)
+
+        phlogger.info('数据验证-Finish')
                                  
     return [df_factor_result, df_rlt_brf]    
 
