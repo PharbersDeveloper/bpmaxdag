@@ -73,7 +73,7 @@ def execute():
 	# all_cpa_data.select("MOLE_NAME", "PRODUCT_NAME", "SPEC", "DOSAGE", "PACK_QTY", "MANUFACTURER_NAME").show(10)  # 共23405221条数据
 	
 	# select 6个产品字段并去重 + id
-	min_keys_lst = ["MOLE_NAME", "PRODUCT_NAME", "SPEC", "DOSAGE", "PACK_QTY", "MANUFACTURER_NAME"]  
+	min_keys_lst = ["MOLE_NAME", "PRODUCT_NAME", "SPEC", "DOSAGE", "PACK_QTY", "MANUFACTURER_NAME"]
 	cpa_distinct_data = all_cpa_data.select(min_keys_lst).distinct() \
 									.withColumn("id", func.monotonically_increasing_id())
 	cpa_distinct_data.show(10)  # 共31475条数据
