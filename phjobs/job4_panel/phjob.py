@@ -266,7 +266,9 @@ paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_uni
         unpublished_dict={"ID":unpublished_ID*12,"Date":[current_year*100 + i for i in all_month]}
         
         df = pd.DataFrame(data=unpublished_dict)
-        unpublished = spark.createDataFrame(df)
+
+        schema = StructType([StructField("ID", StringType(), True), StructField("Date", StringType(), True)])
+        unpublished = spark.createDataFrame(df, schema)
         unpublished = unpublished.select("ID","Date")
         
         # not_arrive文件
