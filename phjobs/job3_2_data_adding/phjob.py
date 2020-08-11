@@ -256,7 +256,7 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
         adding_data = add_data_out[0]
         original_range = add_data_out[1]
             
-    elif monthly_update == "True" and project_name != "Janssen":
+    elif monthly_update == "True" and if_add_data == "True":
         published_left = spark.read.csv(published_left_path, header=True)
         published_right = spark.read.csv(published_right_path, header=True)
         not_arrived =  spark.read.csv(not_arrived_path, header=True)
