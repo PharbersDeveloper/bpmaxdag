@@ -93,6 +93,20 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
     # =========== 数据检查 =============
 
     phlogger.info('数据检查-start')
+    
+    # csv文件检查
+    length_error_dict = {}
+    if monthly_update == "True":
+        csv_path_list = [published_left_path, published_right_path, not_arrived_path]
+        for eachpath in csv_path_list:
+            eachfile = spark.read.csv(eachpath, header=True)
+            ID_length = eachfile.withColumn("ID_length", func.length("ID")).select("ID_length").distinct().toPandas()["ID_length"].values.tolist()
+            for i in ID_length:
+                if i < 6:
+                    length_error_dict[eachpath] = ID_length
+        if length_error_dict:
+            phlogger.error('ID length error: %s' % (length_error_dict))
+            raise ValueError('ID length error: %s' % (length_error_dict))
 
     # 存储文件的缺失列
     misscols_dict = {}
