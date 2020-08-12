@@ -85,7 +85,7 @@ all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, mi
     if if_two_source == "False":
         raw_data_std_path = out_path_dir + "/product_mapping_out"
     else:
-        raw_data_std_path = out_path_dir + "/"
+        raw_data_std_path = out_path_dir + "/raw_data_std"
     
     # 输出
     time_range = str(time_left) + '_' + str(time_right)
@@ -122,12 +122,13 @@ all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, mi
             
         raw_data = raw_data.join(cpa_pha_mapping, on="ID", how="left")
         
-        def distinguish_cpa_gyc(col, gyc_hospital_id_length):
-            # gyc_hospital_id_length是国药诚信医院编码长度，一般是7位数字，cpa医院编码一般是6位数字。医院编码长度可以用来区分cpa和gyc
-            return (func.length(col) < gyc_hospital_id_length)
-        raw_data = raw_data.withColumn("ID", raw_data["ID"].cast(StringType()))
-        raw_data = raw_data.withColumn("ID", func.when(distinguish_cpa_gyc(raw_data.ID, 7), func.lpad(raw_data.ID, 6, "0")).
-                                       otherwise(func.lpad(raw_data.ID, 7, "0")))
+        if cpa_gyc == "True":
+            def distinguish_cpa_gyc(col, gyc_hospital_id_length):
+                # gyc_hospital_id_length是国药诚信医院编码长度，一般是7位数字，cpa医院编码一般是6位数字。医院编码长度可以用来区分cpa和gyc
+                return (func.length(col) < gyc_hospital_id_length)
+            raw_data = raw_data.withColumn("ID", raw_data["ID"].cast(StringType()))
+            raw_data = raw_data.withColumn("ID", func.when(distinguish_cpa_gyc(raw_data.ID, 7), func.lpad(raw_data.ID, 6, "0")).
+                                           otherwise(func.lpad(raw_data.ID, 7, "0")))
 
         
         # job2: raw_data 处理，生成min1，用product_map 匹配获得min2（Prod_Name），同job2
@@ -190,7 +191,7 @@ all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, mi
     raw_data = raw_data.withColumnRenamed("mkt", "DOI") \
                 .withColumnRenamed("min2", "Prod_Name") \
                 .withColumnRenamed("year_month", "Date") \
-                .select("ID", "Date", "Prod_Name", "Sales", "Units", "DOI", "PHA")
+                .select("ID", "Date", "Prod_Name", "Sales", "Units", "DOI", "PHA", "S_Molecule")
     
     # 匹配通用cpa_city
     province_city_mapping = spark.read.parquet(province_city_mapping_path)
@@ -210,10 +211,12 @@ all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, mi
     
     # 计算
     raw_data_city = raw_data.where(raw_data.Bedsize > 99) \
-            .groupBy("Province", "City", "Date", "Prod_Name", "PANEL", "DOI") \
+            .groupBy("Province", "City", "Date", "Prod_Name", "PANEL", "DOI", "S_Molecule") \
             .agg({"Sales":"sum", "Units":"sum"}) \
             .withColumnRenamed("sum(Sales)", "Predict_Sales") \
-            .withColumnRenamed("sum(Units)", "Predict_Unit")    
+            .withColumnRenamed("sum(Units)", "Predict_Unit") \
+            .withColumnRenamed("S_Molecule", "Molecule") 
+    
     
     # 2. max文件处理
     index = 0
@@ -238,7 +241,7 @@ all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, mi
             .join(raw_data_PHA, on=["PHA", "Date"], how="left_anti")
         
         max_result = max_result \
-            .groupBy("Province", "City", "Date", "Prod_Name", "PANEL") \
+            .groupBy("Province", "City", "Date", "Prod_Name", "PANEL", "Molecule") \
             .agg({"Predict_Sales":"sum", "Predict_Unit":"sum"}) \
             .withColumnRenamed("sum(Predict_Sales)", "Predict_Sales") \
             .withColumnRenamed("sum(Predict_Unit)", "Predict_Unit")
@@ -255,8 +258,8 @@ all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, mi
     
     # 3. 合并raw_data 和 max文件处理
     
-    raw_data_city = raw_data_city.select("Province", "City", "Date", "Prod_Name", "PANEL", "DOI", "Predict_Sales", "Predict_Unit")
-    max_result_all = max_result_all.select("Province", "City", "Date", "Prod_Name", "PANEL", "DOI", "Predict_Sales", "Predict_Unit")
+    raw_data_city = raw_data_city.select("Province", "City", "Date", "Prod_Name", "Molecule", "PANEL", "DOI", "Predict_Sales", "Predict_Unit")
+    max_result_all = max_result_all.select("Province", "City", "Date", "Prod_Name", "Molecule", "PANEL", "DOI", "Predict_Sales", "Predict_Unit")
     
     max_result_city = max_result_all.union(raw_data_city)
         
