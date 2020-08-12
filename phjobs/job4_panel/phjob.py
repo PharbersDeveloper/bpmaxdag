@@ -243,9 +243,11 @@ paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_uni
         Province_list = [u'河北省', u'福建省', u'河北', u"福建"]
 
         # 去除 city_list和 Province_list
-        panel_add_data = panel_add_data \
-            .where(~panel_add_data.City.isin(city_list)) \
-            .where(~panel_add_data.Province.isin(Province_list))
+        if project_name != "Janssen":
+            panel_add_data = panel_add_data \
+                .where(~panel_add_data.City.isin(city_list)) \
+                .where(~panel_add_data.Province.isin(Province_list))
+            
         if monthly_update == "False":
             panel_add_data_history = panel_add_data \
                 .where(panel_add_data.HOSP_ID.isin(new_hospital)) \

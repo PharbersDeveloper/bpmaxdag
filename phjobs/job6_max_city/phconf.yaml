@@ -44,7 +44,9 @@ spec:
       - key: minimum_product_newname
         value: "min1"
       - key: if_two_source
-        value: "False"  
+        value: "False"
+      - key: cpa_gyc
+        value: "True" 
     outputs:
       - key: a
         value: abcde

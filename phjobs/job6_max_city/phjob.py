@@ -12,7 +12,7 @@ import os
 
 
 def execute(max_path, project_name, time_left, time_right, left_models, left_models_time_left, right_models, right_models_time_right,
-all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, minimum_product_sep, minimum_product_newname, if_two_source):
+all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, minimum_product_sep, minimum_product_newname, if_two_source, cpa_gyc):
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \
@@ -210,7 +210,10 @@ all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, mi
     raw_data = raw_data.join(ID_Bedsize, on="ID", how="left")
     
     # 计算
-    raw_data_city = raw_data.where(raw_data.Bedsize > 99) \
+    if project_name != "Janssen":
+        raw_data = raw_data.where(raw_data.Bedsize > 99)
+
+    raw_data_city = raw_data \
             .groupBy("Province", "City", "Date", "Prod_Name", "PANEL", "DOI", "S_Molecule") \
             .agg({"Sales":"sum", "Units":"sum"}) \
             .withColumnRenamed("sum(Sales)", "Predict_Sales") \
