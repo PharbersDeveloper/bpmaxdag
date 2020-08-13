@@ -9,6 +9,7 @@ from pyspark.sql import functions as func
 from phlogs.phlogs import phlogger
 from pyspark.sql.functions import explode
 from pyspark.sql.functions import col
+from pyspark.sql.functions import monotonically_increasing_id
 import string
 from uuid import uuid4
 import pandas as pd
@@ -58,7 +59,7 @@ def execute(a, b):
     df = spark.createDataFrame(dim, schema)
     df = df.withColumn("HIERARCHY",explode(col("HIERARCHYS"))).select("DIMENSION", "HIERARCHY")
     
-    df.repartition(1).write.mode("overwrite").parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/dimensions")
+    df.repartition(1).write.mode("overwrite").parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/meta/dimensions")
     
     phlogger.info("create data cube cuboids frame")
    
@@ -113,15 +114,17 @@ def execute(a, b):
             StructField("LATTLCES_CONDIS", ArrayType(ArrayType(StringType())))
         ])
     df = spark.createDataFrame(pdf[1:], schema)
-    df.show()
-    
-    df.repartition(1).write.mode("overwrite").parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/cuboids")
+    df.repartition(1).write.mode("overwrite").parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/meta/cuboids")
 
     # init lattice condition
-    lattice_df = df.withColumn("LATTLES", explode(col("LATTLCES_CONDIS")))
-    lattice_df.show()
-    lattice_df.repartition(1).write.mode("overwrite").parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/lattices")
-    
+    cuboids_df = spark.read.parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/cuboids") \
+			.select("CUBOIDS_NAME", "LATTLCES_CONDIS") \
+			.withColumn("CUBOIDS_ID", monotonically_increasing_id()) \
+			.withColumn("LATTLES", explode(col("LATTLCES_CONDIS"))) \
+			.select("CUBOIDS_ID", "CUBOIDS_NAME", "LATTLES") \
+			.repartition(1) \
+			.write.mode("overwrite") \
+			.parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/meta/lattices")
     
 
 def cartesian(arrays, out=None):
