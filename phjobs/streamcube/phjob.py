@@ -18,7 +18,7 @@ import string
 from uuid import uuid4
 
 
-def execute(start, end, replace, process_row): 
+def execute(start, end, replace): 
     sd = int(start)
     ed = int(end)
     spark = SparkSession.builder \

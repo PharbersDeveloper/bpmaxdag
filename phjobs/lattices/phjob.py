@@ -32,6 +32,7 @@ def execute(a, b):
         .config('spark.sql.codegen.wholeStage', False) \
         .config("spark.sql.crossJoin.enabled", "true") \
         .config("spark.sql.autoBroadcastJoinThreshold", 1048576000) \
+        .config("spark.sql.files.maxRecordsPerFile", 33554432) \
         .getOrCreate()
 
     # access_key = os.getenv("AWS_ACCESS_KEY_ID")
@@ -99,8 +100,8 @@ def execute(a, b):
 			.writeStream \
         	.format("parquet") \
         	.outputMode("append") \
-        	.option("checkpointLocation", "s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/lattices/checkpoint") \
-        	.option("path", "s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/lattices/content") \
+        	.option("checkpointLocation", "s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/lattices2/checkpoint") \
+        	.option("path", "s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/lattices2/content") \
 	        .start()
 
 	lattices_df.awaitTermination()
