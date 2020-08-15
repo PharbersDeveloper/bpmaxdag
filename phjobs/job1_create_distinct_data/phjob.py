@@ -43,15 +43,15 @@ def execute():
 		spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
   
 	# 需要的所有四个表格命名
-	cpa_input_data = spark.read.parquet("s3a://ph-stream/common/public/cpa/0.0.1")
+	cpa_input_data = spark.read.parquet("s3a://ph-stream/common/public/pfizer_test/0.0.1")
 	# product_data = spark.read.parquet("s3a://ph-stream/common/public/prod/0.0.14")
 	# human_replace_data = spark.read.parquet("s3a://ph-stream/common/public/human_replace/0.0.14")
 	mole_human_replace_data = spark.read.parquet("s3a://ph-stream/common/public/mole_human_replace/0.0.1")
 
-	# cpa_input_data.show(4)
+	cpa_input_data.show(4)  # 36166条
 	# product_data.show(4)
 	# human_replace_data.show(4)
-	# mole_human_replace_data.show(4)
+	mole_human_replace_data.show(4)
 	
 	# 选取 mole_human_replace_data 的有用列、有用行
 	mole_human_replace_data.createOrReplaceTempView("mole_human_replace_data") 
@@ -70,16 +70,18 @@ def execute():
 															  otherwise(mole_human_replace_data.PROD_MOLE)) \
 								 .drop("INPUT_MOLE", "PROD_MOLE")
 	
-	# all_cpa_data.select("MOLE_NAME", "PRODUCT_NAME", "SPEC", "DOSAGE", "PACK_QTY", "MANUFACTURER_NAME").show(10)  # 共23405221条数据
+	# all_cpa_data.select("MOLE_NAME", "PRODUCT_NAME", "SPEC", "DOSAGE", "PACK_QTY", "MANUFACTURER_NAME").show(10)  # 原来有共23405221条数据（不是测试数据
 	
 	# select 6个产品字段并去重 + id
 	min_keys_lst = ["MOLE_NAME", "PRODUCT_NAME", "SPEC", "DOSAGE", "PACK_QTY", "MANUFACTURER_NAME"]  
 	cpa_distinct_data = all_cpa_data.select(min_keys_lst).distinct() \
 									.withColumn("id", func.monotonically_increasing_id())
-	cpa_distinct_data.show(100)  # 共31475条数据
+	cpa_distinct_data.show(10)  # 共36122条数据
 	
+	# 写入
 	# out_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/cpa_distinct"
 	# cpa_distinct_data.write.format("parquet").mode("overwrite").save(out_path)
+	# print("写入 " + out_path + " 完成")
 	
 	print("程序end job1_create_distinct_data")
 	print("--"*80)

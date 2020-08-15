@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """alfredyang@pharbers.com.
 
-功能描述：job1: 替换不规范的mole_name，对cpa_input数据去重并生成唯一id
+功能描述：job2：left join cpa和prod
   * @author yzy
   * @version 0.0
-  * @since 2020/08/11
+  * @since 2020/08/12
   * @note
   
 """
@@ -44,42 +44,45 @@ def execute():
   
 	# 需要的所有表格命名
 	cpa_distinct_data = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/cpa_distinct")
-	prod_data_path = "s3a://ph-stream/common/public/prod/0.0."
 	product_data = spark.read.parquet("s3a://ph-stream/common/public/prod/0.0.14")
 
-	
 	prod_min_key_lst = ["MOLE_NAME_EN", "MOLE_NAME_CH", "PROD_NAME_CH", "SPEC", "DOSAGE", "PACK", "MNF_NAME_CH", "MNF_NAME_EN", "PACK_ID"]
 	product_check_data = product_data.select(prod_min_key_lst)
-	# cpa_distinct_data.show(10)  # 共31475条数据
+	# cpa_distinct_data.show(10)  # 共36122条数据
 	# product_check_data.show(10)
 	
-	# 给input cpa 和 prod 列明前分别加in_ 和 check_
+	# 给input cpa 和 prod 列名前分别加in_ 和 check_
 	cpa_renamed = cpa_distinct_data
 	for col in cpa_renamed.columns:
 		cpa_renamed = cpa_renamed.withColumnRenamed(col, "in_" + col)
 	cpa_renamed = cpa_renamed.withColumnRenamed("in_id", "id")
-	cpa_renamed.show(3)
+	# cpa_renamed.show(3)
 	
 	prod_renamed = product_check_data
 	for col in prod_renamed.columns:
 		prod_renamed = prod_renamed.withColumnRenamed(col, "check_" + col)
 	prod_renamed = prod_renamed.withColumnRenamed("check_PACK_ID", "PACK_ID")	
-	
-	prod_renamed.show(3)
+	# prod_renamed.show(3)
 	
 	cpa_prod_join_data = cpa_renamed.join(prod_renamed,
 								   cpa_renamed.in_MOLE_NAME == prod_renamed.check_MOLE_NAME_CH,
 								   how="left")
-	cpa_prod_join_data.show(100)
-	print(cpa_prod_join_data.count())  # 3347778
-	print(cpa_renamed.count())  # 31475
-	print(cpa_distinct_data.count())  # 31475
-	print(product_check_data.count())  # 41030
+	cpa_prod_join_data.show(10)
+	# print(cpa_prod_join_data.count())  # 5851567
+	# print(cpa_renamed.count())  # 36122
+	# print(cpa_distinct_data.count())  # 36122
+	# print(product_check_data.count())  # 41030
 	
-	
+	# 查找根据mole_name join不上的情况
 	# cpa_prod_join_data.createOrReplaceTempView("cpa_prod_join_data") 
-	# cpa_prod_join_data = spark.sql("select check_MOLE_NAME_CH where check_MOLE_NAME_EN is not null")
-	# cpa_prod_join_data.show(30)
+	# cpa_prod_join_null = spark.sql("select * from cpa_prod_join_data where check_MOLE_NAME_CH is null")
+	# cpa_prod_join_null.show()
+	# print(cpa_prod_join_null.count())  # 3790
+	
+	# 写入
+	# out_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/cpa_prod_join"
+	# cpa_prod_join_data.write.format("parquet").mode("overwrite").save(out_path)
+	# print("写入 " + out_path + " 完成")
 
 	print("程序end job2_join")
 	print("--"*80)
