@@ -61,13 +61,13 @@ def execute(a, b):
             StructField("LATTLES", ArrayType(StringType()))
         ])
 	
-	df = spark.readStream.schema(schema).parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/lattices2/content/*")
+	df = spark.readStream.schema(schema).parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/lattices2/content")
 	query = df.writeStream \
 				.partitionBy("YEAR", "MONTH", "CUBOIDS_ID", "LATTLES") \
         		.format("parquet") \
         		.outputMode("append") \
-        		.option("checkpointLocation", "s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/lattices-buckets/checkpoint") \
-        		.option("path", "s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/lattices-buckets/content") \
+        		.option("checkpointLocation", "s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/lattices-buckets-2/checkpoint") \
+        		.option("path", "s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/lattices-buckets-2/content") \
         		.start()
 
 	query.awaitTermination()

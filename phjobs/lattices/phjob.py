@@ -86,16 +86,10 @@ def execute(a, b):
             StructField("COMPANY", StringType())
         ])
    
-	# df = spark.read.schema(schema).parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/content") \
-	# df = spark.readStream.schema(schema).parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/content") \
-			# .filter((col("YEAR") == year) & (col("MONTH") == month) & (col("COMPANY") == "AZ"))
 	df = spark.readStream.schema(schema).parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/content")
 
 	cuboids_df = spark.read.parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/meta/lattices")
 
-			# .partitionBy("YEAR", "MONTH", "CUBOIDS_NAME", "LATTLES") \
-			# .partitionBy("YEAR", "MONTH", "CUBOIDS_NAME") \
-			# .withColumn("LATTLES", explode(col("LATTLCES_CONDIS"))) \
 	lattices_df = df.crossJoin(broadcast(cuboids_df)) \
 			.writeStream \
         	.format("parquet") \
@@ -105,22 +99,3 @@ def execute(a, b):
 	        .start()
 
 	lattices_df.awaitTermination()
-	# lattices_df = lattices_df.withColumn("CID", lit("CUBOIDS_ID")) \
-	# 				.withColumn("LID", lit("LATTLES_ID")) \
-	# 				.withColumn("IDs", array("CID", "LID")) \
-	# 				.withColumn("CONDITION", array_union("IDs", "LATTLES")) \
-	# 				.drop("CID", "LID")
-	# lattices_df.cache()
-	# lattices_df.show()
-
-	# lattices_df.repartition("CUBOIDS_ID", "LATTLES_ID") \
-	# 	.groupBy(col("CONDITION")).agg({"CUBOIDS_ID": "first", "LATTLES_ID": "first", "SALES_QTY": "sum", "SALES_VALUE": "sum"}) \
-	# 	.withColumnRenamed("sum(SALES_QTY)", "SALES_QTY") \
-	# 	.withColumnRenamed("sum(SALES_VALUE)", "SALES_VALUE") \
-	# 	.withColumnRenamed("first(CUBOIDS_ID)", "CUBOIDS_ID") \
-	# 	.withColumnRenamed("first(LATTLES_ID)", "LATTLES_ID") \
-	# 	.select("CUBOIDS_ID", "LATTLES_ID", "SALES_QTY", "SALES_VALUE") \
-	# 	.write.mode("overwrite") \
-	# 	.partitionBy('CUBOIDS_ID', 'LATTLES_ID') \
-	# 	.parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/lattices")
-	
