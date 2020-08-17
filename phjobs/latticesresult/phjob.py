@@ -8,6 +8,7 @@ from pyspark.sql.types import *
 from pyspark.sql import functions as func
 from pyspark.sql.functions import lit
 from pyspark.sql.functions import desc
+from pyspark.sql.functions import monotonically_increasing_id
 from phlogs.phlogs import phlogger
 import pandas as pd
 import urllib
@@ -72,6 +73,19 @@ def execute(a, b):
     years = [2018, 2019]
     months = range(1, 13)
    
+    dim = spark.read.parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/meta/dimensions") \
+            .repartition(1).withColumn("LEVEL", monotonically_increasing_id())
+    dim_group_level = dim.groupBy("DIMENSION").agg({"LEVEL":"min"}).withColumnRenamed("min(LEVEL)", "EDGE")
+    dim = dim.join(dim_group_level, how="left", on="DIMENSION").toPandas()
+
+    def leaf2Condi(df, lts):
+        res = []
+        for tmp in lts:
+            level = df[df["HIERARCHY"] == tmp].iloc[0]["LEVEL"]
+            edge = df[df["HIERARCHY"] == tmp].iloc[0]["EDGE"]
+            res.extend(list(df[(df["LEVEL"] >= edge) & (df["LEVEL"] <= level)]["HIERARCHY"]))
+        return res
+   
     for year in years:
         for month in months:
             for index, row in meta_lattices_df.iterrows():
@@ -86,12 +100,10 @@ def execute(a, b):
             	phlogger.info(path)
             	df = spark.read.parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/lattices-buckets/content/YEAR=" + str(year) + "/MONTH=" + str(month) + "/CUBOIDS_ID=" + str(cid) + "/LATTLES=" + path)
             	condi = ["YEAR", "MONTH", "CUBOIDS_ID"]
-            	condi.extend(lts)
-                '''
-            	    aggregation 的这个地方会有一个重大的问题
-            	    其错误是当你agg的leaf过程中，需要带着parent hierachy，在排序求ice - cube
-            	    原因是，直接对leaf hierachy求 groupby 会丢掉部分的值
-                '''
+            	condi.extend(leaf2Condi(dim, lts))
+            	print "===> alfred test"
+            	print condi
+            	print "===> alfred test"
             	df = df.withColumn("YEAR", lit(year)) \
             	        .withColumn("MONTH", lit(month)) \
             	        .withColumn("CUBOIDS_ID", lit(cid)) \
@@ -114,11 +126,14 @@ def execute(a, b):
                 # full lattices	
             	df.write.mode("append") \
             	    .partitionBy("YEAR", "MONTH", "CUBOIDS_ID", "LATTLES") \
-        			.parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result/lattices-result")
-        			
+        			.parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/lattices-result")
+        		
+                '''
+        		    这个地方也是一个严重的bug, 要的是top n per group，而不是单纯的top n
+                '''
                 # ice cube
-                df.limit(10).write.mode("append") \
-        		    .partitionBy("YEAR", "MONTH", "CUBOIDS_ID", "LATTLES") \
-        		    .parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result/ice-cube-lattices")
+                # df.limit(10).write.mode("append") \
+        		  #  .partitionBy("YEAR", "MONTH", "CUBOIDS_ID", "LATTLES") \
+        		  #  .parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result/ice-cube-lattices")
                 
                 df.unpersist()
