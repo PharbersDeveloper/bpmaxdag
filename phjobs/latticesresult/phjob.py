@@ -87,6 +87,11 @@ def execute(a, b):
             	df = spark.read.parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/lattices-buckets/content/YEAR=" + str(year) + "/MONTH=" + str(month) + "/CUBOIDS_ID=" + str(cid) + "/LATTLES=" + path)
             	condi = ["YEAR", "MONTH", "CUBOIDS_ID"]
             	condi.extend(lts)
+                '''
+            	    aggregation 的这个地方会有一个重大的问题
+            	    其错误是当你agg的leaf过程中，需要带着parent hierachy，在排序求ice - cube
+            	    原因是，直接对leaf hierachy求 groupby 会丢掉部分的值
+                '''
             	df = df.withColumn("YEAR", lit(year)) \
             	        .withColumn("MONTH", lit(month)) \
             	        .withColumn("CUBOIDS_ID", lit(cid)) \
