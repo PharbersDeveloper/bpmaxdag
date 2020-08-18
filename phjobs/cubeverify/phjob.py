@@ -41,12 +41,12 @@ def execute(a, b):
 	# df = spark.read.parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/lattices-data/2-D-geo-prod")
 	# df = spark.read.parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/meta/lattices")
 	# df = spark.read.parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/lattices-result")
-	df = spark.read.parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/lattices-result)
+	df = spark.read.parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/lattices-result")
 	# df = spark.read.parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/meta/dimensions")
 	# df = df.repartition(1).withColumn("LEVEL", monotonically_increasing_id())
 	# df_group_level = df.groupBy("DIMENSION").agg({"LEVEL":"min"}).withColumnRenamed("min(LEVEL)", "EDGE")
 	# df = df.join(df_group_level, how="left", on="DIMENSION")
-	# df.show()
+	df.show()
 	
 	# df = spark.read.parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/meta/dimensions")
 	# df = df.repartition(1).withColumn("LEVEL", monotonically_increasing_id())
@@ -56,5 +56,4 @@ def execute(a, b):
 	# level = df[df["HIERARCHY"] == test].iloc[0]["LEVEL"]
 	# edge = df[df["HIERARCHY"] == test].iloc[0]["EDGE"]
 	# test = list(df[(df["LEVEL"] >= edge) & (df["LEVEL"] <= level)]["HIERARCHY"])
-	
-	print test
+	# print test
