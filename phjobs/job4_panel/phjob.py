@@ -268,6 +268,7 @@ paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_uni
         unpublished_dict={"ID":unpublished_ID*12,"Date":[current_year*100 + i for i in all_month]}
         
         df = pd.DataFrame(data=unpublished_dict)
+        df = df[["ID","Date"]]
 
         schema = StructType([StructField("ID", StringType(), True), StructField("Date", StringType(), True)])
         unpublished = spark.createDataFrame(df, schema)
@@ -275,6 +276,7 @@ paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_uni
         
         # not_arrive文件
         Notarrive = spark.read.csv(not_arrived_path, header=True)
+        Notarrive = Notarrive.select("ID","Date")
         
         # 合并unpublished和not_arrive文件
         Notarrive_unpublished = unpublished.union(Notarrive).distinct()
@@ -287,7 +289,7 @@ paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_uni
         # 与之前的panel结果合并
         if panel_for_union_path != "Empty":
             panel_for_union = spark.read.parquet(panel_for_union_path)
-            panel_filtered = panel_for_union.union(panel_filtered)
+            panel_filtered = panel_for_union.union(panel_filtered.select(panel_for_union.columns))
             
         
     # panel_filtered.groupBy("add_flag").agg({"Sales": "sum"}).show()
