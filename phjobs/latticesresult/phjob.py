@@ -122,9 +122,9 @@ def execute(a, b):
             	df = df.select(sch_columns).orderBy(desc("SALES_VALUE")).repartition(1)
             	df.persist()
                 # full lattices	
-            	# .partitionBy("YEAR", "MONTH", "CUBOIDS_ID", "LATTLES") \
             	# 这时数据量偏小的情况下，不需要在分桶了
             	df.write.mode("append") \
+            	    .partitionBy("YEAR", "MONTH", "CUBOIDS_ID", "LATTLES") \
         			.parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/lattices-result")
         		
                 '''

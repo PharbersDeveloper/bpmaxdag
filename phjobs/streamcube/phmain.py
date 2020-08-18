@@ -11,6 +11,7 @@ import click
 @click.option('--start')
 @click.option('--end')
 @click.option('--replace')
+@click.option('--id')
 def debug_execute(start, end, replace):
 	execute(start, end, replace)
 

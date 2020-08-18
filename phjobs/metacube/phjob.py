@@ -15,9 +15,14 @@ from uuid import uuid4
 import pandas as pd
 import numpy as np
 import itertools
+from datetime import datetime
+import ast
 
-
-def execute(a, b):
+def execute(**args):
+    
+    today = datetime.now().strftime('%Y-%m-%d')
+    jobId = args['id']
+    destPath = "s3a://ph-max-auto/" + today +"/cube/dest/" + jobId
    
     spark = SparkSession.builder \
         .master("yarn") \
@@ -44,11 +49,13 @@ def execute(a, b):
     phlogger.info("create data cube dimensions")
  
     # init dimensions
-    dim = [
-        ("time", ["YEAR","QUARTER","MONTH"]),
-        ("geo", ["COUNTRY_NAME","PROVINCE_NAME","CITY_NAME"]),
-        ("prod", ["COMPANY","MKT","MOLE_NAME","PRODUCT_NAME"])
-    ]
+    # dim = [
+    #     ("time", ["YEAR","QUARTER","MONTH"]),
+    #     ("geo", ["COUNTRY_NAME","PROVINCE_NAME","CITY_NAME"]),
+    #     ("prod", ["COMPANY","MKT","MOLE_NAME","PRODUCT_NAME"])
+    # ]
+    dic = ast.literal_eval(args['dimensions'])
+    dim = dic.items()
  
     schema = \
         StructType([ \
@@ -59,7 +66,7 @@ def execute(a, b):
     df = spark.createDataFrame(dim, schema)
     df = df.withColumn("HIERARCHY",explode(col("HIERARCHYS"))).select("DIMENSION", "HIERARCHY")
     
-    df.repartition(1).write.mode("overwrite").parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/meta/dimensions")
+    df.repartition(1).write.mode("overwrite").parquet(destPath + "/meta/dimensions")
     
     phlogger.info("create data cube cuboids frame")
    
@@ -114,17 +121,17 @@ def execute(a, b):
             StructField("LATTLCES_CONDIS", ArrayType(ArrayType(StringType())))
         ])
     df = spark.createDataFrame(pdf[1:], schema)
-    df.repartition(1).write.mode("overwrite").parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/meta/cuboids")
+    df.repartition(1).write.mode("overwrite").parquet(destPath + "/meta/cuboids")
 
     # init lattice condition
-    cuboids_df = spark.read.parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/cuboids") \
+    cuboids_df = spark.read.parquet(destPath + "/meta/cuboids") \
 			.select("CUBOIDS_NAME", "LATTLCES_CONDIS") \
 			.withColumn("CUBOIDS_ID", monotonically_increasing_id()) \
 			.withColumn("LATTLES", explode(col("LATTLCES_CONDIS"))) \
 			.select("CUBOIDS_ID", "CUBOIDS_NAME", "LATTLES") \
 			.repartition(1) \
 			.write.mode("overwrite") \
-			.parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/meta/lattices")
+			.parquet(destPath + "/meta/lattices")
     
 
 def cartesian(arrays, out=None):

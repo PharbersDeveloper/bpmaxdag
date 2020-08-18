@@ -10,6 +10,10 @@ from phlogs.phlogs import phlogger
 from pyspark.sql.functions import udf
 from pyspark.sql.functions import col
 from pyspark.sql.functions import floor
+from pyspark.sql.functions import lit
+from pyspark.sql.functions import first
+from pyspark.sql.functions import sum
+from pyspark.sql.functions import udf
 import pandas as pd
 
 def execute(a, b):
@@ -21,6 +25,7 @@ def execute(a, b):
         .config("spark.executor.instance", "1") \
         .config("spark.executor.memory", "1g") \
         .config('spark.sql.codegen.wholeStage', False) \
+        .config("spark.sql.files.maxRecordsPerFile", 33554432) \
         .getOrCreate()
 
     # access_key = os.getenv("AWS_ACCESS_KEY_ID")
@@ -91,75 +96,49 @@ def execute(a, b):
 	
 	sch_columns = ["YEAR", "MONTH", "QUARTER", "COUNTRY_NAME", "PROVINCE_NAME", "CITY_NAME", "MKT", "COMPANY", "MOLE_NAME", "PRODUCT_NAME", "CUBOIDS_ID", "CUBOIDS_NAME", "LATTLES", "apex", "dimension_name", "dimension_value", "SALES_QTY", "SALES_VALUE"]
 	
-	df = spark.read.schema(schema).parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result/lattices-result")
-	df = df.withColumn("QUARTER", floor((col("MONTH")- 1) / 3 + 1))
+	df = spark.read.schema(schema).parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/lattices-result").where(col("YEAR") == 2018).drop("QUARTER")
+	df = df.withColumn("QUARTER", floor((col("MONTH") - 1) / 3 + 1))
 	df.persist()
+
 	
 	# 1. QUARTER 的做法
-	# df = df.where(("time" not in col("CUBOIDS_NAME")) | ("QUARTER" not in col("LATTLES")))
-	df_quarter = df.where(("time" in col("CUBOIDS_NAME")) & ("QUARTER" in col("LATTLES")))
-	df_quarter = df_quarter.groupBy("QUARTER").agg({
-				"QUARTER": "first",
-				"COUNTRY_NAME": "first",
-				"PROVINCE_NAME": "first",
-				"CITY_NAME": "first",
-				"MKT": "first",
-				"COMPANY": "first",
-				"MOLE_NAME": "first",
-				"PRODUCT_NAME": "first",
-				"CUBOIDS_NAME": "first",
-				"apex": "first",
-				"dimension_name": "first",
-				"dimension_value": "first",
-				"SALES_QTY": "sum",
-				"SALES_VALUE": "sum"
-			}).withColumnRenamed("first(QUARTER)", "QUARTER") \
-			.withColumnRenamed("first(COUNTRY_NAME)", "COUNTRY_NAME") \
-			.withColumnRenamed("first(PROVINCE_NAME)", "PROVINCE_NAME") \
-			.withColumnRenamed("first(CITY_NAME)", "CITY_NAME") \
-			.withColumnRenamed("first(MKT)", "MKT") \
-			.withColumnRenamed("first(COMPANY)", "COMPANY") \
-			.withColumnRenamed("first(MOLE_NAME)", "MOLE_NAME") \
-			.withColumnRenamed("first(PRODUCT_NAME)", "PRODUCT_NAME") \
-			.withColumnRenamed("first(CUBOIDS_NAME)", "CUBOIDS_NAME") \
-			.withColumnRenamed("first(apex)", "apex") \
-			.withColumnRenamed("first(dimension_name)", "dimension_name") \
-			.withColumnRenamed("first(dimension_value)", "dimension_value") \
-			.withColumnRenamed("sum(SALES_QTY)", "SALES_QTY") \
-			.withColumnRenamed("sum(SALES_VALUE)", "SALES_VALUE") \
+	df_quarter = df.where((col("CUBOIDS_NAME").contains("time")) & (col("LATTLES").contains("QUARTER")))
+	df_quarter = df_quarter.groupBy("YEAR", "QUARTER", "CUBOIDS_ID", "LATTLES").agg(
+				first(df_quarter.COUNTRY_NAME).alias("COUNTRY_NAME"),
+				first(df_quarter.PROVINCE_NAME).alias("PROVINCE_NAME"),
+				first(df_quarter.CITY_NAME).alias("CITY_NAME"),
+				first(df_quarter.MKT).alias("MKT"),
+				first(df_quarter.COMPANY).alias("COMPANY"),
+				first(df_quarter.MOLE_NAME).alias("MOLE_NAME"),
+				first(df_quarter.PRODUCT_NAME).alias("PRODUCT_NAME"),
+				first(df_quarter.CUBOIDS_NAME).alias("CUBOIDS_NAME"),
+				first(df_quarter.apex).alias("apex"),
+				first(df_quarter.dimension_name).alias("dimension_name"),
+				first(df_quarter.dimension_value).alias("dimension_value"),
+				sum(df_quarter.SALES_VALUE).alias("SALES_VALUE"),
+				sum(df_quarter.SALES_QTY).alias("SALES_QTY")) \
+			.withColumn("MONTH", lit(-1)) \
 			.select(sch_columns)
 	# 2. year 的做法
-	df_year = df.where(("time" in col("CUBOIDS_NAME")) & ("YEAR" in col("LATTLES")))
-	df_year = df_year.groupBy("YEAR").agg({
-				"QUARTER": "first",
-				"COUNTRY_NAME": "first",
-				"PROVINCE_NAME": "first",
-				"CITY_NAME": "first",
-				"MKT": "first",
-				"COMPANY": "first",
-				"MOLE_NAME": "first",
-				"PRODUCT_NAME": "first",
-				"CUBOIDS_NAME": "first",
-				"apex": "first",
-				"dimension_name": "first",
-				"dimension_value": "first",
-				"SALES_QTY": "sum",
-				"SALES_VALUE": "sum"
-			}).withColumnRenamed("first(QUARTER)", "QUARTER") \
-			.withColumnRenamed("first(COUNTRY_NAME)", "COUNTRY_NAME") \
-			.withColumnRenamed("first(PROVINCE_NAME)", "PROVINCE_NAME") \
-			.withColumnRenamed("first(CITY_NAME)", "CITY_NAME") \
-			.withColumnRenamed("first(MKT)", "MKT") \
-			.withColumnRenamed("first(COMPANY)", "COMPANY") \
-			.withColumnRenamed("first(MOLE_NAME)", "MOLE_NAME") \
-			.withColumnRenamed("first(PRODUCT_NAME)", "PRODUCT_NAME") \
-			.withColumnRenamed("first(CUBOIDS_NAME)", "CUBOIDS_NAME") \
-			.withColumnRenamed("first(apex)", "apex") \
-			.withColumnRenamed("first(dimension_name)", "dimension_name") \
-			.withColumnRenamed("first(dimension_value)", "dimension_value") \
-			.withColumnRenamed("sum(SALES_QTY)", "SALES_QTY") \
-			.withColumnRenamed("sum(SALES_VALUE)", "SALES_VALUE") \
+	df_year = df.where((col("CUBOIDS_NAME").contains("time")) & (col("LATTLES").contains("YEAR")))
+	df_year = df_year.groupBy("YEAR", "CUBOIDS_ID", "LATTLES").agg(
+				first(df_year.COUNTRY_NAME).alias("COUNTRY_NAME"),
+				first(df_year.PROVINCE_NAME).alias("PROVINCE_NAME"),
+				first(df_year.CITY_NAME).alias("CITY_NAME"),
+				first(df_year.MKT).alias("MKT"),
+				first(df_year.COMPANY).alias("COMPANY"),
+				first(df_year.MOLE_NAME).alias("MOLE_NAME"),
+				first(df_year.PRODUCT_NAME).alias("PRODUCT_NAME"),
+				first(df_year.CUBOIDS_NAME).alias("CUBOIDS_NAME"),
+				first(df_year.apex).alias("apex"),
+				first(df_year.dimension_name).alias("dimension_name"),
+				first(df_year.dimension_value).alias("dimension_value"),
+				sum(df_year.SALES_VALUE).alias("SALES_VALUE"),
+				sum(df_year.SALES_QTY).alias("SALES_QTY")) \
+			.withColumn("QUARTER", lit(-1)) \
+			.withColumn("MONTH", lit(-1)) \
 			.select(sch_columns)
 			
-	df = df.where(("time" not in col("CUBOIDS_NAME")) | ("MONTH" in col("LATTLES"))).union(df_quarter).union(df_year)
-	df.write.parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result/final-result")
+	filter_udf = udf(lambda cn,l: ("time" not in cn) | ("MONTH" in l), BooleanType())
+	df = df.where(filter_udf(df.CUBOIDS_NAME, df.LATTLES)).union(df_quarter).union(df_year)
+	df.write.parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/final-result")

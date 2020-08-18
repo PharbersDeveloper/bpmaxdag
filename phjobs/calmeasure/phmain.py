@@ -5,9 +5,9 @@ This is job template for Pharbers Max Job
 from phjob import execute
 import click
 @click.command()
-@click.option('--dimensions')
-@click.option('--id')
-def debug_execute(**args):
-	execute(**args)
+@click.option('--a')
+@click.option('--b')
+def debug_execute(a, b):
+	execute(a, b)
 if __name__ == '__main__':
     debug_execute()

@@ -86,7 +86,6 @@ def execute(start, end, replace):
     query = reading.filter((col("Date") < ed) & (col("Date") > sd)) \
         .withColumnRenamed("Province", "PROVINCE_NAME") \
         .withColumnRenamed("City", "CITY_NAME") \
-        .withColumnRenamed("Molecule", "MOLE_NAME") \
         .withColumnRenamed("company", "COMPANY") \
         .withColumnRenamed("Prod_Name", "MIN") \
         .withColumnRenamed("Province", "PROVINCE_NAME") \
