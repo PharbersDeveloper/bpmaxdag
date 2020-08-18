@@ -91,9 +91,14 @@ def execute(a, b):
 	
 	sch_columns = ["YEAR", "MONTH", "QUARTER", "COUNTRY_NAME", "PROVINCE_NAME", "CITY_NAME", "MKT", "COMPANY", "MOLE_NAME", "PRODUCT_NAME", "CUBOIDS_ID", "CUBOIDS_NAME", "LATTLES", "apex", "dimension_name", "dimension_value", "SALES_QTY", "SALES_VALUE"]
 	
-	df = spark.read.schema(schema).parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result/lattices-result").drop("QUARTER")
+	df = spark.read.schema(schema).parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result/lattices-result")
 	df = df.withColumn("QUARTER", floor((col("MONTH")- 1) / 3 + 1))
-	df = df.groupBy(["YEAR", "MONTH", "CUBOIDS_ID", "LATTLES"]).agg({
+	df.persist()
+	
+	# 1. QUARTER 的做法
+	# df = df.where(("time" not in col("CUBOIDS_NAME")) | ("QUARTER" not in col("LATTLES")))
+	df_quarter = df.where(("time" in col("CUBOIDS_NAME")) & ("QUARTER" in col("LATTLES")))
+	df_quarter = df_quarter.groupBy("QUARTER").agg({
 				"QUARTER": "first",
 				"COUNTRY_NAME": "first",
 				"PROVINCE_NAME": "first",
@@ -122,8 +127,39 @@ def execute(a, b):
 			.withColumnRenamed("first(dimension_value)", "dimension_value") \
 			.withColumnRenamed("sum(SALES_QTY)", "SALES_QTY") \
 			.withColumnRenamed("sum(SALES_VALUE)", "SALES_VALUE") \
-			.select(sch_columns) 
-
-	# df.show()
-	
+			.select(sch_columns)
+	# 2. year 的做法
+	df_year = df.where(("time" in col("CUBOIDS_NAME")) & ("YEAR" in col("LATTLES")))
+	df_year = df_year.groupBy("YEAR").agg({
+				"QUARTER": "first",
+				"COUNTRY_NAME": "first",
+				"PROVINCE_NAME": "first",
+				"CITY_NAME": "first",
+				"MKT": "first",
+				"COMPANY": "first",
+				"MOLE_NAME": "first",
+				"PRODUCT_NAME": "first",
+				"CUBOIDS_NAME": "first",
+				"apex": "first",
+				"dimension_name": "first",
+				"dimension_value": "first",
+				"SALES_QTY": "sum",
+				"SALES_VALUE": "sum"
+			}).withColumnRenamed("first(QUARTER)", "QUARTER") \
+			.withColumnRenamed("first(COUNTRY_NAME)", "COUNTRY_NAME") \
+			.withColumnRenamed("first(PROVINCE_NAME)", "PROVINCE_NAME") \
+			.withColumnRenamed("first(CITY_NAME)", "CITY_NAME") \
+			.withColumnRenamed("first(MKT)", "MKT") \
+			.withColumnRenamed("first(COMPANY)", "COMPANY") \
+			.withColumnRenamed("first(MOLE_NAME)", "MOLE_NAME") \
+			.withColumnRenamed("first(PRODUCT_NAME)", "PRODUCT_NAME") \
+			.withColumnRenamed("first(CUBOIDS_NAME)", "CUBOIDS_NAME") \
+			.withColumnRenamed("first(apex)", "apex") \
+			.withColumnRenamed("first(dimension_name)", "dimension_name") \
+			.withColumnRenamed("first(dimension_value)", "dimension_value") \
+			.withColumnRenamed("sum(SALES_QTY)", "SALES_QTY") \
+			.withColumnRenamed("sum(SALES_VALUE)", "SALES_VALUE") \
+			.select(sch_columns)
+			
+	df = df.where(("time" not in col("CUBOIDS_NAME")) | ("MONTH" in col("LATTLES"))).union(df_quarter).union(df_year)
 	df.write.parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result/final-result")
