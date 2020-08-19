@@ -69,17 +69,16 @@ all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, mi
         
     time_left = int(time_left)
     time_right = int(time_right)
-    
-    if if_others == "True":
-        out_dir = out_dir + "/others_box/"
 
-    
     province_city_mapping_path = max_path + "/" + project_name + '/province_city_mapping'
     hospital_ot_path = max_path + "/" + project_name + '/hospital_ot.csv'
     market_mapping_path = max_path + "/" + project_name + '/mkt_mapping'
     cpa_pha_mapping_path = max_path + "/" + project_name + "/cpa_pha_mapping"
     ID_Bedsize_path = max_path + "/Common_files/ID_Bedsize"
     
+    if if_others == True:
+        out_dir = out_dir + "/others_box/"
+        
     out_path_dir = out_path + "/" + project_name + '/' + out_dir
     product_map_path = out_path_dir + "/prod_mapping"
     if if_two_source == "False":
