@@ -233,7 +233,7 @@ all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, mi
         time_range = str(time_left) + '_' + str(time_right)
         
         if if_others:
-            max_path = out_path_dir + "/MAX_result/MAX_result_" + time_range + '_'  + market + "_hosp_level_box"
+            max_path = out_path_dir + "/others_box/MAX_result/MAX_result_" + time_range + '_'  + market + "_hosp_level_box"
         else:
             max_path = out_path_dir + "/MAX_result/MAX_result_" + time_range + '_' + market + "_hosp_level"
             
