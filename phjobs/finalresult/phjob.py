@@ -14,16 +14,19 @@ from pyspark.sql.functions import lit
 from pyspark.sql.functions import first
 from pyspark.sql.functions import sum
 from pyspark.sql.functions import udf
+from pyspark.sql.functions import monotonically_increasing_id
 import pandas as pd
+
+
 
 def execute(a, b):
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data cube result job") \
         .config("spark.driver.memory", "1g") \
-        .config("spark.executor.cores", "1") \
-        .config("spark.executor.instance", "1") \
-        .config("spark.executor.memory", "1g") \
+        .config("spark.executor.cores", "2") \
+        .config("spark.executor.instance", "4") \
+        .config("spark.executor.memory", "2g") \
         .config('spark.sql.codegen.wholeStage', False) \
         .config("spark.sql.files.maxRecordsPerFile", 33554432) \
         .getOrCreate()
@@ -96,49 +99,96 @@ def execute(a, b):
 	
 	sch_columns = ["YEAR", "MONTH", "QUARTER", "COUNTRY_NAME", "PROVINCE_NAME", "CITY_NAME", "MKT", "COMPANY", "MOLE_NAME", "PRODUCT_NAME", "CUBOIDS_ID", "CUBOIDS_NAME", "LATTLES", "apex", "dimension_name", "dimension_value", "SALES_QTY", "SALES_VALUE"]
 	
-	df = spark.read.schema(schema).parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/lattices-result").where(col("YEAR") == 2018).drop("QUARTER")
-	df = df.withColumn("QUARTER", floor((col("MONTH") - 1) / 3 + 1))
+	df = spark.read.schema(schema).parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/lattices-result") \
+			.where((col("YEAR") == 2019) & (col("CUBOIDS_ID") == 3)) \
+			.drop("QUARTER")
+	df = df.withColumn("QUARTER", floor((col("MONTH") - 1) / 3 + 1)).withColumn("QUARTER", col("QUARTER").cast(IntegerType()))
+	df = df.withColumn("CUBOIDS_NAME", col("dimension_name"))
 	df.persist()
 
+	dim = spark.read.parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/meta/dimensions") \
+			.repartition(1).withColumn("LEVEL", monotonically_increasing_id())
+	dim_group_level = dim.groupBy("DIMENSION").agg({"LEVEL":"min"}).withColumnRenamed("min(LEVEL)", "EDGE")
+	dim = dim.join(dim_group_level, how="left", on="DIMENSION").toPandas()
+	print dim
 	
-	# 1. QUARTER 的做法
-	df_quarter = df.where((col("CUBOIDS_NAME").contains("time")) & (col("LATTLES").contains("QUARTER")))
-	df_quarter = df_quarter.groupBy("YEAR", "QUARTER", "CUBOIDS_ID", "LATTLES").agg(
-				first(df_quarter.COUNTRY_NAME).alias("COUNTRY_NAME"),
-				first(df_quarter.PROVINCE_NAME).alias("PROVINCE_NAME"),
-				first(df_quarter.CITY_NAME).alias("CITY_NAME"),
-				first(df_quarter.MKT).alias("MKT"),
-				first(df_quarter.COMPANY).alias("COMPANY"),
-				first(df_quarter.MOLE_NAME).alias("MOLE_NAME"),
-				first(df_quarter.PRODUCT_NAME).alias("PRODUCT_NAME"),
-				first(df_quarter.CUBOIDS_NAME).alias("CUBOIDS_NAME"),
-				first(df_quarter.apex).alias("apex"),
-				first(df_quarter.dimension_name).alias("dimension_name"),
-				first(df_quarter.dimension_value).alias("dimension_value"),
-				sum(df_quarter.SALES_VALUE).alias("SALES_VALUE"),
-				sum(df_quarter.SALES_QTY).alias("SALES_QTY")) \
-			.withColumn("MONTH", lit(-1)) \
-			.select(sch_columns)
-	# 2. year 的做法
-	df_year = df.where((col("CUBOIDS_NAME").contains("time")) & (col("LATTLES").contains("YEAR")))
-	df_year = df_year.groupBy("YEAR", "CUBOIDS_ID", "LATTLES").agg(
-				first(df_year.COUNTRY_NAME).alias("COUNTRY_NAME"),
-				first(df_year.PROVINCE_NAME).alias("PROVINCE_NAME"),
-				first(df_year.CITY_NAME).alias("CITY_NAME"),
-				first(df_year.MKT).alias("MKT"),
-				first(df_year.COMPANY).alias("COMPANY"),
-				first(df_year.MOLE_NAME).alias("MOLE_NAME"),
-				first(df_year.PRODUCT_NAME).alias("PRODUCT_NAME"),
-				first(df_year.CUBOIDS_NAME).alias("CUBOIDS_NAME"),
-				first(df_year.apex).alias("apex"),
-				first(df_year.dimension_name).alias("dimension_name"),
-				first(df_year.dimension_value).alias("dimension_value"),
-				sum(df_year.SALES_VALUE).alias("SALES_VALUE"),
-				sum(df_year.SALES_QTY).alias("SALES_QTY")) \
-			.withColumn("QUARTER", lit(-1)) \
-			.withColumn("MONTH", lit(-1)) \
-			.select(sch_columns)
+	def leaf2Condi(df, lts):
+	    res = []
+	    for tmp in lts:
+	        level = df[df["HIERARCHY"] == tmp].iloc[0]["LEVEL"]
+	        edge = df[df["HIERARCHY"] == tmp].iloc[0]["EDGE"]
+	        res.extend(list(df[(df["LEVEL"] >= edge) & (df["LEVEL"] <= level)]["HIERARCHY"]))
+	    return res
+
+	df_lattices = df.select("LATTLES", "CUBOIDS_NAME").distinct().repartition(1).withColumn("LATTLES_ID", monotonically_increasing_id()).toPandas()
+	print df_lattices
+	columns = ["YEAR", "MONTH", "QUARTER", "COUNTRY_NAME", "PROVINCE_NAME", "CITY_NAME", "MKT", "COMPANY", "MOLE_NAME", "PRODUCT_NAME", "CUBOIDS_ID", "CUBOIDS_NAME", "LATTLES", "apex", "dimension_name", "dimension_value"]
+	sch_columns = ["YEAR", "MONTH", "QUARTER", "COUNTRY_NAME", "PROVINCE_NAME", "CITY_NAME", "MKT", "COMPANY", "MOLE_NAME", "PRODUCT_NAME", "CUBOIDS_ID", "CUBOIDS_NAME", "LATTLES", "apex", "dimension_name", "dimension_value", "SALES_QTY", "SALES_VALUE"]
+
+	for idx, row in df_lattices.iterrows():
+		df_c = df.where(col("LATTLES") == row["LATTLES"])
+		lts = []
+		cur_l = row["LATTLES"].replace("%5B", "").replace("%5D", "").replace(" ", "").split(",")
+		for tmp in cur_l:
+			lts.append(str(tmp))
+		condi = ["CUBOIDS_ID"]
+		condi.extend(leaf2Condi(dim, lts))
+		print "===> alfred test"
+		print row["LATTLES"]
+		print condi
+		print "===> alfred test"
+    	
+		ad_col = list(set(columns).difference(set(condi)))
+		print ad_col
+		
+		if "MONTH" in row["LATTLES"]:
+			# 0. MONTH 的做法
+			print "MONTH"
+			df_c.select(sch_columns).repartition(1).write.mode("append").parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/final-result")
+		elif "QUARTER" in row["LATTLES"]:
+			# 1. QUARTER 的做法
+			print "QUARTER"
+			print cur_l
+			df_c = df_c.groupBy(condi).agg(
+					sum(df_c.SALES_VALUE).alias("SALES_VALUE"),
+					sum(df_c.SALES_QTY).alias("SALES_QTY")
+				)
+			print ad_col
 			
-	filter_udf = udf(lambda cn,l: ("time" not in cn) | ("MONTH" in l), BooleanType())
-	df = df.where(filter_udf(df.CUBOIDS_NAME, df.LATTLES)).union(df_quarter).union(df_year)
-	df.write.parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/final-result")
+			for tc in ad_col:
+				if tc is "LATTLES":
+					df_c = df_c.withColumn(tc, lit(row["LATTLES"]))
+				elif tc is "dimension_name":
+					df_c = df_c.withColumn(tc, lit(row["CUBOIDS_NAME"]))
+				elif tc is "CUBOIDS_NAME":
+					df_c = df_c.withColumn(tc, lit(row["CUBOIDS_NAME"]))
+				elif tc is "MONTH":
+					df_c = df_c.withColumn(tc, lit(-1))
+				else:
+					df_c = df_c.withColumn(tc, lit("*"))
+			df_c.select(sch_columns).repartition(1).write.mode("append").parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/final-result")
+		elif "YEAR" in row["LATTLES"]:
+			# 2. YEAR 的做
+			print "YEAR"
+			print cur_l
+			df_c = df_c.groupBy(condi).agg(
+					sum(df_c.SALES_VALUE).alias("SALES_VALUE"),
+					sum(df_c.SALES_QTY).alias("SALES_QTY")
+				)
+			for tc in ad_col:
+				if tc is "LATTLES":
+					df_c = df_c.withColumn(tc, lit(row["LATTLES"]))
+				elif tc is "dimension_name":
+					df_c = df_c.withColumn(tc, lit(row["CUBOIDS_NAME"]))
+				elif tc is "CUBOIDS_NAME":
+					df_c = df_c.withColumn(tc, lit(row["CUBOIDS_NAME"]))
+				elif tc is "MONTH":
+					df_c = df_c.withColumn(tc, lit(-1))
+				elif tc is "QUARTER":
+					df_c = df_c.withColumn(tc, lit(-1))
+				else:
+					df_c = df_c.withColumn(tc, lit("*"))
+			df_c.select(sch_columns).repartition(1).write.mode("append").parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/final-result")
+		else:
+			pass
+	

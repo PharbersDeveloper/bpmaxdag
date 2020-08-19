@@ -26,8 +26,10 @@ spec:
             - MKT
             - MOLE_NAME
             - PRODUCT_NAME
-      - key: id
+      - key: job_id
         value: d7c065cb-365a-42f3-a247-0a89995b23d2
+      - key: start_date
+        value: 2020-08-19
     outputs:
       - key: a
         value: abcde

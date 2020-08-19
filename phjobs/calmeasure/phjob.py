@@ -18,9 +18,9 @@ def execute(a, b):
         .master("yarn") \
         .appName("data cube create lattices data") \
         .config("spark.driver.memory", "1g") \
-        .config("spark.executor.cores", "1") \
-        .config("spark.executor.instance", "1") \
-        .config("spark.executor.memory", "1g") \
+        .config("spark.executor.cores", "2") \
+        .config("spark.executor.instance", "4") \
+        .config("spark.executor.memory", "2g") \
         .config('spark.sql.codegen.wholeStage', False) \
         .getOrCreate()
 
@@ -45,50 +45,52 @@ def execute(a, b):
 
 	# assumption 1: every lattice always have all three dimensions
 	# we use CUBOIDS_ID for the first time
-	df = spark.read.parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/final-result") \
-			.where(col("CUBOIDS_ID") == 3) \
+	df = spark.read.parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/lattices-result") \
+			.where((col("CUBOIDS_ID") == 3) & (col("YEAR") == 2018)) \
 			.withColumn("jid", jid_udf(col("YEAR"), col("MONTH"), col("CUBOIDS_ID"), col("LATTLES"))) \
-			.withColumn("CAT", cat_udf(col("LATTLES")))
+			.withColumn("CAT", cat_udf(col("LATTLES"))) \
+			.drop("QUARTER")
 	df.persist()
 	df.show()
 
-	# 市场规模 **
-	df_mkt_size = df.where(col("CAT") == "MKT")
-					
-	df_mkt_size = df_mkt_size.groupBy("jid") \
-				.agg(
-					sum(df_mkt_size.SALES_VALUE).alias("MKT_VALUE"), 
-					sum(df_mkt_size.SALES_QTY).alias("MKT_QTY")
-				)
-				
-	df = df.join(df_mkt_size, on="jid", how="left")
-	df = df.na.fill({"MKT_VALUE": 0.0, "MKT_QTY": 0.0})
-
-
-	# 市场中的分子规模 **
-	df_mkt_mole_size = df.where(col("CAT") == "MOLE")
-						
-	df_mkt_mole_size = df_mkt_mole_size.groupBy("jid", "MKT") \
+	geo_dimension = ["COUNTRY", "PROVINCE", "CITY"]
+	suffix = "_NAME"
+	for dim in geo_dimension:
+		# 市场规模 **
+		df_mkt_size = df.where(col("CAT") == "MKT")
+		df_mkt_size = df_mkt_size.groupBy("jid", dim + suffix) \
 						.agg(
-							sum(df_mkt_mole_size.SALES_VALUE).alias("MOLE_MKT_VALUE"),
-							sum(df_mkt_mole_size.SALES_QTY).alias("MOLE_MKT_QTY")
+							sum(df_mkt_size.SALES_VALUE).alias(dim + "_MKT_VALUE"),
+							sum(df_mkt_size.SALES_VALUE).alias(dim + "_MKT_QTY")
 						)
-	df = df.join(df_mkt_mole_size, on=["jid", "MKT"], how="left")
-	df = df.na.fill({"MOLE_MKT_VALUE": 0.0, "MOLE_MKT_QTY": 0.0})
-
-	# 分子规模 **
-	df_mole_size = df.where(col("CAT") == "MOLE")
-					
-	df_mole_size = df_mole_size.groupBy("jid") \
-					.agg(
-						sum(df_mole_size.SALES_VALUE).alias("MOLE_VALUE"),
-						sum(df_mole_size.SALES_QTY).alias("MOLE_QTY")
-					)
-					
-	df = df.join(df_mole_size, on="jid", how="left")
-	df = df.na.fill({"MOLE_VALUE": 0.0, "MOLE_QTY": 0.0})
+		df = df.join(df_mkt_size, on=["jid", dim + suffix], how="left")
+		df = df.na.fill(0.0)
 	
-	df.show()
+		# 市场中的分子规模 **
+		df_mkt_mole_size = df.where(col("CAT") == "MOLE")
+							
+		df_mkt_mole_size = df_mkt_mole_size.groupBy("jid", "MKT", dim + suffix) \
+							.agg(
+								sum(df_mkt_mole_size.SALES_VALUE).alias(dim + "_MOLE_MKT_VALUE"),
+								sum(df_mkt_mole_size.SALES_QTY).alias(dim + "_MOLE_MKT_QTY")
+							)
+		df = df.join(df_mkt_mole_size, on=["jid", "MKT", dim + suffix], how="left")
+		df = df.na.fill(0.0)
+	
+		# 分子规模 **
+		df_mole_size = df.where(col("CAT") == "MOLE")
+						
+		df_mole_size = df_mole_size.groupBy("jid", dim + suffix) \
+						.agg(
+							sum(df_mole_size.SALES_VALUE).alias(dim + "_MOLE_VALUE"),
+							sum(df_mole_size.SALES_QTY).alias(dim + "_MOLE_QTY")
+						)
+						
+		df = df.join(df_mole_size, on=["jid", dim + suffix], how="left")
+		df = df.na.fill(0.0)
+	
+	# df.show()
+	df.write.parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/measures-result")
 	
 	# 市场份额与产品占分子份额
 	

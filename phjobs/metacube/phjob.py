@@ -15,14 +15,13 @@ from uuid import uuid4
 import pandas as pd
 import numpy as np
 import itertools
-from datetime import datetime
 import ast
 
 def execute(**args):
     
-    today = datetime.now().strftime('%Y-%m-%d')
-    jobId = args['id']
-    destPath = "s3a://ph-max-auto/" + today +"/cube/dest/" + jobId
+    startDate = args['start_date']
+    jobId = args['job_id']
+    destPath = "s3a://ph-max-auto/" + startDate +"/cube/dest/" + jobId
    
     spark = SparkSession.builder \
         .master("yarn") \

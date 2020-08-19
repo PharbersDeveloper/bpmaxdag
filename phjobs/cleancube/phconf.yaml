@@ -11,10 +11,18 @@ spec:
     code: phmain.py
     config: phconf.yaml
     args:
+      - key: start
+        value: 201800
+      - key: end
+        value: 202000
+      - key: replace
+        value: False
       - key: job_id
         value: d7c065cb-365a-42f3-a247-0a89995b23d2
       - key: start_date
         value: 2020-08-19
+      - key: source
+        value: s3a://ph-stream/common/public/max_result/0.0.4
     outputs:
       - key: a
         value: abcde

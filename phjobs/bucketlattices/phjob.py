@@ -6,15 +6,21 @@ This is job template for Pharbers Max Job
 from pyspark.sql import SparkSession
 from pyspark.sql.types import *
 from pyspark.sql import functions as func
+from pyspark.sql.functions import col
 from phlogs.phlogs import phlogger
 import string
 import pandas as pd
 
 
-def execute(a, b):
+def execute(**kwargs):
+	
+	startDate = kwargs['start_date']
+	jobId = kwargs['job_id']
+	destPath = "s3a://ph-max-auto/" + startDate +"/cube/dest/" + jobId
+	
 	spark = SparkSession.builder \
         .master("yarn") \
-        .appName("data cube bucket lattices data") \
+        .appName("data cube bucket lattices job") \
         .config("spark.driver.memory", "1g") \
         .config("spark.executor.cores", "2") \
         .config("spark.executor.instance", "4") \
@@ -61,13 +67,9 @@ def execute(a, b):
             StructField("LATTLES", ArrayType(StringType()))
         ])
 	
-	df = spark.readStream.schema(schema).parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/lattices2/content")
-	query = df.writeStream \
+	df = spark.read.schema(schema).parquet(destPath + "/lattices/content").where(col("CUBOIDS_ID") == 3)
+	query = df.write \
 				.partitionBy("YEAR", "MONTH", "CUBOIDS_ID", "LATTLES") \
         		.format("parquet") \
-        		.outputMode("append") \
-        		.option("checkpointLocation", "s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/lattices-buckets-2/checkpoint") \
-        		.option("path", "s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/lattices-buckets-2/content") \
-        		.start()
-
-	query.awaitTermination()
+        		.mode("overwrite") \
+        		.save(destPath + "/lattices-buckets-3/content")

@@ -39,7 +39,7 @@ def execute(a, b):
 
     phlogger.info("group by lattices data")
     
-    meta_lattices_df = spark.read.parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/meta/lattices").toPandas()
+    meta_lattices_df = spark.read.parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/meta/lattices").where(col("CUBOIDS_ID") == 3).toPandas()
     
     columns = ["YEAR", "MONTH", "QUARTER", "COUNTRY_NAME", "PROVINCE_NAME", "CITY_NAME", "MKT", "COMPANY", "MOLE_NAME", "PRODUCT_NAME", "CUBOIDS_ID", "CUBOIDS_NAME", "LATTLES", "apex", "dimension_name", "dimension_value"]
     sch_columns = ["YEAR", "MONTH", "QUARTER", "COUNTRY_NAME", "PROVINCE_NAME", "CITY_NAME", "MKT", "COMPANY", "MOLE_NAME", "PRODUCT_NAME", "CUBOIDS_ID", "CUBOIDS_NAME", "LATTLES", "apex", "dimension_name", "dimension_value", "SALES_QTY", "SALES_VALUE"]
@@ -69,7 +69,7 @@ def execute(a, b):
     # years = [2018, 2019]
     # months = range(1, 13)
     years = [2019]
-    months = range(4, 13)
+    months = range(10, 13)
    
     dim = spark.read.parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/meta/dimensions") \
             .repartition(1).withColumn("LEVEL", monotonically_increasing_id())
@@ -113,6 +113,8 @@ def execute(a, b):
             	    if tc is "LATTLES":
             	        df = df.withColumn(tc, lit(path))
             	    elif tc is "dimension_name":
+            	        df = df.withColumn(tc, lit(row["CUBOIDS_NAME"]))
+            	    elif tc is "CUBOIDS_NAME":
             	        df = df.withColumn(tc, lit(row["CUBOIDS_NAME"]))
             	   # elif tc is "dimension_value":
             	       # df = df.withColumn(tc, map(lts))
