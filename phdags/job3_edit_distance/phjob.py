@@ -298,9 +298,9 @@ def execute():
 	# print(cpa_ed.count()) # 5851567
 	
 	# # 写入
-	# out_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/cpa_ed"
-	# cpa_ed.write.format("parquet").mode("overwrite").save(out_path)
-	# print("写入 " + out_path + " 完成")
+	out_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/cpa_ed"
+	cpa_ed.write.format("parquet").mode("overwrite").save(out_path)
+	print("写入 " + out_path + " 完成")
 
 
 	print("程序end job3_edit_distanct") 
