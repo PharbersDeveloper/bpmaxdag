@@ -95,7 +95,7 @@ def execute(**kwargs):
 
 	cuboids_df = spark.read.parquet(destPath + "/meta/lattices")
 
-	lattices_df = df.crossJoin(broadcast(cuboids_df)) \
+	df.crossJoin(broadcast(cuboids_df)) \
 			.write \
         	.format("parquet") \
         	.mode("overwrite") \

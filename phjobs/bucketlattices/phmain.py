@@ -11,6 +11,5 @@ import click
 def debug_execute(**kwargs):
     execute(**kwargs)
 
-
 if __name__ == '__main__':
     debug_execute()

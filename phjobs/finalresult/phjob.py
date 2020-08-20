@@ -99,10 +99,13 @@ def execute(a, b):
 	
 	sch_columns = ["YEAR", "MONTH", "QUARTER", "COUNTRY_NAME", "PROVINCE_NAME", "CITY_NAME", "MKT", "COMPANY", "MOLE_NAME", "PRODUCT_NAME", "CUBOIDS_ID", "CUBOIDS_NAME", "LATTLES", "apex", "dimension_name", "dimension_value", "SALES_QTY", "SALES_VALUE"]
 	
+			# .where((col("YEAR") == 2019) & (col("CUBOIDS_ID") == 3)) \
 	df = spark.read.schema(schema).parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/lattices-result") \
-			.where((col("YEAR") == 2019) & (col("CUBOIDS_ID") == 3)) \
+			.where((col("CUBOIDS_ID") == 3)) \
 			.drop("QUARTER")
 	df = df.withColumn("QUARTER", floor((col("MONTH") - 1) / 3 + 1)).withColumn("QUARTER", col("QUARTER").cast(IntegerType()))
+	df = df.withColumn("QUARTER", df.YEAR * 100 + df.QUARTER)
+	df = df.withColumn("MONTH", df.QUARTER * 100 + df.MONTH)
 	df = df.withColumn("CUBOIDS_NAME", col("dimension_name"))
 	df.persist()
 
@@ -144,7 +147,7 @@ def execute(a, b):
 		if "MONTH" in row["LATTLES"]:
 			# 0. MONTH 的做法
 			print "MONTH"
-			df_c.select(sch_columns).repartition(1).write.mode("append").parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/final-result")
+			df_c.select(sch_columns).repartition(1).write.mode("append").parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/final-result-2")
 		elif "QUARTER" in row["LATTLES"]:
 			# 1. QUARTER 的做法
 			print "QUARTER"
@@ -166,7 +169,7 @@ def execute(a, b):
 					df_c = df_c.withColumn(tc, lit(-1))
 				else:
 					df_c = df_c.withColumn(tc, lit("*"))
-			df_c.select(sch_columns).repartition(1).write.mode("append").parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/final-result")
+			df_c.select(sch_columns).repartition(1).write.mode("append").parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/final-result-2")
 		elif "YEAR" in row["LATTLES"]:
 			# 2. YEAR 的做
 			print "YEAR"
@@ -188,7 +191,7 @@ def execute(a, b):
 					df_c = df_c.withColumn(tc, lit(-1))
 				else:
 					df_c = df_c.withColumn(tc, lit("*"))
-			df_c.select(sch_columns).repartition(1).write.mode("append").parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/final-result")
+			df_c.select(sch_columns).repartition(1).write.mode("append").parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/final-result-2")
 		else:
 			pass
 	

@@ -17,7 +17,7 @@ import urllib
 def execute(a, b):
     spark = SparkSession.builder \
         .master("yarn") \
-        .appName("data cube result job") \
+        .appName("data cube lattices result job") \
         .config("spark.driver.memory", "1g") \
         .config("spark.executor.cores", "1") \
         .config("spark.executor.instance", "1") \
