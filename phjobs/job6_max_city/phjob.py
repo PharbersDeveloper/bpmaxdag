@@ -194,6 +194,7 @@ all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, mi
     
     # 匹配通用cpa_city
     province_city_mapping = spark.read.parquet(province_city_mapping_path)
+    province_city_mapping = province_city_mapping.distinct()
     raw_data = raw_data.join(province_city_mapping, on="ID", how="left") \
             .withColumn("PANEL", func.lit(1))
             
