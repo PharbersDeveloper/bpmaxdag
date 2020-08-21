@@ -8,15 +8,14 @@ metadata:
 spec:
   containers:
     repository: local
+    runtime: python2
     code: phmain.py
     config: phconf.yaml
     args:
-      - key: start
-        value: 201800
-      - key: end
-        value: 202000
-      - key: replace
-        value: False
+      - key: a
+        value: 123
+      - key: b
+        value: 456
     outputs:
       - key: a
         value: abcde

@@ -18,13 +18,18 @@ import string
 import pandas as pd
 
 
-def execute(a, b):
+def execute(**kwargs):
+	
+	startDate = kwargs['start_date']
+	jobId = kwargs['job_id']
+	destPath = "s3a://ph-max-auto/" + startDate +"/cube/dest/" + jobId
+	
 	year = 2019
 	month = 1
 
 	spark = SparkSession.builder \
         .master("yarn") \
-        .appName("data cube create lattices data") \
+        .appName("data cube lattices job") \
         .config("spark.driver.memory", "1g") \
         .config("spark.executor.cores", "2") \
         .config("spark.executor.instance", "4") \
@@ -86,16 +91,12 @@ def execute(a, b):
             StructField("COMPANY", StringType())
         ])
    
-	df = spark.readStream.schema(schema).parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/content")
+	df = spark.read.schema(schema).parquet(destPath + "/content")
 
-	cuboids_df = spark.read.parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/meta/lattices")
+	cuboids_df = spark.read.parquet(destPath + "/meta/lattices")
 
-	lattices_df = df.crossJoin(broadcast(cuboids_df)) \
-			.writeStream \
+	df.crossJoin(broadcast(cuboids_df)) \
+			.write \
         	.format("parquet") \
-        	.outputMode("append") \
-        	.option("checkpointLocation", "s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/lattices2/checkpoint") \
-        	.option("path", "s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/lattices2/content") \
-	        .start()
-
-	lattices_df.awaitTermination()
+        	.mode("overwrite") \
+	        .save(destPath + "/lattices/content")

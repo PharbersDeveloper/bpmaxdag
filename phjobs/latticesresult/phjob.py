@@ -17,7 +17,7 @@ import urllib
 def execute(a, b):
     spark = SparkSession.builder \
         .master("yarn") \
-        .appName("data cube result job") \
+        .appName("data cube lattices result job") \
         .config("spark.driver.memory", "1g") \
         .config("spark.executor.cores", "1") \
         .config("spark.executor.instance", "1") \
@@ -39,12 +39,8 @@ def execute(a, b):
 
     phlogger.info("group by lattices data")
     
-    meta_lattices_df = spark.read.parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/meta/lattices").toPandas()
+    meta_lattices_df = spark.read.parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/meta/lattices").where(col("CUBOIDS_ID") == 3).toPandas()
     
-    # year = 2019
-    # month = 1
-    # cid = 0
-
     columns = ["YEAR", "MONTH", "QUARTER", "COUNTRY_NAME", "PROVINCE_NAME", "CITY_NAME", "MKT", "COMPANY", "MOLE_NAME", "PRODUCT_NAME", "CUBOIDS_ID", "CUBOIDS_NAME", "LATTLES", "apex", "dimension_name", "dimension_value"]
     sch_columns = ["YEAR", "MONTH", "QUARTER", "COUNTRY_NAME", "PROVINCE_NAME", "CITY_NAME", "MKT", "COMPANY", "MOLE_NAME", "PRODUCT_NAME", "CUBOIDS_ID", "CUBOIDS_NAME", "LATTLES", "apex", "dimension_name", "dimension_value", "SALES_QTY", "SALES_VALUE"]
 
@@ -70,8 +66,10 @@ def execute(a, b):
             StructField("LATTLES", ArrayType(StringType()))
         ])
     
-    years = [2018, 2019]
-    months = range(1, 13)
+    # years = [2018, 2019]
+    # months = range(1, 13)
+    years = [2019]
+    months = range(10, 13)
    
     dim = spark.read.parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/meta/dimensions") \
             .repartition(1).withColumn("LEVEL", monotonically_increasing_id())
@@ -85,7 +83,7 @@ def execute(a, b):
             edge = df[df["HIERARCHY"] == tmp].iloc[0]["EDGE"]
             res.extend(list(df[(df["LEVEL"] >= edge) & (df["LEVEL"] <= level)]["HIERARCHY"]))
         return res
-   
+    
     for year in years:
         for month in months:
             for index, row in meta_lattices_df.iterrows():
@@ -116,6 +114,8 @@ def execute(a, b):
             	        df = df.withColumn(tc, lit(path))
             	    elif tc is "dimension_name":
             	        df = df.withColumn(tc, lit(row["CUBOIDS_NAME"]))
+            	    elif tc is "CUBOIDS_NAME":
+            	        df = df.withColumn(tc, lit(row["CUBOIDS_NAME"]))
             	   # elif tc is "dimension_value":
             	       # df = df.withColumn(tc, map(lts))
             	    else:
@@ -124,6 +124,7 @@ def execute(a, b):
             	df = df.select(sch_columns).orderBy(desc("SALES_VALUE")).repartition(1)
             	df.persist()
                 # full lattices	
+            	# 这时数据量偏小的情况下，不需要在分桶了
             	df.write.mode("append") \
             	    .partitionBy("YEAR", "MONTH", "CUBOIDS_ID", "LATTLES") \
         			.parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/lattices-result")
@@ -137,3 +138,4 @@ def execute(a, b):
         		  #  .parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result/ice-cube-lattices")
                 
                 df.unpersist()
+    

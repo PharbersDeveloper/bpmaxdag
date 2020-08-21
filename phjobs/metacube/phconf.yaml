@@ -8,13 +8,29 @@ metadata:
 spec:
   containers:
     repository: local
+    runtime: python2
     code: phmain.py
     config: phconf.yaml
     args:
-      - key: a
-        value: 123
-      - key: b
-        value: 456
+      - key: dimensions
+        value: 
+          time: 
+            - YEAR
+            - QUARTER
+            - MONTH
+          geo: 
+            - COUNTRY_NAME
+            - PROVINCE_NAME
+            - CITY_NAME
+          prod: 
+            - COMPANY
+            - MKT
+            - MOLE_NAME
+            - PRODUCT_NAME
+      - key: job_id
+        value: d7c065cb-365a-42f3-a247-0a89995b23d2
+      - key: start_date
+        value: 2020-08-19
     outputs:
       - key: a
         value: abcde

@@ -18,12 +18,18 @@ import string
 from uuid import uuid4
 
 
-def execute(start, end, replace): 
+def execute(start, end, replace, **kwargs): 
+    
+    startDate = kwargs['start_date']
+    jobId = kwargs['job_id']
+    source = kwargs['source']
+    destPath = "s3a://ph-max-auto/" + startDate +"/cube/dest/" + jobId
+    
     sd = int(start)
     ed = int(end)
     spark = SparkSession.builder \
         .master("yarn") \
-        .appName("data cube job") \
+        .appName("data cube clean job") \
         .config("spark.driver.memory", "1g") \
         .config("spark.executor.cores", "1") \
         .config("spark.executor.instance", "1") \
@@ -79,14 +85,13 @@ def execute(start, end, replace):
         ])
     
     jid = str(uuid4())
-    reading = spark.readStream.schema(readingSchema).parquet("s3a://ph-stream/common/public/max_result/0.0.4")
+    reading = spark.read.schema(readingSchema).parquet(source)
     min2prod_udf = udf(lambda x: string.split(x, "|")[0], StringType())
    
     # 1. 数据清洗
-    query = reading.filter((col("Date") < ed) & (col("Date") > sd)) \
+    reading.filter((col("Date") < ed) & (col("Date") > sd)) \
         .withColumnRenamed("Province", "PROVINCE_NAME") \
         .withColumnRenamed("City", "CITY_NAME") \
-        .withColumnRenamed("Molecule", "MOLE_NAME") \
         .withColumnRenamed("company", "COMPANY") \
         .withColumnRenamed("Prod_Name", "MIN") \
         .withColumnRenamed("Province", "PROVINCE_NAME") \
@@ -107,13 +112,9 @@ def execute(start, end, replace):
         .withColumn("apex", lit("alfred")) \
         .withColumn("dimension.name", lit("*")) \
         .withColumn("dimension.value", lit("*")) \
-        .writeStream \
+        .write \
         .partitionBy("YEAR", "MONTH", "COMPANY") \
         .format("parquet") \
-        .outputMode("append") \
-        .option("checkpointLocation", "s3a://ph-max-auto/2020-08-11/cube/dest/" + jid + "/checkpoint") \
-        .option("path", "s3a://ph-max-auto/2020-08-11/cube/dest/" + jid + "/content") \
-        .start()
-        
-    query.awaitTermination()
+        .mode("overwrite") \
+        .save(destPath + "/content")
     
