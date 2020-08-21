@@ -185,5 +185,5 @@ def execute(a, b):
 					.withColumn("SALES_GROWTH", cal_growth_udf(df_c.SALES_VALUE, df_c.TIME_PROVIOUS_VALUE)) \
 					.withColumn("MARKET_SHARE_GROWTH", cal_growth_udf(df_c.MARKET_SHARE, df_c.TIME_PROVIOUS_SHARE_VALUE))
 		
-		df_c.select(columns).repartition(1).write.mode("append").parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/final-result-ver-hor-measures")
+		df_c.select(columns).repartition(1).write.mode("append").parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/final-result-ver-hor-measures")	# full cube
 	
