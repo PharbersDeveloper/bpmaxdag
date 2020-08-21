@@ -92,9 +92,9 @@ def execute(a, b):
 			res.append(tmp[1])
 		return res
 		
-	@udf(returnType=IntegerType())
+	@udf(returnType=DoubleType())
 	def hor_time_step_udf(cat, v):
-		if cat == "MONTH":
+		if cat is "MONTH":
 			if v % 100 == 1:
 				return ((v / 10000 - 1) * 100 + 4) * 100 + 12
 			else:
@@ -153,5 +153,4 @@ def execute(a, b):
 		
 		df_c = df_c.drop("MAPPING").join(df_map, on=condi, how="left").withColumn("TIME_PROVIOUS_VALUE", hor_time_value_udf(col("TIME_PROVIOUS_LEVEL"), col("MAPPING")))
 		df_c.repartition(1).write.mode("append").parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/final-result-ver-hor-measures")
-		
 	

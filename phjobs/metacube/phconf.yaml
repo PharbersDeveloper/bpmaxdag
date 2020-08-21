@@ -8,6 +8,7 @@ metadata:
 spec:
   containers:
     repository: local
+    runtime: python2
     code: phmain.py
     config: phconf.yaml
     args:

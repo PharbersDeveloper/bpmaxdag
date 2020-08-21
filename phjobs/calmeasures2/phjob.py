@@ -102,29 +102,12 @@ def execute(a, b):
 	"""
 		# assumption 1: every lattice always have all three dimensions
 		# we use CUBOIDS_ID for the first time
+		
+		计算度量中很多是lattices之间的平移，也就是一个join的操作
+		
+		寻找层次间的平移, GEO 层级好像没有计算度量需要纵向的平移
+		优先从产品层面平移吧
 	"""
-	
-	schema = \
-        StructType([ \
-            StructField("YEAR", IntegerType()), \
-            StructField("MONTH", IntegerType()), \
-            StructField("QUARTER", LongType()), \
-            StructField("COUNTRY_NAME", StringType()), \
-            StructField("PROVINCE_NAME", StringType()), \
-            StructField("CITY_NAME", StringType()), \
-            StructField("MKT", StringType()), \
-            StructField("COMPANY", StringType()), \
-            StructField("MOLE_NAME", StringType()), \
-            StructField("PRODUCT_NAME", StringType()), \
-            StructField("CUBOIDS_ID", LongType()), \
-            StructField("CUBOIDS_NAME", StringType()), \
-            StructField("LATTLES", StringType()), \
-            StructField("apex", StringType()), \
-            StructField("dimension_name", StringType()), \
-            StructField("dimension_value", StringType()), \
-            StructField("SALES_QTY", DoubleType()), \
-            StructField("SALES_VALUE", DoubleType())
-        ])
 	
 	df = spark.read.parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/final-result-2") \
 			.where((col("CUBOIDS_ID") == 3))
@@ -134,14 +117,7 @@ def execute(a, b):
 	df.persist()
 	df.show()
 		
-	"""
-		计算度量中很多是lattices之间的平移，也就是一个join的操作
-	"""
 
-	"""
-		寻找层次间的平移, GEO 层级好像没有计算度量需要纵向的平移
-		优先从产品层面平移吧
-	"""
 	df_lattices = df.select("LATTLES").distinct().repartition(1).withColumn("LATTLES_ID", monotonically_increasing_id()).toPandas()
 	print df_lattices
 
@@ -198,4 +174,48 @@ def execute(a, b):
 			df_c = df_c.withColumn("PROD_PP_VALUE", lit(0.0))
 				
 		df_c.repartition(1).write.mode("append").parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/final-result-ver-measures-2")
+
+	"""
+		应该分为两个job，或者在上面一次性计算
+	"""
+	# 计算各种增长率	
+	df = spark.read.parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/final-result-ver-measures-2")
 	
+	@udf(returnType=DoubleType())
+	def sales_share_udf(cat, s, ps, pps):
+		if (cat == "PRODUCT_NAME") & (pps != 0):
+			return s / pps
+		else:
+			return 0.0
+
+
+	@udf(returnType=DoubleType())
+	def mole_share_udf(cat, s, ps, pps):
+		if (cat == "PRODUCT_NAME") & (pps != 0):
+			return ps / pps
+		elif (cat == "MOLE_NAME") & (ps != 0):
+			return s / ps
+		else:
+			return 0.0
+
+	@udf(returnType=DoubleType())
+	def prod_mole_share_udf(cat, s, ps, pps):
+		if (cat == "PRODUCT_NAME") & (ps != 0):
+			return s / ps
+		else:
+			return 0.0
+	
+	# 计算各种份额	
+	df = df.withColumn("MARKET_SHARE", sales_share_udf(col("PROD_CUR_LEVEL"), col("SALES_VALUE"), col("PROD_PARPENT_VALUE"), col("PROD_PP_VALUE"))) \
+			.withColumn("MOLE_SHARE", mole_share_udf(col("PROD_CUR_LEVEL"), col("SALES_VALUE"), col("PROD_PARPENT_VALUE"), col("PROD_PP_VALUE"))) \
+			.withColumn("PROD_MOLE_SHARE", prod_mole_share_udf(col("PROD_CUR_LEVEL"), col("SALES_VALUE"), col("PROD_PARPENT_VALUE"), col("PROD_PP_VALUE")))
+
+	columns = ["YEAR", "QUARTER", "MONTH", \
+				"COMPANY", "MKT", "MOLE_NAME", "PRODUCT_NAME", \
+				"COUNTRY_NAME", "PROVINCE_NAME", "CITY_NAME", \
+				"SALES_VALUE", "SALES_QTY", \
+				"PROD_CUR_LEVEL", "GEO_CUR_LEVEL", "TIME_CUR_LEVEL", \
+				"PROD_PARPENT_VALUE", "GEO_PARPENT_VALUE", "TIME_PARPENT_VALUE", "PROD_PP_VALUE", \
+				"LATTLES", \
+				"MARKET_SHARE", "MOLE_SHARE", "PROD_MOLE_SHARE"]
+	df.select(columns).write.mode("overwrite").parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/final-result-ver-measures-3")
