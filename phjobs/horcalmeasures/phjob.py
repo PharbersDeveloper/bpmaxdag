@@ -91,7 +91,7 @@ def execute(a, b):
 			res.append(tmp[1])
 		return res
 		
-	@udf(returnType=DoubleType())
+	@udf(returnType=IntegerType())
 	def hor_time_step_udf(cat, v):
 		if cat is "MONTH":
 			if v % 100 == 1:
@@ -114,6 +114,21 @@ def execute(a, b):
 			return mp[mp.index(pv) + 1]
 		else:
 			return 0.0
+			
+	@udf(returnType=DoubleType())
+	def cal_ei_udf(ms, pms):
+		if pms != 0:
+			return ms / pms
+		else:
+			return 0.0
+	
+	@udf(returnType=DoubleType())
+	def cal_growth_udf(s, ps):
+		if ps != 0:
+			return (s - ps) / ps
+		else:
+			return 0.0
+	
 			
 	for idx, row in df_lattices.iterrows():
 		print idx
@@ -166,9 +181,9 @@ def execute(a, b):
 		df_c = df_c.drop("SALES_MAPPING", "SHARE_MAPPING").join(df_map, on=condi, how="left") \
 				.withColumn("TIME_PROVIOUS_VALUE", hor_time_value_udf(col("TIME_PROVIOUS_LEVEL"), col("SALES_MAPPING"))) \
 				.withColumn("TIME_PROVIOUS_SHARE_VALUE", hor_time_value_udf(col("TIME_PROVIOUS_LEVEL"), col("SHARE_MAPPING")))
-		df_c = df_c.withColumn("EI", df_c.MARKET_SHARE / df_c.TIME_PROVIOUS_SHARE_VALUE) \
-					.withColumn("SALES_GROWTH", (df_c.TIME_PROVIOUS_VALUE - df_c.SALES_VALUE) / df_c.TIME_PROVIOUS_VALUE) \
-					.withColumn("MARKET_SHARE_GROWTH", (df_c.MARKET_SHARE - df_c.TIME_PROVIOUS_SHARE_VALUE) / df_c.TIME_PROVIOUS_SHARE_VALUE) 
+		df_c = df_c.withColumn("EI", cal_ei_udf(df_c.MARKET_SHARE, df_c.TIME_PROVIOUS_SHARE_VALUE)) \
+					.withColumn("SALES_GROWTH", cal_growth_udf(df_c.SALES_VALUE, df_c.TIME_PROVIOUS_VALUE)) \
+					.withColumn("MARKET_SHARE_GROWTH", cal_growth_udf(df_c.MARKET_SHARE, df_c.TIME_PROVIOUS_SHARE_VALUE))
 		
 		df_c.select(columns).repartition(1).write.mode("append").parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/final-result-ver-hor-measures")
 	
