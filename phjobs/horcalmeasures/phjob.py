@@ -15,6 +15,7 @@ from pyspark.sql.functions import monotonically_increasing_id
 import pandas as pd  
 from pyspark.sql.functions import pandas_udf, PandasUDFType
 from pyspark.sql.functions import array
+from pyspark.sql.functions import array_position
 
 
 def execute(a, b):
@@ -90,7 +91,31 @@ def execute(a, b):
 			res.append(tmp[0])
 			res.append(tmp[1])
 		return res
-
+		
+	@udf(returnType=IntegerType())
+	def hor_time_step_udf(cat, v):
+		if cat == "MONTH":
+			if v % 100 == 1:
+				return ((v / 10000 - 1) * 100 + 4) * 100 + 12
+			else:
+				return v - 1
+		elif cat == "QUARTER":
+			if v % 100 == 1:
+				return (v / 100 - 1) * 100 + 4
+			else:
+				return v - 1
+		elif cat == "YEAR":
+			return v - 1
+		else:
+			return -1
+	
+	@udf(returnType=DoubleType())
+	def hor_time_value_udf(pv, mp):
+		if pv in mp:
+			return mp[mp.index(pv) + 1]
+		else:
+			return 0.0
+			
 	for idx, row in df_lattices.iterrows():
 		print idx
 		print row
@@ -103,29 +128,30 @@ def execute(a, b):
 			"""
 				月度lattices平移
 			"""
-			df_c = df_c.withColumn("MAPPING", array("MONTH", "SALES_VALUE"))
+			df_c = df_c.withColumn("MAPPING", array("MONTH", "SALES_VALUE")).withColumn("TIME_PROVIOUS_LEVEL", hor_time_step_udf(col("TIME_CUR_LEVEL"), col("MONTH")))
 			condi.remove("MONTH")
+			condi.remove("QUARTER")
+			condi.remove("YEAR")
 		elif "QUARTER" in cur_l:
 			"""
 				季度lattices平移
 			"""
-			df_c = df_c.withColumn("MAPPING", array("QUARTER", "SALES_VALUE"))
+			df_c = df_c.withColumn("MAPPING", array("QUARTER", "SALES_VALUE")).withColumn("TIME_PROVIOUS_LEVEL", hor_time_step_udf(col("TIME_CUR_LEVEL"), col("QUARTER")))
 			condi.remove("QUARTER")
+			condi.remove("YEAR")
 		elif "YEAR" in cur_l:
 			"""
 				年度lattices平移
 			"""
-			df_c = df_c.withColumn("MAPPING", array("YEAR", "SALES_VALUE"))
+			df_c = df_c.withColumn("MAPPING", array("YEAR", "SALES_VALUE")).withColumn("TIME_PROVIOUS_LEVEL", hor_time_step_udf(col("TIME_CUR_LEVEL"), col("YEAR")))
 			condi.remove("YEAR")
 		else:
 			pass
 		
-		df_c.show()
-		print condi
-		df_c.printSchema()
-	
+		# df_c.show()
 		df_map = df_c.groupBy(condi).agg(step_mapping_udf(df_c.MAPPING).alias("MAPPING"))
-		df_map.show(truncate=100)
 		
-		break
+		df_c = df_c.drop("MAPPING").join(df_map, on=condi, how="left").withColumn("TIME_PROVIOUS_VALUE", hor_time_value_udf(col("TIME_PROVIOUS_LEVEL"), col("MAPPING")))
+		df_c.repartition(1).write.mode("append").parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/final-result-ver-hor-measures")
+		
 	
