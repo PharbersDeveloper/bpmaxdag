@@ -72,8 +72,7 @@ def execute(a, b):
 			res.extend(lattice2joincondi_acc(cur, dim))
 		return res
 	
-	df = spark.read.parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/final-result-ver-measures-2") \
-			.where((col("CUBOIDS_ID") == 3))
+	df = spark.read.parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/final-result-ver-measures-3")
 	df.persist()
 	df.show()
 	
@@ -128,7 +127,8 @@ def execute(a, b):
 			"""
 				月度lattices平移
 			"""
-			df_c = df_c.withColumn("MAPPING", array("MONTH", "SALES_VALUE")).withColumn("TIME_PROVIOUS_LEVEL", hor_time_step_udf(col("TIME_CUR_LEVEL"), col("MONTH")))
+			df_c = df_c.withColumn("SALES_MAPPING", array("MONTH", "SALES_VALUE")).withColumn("TIME_PROVIOUS_LEVEL", hor_time_step_udf(col("TIME_CUR_LEVEL"), col("MONTH")))
+			df_c = df_c.withColumn("SHARE_MAPPING", array("MONTH", "MARKET_SHARE")).withColumn("TIME_PROVIOUS_LEVEL", hor_time_step_udf(col("TIME_CUR_LEVEL"), col("MONTH")))
 			condi.remove("MONTH")
 			condi.remove("QUARTER")
 			condi.remove("YEAR")
@@ -136,21 +136,39 @@ def execute(a, b):
 			"""
 				季度lattices平移
 			"""
-			df_c = df_c.withColumn("MAPPING", array("QUARTER", "SALES_VALUE")).withColumn("TIME_PROVIOUS_LEVEL", hor_time_step_udf(col("TIME_CUR_LEVEL"), col("QUARTER")))
+			df_c = df_c.withColumn("SALES_MAPPING", array("QUARTER", "SALES_VALUE")).withColumn("TIME_PROVIOUS_LEVEL", hor_time_step_udf(col("TIME_CUR_LEVEL"), col("QUARTER")))
+			df_c = df_c.withColumn("SHARE_MAPPING", array("QUARTER", "MARKET_SHARE")).withColumn("TIME_PROVIOUS_LEVEL", hor_time_step_udf(col("TIME_CUR_LEVEL"), col("QUARTER")))
 			condi.remove("QUARTER")
 			condi.remove("YEAR")
 		elif "YEAR" in cur_l:
 			"""
 				年度lattices平移
 			"""
-			df_c = df_c.withColumn("MAPPING", array("YEAR", "SALES_VALUE")).withColumn("TIME_PROVIOUS_LEVEL", hor_time_step_udf(col("TIME_CUR_LEVEL"), col("YEAR")))
+			df_c = df_c.withColumn("SALES_MAPPING", array("YEAR", "SALES_VALUE")).withColumn("TIME_PROVIOUS_LEVEL", hor_time_step_udf(col("TIME_CUR_LEVEL"), col("YEAR")))
+			df_c = df_c.withColumn("SHARE_MAPPING", array("YEAR", "MARKET_SHARE")).withColumn("TIME_PROVIOUS_LEVEL", hor_time_step_udf(col("TIME_CUR_LEVEL"), col("YEAR")))
 			condi.remove("YEAR")
 		else:
 			pass
 		
-		# df_c.show()
-		df_map = df_c.groupBy(condi).agg(step_mapping_udf(df_c.MAPPING).alias("MAPPING"))
+
+		columns = ["YEAR", "QUARTER", "MONTH", \
+			"COMPANY", "MKT", "MOLE_NAME", "PRODUCT_NAME", \
+			"COUNTRY_NAME", "PROVINCE_NAME", "CITY_NAME", \
+			"SALES_VALUE", "SALES_QTY", \
+			"PROD_CUR_LEVEL", "GEO_CUR_LEVEL", "TIME_CUR_LEVEL", \
+			"PROD_PARPENT_VALUE", "GEO_PARPENT_VALUE", "TIME_PARPENT_VALUE", "PROD_PP_VALUE", \
+			"LATTLES", \
+			"MARKET_SHARE", "MOLE_SHARE", "PROD_MOLE_SHARE", \
+			"TIME_PROVIOUS_VALUE", "TIME_PROVIOUS_SHARE_VALUE", \
+			"MARKET_SHARE_GROWTH", "SALES_GROWTH", "EI"]
+
+		df_map = df_c.groupBy(condi).agg(step_mapping_udf(df_c.SALES_MAPPING).alias("SALES_MAPPING"), step_mapping_udf(df_c.SHARE_MAPPING).alias("SHARE_MAPPING"))
+		df_c = df_c.drop("SALES_MAPPING", "SHARE_MAPPING").join(df_map, on=condi, how="left") \
+				.withColumn("TIME_PROVIOUS_VALUE", hor_time_value_udf(col("TIME_PROVIOUS_LEVEL"), col("SALES_MAPPING"))) \
+				.withColumn("TIME_PROVIOUS_SHARE_VALUE", hor_time_value_udf(col("TIME_PROVIOUS_LEVEL"), col("SHARE_MAPPING")))
+		df_c = df_c.withColumn("EI", df_c.MARKET_SHARE / df_c.TIME_PROVIOUS_SHARE_VALUE) \
+					.withColumn("SALES_GROWTH", (df_c.TIME_PROVIOUS_VALUE - df_c.SALES_VALUE) / df_c.TIME_PROVIOUS_VALUE) \
+					.withColumn("MARKET_SHARE_GROWTH", (df_c.MARKET_SHARE - df_c.TIME_PROVIOUS_SHARE_VALUE) / df_c.TIME_PROVIOUS_SHARE_VALUE) 
 		
-		df_c = df_c.drop("MAPPING").join(df_map, on=condi, how="left").withColumn("TIME_PROVIOUS_VALUE", hor_time_value_udf(col("TIME_PROVIOUS_LEVEL"), col("MAPPING")))
-		df_c.repartition(1).write.mode("append").parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/final-result-ver-hor-measures")
+		df_c.select(columns).repartition(1).write.mode("append").parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/final-result-ver-hor-measures")
 	
