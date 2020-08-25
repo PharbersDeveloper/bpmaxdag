@@ -134,35 +134,29 @@ data_local = data_vbp.where(data_vbp.MNF_TYPE == 'L')
 
 # NearestHosp 内部 udf 函数
 def pandas_udf_NearestHosp_func(data_level_province, level, min_level, date_hist, k):
-    
     import pandas as pd
     import numpy as np
     from scipy.spatial import distance
     import math
     import json
-    
     # 分组后的 level 和 Province
     level_name = data_level_province[level][0].astype(str)
     Province = data_level_province["Province"][0]
-    
+    ID = data_level_province["ID"][0]
+    dict_level ={}
     # 每个SKU下的政策区域的字典
     dict_prov = {}
     dict_prov['TOP1'] = []
     # 按政策区域分组
-    
     # ***yyw*** data_mole = data[data[level] == m]，data_mole[data_mole.Province == p] 就是 data_level_province
-
     data_prov_wide = data_level_province[['ID', min_level] + date_hist].set_index('ID', drop=True)
-
     # data_prov_wide=data_mole[data_mole.Province == p] \
     #     [['ID',level]+date_hist].fillna(0). \
     #         groupby(['ID',level]).sum().reset_index(). \
     #             set_index('ID',drop=True)
-
     # 判断每个SKU-政策区域下面历史时间的TOP 1医院(TOP 1在未来会变吗)
     top_1 = data_prov_wide.sum(1, skipna=True).idxmax(0)
     dict_prov['TOP1'].append(top_1)
-
     # 选取历史时间的数据（这里需要设置参数）
     data_prov = data_level_province. \
         pivot(index='ID',
@@ -170,75 +164,77 @@ def pandas_udf_NearestHosp_func(data_level_province, level, min_level, date_hist
               values=data_level_province.columns[data_level_province.columns. \
               str.contains('Date2018')]). \
         fillna(0)
-
     n = k
-
     if len(data_prov) <= k:
         n = len(data_prov) - 1
-
     disttmp = distance.cdist(data_prov, data_prov, 'euclidean')
-
     disttmp[np.diag_indices_from(disttmp)] = np.inf  # 解决对角点排序问题
-
     disttmp = pd.DataFrame(disttmp,
                            index=data_prov.index,
                            columns=data_prov.index)
-
     a = disttmp.apply(lambda x: x.index[np.argpartition(x, (0, n))],
                       axis=0). \
         reset_index(drop=True)
-        
     # ***yyw*** python2没有ignore_index=True，用python2的方法.values替换
     c = disttmp.apply(lambda x: x.sort_values().values, axis=0). \
         reset_index(drop=True)
-
     b = a.iloc[0:n]  # 临近医院
     d = c.iloc[0:n]  # Distance
-
     for i in disttmp.columns:
         dict_hosp = {}
         dict_hosp['NN'] = b[i].tolist()
         dict_hosp['Dist'] = [(c + 1) ** 3 for c in d[i].tolist()]  # 去掉0再平方
         dict_prov[i] = dict_hosp
-            
-    dict_prov = json.dumps(dict_prov)  
-    
-    return pd.DataFrame([[level_name] + [Province] + [dict_prov]], columns=["level", "Province", "dict"])
+    dict_level[level_name] = dict_prov        
+    dict_level = json.dumps(dict_level)  
+    return pd.DataFrame([[level_name] + [Province] + [ID] + [dict_level]], columns=["level", "Province", "ID", "dict"])
 
     
-
 #%% SKU层面找相似
 def NearestHosp(data, level, period=(201801,201812,201912), k = 3):
+
+#near_hosp_non_vbp_sku = NearestHosp(data_non_vbp, level='pfc')    
+start_point = period[0]
+end_point = period[1]
+current_point = period[2]
+
+min_level = str(np.where('pfc' in data.columns, 'pfc', 'min2'))
+
+date_list_num = []
+for y in range(start_point // 100, current_point // 100 + 1):
+    date_list_num += list(range(np.where(start_point > y * 100 + 1, start_point, y * 100 + 1),
+                                np.where(current_point < y * 100 + 12, current_point + 1, y * 100 + 12 + 1)))
+
+date_list = ['Date' + str(d) for d in date_list_num]
+
+date_hist = date_list[date_list_num.index(start_point):date_list_num.index(end_point) + 1]
+
+# SKU的字典
+
+# 分组计算
+schema= StructType([
+    StructField("level", StringType(), True),
+    StructField("Province", StringType(), True),
+    StructField("ID", StringType(), True),
+    StructField("dict", StringType(), True)
+    ])
+@pandas_udf(schema, PandasUDFType.GROUPED_MAP)    
+def pandas_udf_NearestHosp(df):
+    return pandas_udf_NearestHosp_func(df, level, min_level, date_hist, k)
     
-    start_point = period[0]
-    end_point = period[1]
-    current_point = period[2]
-    
-    min_level = str(np.where('pfc' in data.columns, 'pfc', 'min2'))
-    
-    date_list_num = []
-    for y in range(start_point // 100, current_point // 100 + 1):
-        date_list_num += list(range(np.where(start_point > y * 100 + 1, start_point, y * 100 + 1),
-                                    np.where(current_point < y * 100 + 12, current_point + 1, y * 100 + 12 + 1)))
-    
-    date_list = ['Date' + str(d) for d in date_list_num]
-    
-    date_hist = date_list[date_list_num.index(start_point):date_list_num.index(end_point) + 1]
-    
-    
-    schema= StructType([
-        StructField("level", StringType(), True),
-        StructField("Province", StringType(), True),
-        StructField("dict", StringType(), True)
-        ])
-    @pandas_udf(schema, PandasUDFType.GROUPED_MAP)    
-    def pandas_udf_NearestHosp(df):
-        return pandas_udf_NearestHosp_func(df, level, min_level, date_hist, k)
-        
-    # SKU的字典
-    dict_level = data.groupby([level, "Province"]).apply(pandas_udf_NearestHosp)
-    
-    return dict_level
+# 输出 level，Province，dict
+level_Province = data.groupby([level, "Province"]).apply(pandas_udf_NearestHosp)
+
+'''
+# 转为字典格式
+dict_level = level_Province.select("dict").groupBy()\
+            .pivot("dict")\
+            .agg(func.first('dict'))
+
+# To:do 有问题，转换后为一维字典
+dict_level = map(lambda row: row.asDict(), dict_level.collect())[0]
+'''
+return dict_level
     
 # %% SKU层面的临近医院名单
 near_hosp_non_vbp_sku = NearestHosp(data_non_vbp, level='pfc')
@@ -246,3 +242,4 @@ near_hosp_non_vbp_sku = NearestHosp(data_non_vbp, level='pfc')
 near_hosp_non_vbp_sku.show()
 
 
+near_hosp_non_vbp_sku.where("")json.loads(json_dict)
