@@ -209,6 +209,9 @@ all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, mi
     ID_Bedsize = spark.read.parquet(ID_Bedsize_path)
     raw_data = raw_data.join(ID_Bedsize, on="ID", how="left")
     
+    # all_models 筛选
+    raw_data = raw_data.where(raw_data.DOI.isin(all_models))
+    
     # 计算
     if project_name != "Janssen":
         raw_data = raw_data.where(raw_data.Bedsize > 99)
