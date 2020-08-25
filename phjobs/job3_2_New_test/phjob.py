@@ -155,8 +155,6 @@ def execute():
     .mode("overwrite").save(df_units_path)
 
     
-execute()
-
 
 # 数据上传
 '''
@@ -203,5 +201,17 @@ mnf_ref_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/cn_mnf_ref"
 mnf_ref = spark.read.csv("s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/cn_mnf_ref_201912_1.csv", header="True")
 mnf_ref = mnf_ref.repartition(2)
 mnf_ref.write.format("parquet") \
-    .mode("overwrite").save(mnf_ref_path)    
+    .mode("overwrite").save(mnf_ref_path)
+    
+data_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Zhongbiao"
+data = spark.read.csv("s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/中标产品清单.csv", header="True")
+data = data.repartition(2)
+data.write.format("parquet") \
+    .mode("overwrite").save(data_path)
+    
+data_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/MNF_TYPE_PFC"
+data = spark.read.csv("s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/MNF_TYPE_PFC.csv", header="True")
+data = data.repartition(2)
+data.write.format("parquet") \
+    .mode("overwrite").save(data_path)
 '''  
