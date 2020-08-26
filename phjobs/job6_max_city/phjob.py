@@ -89,6 +89,7 @@ all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, mi
     # 输出
     time_range = str(time_left) + '_' + str(time_right)
     max_result_city_path = out_path_dir + "/MAX_result/MAX_result_" + time_range + "_city_level"
+    max_result_city_csv_path = out_path_dir + "/MAX_result/MAX_result_" + time_range + "_city_level.csv"
     
     # =========== 数据执行 =============
     '''
@@ -201,7 +202,7 @@ all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, mi
     # 删除医院
     # hospital_ot = spark.read.csv(hospital_ot_path, header=True)
     # raw_data = raw_data.join(hospital_ot, on="ID", how="left_anti")
-
+    
     # raw_data 医院列表
     raw_data_PHA = raw_data.select("PHA", "Date").distinct()
     
@@ -210,19 +211,21 @@ all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, mi
     raw_data = raw_data.join(ID_Bedsize, on="ID", how="left")
     
     # all_models 筛选
+    if raw_data.select("DOI").dtypes[0][1] == "double":
+        raw_data = raw_data.withColumn("DOI", raw_data["DOI"].cast(IntegerType()))
     raw_data = raw_data.where(raw_data.DOI.isin(all_models))
     
     # 计算
     if project_name != "Janssen":
         raw_data = raw_data.where(raw_data.Bedsize > 99)
-
+    
     raw_data_city = raw_data \
             .groupBy("Province", "City", "Date", "Prod_Name", "PANEL", "DOI", "S_Molecule") \
             .agg({"Sales":"sum", "Units":"sum"}) \
             .withColumnRenamed("sum(Sales)", "Predict_Sales") \
             .withColumnRenamed("sum(Units)", "Predict_Unit") \
             .withColumnRenamed("S_Molecule", "Molecule") 
-    
+
     
     # 2. max文件处理
     index = 0
@@ -272,4 +275,8 @@ all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, mi
     max_result_city = max_result_city.repartition(2)
     max_result_city.write.format("parquet") \
         .mode("overwrite").save(max_result_city_path)
+        
+    max_result_city = max_result_city.repartition(1)
+    max_result_city.write.format("csv") \
+        .mode("overwrite").save(max_result_city_csv_path)
         
