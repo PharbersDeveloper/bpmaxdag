@@ -277,6 +277,6 @@ all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, mi
         .mode("overwrite").save(max_result_city_path)
         
     max_result_city = max_result_city.repartition(1)
-    max_result_city.write.format("csv") \
+    max_result_city.write.format("csv").option("header", "true") \
         .mode("overwrite").save(max_result_city_csv_path)
         
