@@ -13,6 +13,7 @@ import os
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as func
 
+# def execute(in_cpa_path, in_prod_path, in_hr_path, in_mhr_path, out_path, min_keys_lst):
 def execute():
 	"""
 		please input your code below
@@ -43,12 +44,15 @@ def execute():
 		spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
   
 	# 需要的所有四个表格命名
-	cpa_input_data = spark.read.parquet("s3a://ph-stream/common/public/pfizer_test/0.0.1")
-	# product_data = spark.read.parquet("s3a://ph-stream/common/public/prod/0.0.14")
-	# human_replace_data = spark.read.parquet("s3a://ph-stream/common/public/human_replace/0.0.14")
-	mole_human_replace_data = spark.read.parquet("s3a://ph-stream/common/public/mole_human_replace/0.0.1")
+	in_cpa_path = "s3a://ph-stream/common/public/pfizer_check"
+	cpa_input_data = spark.read.parquet(in_cpa_path).drop("id")
+	# product_data = spark.read.parquet(in_prod_path)
+	# human_replace_data = spark.read.parquet(in_hr_path)
+	in_mhr_path = "s3a://ph-stream/common/public/mole_human_replace/0.0.1"
+	mole_human_replace_data = spark.read.parquet(in_mhr_path)
 
 	cpa_input_data.show(4)  # 36166条
+	print(cpa_input_data.count())
 	# product_data.show(4)
 	# human_replace_data.show(4)
 	mole_human_replace_data.show(4)
@@ -60,6 +64,7 @@ def execute():
 										 from mole_human_replace_data where PROD_MOLE_NAME is not null \
 										 and PROD_MOLE_NAME != '#N/A' and PROD_MOLE_NAME != ''")
 	mole_human_replace_data.show(4)  # 共156条数据
+	print(mole_human_replace_data.count())
 	
 	#  规范mole_name
 	# （如果mole_human_replace_data 里有该mole_name的标准化写法（PROD_MOLE），则用PROD_MOLE替换，若没有则保留原来的mole_name）
@@ -80,7 +85,8 @@ def execute():
 	print(cpa_distinct_data.count())
 	
 	# 写入
-	# out_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/cpa_distinct"
+	# out_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfizer_check"
+	# out_path = out_path + "/" + "cpa_distinct"
 	# cpa_distinct_data.write.format("parquet").mode("overwrite").save(out_path)
 	# print("写入 " + out_path + " 完成")
 	

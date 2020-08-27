@@ -21,6 +21,7 @@ def execute():
 	print("--"*80)
 	print("程序start: job2_join")
 	
+	os.environ["PYSPARK_PYTHON"] = "python3"
 	# 读取s3桶中的数据
 	spark = SparkSession.builder \
 		.master("yarn") \
@@ -43,12 +44,15 @@ def execute():
 		spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
   
 	# 需要的所有表格命名
-	cpa_distinct_data = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/cpa_distinct")
-	product_data = spark.read.parquet("s3a://ph-stream/common/public/prod/0.0.14")
+	out_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfizer_check"
+	in_prod_path = "s3a://ph-stream/common/public/prod/0.0.14"
+	cpa_distinct_data = spark.read.parquet(out_path + "/" + "cpa_distinct")
+	product_data = spark.read.parquet(in_prod_path)
 
 	prod_min_key_lst = ["MOLE_NAME_EN", "MOLE_NAME_CH", "PROD_NAME_CH", "SPEC", "DOSAGE", "PACK", "MNF_NAME_CH", "MNF_NAME_EN", "PACK_ID"]
 	product_check_data = product_data.select(prod_min_key_lst)
 	# cpa_distinct_data.show(10)  # 共36122条数据
+	# print(cpa_distinct_data.count())
 	# product_check_data.show(10)
 	
 	# 给input cpa 和 prod 列名前分别加in_ 和 check_
@@ -56,18 +60,20 @@ def execute():
 	for col in cpa_renamed.columns:
 		cpa_renamed = cpa_renamed.withColumnRenamed(col, "in_" + col)
 	cpa_renamed = cpa_renamed.withColumnRenamed("in_id", "id")
-	# cpa_renamed.show(3)
+	cpa_renamed.show(3)
+
 	
 	prod_renamed = product_check_data
 	for col in prod_renamed.columns:
 		prod_renamed = prod_renamed.withColumnRenamed(col, "check_" + col)
 	prod_renamed = prod_renamed.withColumnRenamed("check_PACK_ID", "PACK_ID")	
-	# prod_renamed.show(3)
-	
+	prod_renamed.show(3)
+
+
 	cpa_prod_join_data = cpa_renamed.join(prod_renamed,
 								   cpa_renamed.in_MOLE_NAME == prod_renamed.check_MOLE_NAME_CH,
 								   how="left")
-	cpa_prod_join_data.show(10)
+	cpa_prod_join_data.show(5)
 	# print(cpa_prod_join_data.count())  # 5851567
 	# print(cpa_renamed.count())  # 36122
 	# print(cpa_distinct_data.count())  # 36122
@@ -80,7 +86,8 @@ def execute():
 	# print(cpa_prod_join_null.count())  # 3790
 	
 	# 写入
-	# out_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/cpa_prod_join"
+	# out_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfizer_check"
+	# out_path = out_path + "/" + "cpa_prod_join"
 	# cpa_prod_join_data.write.format("parquet").mode("overwrite").save(out_path)
 	# print("写入 " + out_path + " 完成")
 

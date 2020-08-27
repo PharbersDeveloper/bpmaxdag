@@ -205,7 +205,8 @@ def execute():
 		
 	
 	# 需要的所有表格命名
-	cpa_prod_join_data = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/cpa_prod_join")
+	out_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfizer_check"
+	cpa_prod_join_data = spark.read.parquet(out_path + "/" + "cpa_prod_join")
 	cpa_prod_join_data = cpa_prod_join_data.na.fill("")
 	# product_data = spark.read.parquet("s3a://ph-stream/common/public/prod/0.0.14")
 	# cpa_prod_join_data.show(4) 
@@ -298,9 +299,10 @@ def execute():
 	# print(cpa_ed.count()) # 5851567
 	
 	# # 写入
-	# out_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/cpa_ed"
-	# cpa_ed.write.format("parquet").mode("overwrite").save(out_path)
-	# print("写入 " + out_path + " 完成")
+	out_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfizer_check"
+	out_path = out_path + "/" + "cpa_ed"
+	cpa_ed.write.format("parquet").mode("overwrite").save(out_path)
+	print("写入 " + out_path + " 完成")
 
 
 	print("程序end job3_edit_distanct") 
