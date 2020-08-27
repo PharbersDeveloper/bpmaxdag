@@ -22,8 +22,25 @@ class DataStatistics(object):
 		self.count = count
 		return self
 
-	def set_category(self, category):
-		self.category = category
+	def set_city_prod(self, category):
+		"""
+		设置城市下产品能力
+		"""
+		self.city_prod_category = category
+		return self
+
+	def set_city(self, category):
+		"""
+		设置城市能力
+		"""
+		self.city_category = category
+		return self
+
+	def set_prod(self, category):
+		"""
+		设置产品能力
+		"""
+		self.prod_category = category
 		return self
 
 	def __str__(self):
@@ -76,8 +93,8 @@ def execute(correct_data_path, test_data_path):
 	correct_data_df = spark.read.parquet(correct_data_path)
 	test_data_df = spark.read.parquet(test_data_path)
 
-	ds1 = DataStatistics().set_count(1).set_category({'浙江': 1000, '上海': 500})
-	ds2 = DataStatistics().set_count(1)
+	ds1 = DataStatistics().set_count(correct_data_df.count())
+	ds2 = DataStatistics().set_count(test_data_df.count())
 
 	print(ds1 == ds2)
 
