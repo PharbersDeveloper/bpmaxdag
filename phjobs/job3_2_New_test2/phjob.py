@@ -63,11 +63,6 @@ result_vbp_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/result_v
 
 # ==========
 
-'''
-PART 2
-生成近邻名单，并且保存全局
-'''
-
 #%% Read-in 
 df_sales = spark.read.parquet(df_sales_path)
 df_units = spark.read.parquet(df_units_path)
@@ -131,11 +126,16 @@ data_mnc.persist()
 
 data_local = data_vbp.where(data_vbp.MNF_TYPE == 'L')   
 
+# ======================
+'''
+PART 2
+生成近邻名单，并且保存全局
+'''
+
 # 读取，转为字典格式
 
 #  data_non_vbp
 df_near_hosp_non_vbp_sku = spark.read.parquet(df_near_hosp_non_vbp_sku_path)
-print("df_near_hosp_non_vbp_sku")
 
 # 转化为字典格式
 df_near_hosp_non_vbp_sku = df_near_hosp_non_vbp_sku.groupBy().agg(func.collect_list('dict').alias('dict_all')).select("dict_all").toPandas()
@@ -151,6 +151,7 @@ for index, each in enumerate(df_near_hosp_non_vbp_sku):
     else:
         dict_near_hosp_non_vbp_sku += "," + each[1:-1]
 near_hosp_non_vbp_sku  = json.loads(dict_near_hosp_non_vbp_sku)
+print("near_hosp_non_vbp_sku")
 
 # data_mnc
 df_near_hosp_mnc_sku = spark.read.parquet(df_near_hosp_mnc_sku_path)
@@ -170,6 +171,7 @@ for index, each in enumerate(df_near_hosp_mnc_sku):
         dict_near_hosp_mnc_sku += "," + each[1:-1]
 near_hosp_mnc_sku  = json.loads(dict_near_hosp_mnc_sku)
 
+print("near_hosp_mnc_sku")
 
 '''
 PART 3
