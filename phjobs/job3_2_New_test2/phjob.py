@@ -22,7 +22,7 @@ import json
 spark = SparkSession.builder \
     .master("yarn") \
     .appName("data from s3") \
-    .config("spark.driver.memory", "2g") \
+    .config("spark.driver.memory", "3g") \
     .config("spark.executor.cores", "1") \
     .config("spark.executor.instance", "1") \
     .config("spark.executor.memory", "2g") \
@@ -45,16 +45,21 @@ if access_key is not None:
 # 输入
 df_sales_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Sales_right"
 df_units_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Units_right"
-
 universe_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/universe"
 cpa_pha_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/cpa_pha_mapping"
 prod_map_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/prod_mapping"
-
 MNFPath = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/MNF_TYPE_PFC"
 VBPPath = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Zhongbiao"
 
 # 输出
-data_missing_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/data_missing_tmp"
+df_near_hosp_non_vbp_sku_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/df_near_hosp_non_vbp_sku"
+df_near_hosp_mnc_sku_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/df_near_hosp_mnc_sku"
+result_ma_tmp_1_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/result_ma_tmp_1"
+result_ma_tmp_2_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/result_ma_tmp_2"
+result_ma_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/result_ma"
+result_non_vbp_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/result_non_vbp"
+result_mnc_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/result_mnc"
+result_vbp_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/result_vbp"
 
 # ==========
 
@@ -113,6 +118,7 @@ data_non_vbp = data_prod.where(data_prod.VBP_mole == "False") \
 for eachcol in data_non_vbp.columns:
     if "_Sales" in eachcol:
         data_non_vbp = data_non_vbp.withColumnRenamed(eachcol, eachcol.replace("_Sales", ""))
+data_non_vbp.persist()
 
 data_vbp = data_prod.where(data_prod.VBP_mole == "True") \
             .drop(*[i for i in data_prod.columns if "Sales" in i])
@@ -121,124 +127,14 @@ for eachcol in data_vbp.columns:
         data_vbp = data_vbp.withColumnRenamed(eachcol, eachcol.replace("_Units", ""))
 
 data_mnc = data_vbp.where(data_vbp.MNF_TYPE != 'L')
+data_mnc.persist()
 
 data_local = data_vbp.where(data_vbp.MNF_TYPE == 'L')   
 
+# 读取，转为字典格式
 
-# NearestHosp 内部 udf 函数
-def pandas_udf_NearestHosp_func(data_level, level, min_level, date_hist, k):
-    import pandas as pd
-    import numpy as np
-    from scipy.spatial import distance
-    import math
-    import json
-    import sys
-    reload(sys)
-    sys.setdefaultencoding('utf-8')
-    
-    # 分组后的 level
-    level_name = data_level[level][0].astype(str)
-    dict_level ={}
-    
-    # 每个SKU下的政策区域的字典
-    dict_prov = {}
-    dict_prov['TOP1'] = []
-    
-    # 按政策区域分组
-    # ***yyw*** data_mole = data[data[level] == m] 就是 data_level
-    for p in data_level.Province.unique().tolist():
-        data_prov_wide=data_level[data_level.Province == p] \
-                [['ID',min_level]+date_hist].set_index('ID',drop=True)
-        # data_prov_wide=data_mole[data_mole.Province == p] \
-        #     [['ID',level]+date_hist].fillna(0). \
-        #         groupby(['ID',level]).sum().reset_index(). \
-        #             set_index('ID',drop=True)
-        # 判断每个SKU-政策区域下面历史时间的TOP 1医院(TOP 1在未来会变吗)
-        top_1 = data_prov_wide.sum(1, skipna=True).idxmax(0)
-        dict_prov['TOP1'].append(top_1)
-        # 选取历史时间的数据（这里需要设置参数）
-        data_prov = data_level[data_level.Province == p]. \
-            pivot(index='ID',
-                  columns=min_level,
-                  values=data_level.columns[data_level.columns. \
-                  str.contains('Date2018')]). \
-            fillna(0)
-        n = k
-        if len(data_prov) <= k:
-            n = len(data_prov) - 1
-        disttmp = distance.cdist(data_prov, data_prov, 'euclidean')
-        disttmp[np.diag_indices_from(disttmp)] = np.inf  # 解决对角点排序问题
-        disttmp = pd.DataFrame(disttmp,
-                               index=data_prov.index,
-                               columns=data_prov.index)
-        a = disttmp.apply(lambda x: x.index[np.argpartition(x, (0, n))],
-                          axis=0). \
-            reset_index(drop=True)
-        # ***yyw*** python2没有ignore_index=True，用python2的方法.values替换
-        c = disttmp.apply(lambda x: x.sort_values().values, axis=0). \
-            reset_index(drop=True)
-            
-        b = a.iloc[0:n]  # 临近医院
-        d = c.iloc[0:n]  # Distance
-        
-        for i in disttmp.columns:
-            dict_hosp = {}
-            dict_hosp['NN'] = b[i].tolist()
-            dict_hosp['Dist'] = [(c + 1) ** 3 for c in d[i].tolist()]  # 去掉0再平方
-            dict_prov[i] = dict_hosp
-        
-    dict_level[level_name] = dict_prov        
-    dict_level = json.dumps(dict_level)  
-    
-    return pd.DataFrame([[level_name] + [dict_level]], columns=["level", "dict"])
-
-    
-#%% SKU层面找相似
-def NearestHosp(data, level, period=(201801,201812,201912), k = 3):
-    #near_hosp_non_vbp_sku = NearestHosp(data_non_vbp, level='pfc')    
-    start_point = period[0]
-    end_point = period[1]
-    current_point = period[2]
-    
-    min_level = str(np.where('pfc' in data.columns, 'pfc', 'min2'))
-    
-    date_list_num = []
-    for y in range(start_point // 100, current_point // 100 + 1):
-        date_list_num += list(range(np.where(start_point > y * 100 + 1, start_point, y * 100 + 1),
-                                    np.where(current_point < y * 100 + 12, current_point + 1, y * 100 + 12 + 1)))
-    
-    date_list = ['Date' + str(d) for d in date_list_num]
-    
-    date_hist = date_list[date_list_num.index(start_point):date_list_num.index(end_point) + 1]
-    
-    # SKU的字典
-    
-    # 分组计算
-    schema= StructType([
-        StructField("level", StringType(), True),
-        #StructField("Province", StringType(), True),
-        StructField("dict", StringType(), True)
-        ])
-    @pandas_udf(schema, PandasUDFType.GROUPED_MAP)    
-    def pandas_udf_NearestHosp(df):
-        return pandas_udf_NearestHosp_func(df, level, min_level, date_hist, k)
-        
-    # 输出 level，dict
-    dict_level = data.groupby([level]).apply(pandas_udf_NearestHosp)
-    
-    return dict_level
-
-# *** 输出，再读入，缓解内存 ***
-
-# %% SKU层面的临近医院名单
 #  data_non_vbp
-'''
-df_near_hosp_non_vbp_sku = NearestHosp(data_non_vbp, level='pfc')
-df_near_hosp_non_vbp_sku = df_near_hosp_non_vbp_sku.repartition(1)
-df_near_hosp_non_vbp_sku.write.format("parquet") \
-    .mode("overwrite").save("s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/df_near_hosp_non_vbp_sku")
-'''
-df_near_hosp_non_vbp_sku = spark.read.parquet("s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/df_near_hosp_non_vbp_sku")
+df_near_hosp_non_vbp_sku = spark.read.parquet(df_near_hosp_non_vbp_sku_path)
 print("df_near_hosp_non_vbp_sku")
 
 # 转化为字典格式
@@ -257,14 +153,7 @@ for index, each in enumerate(df_near_hosp_non_vbp_sku):
 near_hosp_non_vbp_sku  = json.loads(dict_near_hosp_non_vbp_sku)
 
 # data_mnc
-'''
-df_near_hosp_mnc_sku = NearestHosp(data_mnc, level='pfc')
-df_near_hosp_mnc_sku = df_near_hosp_mnc_sku.repartition(1)
-df_near_hosp_mnc_sku.write.format("parquet") \
-    .mode("overwrite").save("s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/df_near_hosp_mnc_sku")
-'''
-df_near_hosp_mnc_sku = spark.read.parquet("s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/df_near_hosp_mnc_sku")
-print("df_near_hosp_mnc_sku")
+df_near_hosp_mnc_sku = spark.read.parquet(df_near_hosp_mnc_sku_path)
 
 # 转化为字典格式
 df_near_hosp_mnc_sku = df_near_hosp_mnc_sku.groupBy().agg(func.collect_list('dict').alias('dict_all')).select("dict_all").toPandas()
@@ -286,6 +175,8 @@ near_hosp_mnc_sku  = json.loads(dict_near_hosp_mnc_sku)
 PART 3
 补充数据
 '''
+
+# =========== MovAvg ===========
 # %% Moving average先补一批non-VBP
 def pandas_udf_MovAvg_func(data_mole, level, date, near_hosp_sku):
     import pandas as pd
@@ -325,14 +216,7 @@ def pandas_udf_MovAvg_func(data_mole, level, date, near_hosp_sku):
         if (len(near_hosp[na_id]['NN']) < 3) | (int(na_id) in near_hosp['TOP1']):
             data_month_na.loc[i, current_col] = data_month_na_his.loc[i]. \
                 mean(skipna=True)
-                
-    # ** yyw ** 重整数据
-    '''
-    data_month_na["Date"] = current_col
-    data_month_na = data_month_na.rename(columns={current_col: 'value'})
-    data_month["Date"] = current_col
-    data_month = data_month.rename(columns={current_col: 'value'})
-    '''
+            
     data_month = pd.concat([data_month, data_month_na])
     data_month = data_month[~data_month[current_col].isna()]
     
@@ -364,35 +248,33 @@ def MovAvg(data, level, date, near_hosp_sku):
 
 
 #%% ma
-## 这里怎么优化？
+## 循环写出result_ma_tmp，否则内存溢出
 for m in range(201901, 201912 + 1):
     if m == 201901:
         result_ma = data_non_vbp
     else:
         if (m % 2) == 0:
-            result_ma = spark.read.parquet("s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/result_ma_tmp_1")
+            result_ma = spark.read.parquet(result_ma_tmp_1_path)
         else:
-            result_ma = spark.read.parquet("s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/result_ma_tmp_2")
-        #result_ma.repartition(1).createOrReplaceTempView('my_table')
-        #spark.catalog.refreshTable("my_table")
+            result_ma = spark.read.parquet(result_ma_tmp_2_path)
     result_month = MovAvg(result_ma, 'pfc', m, near_hosp_non_vbp_sku)
     result_ma = result_ma.drop('Date' + str(m))
     result_ma = result_ma.join(result_month, on=['ID', 'pfc'], how='left')
     if (m % 2) == 0:
         result_ma.repartition(1).write.format("parquet") \
-            .mode("overwrite").save("s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/result_ma_tmp_2")
+            .mode("overwrite").save(result_ma_tmp_2_path)
     else:
         result_ma.repartition(1).write.format("parquet") \
-            .mode("overwrite").save("s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/result_ma_tmp_1")
+            .mode("overwrite").save(result_ma_tmp_1_path)
     
 result_ma = result_ma.repartition(2)
 result_ma.write.format("parquet") \
-    .mode("overwrite").save("s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/result_ma")
-result_ma = spark.read.parquet("s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/result_ma")
+    .mode("overwrite").save(result_ma_path)
+result_ma = spark.read.parquet(result_ma_path)
 
+print("result_ma")
 
-
-# ====================  
+# =========== NHospImpute =========== 
 # %% nn
 
 # %% 补充数据的func: MA先于KNN
@@ -463,8 +345,10 @@ result_non_vbp = result_non_vbp.fillna(0)
 
 result_non_vbp = result_non_vbp.repartition(2)
 result_non_vbp.write.format("parquet") \
-    .mode("overwrite").save("s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/result_non_vbp")
-result_non_vbp = spark.read.parquet("s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/result_non_vbp")
+    .mode("overwrite").save(result_non_vbp_path)
+result_non_vbp = spark.read.parquet(result_non_vbp_path)
+
+print("result_non_vbp")
 
 # %% MNC
 result_mnc = data_mnc.select(['ID', 'pfc'] + [i for i in data_mnc.columns if "Date2018" in i])
@@ -474,8 +358,24 @@ for m in range(201901, 201912 + 1):
     
 result_mnc = result_mnc.repartition(2)
 result_mnc.write.format("parquet") \
-    .mode("overwrite").save("s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/result_mnc")
-result_mnc = spark.read.parquet("s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/result_mnc")
+    .mode("overwrite").save(result_mnc_path)
+result_mnc = spark.read.parquet(result_mnc_path)
 
 # %% Local
 result_local = data_local
+for i in range(201901, 201912 + 1):
+    temp_date = result_local.columns
+    current_index = temp_date.index('Date' + str(i))
+    current_cols = 'Date' + str(i)
+    past_cols = result_local.columns[current_index - 3:current_index]
+    result_local = result_local.withColumn(current_cols, \
+                                    func.when(func.isnan(result_local[current_cols]), \
+                                    (result_local[past_cols[0]] + result_local[past_cols[1]] + result_local[past_cols[2]])/3) \
+                                    .otherwise(result_local[current_cols]))
+result_vbp = result_mnc.union(result_local.select(result_mnc.columns)).fillna(0)
+
+result_vbp = result_vbp.repartition(2)
+result_vbp.write.format("parquet") \
+    .mode("overwrite").save(result_vbp_path)
+
+print("result_vbp")
