@@ -2,7 +2,6 @@
 """alfredyang@pharbers.com.
 This is job template for Pharbers Max Job
 """
-def execute(a, b):
 import pandas as pd
 from phlogs.phlogs import phlogger
 import os
@@ -10,6 +9,7 @@ from pyspark.sql import SparkSession
 from pyspark.sql.types import *
 from pyspark.sql.types import StringType, IntegerType, DoubleType
 from pyspark.sql import functions as func
+from pyspark.sql.functions import pandas_udf, PandasUDFType
 
 import pandas as pd
 import numpy as np
@@ -74,45 +74,59 @@ data_info = data_info.withColumn("Province" , \
         func.when(data_info.City.isin('大连市','沈阳市','西安市','厦门市','广州市', '深圳市','成都市'), data_info.City). \
         otherwise(data_info.Province))
 
-def get_niches(data, weidao, vbp=False):
-    examples = pd.DataFrame()
+
+# =========== 
+
+def pandas_udf_get_niches_func(data, weidao, vbp):
+    examples=pd.DataFrame()
     target = np.where(vbp, 'Units', 'Sales').item()
-
-    for i in range(len(weidao)):
-        example = weidao.loc[i,]
-
+    weidao_ID = data["ID"].drop_duplicates().values[0]
+    weidao_Date = weidao.loc[weidao.ID == groupID,]
+    
+    # *** yyw *** 数据类型处理
+    data["Date"] = data["Date"].astype("int")
+    
+    # todo: 不行啊，data会用到全量，未到ID的时间，取全量该时间的data
+    for i in range(len(weidao_Date)):
+        example=weidao_Date.loc[i,]
+        
         data_his_hosp = data.loc[(data.ID == example.ID) &
-                                 (data.Date <= example.Date),
+                                 (data.Date <= int(example.Date)),
                                  ['ID', 'pfc', 'Province']].drop_duplicates()
-
-        data_same_date = data.loc[(data.Date == example.Date) &
+        data_same_date = data.loc[(data.Date == int(example.Date)) &
                                   (data.Province.isin(data_his_hosp.Province)),
                                   ['pfc', 'VBP_prod']].drop_duplicates()
-
         data_missing = data_same_date.merge(data_his_hosp, how='left',
                                             on='pfc')
-
         data_missing = data_missing[(data_missing.VBP_prod == True) |
                                     (~data_missing.Province.isna())]
-
         data_missing.ID = example.ID
-
         data_missing.insert(1, 'Date', example.Date)
         data_missing.insert(len(data_missing.columns), target, 3.1415926)
-
-        examples = pd.concat([examples, data_missing])
-
+        examples=pd.concat([examples, data_missing])
+        
     examples = examples.reset_index(drop=True)
     df = pd.concat([data[['ID', 'Date', 'pfc', target]],
                     examples[['ID', 'Date', 'pfc', target]]])
-
     df.Date = 'Date' + df.Date.astype('str')
+    #df = df.pivot_table(index=['ID', 'pfc'],
+    #                    columns='Date', values=target).fillna(0).reset_index()
+    #df.replace(3.1415926, np.nan, inplace=True)
+    return df	
 
-    df = df.pivot_table(index=['ID', 'pfc'],
-                        columns='Date', values=target).fillna(0).reset_index()
+#get_niches
+schema= StructType([
+    StructField("ID", IntegerType(), True),
+    StructField("Date", StringType(), True),
+    StructField("pfc", IntegerType(), True),
+    StructField("Sales", DoubleType(), True)
+    ])
+@pandas_udf(schema, PandasUDFType.GROUPED_MAP)    
+def pandas_udf_get_niches(df):
+    return pandas_udf_get_niches_func(df, weidao, vbp=False)    
 
-    df.replace(3.1415926, np.nan, inplace=True)
+# 未到ID的数据
+data_info_weidao = data_info.join(weidao.select("ID"), on="ID", how="inner")
+df_sales = data_info_weidao.groupby(["ID"]).apply(pandas_udf_get_niches)
 
-    return df
 
-df_sales = get_niches(data_info, weidao, vbp=False)
