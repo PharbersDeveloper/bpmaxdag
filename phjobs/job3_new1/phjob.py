@@ -16,7 +16,7 @@ import numpy as np
 from scipy.spatial import distance
 import math
 
-def execute():
+def execute(max_path, project_name, out_path, out_dir):
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \
@@ -38,19 +38,35 @@ def execute():
         spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
         
     
+    out_path_dir = out_path + "/" + project_name + '/' + out_dir
+    
     # 输入
+    data_path = out_path + "/" + project_name + '/data'
+    weidao_path = out_path + "/" + project_name + u'/2019年未到名单_v2.csv'
+    universe_path = out_path + "/" + project_name + '/universe'
+    cpa_pha_path = out_path + "/" + project_name + '/cpa_pha_mapping'
+
+    '''
     data_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/data"
     weidao_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/2019年未到名单_v2.csv"
     universe_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/universe"
     cpa_pha_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/cpa_pha_mapping"
+    '''
     
     # 输出
+    data_missing_tmp_path = out_path_dir + "/data_missing_tmp"
+    data_missing_novbp_path = out_path_dir + "/data_missing_novbp"   
+    data_missing_vbp_path = out_path_dir + "/data_missing_vbp"
+    df_sales_path = out_path_dir + "/df_sales"
+    df_units_path = out_path_dir + "/df_units"
+    
+    '''
     data_missing_tmp_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/data_missing_tmp"
     data_missing_novbp_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/data_missing_novbp"
     data_missing_vbp_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/data_missing_vbp"
     df_sales_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/df_sales"
     df_units_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/df_units"
-    
+    '''
     # ===============
     data = spark.read.parquet(data_path)
     

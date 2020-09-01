@@ -41,12 +41,12 @@ def execute(max_path, project_name, out_path, out_dir):
         # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
         spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
             
-    
+    '''
     max_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/"
     project_name = "New_add_test"
     out_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/"
     out_dir = "Out"
-    
+    '''
     out_path_dir = out_path + "/" + project_name + '/' + out_dir
     
     # 输入
