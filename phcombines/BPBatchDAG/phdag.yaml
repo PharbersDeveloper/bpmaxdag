@@ -6,7 +6,7 @@ metadata:
   labels:
     name: alfred
 spec:
-  description: "Pharbers Batch Process DAG"
+  description: "cpa_match"
   start_date: 1 # if you don't understand, don't touch it
   schedule_interval: "None" # if you don't understand, don't touch it
   dag_timeout: 60 # minutes
@@ -20,12 +20,14 @@ spec:
   dag_tag: BPBatchDAG
   jobs:
     - name: job1_distinct
-      command: python
-    - name: job2_join
-      command: python
-    - name: job3_edit_distance
-      command: python
-    - name: job4_match
-      command: python
-  linkage: "job1_distinct >> job2_join >> job3_edit_distance >> job4_match"
+      command: python3
+    - name: job2_human_replace
+      command: python3
+    - name: job3_join
+      command: python3
+    - name: job4_edit_distance
+      command: python3
+    - name: job5_match
+      command: python3
+  linkage: "job1_distinct >> job2_human_replace >> job3_join >> job4_edit_distance >> job5_match"
 

@@ -18,7 +18,7 @@ args = {
 dag = DAG(
     dag_id="BPBatchDAG", default_args=args,
     schedule_interval=None,
-    description="Pharbers Batch Process DAG",
+    description="cpa_match",
     dagrun_timeout=timedelta(minutes=60))
 
 var_key_lst = (subprocess.check_output("airflow variables", shell=True)).decode('utf-8').split('\n')
@@ -40,7 +40,7 @@ for k, v in dag_params:
 ############## == job1_distinct == ###################
 job1_distinct_cmd = """
 echo "192.168.1.28    spark.master" >> /etc/hosts
-pip install 'phcli==0.2.1'
+pip install 'phcli==0.2.16'
 phcli maxauto --cmd submit --path job1_distinct --context "{{ params }}" "{{ dag_run.conf }}"
 """
 
@@ -55,57 +55,80 @@ job1_distinct = BashOperator(
 
 
 
-############## == job2_join == ###################
-job2_join_cmd = """
+
+############## == job2_human_replace == ###################
+job2_human_replace_cmd = """
 echo "192.168.1.28    spark.master" >> /etc/hosts
-pip install 'phcli==0.2.1'
-phcli maxauto --cmd submit --path job2_join --context "{{ params }}" "{{ dag_run.conf }}"
+pip install 'phcli==0.2.16'
+phcli maxauto --cmd submit --path job2_human_replace --context "{{ params }}" "{{ dag_run.conf }}"
 """
 
-job2_join = BashOperator(
-                    task_id="job2_join",
-                    bash_command=job2_join_cmd,
+job2_human_replace = BashOperator(
+                    task_id="job2_human_replace",
+                    bash_command=job2_human_replace_cmd,
                     dag=dag,
                     params=dict(common_task_params +
-                                spec_task_params.get("job2_join".lower(), []))
+                                spec_task_params.get("job2_human_replace".lower(), []))
                )
-############## == job2_join == ###################
+############## == job2_human_replace == ###################
 
 
 
-############## == job3_edit_distance == ###################
-job3_edit_distance_cmd = """
+
+############## == job3_join == ###################
+job3_join_cmd = """
 echo "192.168.1.28    spark.master" >> /etc/hosts
-pip install 'phcli==0.2.1'
-phcli maxauto --cmd submit --path job3_edit_distance --context "{{ params }}" "{{ dag_run.conf }}"
+pip install 'phcli==0.2.16'
+phcli maxauto --cmd submit --path job3_join --context "{{ params }}" "{{ dag_run.conf }}"
 """
 
-job3_edit_distance = BashOperator(
-                    task_id="job3_edit_distance",
-                    bash_command=job3_edit_distance_cmd,
+job3_join = BashOperator(
+                    task_id="job3_join",
+                    bash_command=job3_join_cmd,
                     dag=dag,
                     params=dict(common_task_params +
-                                spec_task_params.get("job3_edit_distance".lower(), []))
+                                spec_task_params.get("job3_join".lower(), []))
                )
-############## == job3_edit_distance == ###################
+############## == job3_join == ###################
 
 
 
-############## == job4_match == ###################
-job4_match_cmd = """
+
+############## == job4_edit_distance == ###################
+job4_edit_distance_cmd = """
 echo "192.168.1.28    spark.master" >> /etc/hosts
-pip install 'phcli==0.2.1'
-phcli maxauto --cmd submit --path job4_match --context "{{ params }}" "{{ dag_run.conf }}"
+pip install 'phcli==0.2.16'
+phcli maxauto --cmd submit --path job4_edit_distance --context "{{ params }}" "{{ dag_run.conf }}"
 """
 
-job4_match = BashOperator(
-                    task_id="job4_match",
-                    bash_command=job4_match_cmd,
+job4_edit_distance = BashOperator(
+                    task_id="job4_edit_distance",
+                    bash_command=job4_edit_distance_cmd,
                     dag=dag,
                     params=dict(common_task_params +
-                                spec_task_params.get("job4_match".lower(), []))
+                                spec_task_params.get("job4_edit_distance".lower(), []))
                )
-############## == job4_match == ###################
+############## == job4_edit_distance == ###################
 
 
-job1_distinct >> job2_join >> job3_edit_distance >> job4_match
+
+
+############## == job5_match == ###################
+job5_match_cmd = """
+echo "192.168.1.28    spark.master" >> /etc/hosts
+pip install 'phcli==0.2.16'
+phcli maxauto --cmd submit --path job5_match --context "{{ params }}" "{{ dag_run.conf }}"
+"""
+
+job5_match = BashOperator(
+                    task_id="job5_match",
+                    bash_command=job5_match_cmd,
+                    dag=dag,
+                    params=dict(common_task_params +
+                                spec_task_params.get("job5_match".lower(), []))
+               )
+############## == job5_match == ###################
+
+
+
+job1_distinct >> job2_human_replace >> job3_join >> job4_edit_distance >> job5_match

@@ -19,5 +19,5 @@ def debug_execute(in_cpa_path, in_prod_path, in_hr_path, in_mhr_path, out_path, 
 
 
 if __name__ == '__main__':
-	debug_execute()
+    debug_execute()
 

@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: alfred
+  description: "pharbers job description"
+  labels:
+    name: alfred
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: out_path
+        value: "s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfi_check/0.0.3"
+      - key: in_hrpackid_path
+        value: "s3a://ph-max-auto/2020-08-11/BPBatchDAG/human_replace_packid"
+    outputs:
+      - key: a
+        value: abcde
+      - key: b
+        value: 6789
+
