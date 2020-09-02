@@ -242,8 +242,9 @@ paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_uni
         city_list = [u'北京市', u'上海市', u'天津市', u'重庆市', u'广州市', u'深圳市', u'西安市', u'大连市', u'成都市', u'厦门市', u'沈阳市']
         Province_list = [u'河北省', u'福建省', u'河北', u"福建"]
         
-        if project_name == u"贝达":
-            panel_add_data = panel_add_data.where(panel_add_data.Molecule != u"奥希替尼")
+        if monthly_update == "False":
+            if project_name == u"贝达":
+                panel_add_data = panel_add_data.where(panel_add_data.Molecule != u"奥希替尼")
 
         # 去除 city_list和 Province_list
         if project_name != "Janssen":
