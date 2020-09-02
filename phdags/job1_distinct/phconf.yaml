@@ -21,7 +21,7 @@ spec:
       - key: in_mhr_path
         value: "s3a://ph-stream/common/public/mole_human_replace/0.0.1"
       - key: out_path
-        value:  "s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfi_check/0.0.3"
+        value:  "s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfi_check/0.0.4"
       - key: min_keys_lst
         value: ["MOLE_NAME", "PRODUCT_NAME", "SPEC", "DOSAGE", "PACK_QTY", "MANUFACTURER_NAME"]
     outputs:

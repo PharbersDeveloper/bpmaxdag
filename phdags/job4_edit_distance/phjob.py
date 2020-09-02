@@ -32,8 +32,10 @@ def execute(out_path):
 		def spec_transform(input_data):
 			# TODO: （）后紧跟单位的情况无法处理
 			# eg 1% (150+37.5)MG 15G 拆成['(150+37.5)', '1% MG', '15G']
+			input_data = input_data.replace("μ", "U").replace("万", "T")
 			bracket_regex = '\((.*?)\)'
 			bracket_dict = re.findall(bracket_regex, input_data.upper())
+			
 			if len(bracket_dict) == 1:
 				bracket_item = '(' + bracket_dict[0] + ')'
 				bracket_dict = [bracket_item]
@@ -47,7 +49,8 @@ def execute(out_path):
 				bracket_item = ""
 				other_str = input_data.upper().replace(bracket_item, "")
 	
-			regex = r"CO|[0-9]*[.:]?[0-9]+\s*[A-Za-z%]*/?\s*[A-Za-z%]*"
+			regex = r"CO|[0-9]\d*\.?\d*\s*[A-Za-z%]*/?\s*[A-Za-z%]+"
+			# r"CO|[0-9]+.?[0-9]+\s*[A-Za-z%]*/?\s*[A-Za-z%]+"
 			other_item = re.findall(regex, other_str)
 			items = bracket_dict + other_item
 	
@@ -57,7 +60,8 @@ def execute(out_path):
 			# 输入一个数字+单位的str，输出同一单位后的str
 	
 			# 拆分数字和单位
-			digit_regex = '[0-9.]*'
+			digit_regex = '\d+\.?\d*e?-?\d*?'
+			# digit_regex = '0.\d*'
 			value = re.findall(digit_regex, spec_str)[0]
 			unit = spec_str.strip(value)  # type = str
 			# value = float(value)  # type = float
@@ -70,13 +74,13 @@ def execute(out_path):
 			if unit == "G" or unit == "GM":
 				value = round(value *1000, 2)
 			elif unit == "UG":
-				value = round(value /1000, 2)
+				value = round(value /1000, 4)
 			elif unit == "L":
 				value = round(value *1000, 2)
-			elif unit == "万U":
+			elif unit == "TU" or unit == "TIU":
 				value = round(value *10000, 2)
-			elif unit == "MU" or unit == "MIU":
-				value = round(value /1000, 4)
+			elif unit == "MU" or unit == "MIU" or unit == "M":
+				value = round(value *1000000, 2)
 	
 			# unit transform
 			unit_switch = {
@@ -88,9 +92,11 @@ def execute(out_path):
 					"AXAU": "U",
 					"AXAIU": "U",
 					"IU": "U",
-					"万U": "U",
+					"TU": "U",
+					"TIU": "U",
 					"MU": "U",
 					"MIU": "U",
+					"M": "U",
 				}
 				
 			try:	
@@ -128,13 +134,14 @@ def execute(out_path):
 							for ingre in multi_ingre_lst:
 								ingre_str = ingre_str + unit_transform(ingre) + "+"
 						final_dict["spec"].append(ingre_str[:-1])
+					elif re.search(r'^[\u4e00-\u9fa5]+', item):  # 是中文开头的情况
+						pass
 					elif re.search('[0-9]+(\.\d+)?[A-Za-z]+', item): # 只有数字+单位 执行unit transform
 						final_dict["spec"].append(unit_transform(item))
 					else: # 其余情况 舍弃
 						pass
 				
 				elif item.endswith("%"):  # 如果是百分比，直接写入"percentage": ""
-					print(item)
 					final_lst.append(item)
 					final_dict["percentage"] = item
 				
@@ -261,8 +268,21 @@ def execute(out_path):
 	def spec(in_value, check_value):
 		new_in_spec = spec_reformat(in_value)
 		new_check_spec = spec_reformat(check_value)
-	
-		return edit_distance(new_in_spec, new_check_spec)
+		
+		lsta = new_in_spec.replace("CO", "").split()
+		lstb = new_check_spec.replace("CO", "").split()
+		
+		if lsta and lstb:
+			if (len(lsta) == 1) and (len(lstb) == 2) and (lsta[0] in lstb):
+				return 0
+			elif (len(lstb) == 1) and (len(lsta) == 2) and (lstb[0] in lsta):
+				return 0
+			elif (len(lsta) == 2) and (len(lstb) == 2) and (lsta[0] == lstb[1]) and (lsta[1] == lstb[0]):
+					return 0
+			else:
+				return edit_distance(new_in_spec, new_check_spec)
+		else:
+			return edit_distance(new_in_spec, new_check_spec)
 		
 	@func.udf(returnType=IntegerType())			
 	def edit_distance_total(ed_DOSAGE, ed_SPEC, ed_PACK, ed_MNF_NAME_CH, ed_MNF_NAME_EN, ed_PROD_NAME_CH):
@@ -295,7 +315,7 @@ def execute(out_path):
 			cpa_ed = cpa_ed.withColumn(check_name.replace("check", "ed"), spec(in_name, check_name))
 	cpa_ed = cpa_ed.withColumn("ed_total", edit_distance_total("ed_DOSAGE", "ed_SPEC", "ed_PACK", "ed_MNF_NAME_CH", "ed_MNF_NAME_EN", "ed_PROD_NAME_CH"))
 
-	# cpa_ed.show(3)
+	# cpa_ed.select("in_SPEC", "check_SPEC", "ed_SPEC", "ed_total").show(100)
 	# print(cpa_ed.count())  # 1181917
 	
 	# 写入

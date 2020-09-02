@@ -19,7 +19,7 @@ spec:
       # - key: prod_min_key_lst
       #   value: ["MOLE_NAME_EN", "MOLE_NAME_CH", "PROD_NAME_CH", "SPEC", "DOSAGE", "PACK", "MNF_NAME_CH", "MNF_NAME_EN", "PACK_ID"]
       - key: out_path
-        value: "s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfi_check/0.0.3"
+        value: "s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfi_check/0.0.4"
     outputs:
       - key: a
         value: abcde

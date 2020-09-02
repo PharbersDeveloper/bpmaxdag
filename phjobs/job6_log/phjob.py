@@ -29,27 +29,27 @@ def execute():
 	print("程序start: job6 log")
 	
 	os.environ["PYSPARK_PYTHON"] = "python3"
-	# 读取s3桶中的数据
-	# spark = SparkSession.builder \
-	# 	.master("yarn") \
-	# 	.appName("BPBatchDAG") \
-	# 	.config("spark.driver.memory", "1g") \
-	# 	.config("spark.executor.cores", "1") \
-	# 	.config("spark.executor.instance", "1") \
-	# 	.config("spark.executor.memory", "1g") \
-	# 	.config('spark.sql.codegen.wholeStage', False) \
-	# 	.enableHiveSupport() \
-	# 	.getOrCreate()
+	# spark define
+	spark = SparkSession.builder \
+		.master("yarn") \
+		.appName("BPBatchDAG") \
+		.config("spark.driver.memory", "1g") \
+		.config("spark.executor.cores", "1") \
+		.config("spark.executor.instance", "1") \
+		.config("spark.executor.memory", "1g") \
+		.config('spark.sql.codegen.wholeStage', False) \
+		.enableHiveSupport() \
+		.getOrCreate()
 
-	# access_key = os.getenv("AWS_ACCESS_KEY_ID")
-	# secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
-	# if access_key is not None:
-	# 	spark._jsc.hadoopConfiguration().set("fs.s3a.access.key", access_key)
-	# 	spark._jsc.hadoopConfiguration().set("fs.s3a.secret.key", secret_key)
-	# 	spark._jsc.hadoopConfiguration().set("fs.s3a.impl","org.apache.hadoop.fs.s3a.S3AFileSystem")
-	# 	spark._jsc.hadoopConfiguration().set("com.amazonaws.services.s3.enableV4", "true")
-	# 	# spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
-	# 	spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
+	access_key = os.getenv("AWS_ACCESS_KEY_ID")
+	secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+	if access_key is not None:
+		spark._jsc.hadoopConfiguration().set("fs.s3a.access.key", access_key)
+		spark._jsc.hadoopConfiguration().set("fs.s3a.secret.key", secret_key)
+		spark._jsc.hadoopConfiguration().set("fs.s3a.impl","org.apache.hadoop.fs.s3a.S3AFileSystem")
+		spark._jsc.hadoopConfiguration().set("com.amazonaws.services.s3.enableV4", "true")
+		# spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
+		spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
 		
 	in_prod_path = "s3a://ph-stream/common/public/prod/0.0.15"
 	 
@@ -59,7 +59,7 @@ def execute():
 	 
 	def phizer_check(): 
 		# 我匹配出来的结果
-		cpa_match = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfi_check/0.0.3/cpa_match") \
+		cpa_match = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfi_check/0.0.4/cpa_match") \
 								.withColumn("PACK_ID", pack_id("PACK_ID"))
 		# cpa_input_data = spark.read.parquet("s3a://ph-stream/common/public/pfizer_test/0.0.1")
 		# 测试数据
@@ -98,8 +98,12 @@ def execute():
 		print(wrong_ed.count())  # 1536
 		
 		# 计算编辑距离出错的写入s3
-		# out_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfi_check/0.0.1/wrong_ed"
+		# out_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfi_check/0.0.4/wrong_ed"
 		# wrong_ed.write.format("parquet").mode("overwrite").save(out_path)
+		# print("写入 " + out_path + " 完成")
+		
+		# out_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfi_check/0.0.4/wrong_hr"
+		# wrong_hr.write.format("parquet").mode("overwrite").save(out_path)
 		# print("写入 " + out_path + " 完成")
 		
 	def human_replace_packid_check():
@@ -154,8 +158,8 @@ def execute():
 		# print(df.count())  # 44142 pack_id已经全部去重
 
 	def ed_wrong_check():
-		wrong_ed = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfi_check/0.0.1/wrong_ed") \
-							 .drop("version", "id", "ed_PROD_NAME_CH", "ed_MNF_NAME_EN")
+		wrong_ed = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfi_check/0.0.4/wrong_ed") \
+							 .drop("version", "id", "ed_MNF_NAME_EN")
 		# wrong_ed.show(3)
 		# print(wrong_ed.count())
 		product_data = product_data = spark.read.parquet(in_prod_path) \
@@ -175,20 +179,20 @@ def execute():
 							  how="left")
 							  
 		check.select( \
-		# 	         #"MANUFACTURER_NAME", "match_MANUFACTURER_NAME_CH", "right_MNF_NAME", "ed_MNF_NAME_CH"\
-		# 			 #"PRODUCT_NAME", "match_PRODUCT_NAME", "right_PROD_NAME", \
+			         "MANUFACTURER_NAME", "match_MANUFACTURER_NAME_CH", "right_MNF_NAME", "ed_MNF_NAME_CH", \
+					 "PRODUCT_NAME", "match_PRODUCT_NAME", "right_PROD_NAME", "ed_PROD_NAME_CH", \
 		# 			 #"DOSAGE", "match_DOSAGE", "right_DOSAGE", "ed_DOSAGE", \
 		# 			 #"PACK_QTY", "match_PACK_QTY", "right_PACK", \
-					 "SPEC", "match_SPEC", "right_SPEC", "ed_SPEC", \
-					 "ed_total").show(1000)
+					 #"SPEC", "match_SPEC", "right_SPEC", "ed_SPEC", \
+					 "ed_total").show(500)
 		
-		spec_test1 = check.select("SPEC", "right_SPEC").distinct()
-		spec_test1.show(3)
+		# spec_test1 = check.select("SPEC", "right_SPEC").distinct()
+		# spec_test1.show(3)
 		# out_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/spec_test_data"
 		# spec_test1.write.format("parquet").mode("overwrite").save(out_path)
 		# print("写入 " + out_path + " 完成")
 		
-	# @func.udf(returnType=StringType())
+	@func.udf(returnType=StringType())
 	def spec_reformat(input_str):
 		def spec_transform(input_data):
 			# TODO: （）后紧跟单位的情况无法处理
@@ -196,6 +200,7 @@ def execute():
 			input_data = input_data.replace("μ", "U").replace("万", "T")
 			bracket_regex = '\((.*?)\)'
 			bracket_dict = re.findall(bracket_regex, input_data.upper())
+			
 			if len(bracket_dict) == 1:
 				bracket_item = '(' + bracket_dict[0] + ')'
 				bracket_dict = [bracket_item]
@@ -209,7 +214,8 @@ def execute():
 				bracket_item = ""
 				other_str = input_data.upper().replace(bracket_item, "")
 	
-			regex = r"CO|[0-9]+.?[0-9]+\s*[A-Za-z%]*/?\s*[A-Za-z%]+"
+			regex = r"CO|[0-9]\d*\.?\d*\s*[A-Za-z%]*/?\s*[A-Za-z%]+"
+			# r"CO|[0-9]+.?[0-9]+\s*[A-Za-z%]*/?\s*[A-Za-z%]+"
 			other_item = re.findall(regex, other_str)
 			items = bracket_dict + other_item
 	
@@ -219,7 +225,8 @@ def execute():
 			# 输入一个数字+单位的str，输出同一单位后的str
 	
 			# 拆分数字和单位
-			digit_regex = '[0-9.]*'
+			digit_regex = '\d+\.?\d*e?-?\d*?'
+			# digit_regex = '0.\d*'
 			value = re.findall(digit_regex, spec_str)[0]
 			unit = spec_str.strip(value)  # type = str
 			# value = float(value)  # type = float
@@ -237,8 +244,8 @@ def execute():
 				value = round(value *1000, 2)
 			elif unit == "TU" or unit == "TIU":
 				value = round(value *10000, 2)
-			elif unit == "MU" or unit == "MIU":
-				value = round(value /1000, 4)
+			elif unit == "MU" or unit == "MIU" or unit == "M":
+				value = round(value *1000000, 2)
 	
 			# unit transform
 			unit_switch = {
@@ -254,6 +261,7 @@ def execute():
 					"TIU": "U",
 					"MU": "U",
 					"MIU": "U",
+					"M": "U",
 				}
 				
 			try:	
@@ -291,13 +299,14 @@ def execute():
 							for ingre in multi_ingre_lst:
 								ingre_str = ingre_str + unit_transform(ingre) + "+"
 						final_dict["spec"].append(ingre_str[:-1])
+					elif re.search(r'^[\u4e00-\u9fa5]+', item):  # 是中文开头的情况
+						pass
 					elif re.search('[0-9]+(\.\d+)?[A-Za-z]+', item): # 只有数字+单位 执行unit transform
 						final_dict["spec"].append(unit_transform(item))
 					else: # 其余情况 舍弃
 						pass
 				
 				elif item.endswith("%"):  # 如果是百分比，直接写入"percentage": ""
-					print(item)
 					final_lst.append(item)
 					final_dict["percentage"] = item
 				
@@ -338,11 +347,11 @@ def execute():
 			return final_spec_str.strip()
 	
 		split_item_dict = spec_transform(input_str)  # 输入str 返回值是dict
-		print(split_item_dict)
+		# print(split_item_dict)
 		final_dict = classify_item(split_item_dict) # 输入dict 返回值是dict
-		print(final_dict)
+		# print(final_dict)
 		final_spec = get_final_spec(final_dict) # 输入dict 返回值是str
-		print(final_spec)
+		# print(final_spec)
 		return final_spec
 
 
@@ -355,23 +364,60 @@ def execute():
 						   
 		df.show(2)
 		
-		spec_reformat_wrong = df.filter(df.SPEC_reformat != df.right_SPEC_reformat)
+		spec_reformat_wrong = df.filter(df.ed_SPEC != "0")
 		spec_reformat_wrong.show(300)
-		# print(spec_reformat_wrong.count())  # 426
+		print(spec_reformat_wrong.count())  # 426
 
 		
-			
+	def hr_check():
+		wrong_hr = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfi_check/0.0.4/wrong_hr") \
+							 .drop("MOLE_NAME", "PRODUCT_NAME", "DOSAGE", "SPEC", "PACK_QTY", "MANUFACTURER_NAME", "version", "id", \
+							       "ed_DOSAGE", "ed_PROD_NAME_CH", "ed_PACK", "ed_MNF_NAME_CH", "ed_MNF_NAME_EN", "ed_SPEC", "ed_total")
+		wrong_hr.show(4)
+		product_data = spark.read.parquet(in_prod_path).select("PACK_ID", "MOLE_NAME_CH", "PROD_NAME_CH", "MNF_NAME_CH", "DOSAGE", "SPEC", "PACK") \
+													   .withColumnRenamed("PACK_ID", "prod_PACK_ID") \
+													   .withColumnRenamed("MOLE_NAME_CH", "prod_MOLE_NAME") \
+													   .withColumnRenamed("PROD_NAME_CH", "prod_PROD_NAME") \
+													   .withColumnRenamed("MNF_NAME_CH", "prod_MNF_NAME") \
+													   .withColumnRenamed("DOSAGE", "prod_DOSAGE") \
+													   .withColumnRenamed("SPEC", "prod_SPEC") \
+													   .withColumnRenamed("PACK", "prod_PACK") 
+														
+		wrong_hr = wrong_hr.join(product_data, \
+					  wrong_hr.PACK_ID_CHECK == product_data.prod_PACK_ID, \
+					  how="left")
+					  
+		# wrong_hr.show(5)
+		
+		wrong_hr.select( \
+			            "in_PRODUCT_NAME", "match_PRODUCT_NAME", "prod_PROD_NAME", \
+			            ).show()
+		# print(wrong_hr.count())  # 54
 	
 	
 	# main:
 	
-	# phizer_check()  # 检查有多少匹配错误的 包括hr和ed分别两种的数量
+	phizer_check()  # 检查有多少匹配错误的 包括hr和ed分别两种的数量
 	# prod_check()
 	# ed_wrong_check()
-	# spec_reformat_test()
-	print(spec_reformat("10g:200万IU") == "10000.0MG 2000000.0U")
-	print(spec_reformat("倍氯米松50μg") == "0.05MG")
-	print(spec_reformat("50UG/200DOS") == "0.05MG 200.0DOS")
+	# spec_reformat_test()  # 将错误匹配的剂型信息对比一下
+	# hr_check()
+	
+	# print(spec_reformat("10g:200万IU") == "10000.0MG 2000000.0U")
+	# print(spec_reformat("倍氯米松50μg") == "0.05MG")
+	# print(spec_reformat("50UG/200DOS") == "0.05MG 200.0DOS")
+	# print(spec_reformat("3MU 1ML") == "3000000.0U 1.0ML")
+	# print(spec_reformat("3.40MU 1.2ML") == "3400000.0U 1.2ML")
+	# print(spec_reformat("3.4mg/ml 1.2ML") == "3.4MG/ML 1.2ML")
+	# print(spec_reformat("CO 1.25 GM") == "CO 1250.0MG")
+	# print(spec_reformat("5% 100ML") == "5.0ML 100.0ML")
+	# print(spec_reformat("5%(1G/20G) 20G") == "1.0G/20G 20000.0MG")
+	# print(spec_reformat("1M 5G") == "1000000.0U 5000.0MG")
+	# print(spec_reformat("1g(亚胺培南0.5g,西司他丁0.5g)") == "1000000.0U 5000.0MG")
+	# print(spec_reformat("20.0ml 0.4g") == "20.0ML 400.0MG")
+	# print(spec_reformat("50万U") == spec_reformat("0.5MU"))
+	# print(spec_reformat("25% 250ML") == spec_reformat("62.5ML 250.0ML"))
+	# print(spec_reformat("110MG(按伊曲康唑计100MG)") == "110.0MG")
 
 
 	print("程序end: job6 log")
