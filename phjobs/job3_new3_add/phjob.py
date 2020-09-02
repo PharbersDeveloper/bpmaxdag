@@ -87,7 +87,7 @@ def execute(max_path, project_name, out_path, out_dir):
     result_mnc_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/result_mnc"
     result_vbp_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/result_vbp"
     '''
-    # ==========
+    # =============== 数据执行 =================
     
     #%% Read-in 
     df_sales = spark.read.parquet(df_sales_path)
@@ -152,7 +152,7 @@ def execute(max_path, project_name, out_path, out_dir):
     
     data_local = data_vbp.where(data_vbp.MNF_TYPE == 'L')   
     
-    # ======================
+    
     '''
     PART 2
     生成近邻名单，并且保存全局
@@ -205,6 +205,7 @@ def execute(max_path, project_name, out_path, out_dir):
     '''
     
     # =========== MovAvg ===========
+    
     # %% Moving average先补一批non-VBP
     def pandas_udf_MovAvg_func(data_mole, level, date, near_hosp_sku):
         import pandas as pd

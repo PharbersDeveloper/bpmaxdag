@@ -77,6 +77,51 @@ data_info = data_info.withColumn("Province" , \
 
 # =========== 
 
+def get_niches(data, weidao, vbp = False):
+    
+target=np.where(vbp, 'Units', 'Sales').item()
+
+# 一个ID对应多个data    
+weidao = weidao.withColumnRenamed("Date", "Date_weidao") \
+        .withColumnRenamed("ID", "ID_weidao")
+
+# 未到id的历史数据：ID 都是在weidao中的，日期小于id 未到日期
+data_all = data.join(weidao, data.ID == weidao.ID_weidao, how="inner")
+# data_all.select("ID","Date","Sales","ID_weidao","Date_weidao").show()
+data_his_hosp = data_all.where(data_all.Date < data_all.Date_weidao) \
+            .select('ID', 'pfc', 'Province').distinct()
+
+# 日期在未到中，Province在历史中: 有问题，Province 是要分id的 
+data_all_Date = data.join(weidao, data.Date == weidao.Date_weidao, how="inner")
+
+data_same_date = data_all_Date.join(data_his_hosp.select("ID", "Province"), on=["ID", "Province"], how="inner") \
+                .select('ID', 'Date', 'pfc', 'VBP_prod').distinct()
+
+data_missing = data_same_date.join(data_his_hosp, how='left', on='pfc')
+
+data_missing = data_missing.where((data_missing.VBP_prod == "True") | (~data_missing.Province.isNull()))
+
+data_missing = data_missing.withColumn(target, func.lit(3.1415926))
+
+df = df.repartition(2)
+df.write.format("parquet") \
+.mode("overwrite").save("s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/df_tmp")
+
+
+df = data.select('ID','Date','pfc', target) \
+        .union(data_missing.select('ID','Date','pfc', target)) \
+        .withColumn("Date", func.concat(func.lit('Date'), data.Date))
+
+
+# data_info 中 ID|Date|pfc 个别有多条Sales，目前取均值
+df = df.groupBy("ID", "pfc").pivot("Date").agg(func.mean(target)).fillna(0)
+
+# df = df.replace(3.1415926, np.nan, inplace=True)
+# 将3.1415926替换为null
+for eachcol in df.columns:
+    df = df.withColumn(eachcol, func.when(df[eachcol] == 3.1415926, None).otherwise(df[eachcol]))
+
+
 def pandas_udf_get_niches_func(data, weidao, vbp):
     examples=pd.DataFrame()
     target = np.where(vbp, 'Units', 'Sales').item()

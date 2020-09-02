@@ -72,7 +72,7 @@ def execute(max_path, project_name, out_path, out_dir):
     df_near_hosp_mnc_sku_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/df_near_hosp_mnc_sku"
     '''
     
-    # ==========
+    # =============== 数据执行 =================
     
     '''
     PART 2

@@ -67,7 +67,8 @@ def execute(max_path, project_name, out_path, out_dir):
     df_sales_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/df_sales"
     df_units_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/df_units"
     '''
-    # ===============
+    # =============== 数据执行 =================
+    
     data = spark.read.parquet(data_path)
     
     weidao = spark.read.csv(weidao_path, header=True)
