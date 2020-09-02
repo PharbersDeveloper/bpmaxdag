@@ -40,8 +40,7 @@ def execute(max_path, project_name, out_path, out_dir):
         spark._jsc.hadoopConfiguration().set("com.amazonaws.services.s3.enableV4", "true")
         # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
         spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
-            
-    '''
+    '''        
     max_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/"
     project_name = "New_add_test"
     out_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/"
@@ -262,7 +261,6 @@ def execute(max_path, project_name, out_path, out_dir):
             StructField("ID", StringType(), True),
             StructField(level, StringType(), True),
             StructField(current_date, DoubleType(), True)
-            # StructField("Date", StringType(), True)
             ])
         @pandas_udf(schema, PandasUDFType.GROUPED_MAP)    
         def pandas_udf_MovAvg(df):
@@ -324,8 +322,8 @@ def execute(max_path, project_name, out_path, out_dir):
                                        ['ID', min_level, current_col]]. \
             reset_index(drop=True)
         for i in range(len(data_month_na)):
-            na_id = str(int(data_month_na.loc[i].ID))
-            na_min = int(data_month_na.loc[i][min_level])
+            na_id = data_month_na.loc[i].ID
+            na_min = data_month_na.loc[i][min_level]
             if (len(near_hosp[na_id]['NN']) == 3):
                 nn_values = [np.hstack((data_month.loc[(data_month.ID == near_hosp[na_id]['NN'][c]) &
                                                        (data_month[min_level] == na_min),
@@ -352,7 +350,6 @@ def execute(max_path, project_name, out_path, out_dir):
             StructField("ID", StringType(), True),
             StructField(level, StringType(), True),
             StructField(current_date, DoubleType(), True)
-            # StructField("Date", StringType(), True)
             ])
         @pandas_udf(schema, PandasUDFType.GROUPED_MAP)    
         def pandas_udf_MovAvg(df):
@@ -389,6 +386,7 @@ def execute(max_path, project_name, out_path, out_dir):
     result_mnc = spark.read.parquet(result_mnc_path)
     
     # %% Local
+    # *** yyw *** isnan 改为isnull
     result_local = data_local
     for i in range(201901, 201912 + 1):
         temp_date = result_local.columns
@@ -396,7 +394,7 @@ def execute(max_path, project_name, out_path, out_dir):
         current_cols = 'Date' + str(i)
         past_cols = result_local.columns[current_index - 3:current_index]
         result_local = result_local.withColumn(current_cols, \
-                                        func.when(func.isnan(result_local[current_cols]), \
+                                        func.when(func.isnull(result_local[current_cols]), \
                                         (result_local[past_cols[0]] + result_local[past_cols[1]] + result_local[past_cols[2]])/3) \
                                         .otherwise(result_local[current_cols]))
     result_vbp = result_mnc.union(result_local.select(result_mnc.columns)).fillna(0)

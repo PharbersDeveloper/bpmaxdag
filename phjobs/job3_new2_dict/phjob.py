@@ -129,7 +129,6 @@ def execute(max_path, project_name, out_path, out_dir):
     for eachcol in data_non_vbp.columns:
         if "_Sales" in eachcol:
             data_non_vbp = data_non_vbp.withColumnRenamed(eachcol, eachcol.replace("_Sales", ""))
-    data_non_vbp.persist()
     
     data_vbp = data_prod.where(data_prod.VBP_mole == "True") \
                 .drop(*[i for i in data_prod.columns if "Sales" in i])
