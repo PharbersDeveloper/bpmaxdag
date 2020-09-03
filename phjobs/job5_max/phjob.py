@@ -15,7 +15,7 @@ all_models, universe_choice, if_others, out_path, out_dir, need_test):
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \
-        .config("spark.driver.memory", "1g") \
+        .config("spark.driver.memory", "2g") \
         .config("spark.executor.cores", "1") \
         .config("spark.executor.instance", "1") \
         .config("spark.executor.memory", "1g") \

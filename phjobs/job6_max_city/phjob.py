@@ -16,7 +16,7 @@ all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, mi
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \
-        .config("spark.driver.memory", "1g") \
+        .config("spark.driver.memory", "2g") \
         .config("spark.executor.cores", "1") \
         .config("spark.executor.instance", "1") \
         .config("spark.executor.memory", "1g") \
@@ -89,6 +89,7 @@ all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, mi
     # 输出
     time_range = str(time_left) + '_' + str(time_right)
     max_result_city_path = out_path_dir + "/MAX_result/MAX_result_" + time_range + "_city_level"
+    max_result_city_tmp_path = out_path_dir + "/MAX_result/city_level_tmp"
     max_result_city_csv_path = out_path_dir + "/MAX_result/MAX_result_" + time_range + "_city_level.csv"
     
     # =========== 数据执行 =============
@@ -257,13 +258,23 @@ all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, mi
         
         max_result = max_result.withColumn("DOI", func.lit(market))
         
+        
         if index ==0:
-            max_result_all = max_result
+            # max_result_all = max_result
+            max_result = max_result.repartition(1)
+            max_result.write.format("parquet") \
+                .mode("overwrite").save(max_result_city_tmp_path)
+            
         else:
-            max_result_all = max_result_all.union(max_result)
+            # max_result_all = max_result_all.union(max_result)
+            max_result = max_result.repartition(1)
+            max_result.write.format("parquet") \
+                .mode("append").save(max_result_city_tmp_path)
     
         index = index + 1
         
+    
+    max_result_all = spark.read.parquet(max_result_city_tmp_path)
     
     # 3. 合并raw_data 和 max文件处理
     
