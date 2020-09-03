@@ -5,10 +5,9 @@
   * @author yzy
   * @version 0.0
   * @since 2020/08/19
-  * @note 输入数据：cpa_ed （ed_total列是总编辑距离）
-					human_replace
-					product_data
-		落盘数据：cpa_match
+  * @note 不在自动化流程中，用于生成
+							1. 带pack_id的human_replace_packid表
+							2. prod表列名重命名
   
 """
 

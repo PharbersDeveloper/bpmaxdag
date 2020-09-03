@@ -5,10 +5,7 @@
   * @author yzy
   * @version 0.0
   * @since 2020/08/19
-  * @note 输入数据：cpa_ed （ed_total列是总编辑距离）
-					human_replace
-					product_data
-		落盘数据：cpa_match
+  * @note 落盘数据：cpa_match
   
 """
 

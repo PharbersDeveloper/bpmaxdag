@@ -1,12 +1,11 @@
 # -*- coding: utf-8 -*-
 """alfredyang@pharbers.com.
 
-功能描述：job6: join 回cpa 数据+生成日志 
+功能描述：job6: 不在自动化流程中 用于各种检查匹配错误的数据 
   * @author yzy
   * @version 0.0
   * @since 2020/08/25
-  * @note 输入数据：cpa_match
-		落盘数据：
+  * @note:
   
 """
 
