@@ -259,7 +259,8 @@ def execute(out_path):
 			in_value = in_value.replace(redundancy, "")
 			check_value = check_value.replace(redundancy, "")
 			
-		if (in_value in check_value) or (check_value in in_value):
+		if (in_value in check_value):
+		# or (check_value in in_value):
 			return 0
 		else:
 			return edit_distance(in_value, check_value)
@@ -271,7 +272,7 @@ def execute(out_path):
 		
 		lsta = new_in_spec.replace("CO", "").split()
 		lstb = new_check_spec.replace("CO", "").split()
-		
+	
 		if lsta and lstb:
 			if (len(lsta) == 1) and (len(lstb) == 2) and (lsta[0] in lstb):
 				return 0
@@ -287,7 +288,7 @@ def execute(out_path):
 	@func.udf(returnType=IntegerType())			
 	def edit_distance_total(ed_DOSAGE, ed_SPEC, ed_PACK, ed_MNF_NAME_CH, ed_MNF_NAME_EN, ed_PROD_NAME_CH):
 		# 计算总编辑距离
-		ed = ed_DOSAGE + 10*ed_SPEC + 50*ed_PACK + 10*min(ed_MNF_NAME_CH, ed_MNF_NAME_EN) + ed_PROD_NAME_CH
+		ed = ed_DOSAGE + 10*ed_SPEC + 60*ed_PACK + 35*min(ed_MNF_NAME_CH, ed_MNF_NAME_EN) + ed_PROD_NAME_CH
 		return ed
 			
 	mapping_config = {
@@ -299,8 +300,7 @@ def execute(out_path):
 		'check_SPEC': "in_SPEC",
 	}
 	
-	# 判断是否需要计算编辑距离 并把bool类型的结果写入新列"bool_colname"
-	# 如果编辑距离可以直接判断为0，为true，如果需要后续计算编辑距离，为true
+	# 编辑距离计算（0或过算法计算）
 	cpa_ed = cpa_prod_join_data
 	for check_name, in_name in mapping_config.items():
 		if (check_name == "check_DOSAGE") or (check_name == "check_PROD_NAME_CH"):

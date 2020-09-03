@@ -90,7 +90,7 @@ def execute():
 		print(wrong.count())  # 1590
 		
 		wrong_hr = wrong.filter(cpa_examine.mark == "hr")
-		print(wrong_hr.count())  # 54
+		# print(wrong_hr.count())  # 54
 		
 		wrong_ed = wrong.filter(cpa_examine.mark == "ed").na.fill("")
 		# wrong_ed.show(4)
@@ -159,18 +159,18 @@ def execute():
 
 	def ed_wrong_check():
 		wrong_ed = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfi_check/0.0.4/wrong_ed") \
-							 .drop("version", "id", "ed_MNF_NAME_EN")
+							 .drop("version", "id", )
 		# wrong_ed.show(3)
 		# print(wrong_ed.count())
-		product_data = product_data = spark.read.parquet(in_prod_path) \
-												.select("PACK_ID", "MOLE_NAME_CH", "MNF_NAME_CH", "DOSAGE", "SPEC", "PACK", "PROD_NAME_CH") \
-												.withColumnRenamed("PACK_ID", "right_PACK_ID") \
-												.withColumnRenamed("MOLE_NAME_CH", "right_MOLE_NAME") \
-												.withColumnRenamed("MNF_NAME_CH", "right_MNF_NAME") \
-												.withColumnRenamed("DOSAGE", "right_DOSAGE") \
-												.withColumnRenamed("SPEC", "right_SPEC") \
-												.withColumnRenamed("PACK", "right_PACK") \
-												.withColumnRenamed("PROD_NAME_CH", "right_PROD_NAME")
+		product_data = spark.read.parquet(in_prod_path) \
+								.select("PACK_ID", "MOLE_NAME_CH", "MNF_NAME_CH", "DOSAGE", "SPEC", "PACK", "PROD_NAME_CH") \
+								.withColumnRenamed("PACK_ID", "right_PACK_ID") \
+								.withColumnRenamed("MOLE_NAME_CH", "right_MOLE_NAME") \
+								.withColumnRenamed("MNF_NAME_CH", "right_MNF_NAME") \
+								.withColumnRenamed("DOSAGE", "right_DOSAGE") \
+								.withColumnRenamed("SPEC", "right_SPEC") \
+								.withColumnRenamed("PACK", "right_PACK") \
+								.withColumnRenamed("PROD_NAME_CH", "right_PROD_NAME")
 												
 		# product_data.show(4)
 		
@@ -179,12 +179,13 @@ def execute():
 							  how="left")
 							  
 		check.select( \
-			         "MANUFACTURER_NAME", "match_MANUFACTURER_NAME_CH", "right_MNF_NAME", "ed_MNF_NAME_CH", \
+			         "MANUFACTURER_NAME", "match_MANUFACTURER_NAME_CH", "right_MNF_NAME", "ed_MNF_NAME_CH", "ed_MNF_NAME_EN", \
+			         #"ed_SPEC", "ed_PACK", "ed_PROD_NAME_CH", "ed_DOSAGE", \
 					 "PRODUCT_NAME", "match_PRODUCT_NAME", "right_PROD_NAME", "ed_PROD_NAME_CH", \
-		# 			 #"DOSAGE", "match_DOSAGE", "right_DOSAGE", "ed_DOSAGE", \
-		# 			 #"PACK_QTY", "match_PACK_QTY", "right_PACK", \
-					 #"SPEC", "match_SPEC", "right_SPEC", "ed_SPEC", \
-					 "ed_total").show(500)
+					 "DOSAGE", "match_DOSAGE", "right_DOSAGE", "ed_DOSAGE", \
+					 "PACK_QTY", "match_PACK_QTY", "right_PACK", "ed_PACK", \
+					 "SPEC", "match_SPEC", "right_SPEC", "ed_SPEC", \
+					 "ed_total").show(30)
 		
 		# spec_test1 = check.select("SPEC", "right_SPEC").distinct()
 		# spec_test1.show(3)
@@ -192,7 +193,7 @@ def execute():
 		# spec_test1.write.format("parquet").mode("overwrite").save(out_path)
 		# print("写入 " + out_path + " 完成")
 		
-	@func.udf(returnType=StringType())
+	# @func.udf(returnType=StringType())
 	def spec_reformat(input_str):
 		def spec_transform(input_data):
 			# TODO: （）后紧跟单位的情况无法处理
@@ -373,7 +374,7 @@ def execute():
 		wrong_hr = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfi_check/0.0.4/wrong_hr") \
 							 .drop("MOLE_NAME", "PRODUCT_NAME", "DOSAGE", "SPEC", "PACK_QTY", "MANUFACTURER_NAME", "version", "id", \
 							       "ed_DOSAGE", "ed_PROD_NAME_CH", "ed_PACK", "ed_MNF_NAME_CH", "ed_MNF_NAME_EN", "ed_SPEC", "ed_total")
-		wrong_hr.show(4)
+		# wrong_hr.show(4)
 		product_data = spark.read.parquet(in_prod_path).select("PACK_ID", "MOLE_NAME_CH", "PROD_NAME_CH", "MNF_NAME_CH", "DOSAGE", "SPEC", "PACK") \
 													   .withColumnRenamed("PACK_ID", "prod_PACK_ID") \
 													   .withColumnRenamed("MOLE_NAME_CH", "prod_MOLE_NAME") \
@@ -390,16 +391,22 @@ def execute():
 		# wrong_hr.show(5)
 		
 		wrong_hr.select( \
-			            "in_PRODUCT_NAME", "match_PRODUCT_NAME", "prod_PROD_NAME", \
-			            ).show()
+			            # "in_PRODUCT_NAME", "match_PRODUCT_NAME", "prod_PROD_NAME", \
+			            # "in_MOLE_NAME", "match_MOLE_NAME_CH", "prod_MOLE_NAME", \
+			            "in_MANUFACTURER_NAME", "match_MANUFACTURER_NAME_CH", "prod_MNF_NAME", \
+			            ).show(54)
+			            
+		# wrong_hr.select( \
+		# 	            "in_PRODUCT_NAME", "match_PRODUCT_NAME", "prod_PROD_NAME", \
+		# 	            ).show()
 		# print(wrong_hr.count())  # 54
 	
 	
 	# main:
 	
-	phizer_check()  # 检查有多少匹配错误的 包括hr和ed分别两种的数量
+	# phizer_check()  # 检查有多少匹配错误的 包括hr和ed分别两种的数量
 	# prod_check()
-	# ed_wrong_check()
+	ed_wrong_check()
 	# spec_reformat_test()  # 将错误匹配的剂型信息对比一下
 	# hr_check()
 	
@@ -418,6 +425,9 @@ def execute():
 	# print(spec_reformat("50万U") == spec_reformat("0.5MU"))
 	# print(spec_reformat("25% 250ML") == spec_reformat("62.5ML 250.0ML"))
 	# print(spec_reformat("110MG(按伊曲康唑计100MG)") == "110.0MG")
+	# print(spec_reformat(" (2:1) 2.25G") == "2.25G")
+	# print(spec_reformat("依折麦布10mg,辛伐他汀20mg") == "2.25G")
+	# print(spec_reformat(" (250MG+8.77MG)") == "2.25G")
 
 
 	print("程序end: job6 log")
