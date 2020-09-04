@@ -1,30 +1,57 @@
 # -*- coding: utf-8 -*-
 """alfredyang@pharbers.com.
-This is gen cube job 
+This is gen cube job
 
 """
 
 from pyspark.sql import SparkSession
 from pyspark.sql.types import *
 from pyspark.sql import functions as func
-from phlogs.phlogs import phlogger
 from pyspark.sql.functions import lit
 from pyspark.sql.functions import floor
 from pyspark.sql.functions import monotonically_increasing_id
 from pyspark.sql.functions import udf
 from pyspark.sql.functions import col
 from pyspark.sql.streaming import *
+import logging
 import string
 from uuid import uuid4
 
 
-def execute(start, end, replace, **kwargs): 
-    
-    startDate = kwargs['start_date']
-    jobId = kwargs['job_id']
-    source = kwargs['source']
-    destPath = "s3a://ph-max-auto/" + startDate +"/cube/dest/" + jobId
-    
+def execute(**kwargs):
+
+    logging.basicConfig(format='%(asctime)s %(filename)s %(funcName)s %(lineno)d %(message)s')
+    logger = logging.getLogger('driver_logger')
+    logger.setLevel(logging.INFO)
+    logger.info("Origin kwargs = {}.".format(str(kwargs)))
+
+    # input required
+    max_result_path = kwargs['max_result_path']
+    if max_result_path == u'default':
+        raise Exception("Invalid max_result_path!", max_result_path)
+
+    cleancube_result_path = kwargs['cleancube_result_path']
+    if cleancube_result_path == u'default':
+        jobName = "cleancube"
+        version = kwargs['version']
+        if not version:
+            raise Exception("Invalid version!", version)
+        runId = kwargs['run_id']
+        if runId == u'default':
+            runId = str(uuid4())
+            logger.info("runId is " + runId)
+        jobId = kwargs['job_id']
+        if jobId == u'default':
+            jobId = str(uuid4())
+            logger.info("jobId is " + jobId)
+        destPath = "s3a://ph-max-auto/" + version +"/jobs/runId_" + runId + "/" + jobName +"/jobId_" + jobId
+        logger.info("DestPath is {}.".format(destPath))
+        cleancube_result_path = destPath + "/content"
+    logger.info("cleancube_result_path is {}.".format(cleancube_result_path))
+
+    start = kwargs['start']
+    end = kwargs['end']
+
     sd = int(start)
     ed = int(end)
     spark = SparkSession.builder \
@@ -49,7 +76,7 @@ def execute(start, end, replace, **kwargs):
         # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
         spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
 
-    phlogger.info("preparing data from hive")
+    logger.info("preparing data from hive")
 
     """
         |-- PHA: string (nullable = true)
@@ -83,11 +110,11 @@ def execute(start, end, replace, **kwargs):
             StructField("version", StringType()), \
             StructField("company", StringType()) \
         ])
-    
+
     jid = str(uuid4())
-    reading = spark.read.schema(readingSchema).parquet(source)
+    reading = spark.read.schema(readingSchema).parquet(max_result_path)
     min2prod_udf = udf(lambda x: string.split(x, "|")[0], StringType())
-   
+
     # 1. 数据清洗
     reading.filter((col("Date") < ed) & (col("Date") > sd)) \
         .withColumnRenamed("Province", "PROVINCE_NAME") \
@@ -116,5 +143,4 @@ def execute(start, end, replace, **kwargs):
         .partitionBy("YEAR", "MONTH", "COMPANY") \
         .format("parquet") \
         .mode("overwrite") \
-        .save(destPath + "/content")
-    
+        .save(cleancube_result_path)
