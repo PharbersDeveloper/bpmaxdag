@@ -5,7 +5,7 @@
   * @author yzy
   * @version 0.0
   * @since 2020/08/11
-  * @note
+  * @note  落盘数据：cpa_distinct
   
 """
 

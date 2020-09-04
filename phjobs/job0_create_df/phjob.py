@@ -110,6 +110,28 @@ def execute():
 		# prod_renamed.write.format("parquet").mode("overwrite").save(out_path)
 		# print("写入 " + out_path + " 完成")
 		
+		
+		
+	def sechma_reformat():
+		azsanofi_check = spark.read.parquet("s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/202006/prod_mapping")
+		
+		azsanofi_check = azsanofi_check.select("Molecule", "Brand", "Form", "Specifications", "Pack_Number", "Manufacturer", "PFC（来自于文博的外部版本，文博版本的变动需要加到这里）") \
+										.withColumnRenamed("Molecule", "MOLE_NAME") \
+										.withColumnRenamed("Brand", "PRODUCT_NAME") \
+										.withColumnRenamed("Form", "DOSAGE") \
+										.withColumnRenamed("Specifications", "SPEC") \
+										.withColumnRenamed("Pack_Number", "PACK_QTY") \
+										.withColumnRenamed("Manufacturer", "MANUFACTURER_NAME") \
+										.withColumnRenamed("PFC（来自于文博的外部版本，文博版本的变动需要加到这里）", "PACK_ID_CHECK")
+										
+		out_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/azsanofi_check"								
+		azsanofi_check.write.format("parquet").mode("overwrite").save(out_path)
+		print("写入 " + out_path + " 完成")
+										
+		# azsanofi_check.show(4)
+		# print(azsanofi_check.count())
 
 
+
+	sechma_reformat()
 execute()

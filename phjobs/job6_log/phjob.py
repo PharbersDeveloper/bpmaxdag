@@ -58,13 +58,17 @@ def execute():
 	 
 	def phizer_check(): 
 		# 我匹配出来的结果
-		cpa_match = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfi_check/0.0.4/cpa_match") \
+		cpa_match = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfi_check/0.0.6/cpa_match") \
+								.na.fill("") \
 								.withColumn("PACK_ID", pack_id("PACK_ID"))
+		print(cpa_match.count())
 		# cpa_input_data = spark.read.parquet("s3a://ph-stream/common/public/pfizer_test/0.0.1")
 		# 测试数据
-		cpa_check = spark.read.parquet("s3a://ph-stream/common/public/pfizer_check") \
+		cpa_check = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/azsanofi_check") \
+		                        .na.fill("") \
 								.withColumn("PACK_ID_CHECK", pack_id("PACK_ID_CHECK")) \
 								.drop("id")
+		print(cpa_check.count())
 		
 		# cpa_match.show(5)
 		# print(cpa_match.count())  # 17230
@@ -403,9 +407,9 @@ def execute():
 	
 	# main:
 	
-	# phizer_check()  # 检查有多少匹配错误的 包括hr和ed分别两种的数量
+	phizer_check()  # 检查有多少匹配错误的 包括hr和ed分别两种的数量
 	# prod_check()
-	ed_wrong_check()
+	# ed_wrong_check()
 	# spec_reformat_test()  # 将错误匹配的剂型信息对比一下
 	# hr_check()
 	
@@ -427,6 +431,7 @@ def execute():
 	# print(spec_reformat(" (2:1) 2.25G") == "2.25G")
 	# print(spec_reformat("依折麦布10mg,辛伐他汀20mg") == "2.25G")
 	# print(spec_reformat(" (250MG+8.77MG)") == "2.25G")
+
 
 
 	print("程序end: job6 log")

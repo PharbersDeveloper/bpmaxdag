@@ -288,7 +288,7 @@ def execute(out_path):
 	@func.udf(returnType=IntegerType())			
 	def edit_distance_total(ed_DOSAGE, ed_SPEC, ed_PACK, ed_MNF_NAME_CH, ed_MNF_NAME_EN, ed_PROD_NAME_CH):
 		# 计算总编辑距离
-		ed = ed_DOSAGE + 10*ed_SPEC + 60*ed_PACK + 35*min(ed_MNF_NAME_CH, ed_MNF_NAME_EN) + ed_PROD_NAME_CH
+		ed = ed_DOSAGE + ed_SPEC + 60*ed_PACK + 35*min(ed_MNF_NAME_CH, ed_MNF_NAME_EN) + ed_PROD_NAME_CH
 		return ed
 			
 	mapping_config = {

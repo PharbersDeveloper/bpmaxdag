@@ -13,7 +13,7 @@ spec:
     config: phconf.yaml
     args:
       - key: out_path
-        value: "s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfi_check/0.0.4"
+        value: "s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfi_check/0.0.7"
       - key: in_hrpackid_path
         value: "s3a://ph-max-auto/2020-08-11/BPBatchDAG/human_replace_packid"
     outputs:
