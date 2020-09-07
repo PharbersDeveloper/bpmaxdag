@@ -86,18 +86,19 @@ weidao = weidao.withColumnRenamed("Date", "Date_weidao") \
         .withColumnRenamed("ID", "ID_weidao")
 
 # 未到id的历史数据：ID 都是在weidao中的，日期小于id 未到日期
-data_all = data.join(weidao, data.ID == weidao.ID_weidao, how="inner")
 # data_all.select("ID","Date","Sales","ID_weidao","Date_weidao").show()
+data_all = data.join(weidao, data.ID == weidao.ID_weidao, how="inner")
 data_his_hosp = data_all.where(data_all.Date < data_all.Date_weidao) \
-            .select('ID', 'pfc', 'Province').distinct()
+            .select('ID_weidao','Date','Date_weidao' ,'pfc', 'Province').distinct()
 
 # 日期在未到中，Province在历史中: 有问题，Province 是要分id的 
-data_all_Date = data.join(weidao, data.Date == weidao.Date_weidao, how="inner")
+data_all_Date = data.join(data_his_hosp.select('ID_weidao','Date_weidao','Province').withColumnRenamed("Province", "Province_his"), \
+                    data.Date == data_his_hosp.Date_weidao, how="inner") \
+                    .select("ID","Date","Sales","ID_weidao","Date_weidao","Province","Province_his")
 
-data_same_date = data_all_Date.join(data_his_hosp.select("ID", "Province"), on=["ID", "Province"], how="inner") \
-                .select('ID', 'Date', 'pfc', 'VBP_prod').distinct()
+data_same_date = data_all_Date.where(data_all_Date.Province == data_all_Date.Province_his) \
+                .select('ID_weidao' ,'Date_weidao', 'pfc', 'VBP_prod', "Province").distinct()
 
-data_missing = data_same_date.join(data_his_hosp, how='left', on='pfc')
 
 data_missing = data_missing.where((data_missing.VBP_prod == "True") | (~data_missing.Province.isNull()))
 

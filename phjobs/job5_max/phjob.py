@@ -226,45 +226,45 @@ all_models, universe_choice, if_others, out_path, out_dir, need_test):
 
         # panel 文件读取 获得 original_panel
         # original_panel = spark.read.parquet(original_panel_path)
-        original_panel = original_panel.where((original_panel.DOI == market) & (original_panel.Date >= time_left) & (original_panel.Date <= time_right))
+        original_panel = original_panel.where((original_panel.DOI == market) & (original_panel.Date >= time_left) & (original_panel.Date <= time_right)).cache() # TEST
 
 
         # 获得 panel, panel_seg：group_panel_by_seg
 
         # panel：整理成max的格式，包含了所有在universe的panel列标记为1的医院，当作所有样本医院的max
-        universe_panel_all = universe.where(universe.PANEL == 1).select('PHA', 'BEDSIZE', 'PANEL', 'Seg')
+        universe_panel_all = universe.where(universe.PANEL == 1).select('PHA', 'BEDSIZE', 'PANEL', 'Seg').cache() # TEST
         panel = original_panel \
             .join(universe_panel_all, original_panel.HOSP_ID == universe_panel_all.PHA, how="inner") \
             .groupBy('PHA', 'Province', 'City', 'Date', 'Molecule', 'Prod_Name', 'BEDSIZE', 'PANEL', 'Seg') \
-            .agg(func.sum("Sales").alias("Predict_Sales"), func.sum("Units").alias("Predict_Unit"))
+            .agg(func.sum("Sales").alias("Predict_Sales"), func.sum("Units").alias("Predict_Unit")).cache() # TEST
 
         # panel_seg：整理成seg层面，包含了所有在universe_ot的panel列标记为1的医院，可以用来得到非样本医院的max
         panel_drugincome = universe_outlier.where(universe_outlier.PANEL == 1) \
             .groupBy("Seg") \
-            .agg(func.sum("Est_DrugIncome_RMB").alias("DrugIncome_Panel"))
-        original_panel_tmp = original_panel.join(universe_outlier, original_panel.HOSP_ID == universe_outlier.PHA, how='left')
+            .agg(func.sum("Est_DrugIncome_RMB").alias("DrugIncome_Panel")).cache() # TEST
+        original_panel_tmp = original_panel.join(universe_outlier, original_panel.HOSP_ID == universe_outlier.PHA, how='left').cache() # TEST
         panel_seg = original_panel_tmp.where(original_panel_tmp.PANEL == 1) \
             .groupBy('Date', 'Prod_Name', 'Seg', 'Molecule') \
-            .agg(func.sum("Sales").alias("Sales_Panel"), func.sum("Units").alias("Units_Panel"))
-        panel_seg = panel_seg.join(panel_drugincome, on="Seg", how="left")
+            .agg(func.sum("Sales").alias("Sales_Panel"), func.sum("Units").alias("Units_Panel")).cache() # TEST
+        panel_seg = panel_seg.join(panel_drugincome, on="Seg", how="left").cache() # TEST
 
         # 将非样本的segment和factor等信息合并起来：get_uni_with_factor
         # factor = spark.read.parquet(factor_path)
         if "factor" not in factor.columns:
             factor = factor.withColumnRenamed("factor_new", "factor")
         factor = factor.select('City', 'factor')
-        universe_factor_panel = universe.join(factor, on="City", how="left")
+        universe_factor_panel = universe.join(factor, on="City", how="left").cache() # TEST
         universe_factor_panel = universe_factor_panel \
             .withColumn("factor", func.when(func.isnull(universe_factor_panel.factor), func.lit(1)).otherwise(universe_factor_panel.factor)) \
             .where(universe_factor_panel.PANEL == 0) \
-            .select('Province', 'City', 'PHA', 'Est_DrugIncome_RMB', 'Seg', 'BEDSIZE', 'PANEL', 'factor')
+            .select('Province', 'City', 'PHA', 'Est_DrugIncome_RMB', 'Seg', 'BEDSIZE', 'PANEL', 'factor').cache() # TEST
 
         # 为这些非样本医院匹配上样本金额、产品、年月、所在segment的drugincome之和
-        max_result = universe_factor_panel.join(panel_seg, on="Seg", how="left")
+        max_result = universe_factor_panel.join(panel_seg, on="Seg", how="left").cache() # TEST
 
         # 预测值等于样本金额乘上当前医院drugincome再除以所在segment的drugincome之和
         max_result = max_result.withColumn("Predict_Sales", (max_result.Sales_Panel / max_result.DrugIncome_Panel) * max_result.Est_DrugIncome_RMB) \
-            .withColumn("Predict_Unit", (max_result.Units_Panel / max_result.DrugIncome_Panel) * max_result.Est_DrugIncome_RMB)
+            .withColumn("Predict_Unit", (max_result.Units_Panel / max_result.DrugIncome_Panel) * max_result.Est_DrugIncome_RMB).cache() # TEST
 
         # 为什么有空，因为部分segment无样本或者样本金额为0：remove_nega
         max_result = max_result.where(~func.isnull(max_result.Predict_Sales))
