@@ -6,23 +6,51 @@ This is job template for Pharbers Max Job
 from pyspark.sql import SparkSession
 from pyspark.sql.types import *
 from pyspark.sql import functions as func
-from phlogs.phlogs import phlogger
 from pyspark.sql.functions import explode
 from pyspark.sql.functions import col
 from pyspark.sql.functions import monotonically_increasing_id
+import logging
 import string
 from uuid import uuid4
 import pandas as pd
 import numpy as np
 import itertools
 import ast
+import os
 
-def execute(**args):
-    
-    startDate = args['start_date']
-    jobId = args['job_id']
-    destPath = "s3a://ph-max-auto/" + startDate +"/cube/dest/" + jobId
-   
+def execute(**kwargs):
+
+    logging.basicConfig(format='%(asctime)s %(filename)s %(funcName)s %(lineno)d %(message)s')
+    logger = logging.getLogger('driver_logger')
+    logger.setLevel(logging.INFO)
+    logger.info("Origin kwargs = {}.".format(str(kwargs)))
+
+    cuboids_path = kwargs['cuboids_path']
+    lattices_path = kwargs['lattices_path']
+    dimensions_path = kwargs['dimensions_path']
+
+    if cuboids_path == u'default' or lattices_path == u'default' or dimensions_path == u'default':
+        jobName = "metacube"
+        version = kwargs['version']
+        if not version:
+            raise Exception("Invalid version!", version)
+        runId = kwargs['run_id']
+        if runId == u'default':
+            runId = str(uuid4())
+            logger.info("runId is " + runId)
+        jobId = kwargs['job_id']
+        if jobId == u'default':
+            jobId = str(uuid4())
+            logger.info("jobId is " + jobId)
+        destPath = "s3a://ph-max-auto/" + version +"/jobs/runId_" + runId + "/" + jobName +"/jobId_" + jobId
+        logger.info("DestPath is {}.".format(destPath))
+        cuboids_path = destPath + "/meta/cuboids"
+        lattices_path = destPath + "/meta/lattices"
+        dimensions_path = destPath + "/meta/dimensions"
+
+    logger.info("cuboids_path is {}.".format(cuboids_path))
+    logger.info("lattices_path is {}.".format(lattices_path))
+
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data cube create dimension") \
@@ -45,44 +73,44 @@ def execute(**args):
         # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
         spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
 
-    phlogger.info("create data cube dimensions")
- 
+    logger.info("create data cube dimensions")
+
     # init dimensions
     # dim = [
     #     ("time", ["YEAR","QUARTER","MONTH"]),
     #     ("geo", ["COUNTRY_NAME","PROVINCE_NAME","CITY_NAME"]),
     #     ("prod", ["COMPANY","MKT","MOLE_NAME","PRODUCT_NAME"])
     # ]
-    dic = ast.literal_eval(args['dimensions'])
+    dic = ast.literal_eval(kwargs['dimensions'])
     dim = dic.items()
- 
+
     schema = \
         StructType([ \
             StructField("DIMENSION", StringType()), \
             StructField("HIERARCHYS", ArrayType(StringType()))
         ])
-    
+
     df = spark.createDataFrame(dim, schema)
     df = df.withColumn("HIERARCHY",explode(col("HIERARCHYS"))).select("DIMENSION", "HIERARCHY")
-    
-    df.repartition(1).write.mode("overwrite").parquet(destPath + "/meta/dimensions")
-    
-    phlogger.info("create data cube cuboids frame")
-   
-    # time is the bucket line, not considered 
+
+    df.repartition(1).write.mode("overwrite").parquet(dimensions_path)
+
+    logger.info("create data cube cuboids frame")
+
+    # time is the bucket line, not considered
     dimensions = df.select("DIMENSION").distinct()
     dimensions.show()
     hierarchy = df.select("HIERARCHY").distinct()
     hierarchy.show()
-   
+
     local_dimensions = dimensions.toPandas()["DIMENSION"]
-    phlogger.info(local_dimensions)
-    
-    
+    logger.info(local_dimensions)
+
+
     # init the cuboids
     cuboids = []
     crs = []
-    
+
     for ld in range(len(local_dimensions) + 1):
         # 1. for all dimensions in these example is 3-D cuboid or base cuboid
         # 1.1 for n-dimension should have 2^n cuboids (or panels)
@@ -91,7 +119,7 @@ def execute(**args):
             # 1.2 construct bitmap dimension indexing
             #     also can be save the last when you want to build indexing of the cuboids
             l = list(cuboid)
-           
+
             # latice condition
             la = []
             for a in l:
@@ -102,7 +130,7 @@ def execute(**args):
             if len(la) is not 0:
                 for tmp in cartesian(la):
                     tcrs.append(tmp.tolist())
-                    
+
             cuboids.append(l)
             crs.append(tcrs)
 
@@ -111,7 +139,7 @@ def execute(**args):
     pdf.loc[:, "DIMENSION_COUNT"] = pdf["CUBOIDS"].apply(lambda x: len(x))
     pdf.loc[:, "CUBOIDS_NAME"] = pdf["DIMENSION_COUNT"].apply(lambda x: str(x)) + "-D-" + pdf["CUBOIDS"].apply(lambda x: "-".join(x))
     pdf.loc[:, "LATTLCES_CONDIS"] = crs
-    
+
     schema = \
         StructType([ \
             StructField("CUBOIDS", ArrayType(StringType())),
@@ -120,18 +148,18 @@ def execute(**args):
             StructField("LATTLCES_CONDIS", ArrayType(ArrayType(StringType())))
         ])
     df = spark.createDataFrame(pdf[1:], schema)
-    df.repartition(1).write.mode("overwrite").parquet(destPath + "/meta/cuboids")
+
+    df.repartition(1).write.mode("overwrite").parquet(cuboids_path)
 
     # init lattice condition
-    cuboids_df = spark.read.parquet(destPath + "/meta/cuboids") \
+    cuboids_df = spark.read.parquet(cuboids_path) \
 			.select("CUBOIDS_NAME", "LATTLCES_CONDIS") \
 			.withColumn("CUBOIDS_ID", monotonically_increasing_id()) \
 			.withColumn("LATTLES", explode(col("LATTLCES_CONDIS"))) \
 			.select("CUBOIDS_ID", "CUBOIDS_NAME", "LATTLES") \
 			.repartition(1) \
 			.write.mode("overwrite") \
-			.parquet(destPath + "/meta/lattices")
-    
+			.parquet(lattices_path)
 
 def cartesian(arrays, out=None):
     """

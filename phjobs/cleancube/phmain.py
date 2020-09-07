@@ -10,12 +10,13 @@ import click
 @click.command()
 @click.option('--start')
 @click.option('--end')
-@click.option('--replace')
+@click.option('--run_id')
 @click.option('--job_id')
-@click.option('--start_date')
-@click.option('--source')
-def debug_execute(start, end, replace, **kwargs):
-	execute(start, end, replace, **kwargs)
+@click.option('--version')
+@click.option('--max_result_path')
+@click.option('--cleancube_result_path')
+def debug_execute(**kwargs):
+	execute(**kwargs)
 
 
 if __name__ == '__main__':
