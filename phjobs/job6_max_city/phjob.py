@@ -12,7 +12,8 @@ import os
 
 
 def execute(max_path, project_name, time_left, time_right, left_models, left_models_time_left, right_models, right_models_time_right,
-all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, minimum_product_sep, minimum_product_newname, if_two_source, cpa_gyc):
+all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, minimum_product_sep, minimum_product_newname, if_two_source,
+cpa_gyc, bedsize, hospital_level):
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \
@@ -46,6 +47,13 @@ all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, mi
         if_others = True
     else:
         raise ValueError('if_others: False or True')
+    
+    if bedsize != "False" and bedsize != "True":
+        raise ValueError('bedsize: False or True')
+    if hospital_level != "False" and hospital_level != "True":
+        raise ValueError('hospital_level: False or True')
+    if bedsize == "False" and hospital_level != "True":
+        raise ValueError('bedsize not match hospital_level')
     
     if left_models != "Empty":
         left_models = left_models.replace(", ",",").split(",")
@@ -88,9 +96,18 @@ all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, mi
     
     # 输出
     time_range = str(time_left) + '_' + str(time_right)
-    max_result_city_path = out_path_dir + "/MAX_result/MAX_result_" + time_range + "_city_level"
-    max_result_city_tmp_path = out_path_dir + "/MAX_result/city_level_tmp_"+ time_range 
-    max_result_city_csv_path = out_path_dir + "/MAX_result/MAX_result_" + time_range + "_city_level.csv"
+    if hospital_level == "True" and bedsize == "False":
+        max_result_city_csv_path = out_path_dir + "/MAX_result/MAX_result_" + time_range + "_hospital_level_nobed.csv"
+        max_result_city_tmp_path = out_path_dir + "/MAX_result/tmp_hospital_nobed_"+ time_range
+    elif hospital_level == "True":
+        max_result_city_csv_path = out_path_dir + "/MAX_result/MAX_result_" + time_range + "_hospital_level.csv"
+        max_result_city_tmp_path = out_path_dir + "/MAX_result/tmp_hospital_"+ time_range
+    else:
+        max_result_city_path = out_path_dir + "/MAX_result/MAX_result_" + time_range + "_city_level"
+        max_result_city_csv_path = out_path_dir + "/MAX_result/MAX_result_" + time_range + "_city_level.csv"
+        max_result_city_tmp_path = out_path_dir + "/MAX_result/tmp_city_"+ time_range
+     
+    
     
     # =========== 数据执行 =============
     '''
@@ -217,16 +234,23 @@ all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, mi
     raw_data = raw_data.where(raw_data.DOI.isin(all_models))
     
     # 计算
-    if project_name != "Janssen":
+    if project_name != "Janssen" or bedsize == "True":
         raw_data = raw_data.where(raw_data.Bedsize > 99)
     
-    raw_data_city = raw_data \
+    if hospital_level == "True":
+        raw_data_city = raw_data \
+            .groupBy("Province", "City", "Date", "Prod_Name", "PANEL", "DOI", "S_Molecule", "PHA") \
+            .agg({"Sales":"sum", "Units":"sum"}) \
+            .withColumnRenamed("sum(Sales)", "Predict_Sales") \
+            .withColumnRenamed("sum(Units)", "Predict_Unit") \
+            .withColumnRenamed("S_Molecule", "Molecule") 
+    else:
+        raw_data_city = raw_data \
             .groupBy("Province", "City", "Date", "Prod_Name", "PANEL", "DOI", "S_Molecule") \
             .agg({"Sales":"sum", "Units":"sum"}) \
             .withColumnRenamed("sum(Sales)", "Predict_Sales") \
             .withColumnRenamed("sum(Units)", "Predict_Unit") \
             .withColumnRenamed("S_Molecule", "Molecule") 
-
     
     # 2. max文件处理
     index = 0
@@ -247,14 +271,22 @@ all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, mi
         max_result = spark.read.parquet(max_path)
         
         # max_result 筛选 BEDSIZE > 99， 且医院不在raw_data_PHA 中
-        max_result = max_result.where(max_result.BEDSIZE > 99) \
-            .join(raw_data_PHA, on=["PHA", "Date"], how="left_anti")
+        if bedsize == "True":
+            max_result = max_result.where(max_result.BEDSIZE > 99)
+        max_result = max_result.join(raw_data_PHA, on=["PHA", "Date"], how="left_anti")
         
-        max_result = max_result \
-            .groupBy("Province", "City", "Date", "Prod_Name", "PANEL", "Molecule") \
-            .agg({"Predict_Sales":"sum", "Predict_Unit":"sum"}) \
-            .withColumnRenamed("sum(Predict_Sales)", "Predict_Sales") \
-            .withColumnRenamed("sum(Predict_Unit)", "Predict_Unit")
+        if hospital_level == "True":
+            max_result = max_result \
+                .groupBy("Province", "City", "Date", "Prod_Name", "PANEL", "Molecule", "PHA") \
+                .agg({"Predict_Sales":"sum", "Predict_Unit":"sum"}) \
+                .withColumnRenamed("sum(Predict_Sales)", "Predict_Sales") \
+                .withColumnRenamed("sum(Predict_Unit)", "Predict_Unit")
+        else:
+            max_result = max_result \
+                .groupBy("Province", "City", "Date", "Prod_Name", "PANEL", "Molecule") \
+                .agg({"Predict_Sales":"sum", "Predict_Unit":"sum"}) \
+                .withColumnRenamed("sum(Predict_Sales)", "Predict_Sales") \
+                .withColumnRenamed("sum(Predict_Unit)", "Predict_Unit")
         
         max_result = max_result.withColumn("DOI", func.lit(market))
         
@@ -277,16 +309,21 @@ all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, mi
     max_result_all = spark.read.parquet(max_result_city_tmp_path)
     
     # 3. 合并raw_data 和 max文件处理
-    
-    raw_data_city = raw_data_city.select("Province", "City", "Date", "Prod_Name", "Molecule", "PANEL", "DOI", "Predict_Sales", "Predict_Unit")
-    max_result_all = max_result_all.select("Province", "City", "Date", "Prod_Name", "Molecule", "PANEL", "DOI", "Predict_Sales", "Predict_Unit")
+    if hospital_level == "True":
+        raw_data_city = raw_data_city.select("PHA", "Province", "City", "Date", "Prod_Name", "Molecule", "PANEL", "DOI", "Predict_Sales", "Predict_Unit")
+        max_result_all = max_result_all.select("PHA", "Province", "City", "Date", "Prod_Name", "Molecule", "PANEL", "DOI", "Predict_Sales", "Predict_Unit")
+    else:
+        raw_data_city = raw_data_city.select("Province", "City", "Date", "Prod_Name", "Molecule", "PANEL", "DOI", "Predict_Sales", "Predict_Unit")
+        max_result_all = max_result_all.select("Province", "City", "Date", "Prod_Name", "Molecule", "PANEL", "DOI", "Predict_Sales", "Predict_Unit")
     
     max_result_city = max_result_all.union(raw_data_city)
-        
-    max_result_city = max_result_city.repartition(2)
-    max_result_city.write.format("parquet") \
-        .mode("overwrite").save(max_result_city_path)
-        
+    
+    # hospital_level 的只输出csv
+    if hospital_level == "False":     
+        max_result_city = max_result_city.repartition(2)
+        max_result_city.write.format("parquet") \
+            .mode("overwrite").save(max_result_city_path)
+    
     max_result_city = max_result_city.repartition(1)
     max_result_city.write.format("csv").option("header", "true") \
         .mode("overwrite").save(max_result_city_csv_path)

@@ -26,10 +26,12 @@ import click
 @click.option('--minimum_product_newname')
 @click.option('--if_two_source')
 @click.option('--cpa_gyc')
+@click.option('--bedsize')
+@click.option('--hospital_level')
 def debug_execute(max_path, project_name, time_left, time_right, left_models, left_models_time_left, right_models, right_models_time_right,
-all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, minimum_product_sep, minimum_product_newname, if_two_source, cpa_gyc):
+all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, minimum_product_sep, minimum_product_newname, if_two_source, cpa_gyc, bedsize, hospital_level):
 	execute(max_path, project_name, time_left, time_right, left_models, left_models_time_left, right_models, right_models_time_right,
-all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, minimum_product_sep, minimum_product_newname, if_two_source, cpa_gyc)
+all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, minimum_product_sep, minimum_product_newname, if_two_source, cpa_gyc, bedsize, hospital_level)
 
 
 if __name__ == '__main__':

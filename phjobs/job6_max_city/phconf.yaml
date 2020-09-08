@@ -46,6 +46,10 @@ spec:
       - key: if_two_source
         value: "False"
       - key: cpa_gyc
+        value: "True"
+      - key: hospital_level
+        value: "False"
+      - key: bedsize
         value: "True" 
     outputs:
       - key: a
