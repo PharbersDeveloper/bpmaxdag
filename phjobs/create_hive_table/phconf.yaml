@@ -12,14 +12,14 @@ spec:
     code: phmain.py
     config: phconf-20200826.yaml
     args:
-      - key: a
-        value: 123
-      - key: b
-        value: 456
+      - key: input_path
+        value: s3a://ph-stream/common/public/prod/17
+      - key: output_path
+        value: s3a://ph-stream/common/public/prod/0.0.15
+      - key: table_name
+        value: prod
     outputs:
       - key: a
         value: abcde
       - key: b
         value: 6789
-
-
