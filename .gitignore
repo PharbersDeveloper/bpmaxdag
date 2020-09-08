@@ -1,4 +1,3 @@
 .idea/
 .venv/
-
-phjobs/zyzyin-test
+__pycache__/

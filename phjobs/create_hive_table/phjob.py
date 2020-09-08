@@ -10,23 +10,23 @@ from pyspark.sql import SparkSession, functions as F
 
 def sava_as_table_by_scala(spark, input_path, output_path, table_name):
     cmd_str = '''
-$SPARK_HOME/bin/spark-submit \
---name {name} \
---master yarn \
---deploy-mode cluster \
---driver-memory {driver_memory} \
---executor-memory {executor_memory} \
---executor-cores {executor_cores} \
---num-executors {num_executors} \
---conf spark.hadoop.fs.s3a.access.key={access_key} \
---conf spark.hadoop.fs.s3a.secret.key={secret_key} \
---conf spark.hadoop.fs.s3a.endpoint=s3.cn-northwest-1.amazonaws.com.cn \
---class {class} \
-{jar_path} \
-{input_file_format} {input_path} \
-{output_file_format} {output_path} \
-{save_mode} {table_name}
-'''
+    $SPARK_HOME/bin/spark-submit \
+    --name {name} \
+    --master yarn \
+    --deploy-mode cluster \
+    --driver-memory {driver_memory} \
+    --executor-memory {executor_memory} \
+    --executor-cores {executor_cores} \
+    --num-executors {num_executors} \
+    --conf spark.hadoop.fs.s3a.access.key={access_key} \
+    --conf spark.hadoop.fs.s3a.secret.key={secret_key} \
+    --conf spark.hadoop.fs.s3a.endpoint=s3.cn-northwest-1.amazonaws.com.cn \
+    --class {class} \
+    {jar_path} \
+    {input_file_format} {input_path} \
+    {output_file_format} {output_path} \
+    {save_mode} {table_name}
+    '''
 
     confs = spark.sparkContext.getConf()
     # confs_dict = dict(confs.getAll())
@@ -54,6 +54,14 @@ $SPARK_HOME/bin/spark-submit \
         print(">>>", line)
 
 
+def get_all_table(spark):
+    return spark.sql("SHOW tables")
+
+
+def delete_table(spark, table_name):
+    return spark.sql("drop table {}".format(table_name))
+
+
 def execute(input_path, output_path, table_name):
     os.environ["PYSPARK_PYTHON"] = "python3"
     spark = SparkSession.builder \
@@ -76,19 +84,13 @@ def execute(input_path, output_path, table_name):
         spark._jsc.hadoopConfiguration().set("com.amazonaws.services.s3.enableV4", "true")
         spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
 
-    result = spark.sql("SHOW tables")
-    result.show(1000)
-    result = spark.sql("SELECT * FROM prod")
-    result.show(10)
-    print(result.count())
-
     input_data_df = spark.read.parquet(input_path)
     input_data_df.coalesce(4).write.mode('overwrite') \
         .option("compression", "snappy") \
         .option('path', output_path) \
         .saveAsTable(table_name)
-
-execute('s3a://ph-stream/common/public/prod/0.0.15', 's3a://ph-stream/common/public/prod/17', 'prod17')
+        
+# execute('s3a://ph-stream/common/public/prod/17', 's3a://ph-stream/common/public/prod/0.0.15', 'prod')
 
 # $SPARK_HOME/bin/spark-submit \
 # --name saveAsTable-submit \

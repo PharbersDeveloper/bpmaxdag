@@ -8,11 +8,11 @@ import click
 
 
 @click.command()
-@click.option('--a')
-@click.option('--b')
-def debug_execute(a, b):
-	execute(a, b)
-
+@click.option('--input_path')
+@click.option('--output_path')
+@click.option('--table_name')
+def debug_execute(input_path, output_path, table_name):
+	execute(input_path, output_path, table_name)
 
 if __name__ == '__main__':
     debug_execute()
