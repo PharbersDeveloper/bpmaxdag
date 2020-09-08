@@ -10,9 +10,9 @@ pyyaml = "*"
 pandas = "*"
 xlrd = "*"
 pypinyin = "*"
+phcli = "*"
 
 [packages]
-phcli = "*"
 
 [requires]
 python_version = "3.8"
