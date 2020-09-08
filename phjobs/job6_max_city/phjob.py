@@ -89,7 +89,7 @@ all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, mi
     # 输出
     time_range = str(time_left) + '_' + str(time_right)
     max_result_city_path = out_path_dir + "/MAX_result/MAX_result_" + time_range + "_city_level"
-    max_result_city_tmp_path = out_path_dir + "/MAX_result/city_level_tmp"
+    max_result_city_tmp_path = out_path_dir + "/MAX_result/city_level_tmp_"+ time_range 
     max_result_city_csv_path = out_path_dir + "/MAX_result/MAX_result_" + time_range + "_city_level.csv"
     
     # =========== 数据执行 =============
