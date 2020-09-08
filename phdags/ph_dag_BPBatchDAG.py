@@ -131,4 +131,23 @@ job5_match = BashOperator(
 
 
 
-job1_distinct >> job2_human_replace >> job3_join >> job4_edit_distance >> job5_match
+
+############## == job6_joinback == ###################
+job6_joinback_cmd = """
+echo "192.168.1.28    spark.master" >> /etc/hosts
+pip install 'phcli==0.2.16'
+phcli maxauto --cmd submit --path job6_joinback --context "{{ params }}" "{{ dag_run.conf }}"
+"""
+
+job6_joinback = BashOperator(
+                    task_id="job6_joinback",
+                    bash_command=job6_joinback_cmd,
+                    dag=dag,
+                    params=dict(common_task_params +
+                                spec_task_params.get("job6_joinback".lower(), []))
+               )
+############## == job6_joinback == ###################
+
+
+
+job1_distinct >> job2_human_replace >> job3_join >> job4_edit_distance >> job5_match >> job6_joinback

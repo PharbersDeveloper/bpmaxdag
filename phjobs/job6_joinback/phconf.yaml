@@ -10,12 +10,12 @@ spec:
     repository: local
     runtime: python3
     code: phmain.py
-    config: phconf-20200826.yaml
+    config: phconf.yaml
     args:
-      - key: a
-        value: 123
-      - key: b
-        value: 456
+      - key: out_path
+        value: "s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfizer_check/0.0.1"
+      - key: cpa_raw_data_path
+        value: "s3a://ph-max-auto/2020-08-11/BPBatchDAG/azsanofi_check"
     outputs:
       - key: a
         value: abcde

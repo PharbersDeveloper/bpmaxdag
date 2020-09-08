@@ -5,7 +5,7 @@
   * @author yzy
   * @version 0.0
   * @since 2020/08/11
-  * @note  落盘数据：cpa_distinct
+  * @note  落盘数据：cpa_distinct_data
   
 """
 
@@ -44,6 +44,10 @@ def execute(in_cpa_path, in_prod_path, in_hr_path, in_mhr_path, out_path, min_ke
   
 	# 需要的所有四个表格命名
 	cpa_input_data = spark.read.parquet(in_cpa_path).drop("id")
+	# print(cpa_input_data.count())
+	# cpa_input_data = cpa_input_data.filter(cpa_input_data.PRODUCT_NAME.isNotNull()).filter(cpa_input_data.DOSAGE.isNotNull()) \
+	# 						.filter(cpa_input_data.PACK_ID_CHECK.isNotNull()).filter(cpa_input_data.PACK_ID_CHECK !="NULL").filter(cpa_input_data.PACK_ID_CHECK !="")
+	# print(cpa_input_data.count())
 	mole_human_replace_data = spark.read.parquet(in_mhr_path)
 
 	# cpa_input_data.show(4)

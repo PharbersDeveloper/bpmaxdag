@@ -233,13 +233,45 @@ def execute(out_path):
 		return dp[m][n]
 
 	@func.udf(returnType=IntegerType())
-	def contain_or_not(in_value, check_value):
-		# 针对 dosage 和 product name
+	def dosage(in_value, check_value):
+		# 针对 dosage 
 		# 只要存在包含关系，编辑距离直接为0，填入true
 		redundancy_list_dosage = [u"（注射剂）", u"（粉剂针）", u"（胶丸、滴丸）", ]
 		for redundancy in redundancy_list_dosage:
 			in_value = in_value.replace(redundancy, "")
+			
+		dosage_mapping = {
+			"SOLN": "注射",
+			"POWD": "粉针",
+			'SUSP':"混悬",
+			'OINT': "膏剂",
+			'NA': "鼻",
+			'SYRP': "口服",
+			'PATC': "贴膏",
+			'EMUL': "乳",
+			'AERO': "气雾",
+			'GRAN': "颗粒",
+			'SUPP': "栓",
+			'PILL': "丸",
+			'MISC': "混合",  # TODO 这个到底怎么命名？
+			'LIQD': "溶液",
+			'TAB': "片",
+			'CAP': "胶囊",
+		}
 		
+		for en, ch in dosage_mapping.items():
+			in_value = in_value.replace(en, ch)
+		
+		if in_value in check_value:
+			return 0
+		else:
+			return edit_distance(in_value, check_value)
+	
+	@func.udf(returnType=IntegerType())
+	def product(in_value, check_value):
+		# 针对 product name
+		# 只要存在包含关系，编辑距离直接为0，填入true
+
 		if (in_value in check_value) or (check_value in in_value):
 			return 0
 		else:
@@ -267,6 +299,16 @@ def execute(out_path):
 
 	@func.udf(returnType=IntegerType())			
 	def spec(in_value, check_value):
+		
+		strip_lst = ["SOLN", "POWD", "SUSP", "OINT", "NA", "SYRP", "PATC", "EMUL", \
+					 "AERO", "GRAN", "SUPP", "PILL", "MISC", "LIQD", "TAB", "CAP", \
+					 "OR", "BU", "EX", "IJ", "IN", "OP", "OR", "RE", "SL"]
+	
+		for item in strip_lst:
+			in_value = in_value.replace(item, "")
+		strinfo = re.compile(r'×\d+')
+		in_value = strinfo.sub("", in_value).strip()
+	
 		new_in_spec = spec_reformat(in_value)
 		new_check_spec = spec_reformat(check_value)
 		
@@ -288,7 +330,7 @@ def execute(out_path):
 	@func.udf(returnType=IntegerType())			
 	def edit_distance_total(ed_DOSAGE, ed_SPEC, ed_PACK, ed_MNF_NAME_CH, ed_MNF_NAME_EN, ed_PROD_NAME_CH):
 		# 计算总编辑距离
-		ed = ed_DOSAGE + ed_SPEC + 60*ed_PACK + 35*min(ed_MNF_NAME_CH, ed_MNF_NAME_EN) + ed_PROD_NAME_CH
+		ed = ed_DOSAGE + 10*ed_SPEC + 60*ed_PACK + 35*min(ed_MNF_NAME_CH, ed_MNF_NAME_EN) + ed_PROD_NAME_CH
 		return ed
 			
 	mapping_config = {
@@ -303,8 +345,10 @@ def execute(out_path):
 	# 编辑距离计算（0或过算法计算）
 	cpa_ed = cpa_prod_join_data
 	for check_name, in_name in mapping_config.items():
-		if (check_name == "check_DOSAGE") or (check_name == "check_PROD_NAME_CH"):
-			cpa_ed = cpa_ed.withColumn(check_name.replace("check", "ed"), contain_or_not(in_name, check_name))
+		if check_name == "check_PROD_NAME_CH":
+			cpa_ed = cpa_ed.withColumn(check_name.replace("check", "ed"), product(in_name, check_name))
+		elif check_name == "check_DOSAGE":
+			cpa_ed = cpa_ed.withColumn(check_name.replace("check", "ed"), dosage(in_name, check_name))
 		elif check_name == "check_MNF_NAME_CH":
 			cpa_ed = cpa_ed.withColumn(check_name.replace("check", "ed"), replace_and_contain(in_name, check_name))
 		elif check_name == "check_MNF_NAME_EN":
@@ -324,6 +368,6 @@ def execute(out_path):
 	print("写入 " + out_path + " 完成")
 
 
-	print("程序end job4_edit_distanct") 
+	print("程序end job4_edit_distanct")
 	print("--"*80)
 	

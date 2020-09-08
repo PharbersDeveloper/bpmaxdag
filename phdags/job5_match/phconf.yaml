@@ -13,7 +13,7 @@ spec:
     config: phconf.yaml
     args:
       - key: out_path
-        value: "s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfi_check/0.0.7"
+        value: "s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfizer_check/0.0.1"
       - key: in_prod_path
         value: "s3a://ph-stream/common/public/prod/0.0.15"
     outputs:
