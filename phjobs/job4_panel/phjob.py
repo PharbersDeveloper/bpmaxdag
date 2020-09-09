@@ -3,7 +3,7 @@
 
 This is job template for Pharbers Max Job
 """
-from phlogs.phlogs import phlogger
+from ph_logs.ph_logs import phlogger
 import os
 import pandas as pd
 

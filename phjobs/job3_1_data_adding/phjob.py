@@ -4,7 +4,7 @@
 This is job template for Pharbers Max Job
 """
 import pandas as pd
-from phlogs.phlogs import phlogger
+from ph_logs.ph_logs import phlogger
 import os
 from pyspark.sql import SparkSession
 from pyspark.sql.types import *
