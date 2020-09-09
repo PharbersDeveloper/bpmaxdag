@@ -83,6 +83,7 @@ cpa_gyc, bedsize, hospital_level):
     market_mapping_path = max_path + "/" + project_name + '/mkt_mapping'
     cpa_pha_mapping_path = max_path + "/" + project_name + "/cpa_pha_mapping"
     ID_Bedsize_path = max_path + "/Common_files/ID_Bedsize"
+    cpa_pha_mapping_common_path = max_path + "/Common_files/cpa_pha_mapping"
     
     if if_others == True:
         out_dir = out_dir + "/others_box/"
@@ -220,6 +221,16 @@ cpa_gyc, bedsize, hospital_level):
     # 删除医院
     # hospital_ot = spark.read.csv(hospital_ot_path, header=True)
     # raw_data = raw_data.join(hospital_ot, on="ID", how="left_anti")
+    
+    # raw_data PHA是空的重新匹配
+    cpa_pha_mapping_common = spark.read.parquet(cpa_pha_mapping_common_path)
+    cpa_pha_mapping_common = cpa_pha_mapping_common.where(cpa_pha_mapping_common["推荐版本"] == 1) \
+            .withColumnRenamed("PHA", "PHA_common") \
+            .select("ID", "PHA_common").distinct()
+            
+    raw_data = raw_data.join(cpa_pha_mapping_common, on="ID", how="left")
+    raw_data = raw_data.withColumn("PHA", func.when(raw_data.PHA.isNull(), raw_data.PHA_common).otherwise(raw_data.PHA)) \
+                    .drop("PHA_common")
     
     # raw_data 医院列表
     raw_data_PHA = raw_data.select("PHA", "Date").distinct()
