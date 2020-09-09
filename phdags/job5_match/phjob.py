@@ -94,7 +94,7 @@ def execute(out_path, in_prod_path):
 	# print(cpa_match.count())  # 17230
 	
 	
-	# # # 写入cpa_match
+	# 写入cpa_match
 	out_path = out_path + "/" + "cpa_match"
 	cpa_match.write.format("parquet").mode("overwrite").save(out_path)
 	print("写入 " + out_path + " 完成")

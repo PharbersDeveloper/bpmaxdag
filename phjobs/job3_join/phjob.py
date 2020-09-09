@@ -59,14 +59,16 @@ def execute(prod_renamed_path, in_hr_path, out_path):
 	cpa_prod_join_data = cpa_renamed.join(prod_renamed,
 								   cpa_renamed.in_MOLE_NAME == prod_renamed.check_MOLE_NAME_CH,
 								   how="left").na.fill("")
+	cpa_prod_join_null = cpa_prod_join_data.filter(cpa_prod_join_data.PACK_ID == "")
+	# print(cpa_prod_join_null.count())
+	#  写入
+	cpa_prod_join_null.write.format("parquet").mode("overwrite").save(out_path + "/" + "cpa_prod_join_null")
+	print("写入 " + out_path + " 完成")
+	
+	cpa_prod_join_data = cpa_prod_join_data.filter(cpa_prod_join_data.PACK_ID != "")
 	# cpa_prod_join_data.show(5)
-	# print(cpa_prod_join_data.count())  # 1181917
+	# print(cpa_prod_join_data.count())
 
-	
-	# 查找根据mole_name join不上的情况
-	# cpa_prod_join_null = cpa_prod_join_data.filter(cpa_prod_join_data["PACK_ID"].isNull())
-	# print(cpa_prod_join_null.count())  # 0 这8168条没有join不上的情况
-	
 	# 写入
 	out_path = out_path + "/" + "cpa_prod_join"
 	cpa_prod_join_data.write.format("parquet").mode("overwrite").save(out_path)

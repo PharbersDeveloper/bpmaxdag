@@ -29,5 +29,7 @@ spec:
       command: python3
     - name: job5_match
       command: python3
-  linkage: "job1_distinct >> job2_human_replace >> job3_join >> job4_edit_distance >> job5_match"
+    - name: job6_joinback
+      command: python3
+  linkage: "job1_distinct >> job2_human_replace >> job3_join >> job4_edit_distance >> job5_match >> job6_joinback"
 

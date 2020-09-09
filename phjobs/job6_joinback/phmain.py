@@ -8,10 +8,10 @@ import click
 
 
 @click.command()
-@click.option('--a')
-@click.option('--b')
-def debug_execute(a, b):
-	execute(a, b)
+@click.option('--out_path')
+@click.option('--cpa_raw_data_path')
+def debug_execute(out_path, cpa_raw_data_path):
+	execute(out_path, cpa_raw_data_path)
 
 
 if __name__ == '__main__':

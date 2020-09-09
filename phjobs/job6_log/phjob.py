@@ -19,6 +19,7 @@ import numpy as np
 from pyspark.sql.window import Window
 
 
+
 def execute():
 	"""
 		please input your code below
@@ -58,17 +59,19 @@ def execute():
 	 
 	def phizer_check(): 
 		# 我匹配出来的结果
-		cpa_match = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfi_check/0.0.6/cpa_match") \
+		cpa_match = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfi_check/0.0.11/cpa_match") \
 								.na.fill("") \
 								.withColumn("PACK_ID", pack_id("PACK_ID"))
-		print(cpa_match.count())
+		# print(cpa_match.count())
 		# cpa_input_data = spark.read.parquet("s3a://ph-stream/common/public/pfizer_test/0.0.1")
 		# 测试数据
-		cpa_check = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/azsanofi_check") \
+		cpa_check = spark.read.parquet("s3a://ph-stream/common/public/pfizer_check") \
 		                        .na.fill("") \
 								.withColumn("PACK_ID_CHECK", pack_id("PACK_ID_CHECK")) \
 								.drop("id")
-		print(cpa_check.count())
+		cpa_check = cpa_check.filter(cpa_check.PRODUCT_NAME != "").filter(cpa_check.DOSAGE != "") \
+								.filter(cpa_check.PACK_ID_CHECK != "").filter(cpa_check.PACK_ID_CHECK != "NULL")
+		# print(cpa_check.count())
 		
 		# cpa_match.show(5)
 		# print(cpa_match.count())  # 17230
@@ -82,26 +85,28 @@ def execute():
 								 cpa_match.in_DOSAGE == cpa_check.DOSAGE, \
 								 cpa_match.in_PACK_QTY == cpa_check.PACK_QTY, \
 								 cpa_match.in_MANUFACTURER_NAME == cpa_check.MANUFACTURER_NAME], \
-								how="left")
+								 how="left")
 								
 		# cpa_examine.select("PACK_ID_CHECK", "PACK_ID", "ed_total", "mark").show(100)
 		# print(cpa_examine.count())
-		
+
 		# cpa_examine.select()
 		wrong = cpa_examine.filter(cpa_examine.PACK_ID_CHECK != cpa_examine.PACK_ID)
-		wrong.show(3)
-		print(wrong.count())  # 1590
+		# wrong.select("PRODUCT_NAME", "match_PRODUCT_NAME", "ed_PROD_NAME_CH").show(30)
+		# print(wrong.count())  # 1590
 		
 		wrong_hr = wrong.filter(cpa_examine.mark == "hr")
-		# print(wrong_hr.count())  # 54
+		print(wrong_hr.count())  # 54
+		xixi1=wrong_hr.toPandas()
+		xixi1.to_excel('Pfizer_PFZ10_outlier.xlsx', index = False)
 		
 		wrong_ed = wrong.filter(cpa_examine.mark == "ed").na.fill("")
 		# wrong_ed.show(4)
 		# wrong_ed.select("SPEC", "match_SPEC", "ed_total").show(100)
-		print(wrong_ed.count())  # 1536
+		# print(wrong_ed.count())  # 1536
 		
 		# 计算编辑距离出错的写入s3
-		# out_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfi_check/0.0.4/wrong_ed"
+		# out_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfi_check/0.0.10/wrong_ed"
 		# wrong_ed.write.format("parquet").mode("overwrite").save(out_path)
 		# print("写入 " + out_path + " 完成")
 		
@@ -161,7 +166,7 @@ def execute():
 		# print(df.count())  # 44142 pack_id已经全部去重
 
 	def ed_wrong_check():
-		wrong_ed = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfi_check/0.0.4/wrong_ed") \
+		wrong_ed = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfi_check/0.0.10/wrong_ed") \
 							 .drop("version", "id", )
 		# wrong_ed.show(3)
 		# print(wrong_ed.count())
@@ -180,14 +185,17 @@ def execute():
 		check = wrong_ed.join(product_data, \
 							  wrong_ed.PACK_ID_CHECK == product_data.right_PACK_ID, \
 							  how="left")
+		# check.show()
+		# print(check.count())
+		print(check.filter(check.PACK_ID == "").count())
 							  
 		check.select( \
-			         "MANUFACTURER_NAME", "match_MANUFACTURER_NAME_CH", "right_MNF_NAME", "ed_MNF_NAME_CH", "ed_MNF_NAME_EN", \
-			         #"ed_SPEC", "ed_PACK", "ed_PROD_NAME_CH", "ed_DOSAGE", \
-					 "PRODUCT_NAME", "match_PRODUCT_NAME", "right_PROD_NAME", "ed_PROD_NAME_CH", \
-					 "DOSAGE", "match_DOSAGE", "right_DOSAGE", "ed_DOSAGE", \
-					 "PACK_QTY", "match_PACK_QTY", "right_PACK", "ed_PACK", \
-					 "SPEC", "match_SPEC", "right_SPEC", "ed_SPEC", \
+		# 	         #"MANUFACTURER_NAME", "match_MANUFACTURER_NAME_CH", "right_MNF_NAME", "ed_MNF_NAME_CH", "ed_MNF_NAME_EN", \
+		# 	         #"ed_SPEC", "ed_PACK", "ed_PROD_NAME_CH", "ed_DOSAGE", \
+		# 			 #"PRODUCT_NAME", "match_PRODUCT_NAME", "right_PROD_NAME", "ed_PROD_NAME_CH", \
+		# 			 #"DOSAGE", "match_DOSAGE", "right_DOSAGE", "ed_DOSAGE", \
+		# 			 "PACK_QTY", "match_PACK_QTY", "right_PACK", "ed_PACK", "PACK_ID_CHECK", "right_PACK_ID", \
+					 "SPEC", "match_SPEC", "right_SPEC", "ed_SPEC", "PACK_ID", \
 					 "ed_total").show(30)
 		
 		# spec_test1 = check.select("SPEC", "right_SPEC").distinct()
@@ -431,8 +439,14 @@ def execute():
 	# print(spec_reformat(" (2:1) 2.25G") == "2.25G")
 	# print(spec_reformat("依折麦布10mg,辛伐他汀20mg") == "2.25G")
 	# print(spec_reformat(" (250MG+8.77MG)") == "2.25G")
+	
 
-
+	
+	# cpa_match = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfi_check/0.0.10/cpa_to_ed")
+	# cpa_match.show()
+	# match_null = cpa_match.filter(cpa_match.PACK_ID == "")
+	# match_null.show()
+	# print(match_null.count())
 
 	print("程序end: job6 log")
 	print("--"*80)
