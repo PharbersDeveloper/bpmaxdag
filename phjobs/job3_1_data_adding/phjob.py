@@ -4,7 +4,7 @@
 This is job template for Pharbers Max Job
 """
 import pandas as pd
-from ph_logs.ph_logs import phlogger
+# from ph_logs.ph_logs import phlogger
 import os
 from pyspark.sql import SparkSession
 from pyspark.sql.types import *
@@ -14,6 +14,7 @@ from pyspark.sql import functions as func
 
 def execute(max_path, project_name, model_month_right, max_month, year_missing, current_year, first_month, current_month, 
 if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, need_test, if_add_data):
+    os.environ["PYSPARK_PYTHON"] = "python3"
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \
@@ -38,10 +39,10 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
     注意：杨森，月更新补数脚本特殊处理已经写脚本中
     '''
     
-    phlogger.info('job3_data_adding')
+    # phlogger.info('job3_data_adding')
     
     if if_add_data != "False" and if_add_data != "True":
-        phlogger.error('wrong input: if_add_data, False or True') 
+        # phlogger.error('wrong input: if_add_data, False or True') 
         raise ValueError('wrong input: if_add_data, False or True')
     
     if if_others == "True":
@@ -62,7 +63,7 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
     
     # 月更新相关参数
     if monthly_update != "False" and monthly_update != "True":
-        phlogger.error('wrong input: monthly_update, False or True') 
+        # phlogger.error('wrong input: monthly_update, False or True') 
         raise ValueError('wrong input: monthly_update, False or True')
     if monthly_update == "True":
         current_year = int(current_year)
@@ -92,7 +93,7 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
 
     # =========== 数据检查 =============
 
-    phlogger.info('数据检查-start')
+    # phlogger.info('数据检查-start')
     
     # csv文件检查
     length_error_dict = {}
@@ -105,7 +106,7 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
                 if i < 6:
                     length_error_dict[eachpath] = ID_length
         if length_error_dict:
-            phlogger.error('ID length error: %s' % (length_error_dict))
+            # phlogger.error('ID length error: %s' % (length_error_dict))
             raise ValueError('ID length error: %s' % (length_error_dict))
 
     # 存储文件的缺失列
@@ -133,13 +134,13 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
             misscols_dict_final[eachfile] = misscols_dict[eachfile]
     # 如果有缺失列，则报错，停止运行
     if misscols_dict_final:
-        phlogger.error('miss columns: %s' % (misscols_dict_final))
+        # phlogger.error('miss columns: %s' % (misscols_dict_final))
         raise ValueError('miss columns: %s' % (misscols_dict_final))
 
-    phlogger.info('数据检查-Pass')
+    # phlogger.info('数据检查-Pass')
 
     # =========== 数据执行 =============
-    phlogger.info('数据执行-start')
+    # phlogger.info('数据执行-start')
 
     # 数据读取
     raw_data = spark.read.parquet(product_mapping_out_path)
@@ -152,7 +153,7 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
                                    func.when(raw_data["标准商品名"].isin(products_of_interest), raw_data["标准商品名"]).
                                    otherwise(raw_data.S_Molecule))
 
-    phlogger.info('1 价格计算')
+    # phlogger.info('1 价格计算')
 
     # 1 价格计算：cal_price 补数部分的数量需要用价格得出
     price = raw_data.groupBy("min2", "year_month", "City_Tier_2010") \
@@ -171,7 +172,7 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
     price.write.format("parquet") \
         .mode("overwrite").save(price_path)
 
-    phlogger.info("输出 price：".decode("utf-8") + price_path)
+    # phlogger.info("输出 price：".decode("utf-8") + price_path)
 
     # raw_data 处理
     if monthly_update == "False":
@@ -182,7 +183,7 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
         if project_name == "Sanofi" or project_name == "AZ":
             raw_data = raw_data.where(raw_data.Year > 2016)
 
-    phlogger.info('2 连续性计算')
+    # phlogger.info('2 连续性计算')
 
     # 2 计算样本医院连续性: cal_continuity
     # 每个医院每年的月份数
@@ -246,7 +247,7 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
                                                  otherwise(growth_rate[y]))
         return growth_rate
 
-    phlogger.info('3 增长率计算')
+    # phlogger.info('3 增长率计算')
     # 执行函数 calculate_growth
     if monthly_update == "False":
         # AZ-Sanofi 要特殊处理
@@ -306,18 +307,18 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
                 growth_rate_month.write.format("parquet") \
                     .mode("append").save(growth_rate_path)
                     
-            phlogger.info("输出 growth_rate：".decode("utf-8") + growth_rate_path)
+            # phlogger.info("输出 growth_rate：".decode("utf-8") + growth_rate_path)
                 
     
     if monthly_update == "False":
         growth_rate = growth_rate.repartition(2)
         growth_rate.write.format("parquet") \
             .mode("overwrite").save(growth_rate_path)
-        phlogger.info("输出 growth_rate：".decode("utf-8") + growth_rate_path)
+        # phlogger.info("输出 growth_rate：".decode("utf-8") + growth_rate_path)
     elif monthly_update == "True":
         growth_rate = spark.read.parquet(growth_rate_path)
 
-    phlogger.info('数据执行-Finish')
+    # phlogger.info('数据执行-Finish')
 
     # =========== 数据验证 =============
     # 与原R流程运行的结果比较正确性: Sanofi与Sankyo测试通过

@@ -3,7 +3,7 @@
 
 This is job template for Pharbers Max Job
 """
-from ph_logs.ph_logs import phlogger
+# from ph_logs.ph_logs import phlogger
 import os
 import pandas as pd
 
@@ -15,6 +15,7 @@ from pyspark.sql import functions as func
 
 def execute(max_path, project_name, model_month_left, model_month_right, if_others, current_year, current_month, 
 paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_union, out_path, out_dir, need_test):
+    os.environ["PYSPARK_PYTHON"] = "python3"
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \
@@ -35,7 +36,7 @@ paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_uni
         # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
         spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
 
-    phlogger.info('job4_panel')
+    # phlogger.info('job4_panel')
     
     if if_others == "True":
         out_dir = out_dir + "/others_box/"
@@ -54,7 +55,7 @@ paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_uni
     
     # 月更新相关输入
     if monthly_update != "False" and monthly_update != "True":
-        phlogger.error('wrong input: monthly_update, False or True') 
+        # phlogger.error('wrong input: monthly_update, False or True') 
         raise ValueError('wrong input: monthly_update, False or True')
     if monthly_update == "False":
         Notarrive_unpublished_paths = paths_foradding.replace(", ",",").split(",")
@@ -79,7 +80,7 @@ paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_uni
         panel_path = out_path_dir + "/panel_result"
 
     # =========== 数据检查 =============
-    phlogger.info('数据检查-start')
+    # phlogger.info('数据检查-start')
 
     # 存储文件的缺失列
     misscols_dict = {}
@@ -124,14 +125,14 @@ paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_uni
             misscols_dict_final[eachfile] = misscols_dict[eachfile]
     # 如果有缺失列，则报错，停止运行
     if misscols_dict_final:
-        phlogger.error('miss columns: %s' % (misscols_dict_final))
+        # phlogger.error('miss columns: %s' % (misscols_dict_final))
         raise ValueError('miss columns: %s' % (misscols_dict_final))
 
-    phlogger.info('数据检查-Pass')
+    # phlogger.info('数据检查-Pass')
 
     # =========== 数据执行 =============
 
-    phlogger.info('数据执行-start')
+    # phlogger.info('数据执行-start')
 
     # read_universe
     universe = spark.read.parquet(universe_path)
@@ -267,7 +268,7 @@ paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_uni
         
         unpublished_ID=published_left.subtract(published_right).toPandas()['ID'].values.tolist()
         unpublished_ID_num=len(unpublished_ID)
-        all_month=range(1,13,1)*unpublished_ID_num
+        all_month=list(range(1,13,1))*unpublished_ID_num
         all_month.sort()
         unpublished_dict={"ID":unpublished_ID*12,"Date":[current_year*100 + i for i in all_month]}
         
@@ -303,9 +304,9 @@ paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_uni
     panel_filtered.write.format("parquet") \
         .mode("overwrite").save(panel_path)
 
-    phlogger.info("输出 panel_filtered 结果：".decode("utf-8") + panel_path)
+    # phlogger.info("输出 panel_filtered 结果：".decode("utf-8") + panel_path)
 
-    phlogger.info('数据执行-Finish')
+    # phlogger.info('数据执行-Finish')
 
     # =========== 数据验证 =============
     # 与原R流程运行的结果比较正确性: Sanofi与Sankyo测试通过

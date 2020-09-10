@@ -4,7 +4,7 @@
 This is job template for Pharbers Max Job
 """
 import pandas as pd
-from ph_logs.ph_logs import phlogger
+# from ph_logs.ph_logs import phlogger
 import os
 from pyspark.sql import SparkSession
 from pyspark.sql.types import *
@@ -14,6 +14,7 @@ from pyspark.sql import functions as func
 
 def execute(max_path, project_name, model_month_right, max_month, year_missing, current_year, first_month, current_month, 
 if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, need_test, if_add_data):
+    os.environ["PYSPARK_PYTHON"] = "python3"
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \
@@ -34,10 +35,10 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
         # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
         spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
 
-    phlogger.info('job3_data_adding')
+    # phlogger.info('job3_data_adding')
     
     if if_add_data != "False" and if_add_data != "True":
-        phlogger.error('wrong input: if_add_data, False or True') 
+        # phlogger.error('wrong input: if_add_data, False or True') 
         raise ValueError('wrong input: if_add_data, False or True')
     
     if if_others == "True":
@@ -58,7 +59,7 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
     
     # 月更新相关参数
     if monthly_update != "False" and monthly_update != "True":
-        phlogger.error('wrong input: monthly_update, False or True') 
+        # phlogger.error('wrong input: monthly_update, False or True') 
         raise ValueError('wrong input: monthly_update, False or True')
     if monthly_update == "True":
         current_year = int(current_year)
@@ -87,7 +88,7 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
 
     # =========== 数据检查 =============
 
-    phlogger.info('数据检查-start')
+    # phlogger.info('数据检查-start')
 
     # 存储文件的缺失列
     misscols_dict = {}
@@ -114,13 +115,13 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
             misscols_dict_final[eachfile] = misscols_dict[eachfile]
     # 如果有缺失列，则报错，停止运行
     if misscols_dict_final:
-        phlogger.error('miss columns: %s' % (misscols_dict_final))
+        # phlogger.error('miss columns: %s' % (misscols_dict_final))
         raise ValueError('miss columns: %s' % (misscols_dict_final))
 
-    phlogger.info('数据检查-Pass')
+    # phlogger.info('数据检查-Pass')
 
     # =========== 数据执行 =============
-    phlogger.info('数据执行-start')
+    # phlogger.info('数据执行-start')
 
     # 数据读取
     raw_data = spark.read.parquet(product_mapping_out_path)
@@ -166,10 +167,10 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
         years = original_range.select("Year").distinct() \
             .orderBy(original_range.Year) \
             .toPandas()["Year"].values.tolist()
-        phlogger.info(years)
+        # phlogger.info(years)
     
         growth_rate_index = [index for index, name in enumerate(raw_data_for_add.columns) if name.startswith("GR")]
-        phlogger.info(growth_rate_index)
+        # phlogger.info(growth_rate_index)
     
         # 对每年的缺失数据分别进行补数
         empty = 0
@@ -250,7 +251,7 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
             
     # 执行函数 add_data
     if monthly_update == "False":
-        phlogger.info('4 补数')
+        # phlogger.info('4 补数')
         # 补数：add_data
         add_data_out = add_data(raw_data, growth_rate)
         adding_data = add_data_out[0]
@@ -261,7 +262,7 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
         published_right = spark.read.csv(published_right_path, header=True)
         not_arrived =  spark.read.csv(not_arrived_path, header=True)
         
-        phlogger.info('4 补数')
+        # phlogger.info('4 补数')
         
         for index, month in enumerate(range(first_month, current_month + 1)):
             # publish交集，去除当月未到
@@ -287,14 +288,14 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
                 adding_data_monthly = adding_data_monthly.repartition(1)
                 adding_data_monthly.write.format("parquet") \
                     .mode("append").save(adding_data_path)
-            phlogger.info("输出 adding_data：".decode("utf-8") + adding_data_path)
+            # phlogger.info("输出 adding_data：".decode("utf-8") + adding_data_path)
                 
                 
     if monthly_update == "False":
         adding_data = adding_data.repartition(2)
         adding_data.write.format("parquet") \
             .mode("overwrite").save(adding_data_path)
-        phlogger.info("输出 adding_data：".decode("utf-8") + adding_data_path)
+        # phlogger.info("输出 adding_data：".decode("utf-8") + adding_data_path)
     elif monthly_update == "True" and if_add_data == "True":
         adding_data = spark.read.parquet(adding_data_path)
 
@@ -322,13 +323,13 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
         # 只在最新一年出现的医院
         new_hospital = (original_range.where(original_range.Year == max(years)).select("PHA").distinct()) \
             .subtract(original_range.where(original_range.Year != max(years)).select("PHA").distinct())
-        phlogger.info("以下是最新一年出现的医院:" + str(new_hospital.toPandas()["PHA"].tolist()))
+        # phlogger.info("以下是最新一年出现的医院:" + str(new_hospital.toPandas()["PHA"].tolist()))
         # 输出
         new_hospital = new_hospital.repartition(2)
         new_hospital.write.format("parquet") \
             .mode("overwrite").save(new_hospital_path)
     
-        phlogger.info("输出 new_hospital：".decode("utf-8") + new_hospital_path)
+        # phlogger.info("输出 new_hospital：".decode("utf-8") + new_hospital_path)
     
         # 最新一年没有的月份
         missing_months = (original_range.where(original_range.Year != max(years)).select("Month").distinct()) \
@@ -336,7 +337,7 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
     
         # 如果最新一年有缺失月份，需要处理
         if missing_months.count() == 0:
-            phlogger.info("missing_months=0")
+            # phlogger.info("missing_months=0")
             raw_data_adding_final = raw_data_adding
         else:
             number_of_existing_months = 12 - missing_months.count()
@@ -365,9 +366,9 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
     raw_data_adding_final.write.format("parquet") \
         .mode("overwrite").save(raw_data_adding_final_path)
 
-    phlogger.info("输出 raw_data_adding_final：".decode("utf-8") + raw_data_adding_final_path)
+    # phlogger.info("输出 raw_data_adding_final：".decode("utf-8") + raw_data_adding_final_path)
 
-    phlogger.info('数据执行-Finish')
+    # phlogger.info('数据执行-Finish')
 
     # =========== 数据验证 =============
     # 与原R流程运行的结果比较正确性: Sanofi与Sankyo测试通过
