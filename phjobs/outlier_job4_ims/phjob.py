@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 
 def execute(max_path, project_name, out_path, out_dir, doi, product_input):
-    
+    os.environ["PYSPARK_PYTHON"] = "python2"    
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \

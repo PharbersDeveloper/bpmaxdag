@@ -16,6 +16,7 @@ from pyspark.sql.types import StringType,DoubleType
 from pyspark.sql.functions import pandas_udf, PandasUDFType
 
 def execute(max_path, project_name, out_path, out_dir, doi, product_input, fst_prd, bias):
+    os.environ["PYSPARK_PYTHON"] = "python2"
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \

@@ -13,7 +13,7 @@ from pyspark.sql.functions import udf, from_json
 import json
 
 def execute(max_path, project_name, out_path, out_dir, panel_path, universe_path, doi, product_input, model_month_left, model_month_right, arg_year):
-
+    os.environ["PYSPARK_PYTHON"] = "python2"
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \

@@ -17,7 +17,7 @@ import pandas as pd
 import itertools
 
 def execute(max_path, project_name, out_path, out_dir, doi, product_input, cities, num_ot_max, sample_max):
-    
+    os.environ["PYSPARK_PYTHON"] = "python2"    
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \
