@@ -12,10 +12,16 @@ spec:
     code: phmain.py
     config: phconf.yaml
     args:
-      - key: a
-        value: 123
-      - key: b
-        value: 456
+      - key: run_id
+        value: default
+      - key: job_id
+        value: default
+      - key: version
+        value: 2020-08-31
+      - key: ver_measures_content_path
+        value: s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/final-result-ver-measures-3
+      - key: hor_measures_content_path
+        value: default
     outputs:
       - key: a
         value: abcde
