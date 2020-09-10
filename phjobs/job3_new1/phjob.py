@@ -17,6 +17,7 @@ from scipy.spatial import distance
 import math
 
 def execute(max_path, project_name, out_path, out_dir):
+    os.environ["PYSPARK_PYTHON"] = "python2"
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \
