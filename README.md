@@ -1,5 +1,5 @@
 # BPBatchDAG
 Blackmirro and Pharbers Batch DAG
 
-## job chain:
-metacube => cleancube => lattices => bucketlattices => latticesresult => finalresult
+## Datacube jobs chain:
+metacube => cleancube => lattices => bucketlattices => latticesresult => finalresult => calmeasures2 => horcalmeasures

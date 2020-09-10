@@ -12,10 +12,24 @@ spec:
     code: phmain.py
     config: phconf.yaml
     args:
-      - key: a
-        value: 123
-      - key: b
-        value: 456
+      - key: run_id
+        value: default
+      - key: job_id
+        value: default
+      - key: version
+        value: 2020-08-31
+      - key: lattices_path
+        value: s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/meta/lattices
+      - key: dimensions_path
+        value: s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/meta/dimensions
+      - key: lattices_bucket_content_path
+        value: s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/lattices-buckets/content
+      - key: lattices_result_path
+        value: default
+      - key: years
+        value:
+          - 2018
+          - 2019
     outputs:
       - key: a
         value: abcde
