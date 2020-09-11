@@ -62,7 +62,10 @@ def delete_table(spark, table_name):
     return spark.sql("drop table {}".format(table_name))
 
 
-def execute(input_path, output_path, table_name):
+def execute(input_file_format, input_path, output_file_format, output_path, save_mode, table_name):
+    if not input_path or not output_path or not table_name:
+        raise Exception('The wrong input, input_path={}, output_path={}, table_name={}'.format(input_path, output_path, table_name))
+    
     os.environ["PYSPARK_PYTHON"] = "python3"
     spark = SparkSession.builder \
         .master("yarn") \
@@ -83,15 +86,25 @@ def execute(input_path, output_path, table_name):
         spark._jsc.hadoopConfiguration().set("fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
         spark._jsc.hadoopConfiguration().set("com.amazonaws.services.s3.enableV4", "true")
         spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
+        
+    if 'json' == input_file_format:
+        input_data_df = spark.read.json(input_path)
+    else:
+        input_data_df = spark.read.parquet(input_path)
 
-    input_data_df = spark.read.parquet(input_path)
-    input_data_df.coalesce(4).write.mode('overwrite') \
+    if save_mode not in ['overwrite', 'append']:
+        raise Exception('The wrong mode ' + save_mode + ' for save_mode')
+
+    input_data_df.coalesce(4).write \
+        .mode(save_mode) \
         .option("compression", "snappy") \
+        .format(output_file_format) \
         .option('path', output_path) \
         .saveAsTable(table_name)
         
-# execute('s3a://ph-stream/common/public/prod/17', 's3a://ph-stream/common/public/prod/0.0.15', 'prod')
+# execute('parquet', 's3a://ph-stream/common/public/prod/0.0.15', 'parquet', 's3a://ph-stream/common/public/prod/15', 'append', 'prod16')
 
+## submit cmd
 # $SPARK_HOME/bin/spark-submit \
 # --name saveAsTable-submit \
 # --master yarn \
@@ -103,4 +116,14 @@ def execute(input_path, output_path, table_name):
 # --conf spark.hadoop.fs.s3a.access.key=$AWS_ACCESS_KEY_ID \
 # --conf spark.hadoop.fs.s3a.secret.key=$AWS_SECRET_ACCESS_KEY \
 # --conf spark.hadoop.fs.s3a.endpoint=s3.cn-northwest-1.amazonaws.com.cn \
-# main.py
+# /workspace/BPBatchDAG/phjobs/create_hive_table/phjob.py
+
+## trigger json
+# {
+#     "input_file_format": "parquet", 
+#     "input_path": "s3a://ph-stream/common/public/prod/0.0.15", 
+#     "output_file_format": "parquet", 
+#     "output_path": "s3a://ph-stream/common/public/prod/15", 
+#     "save_mode": "append", 
+#     "table_name": "prod16"
+# }

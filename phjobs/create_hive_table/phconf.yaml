@@ -10,14 +10,20 @@ spec:
     repository: local
     runtime: python3
     code: phmain.py
-    config: phconf-20200826.yaml
+    config: phconf.yaml
     args:
+      - key: input_file_format
+        value: parquet
       - key: input_path
-        value: s3a://ph-stream/common/public/prod/17
+        value: 'not_null'
+      - key: output_file_format
+        value: parquet
       - key: output_path
-        value: s3a://ph-stream/common/public/prod/0.0.15
+        value: 'not_null'
+      - key: save_mode
+        value: append
       - key: table_name
-        value: prod
+        value: 'not_null'
     outputs:
       - key: a
         value: abcde
