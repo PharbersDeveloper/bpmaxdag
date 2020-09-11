@@ -3,7 +3,7 @@
 
 This is job template for Pharbers Max Job
 """
-# from ph_logs.ph_logs import phlogger
+from ph_logs.ph_logs import phlogger
 from pyspark.sql import SparkSession
 from pyspark.sql.types import *
 from pyspark.sql.types import StringType, IntegerType, DoubleType
@@ -35,7 +35,7 @@ cpa_gyc, bedsize, hospital_level):
         # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
         spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
 
-    # phlogger.info('job6_max_city')
+    phlogger.info('job6_max_city')
     
     # 输入
     minimum_product_columns = minimum_product_columns.replace(" ","").split(",")

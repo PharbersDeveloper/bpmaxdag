@@ -3,7 +3,7 @@
 
 This is job template for Pharbers Max Job
 """
-# from ph_logs.ph_logs import phlogger
+from ph_logs.ph_logs import phlogger
 import os
 from pyspark.sql import SparkSession
 from pyspark.sql.types import *
@@ -32,7 +32,7 @@ def execute(max_path, project_name, minimum_product_columns, minimum_product_sep
         # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
         spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
 
-    # phlogger.info('job2_product_mapping')
+    phlogger.info('job2_product_mapping')
     
     # 注意：
     # Mylan不做Brand判断，写死了
@@ -55,7 +55,7 @@ def execute(max_path, project_name, minimum_product_columns, minimum_product_sep
     need_cleaning_path = out_path_dir + "/need_cleaning"
 
     # =========== 数据检查 =============
-    # phlogger.info('数据检查-start')
+    phlogger.info('数据检查-start')
 
     # 存储文件的缺失列
     misscols_dict = {}
@@ -84,13 +84,13 @@ def execute(max_path, project_name, minimum_product_columns, minimum_product_sep
             misscols_dict_final[eachfile] = misscols_dict[eachfile]
     # 如果有缺失列，则报错，停止运行
     if misscols_dict_final:
-        # phlogger.error('miss columns: %s' % (misscols_dict_final))
+        phlogger.error('miss columns: %s' % (misscols_dict_final))
         raise ValueError('miss columns: %s' % (misscols_dict_final))
 
-    # phlogger.info('数据检查-Pass')
+    phlogger.info('数据检查-Pass')
 
     # =========== 数据执行 =============
-    # phlogger.info('数据执行-start')
+    phlogger.info('数据执行-start')
 
     # raw_data_job1_out_path = "/user/ywyuan/max/Sankyo/raw_data_job1_out"
     raw_data = spark.read.parquet(hospital_mapping_out_path)
@@ -144,13 +144,13 @@ def execute(max_path, project_name, minimum_product_columns, minimum_product_sep
     need_cleaning = raw_data.join(product_map_for_needclean, on="min1", how="left_anti") \
         .select(need_cleaning_cols) \
         .distinct()
-    # phlogger.info('待清洗行数: ' + str(need_cleaning.count()))
+    phlogger.info('待清洗行数: ' + str(need_cleaning.count()))
 
     if need_cleaning.count() > 0:
         need_cleaning = need_cleaning.repartition(2)
         need_cleaning.write.format("parquet") \
             .mode("overwrite").save(need_cleaning_path)
-        # phlogger.info("已输出待清洗文件至:  ".decode("utf-8") + need_cleaning_path)
+        phlogger.info("已输出待清洗文件至:  " + need_cleaning_path)
 
     raw_data = raw_data.join(product_map_for_rawdata, on="min1", how="left") \
         .drop("S_Molecule") \
@@ -160,9 +160,9 @@ def execute(max_path, project_name, minimum_product_columns, minimum_product_sep
     product_mapping_out.write.format("parquet") \
         .mode("overwrite").save(product_mapping_out_path)
 
-    # phlogger.info("输出 product_mapping 结果：".decode("utf-8") + product_mapping_out_path)
+    phlogger.info("输出 product_mapping 结果：" + product_mapping_out_path)
 
-    # phlogger.info('数据执行-Finish')
+    phlogger.info('数据执行-Finish')
 
     # =========== 数据验证 =============
     # 与原R流程运行的结果比较正确性

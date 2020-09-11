@@ -3,7 +3,7 @@
 
 This is job template for Pharbers Max Job
 """
-# from ph_logs.ph_logs import phlogger
+from ph_logs.ph_logs import phlogger
 import os
 from pyspark.sql import SparkSession
 from pyspark.sql.types import *
@@ -38,11 +38,11 @@ def execute(max_path, project_name, cpa_gyc, if_others, out_path, out_dir, auto_
         # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
         spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
 
-    # phlogger.info('job1_hospital_mapping')
+    phlogger.info('job1_hospital_mapping')
 
     # 输入
     if if_others != "False" and if_others != "True":
-        # phlogger.error('wrong input: if_others, False or True') 
+        phlogger.error('wrong input: if_others, False or True') 
         raise ValueError('wrong input: if_others, False or True')
         
     universe_path = max_path + "/" + project_name + "/universe_base"
@@ -58,7 +58,7 @@ def execute(max_path, project_name, cpa_gyc, if_others, out_path, out_dir, auto_
     hospital_mapping_out_path = out_path + "/" + project_name + "/" + out_dir  + "/hospital_mapping_out"
 
     # =========== 数据检查 =============
-    # phlogger.info('数据检查-start')
+    phlogger.info('数据检查-start')
 
     # 存储文件的缺失列
     misscols_dict = {}
@@ -122,13 +122,13 @@ def execute(max_path, project_name, cpa_gyc, if_others, out_path, out_dir, auto_
             misscols_dict_final[eachfile] = misscols_dict[eachfile]
     # 如果有缺失列，则报错，停止运行
     if misscols_dict_final:
-        # phlogger.error('miss columns: %s' % (misscols_dict_final))
+        phlogger.error('miss columns: %s' % (misscols_dict_final))
         raise ValueError('miss columns: %s' % (misscols_dict_final))
 
-    # phlogger.info('数据检查-Pass')
+    phlogger.info('数据检查-Pass')
 
     # =========== 数据执行 =============
-    # phlogger.info('数据执行-start')
+    phlogger.info('数据执行-start')
 
     # 1. 首次补数
 
@@ -224,14 +224,14 @@ def execute(max_path, project_name, cpa_gyc, if_others, out_path, out_dir, auto_
     hospital_mapping_out.write.format("parquet") \
         .mode("overwrite").save(hospital_mapping_out_path)
 
-    # phlogger.info("输出 hospital_mapping 结果：" + hospital_mapping_out_path)
+    phlogger.info("输出 hospital_mapping 结果：" + hospital_mapping_out_path)
 
-    # phlogger.info('数据执行-Finish')
+    phlogger.info('数据执行-Finish')
 
     # =========== 数据验证 =============
 
     if int(need_test) > 0:
-        # phlogger.info('数据验证-start')
+        phlogger.info('数据验证-start')
 
         my_out = raw_data
 

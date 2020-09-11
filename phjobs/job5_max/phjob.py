@@ -3,7 +3,7 @@
 
 This is job template for Pharbers Max Job
 """
-# from ph_logs.ph_logs import phlogger
+from ph_logs.ph_logs import phlogger
 from pyspark.sql import SparkSession
 from pyspark.sql.types import *
 from pyspark.sql.types import StringType, IntegerType, DoubleType
@@ -33,7 +33,7 @@ all_models, universe_choice, if_others, out_path, out_dir, need_test):
         # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
         spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
 
-    # phlogger.info('job5_max')
+    phlogger.info('job5_max')
 
     # 输入输出
     if if_base == "False":
@@ -79,7 +79,7 @@ all_models, universe_choice, if_others, out_path, out_dir, need_test):
     # 计算max 函数
     def calculate_max(market, if_base=False, if_box=False):
 
-        # phlogger.info('market:' + market)
+        phlogger.info('market:' + market)
 
         # =========== 输入 =============
         # 根据 market 选择 universe 文件：choose_uni
@@ -114,7 +114,7 @@ all_models, universe_choice, if_others, out_path, out_dir, need_test):
 
 
         # =========== 数据检查 =============
-        # phlogger.info('数据检查-start')
+        phlogger.info('数据检查-start')
 
         # 存储文件的缺失列
         misscols_dict = {}
@@ -181,14 +181,14 @@ all_models, universe_choice, if_others, out_path, out_dir, need_test):
                 misscols_dict_final[eachfile] = misscols_dict[eachfile]
         # 如果有缺失列，则报错，停止运行
         if misscols_dict_final:
-            # phlogger.error('miss columns: %s' % (misscols_dict_final))
+            phlogger.error('miss columns: %s' % (misscols_dict_final))
             raise ValueError('miss columns: %s' % (misscols_dict_final))
 
-        # phlogger.info('数据检查-Pass')
+        phlogger.info('数据检查-Pass')
 
         # =========== 数据执行 =============
 
-        # phlogger.info('数据执行-start')
+        phlogger.info('数据执行-start')
 
         # 选择 market 的时间范围：choose_months
         time_left = time_parameters[0]
@@ -316,7 +316,7 @@ all_models, universe_choice, if_others, out_path, out_dir, need_test):
             s3.put_object("ph-max-auto", max_path_local.split("/")[-1] + "/" + project_name + "/" + '/'.join(max_excel_path.split("/")[-2:]), max_excel_path)
         '''
 
-        # phlogger.info('数据执行-Finish')
+        phlogger.info('数据执行-Finish')
 
 
     # 执行函数
