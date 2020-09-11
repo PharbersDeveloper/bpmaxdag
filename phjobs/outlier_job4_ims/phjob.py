@@ -6,7 +6,7 @@ This is job template for Pharbers Max Job
 from pyspark.sql import SparkSession
 from pyspark.sql.types import *
 from pyspark.sql import functions as func
-from phlogs.phlogs import phlogger
+from ph_logs.ph_logs import phlogger
 import os
 from pyspark.sql.functions import udf, from_json
 import json
@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 
 def execute(max_path, project_name, out_path, out_dir, doi, product_input):
-    os.environ["PYSPARK_PYTHON"] = "python2"    
+    os.environ["PYSPARK_PYTHON"] = "python3"    
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \

@@ -6,7 +6,7 @@ This is job template for Pharbers Max Job
 from pyspark.sql import SparkSession
 from pyspark.sql.types import *
 from pyspark.sql import functions as func
-from phlogs.phlogs import phlogger
+from ph_logs.ph_logs import phlogger
 import os
 
 import numpy as np
@@ -16,7 +16,7 @@ from pyspark.sql.types import StringType,DoubleType
 from pyspark.sql.functions import pandas_udf, PandasUDFType
 
 def execute(max_path, project_name, out_path, out_dir, doi, product_input, fst_prd, bias):
-    os.environ["PYSPARK_PYTHON"] = "python2"
+    os.environ["PYSPARK_PYTHON"] = "python3"
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \
@@ -97,14 +97,13 @@ def execute(max_path, project_name, out_path, out_dir, doi, product_input, fst_p
                 par += ["cp.abs(mkt_ratio[%s])" % s]
                 
         # 添加 in globals(), locals() 否则 exec 不能在有子函数的函数中
-        exec ("obj=cp.Minimize(cp.maximum(" + ",".join(par) + "))") in globals(), locals()
+        exec ("obj=cp.Minimize(cp.maximum(" + ",".join(par) + "))")
         
         ##      obj=Minimize(max_elemwise(abs(poi_ratio[0]),abs(poi_ratio[1]),abs(poi_ratio[2]),abs(poi_ratio[3]),
         #                                abs(mkt_ratio[0]),abs(mkt_ratio[1]),abs(mkt_ratio[2]),abs(mkt_ratio[3])))
         #print(obj)
         #minimize maximum(abs((3716916.3308907785 * var0 + 13260299.0) / 18102154.0 + -1.0) / 2.0, abs((26475892.12411076 * var0 + 104242148.0) / 149269415.0 + -1.0), abs((nan * var0 + nan) / 0.0 + -1.0) / 2.0, abs((26475892.12411076 * var0 + 104242148.0) / 149269415.0 + -1.0), abs((12442094.414764605 * var0 + 49410439.0) / 74349372.0 + -1.0) / 2.0, abs((26475892.12411076 * var0 + 104242148.0) / 149269415.0 + -1.0))
-        
-        prob = cp.Problem(obj, [0 <= f])
+        prob = cp.Problem(locals()['obj'], [0 <= f])
         prob.solve(solver = cp.ECOS)
         #rltsc["factor"] = f.value
         #for i in range(len(rltsc)):
@@ -173,13 +172,13 @@ def execute(max_path, project_name, out_path, out_dir, doi, product_input, fst_p
     df_factor_result.write.format("parquet") \
         .mode("overwrite").save(df_factor_result_path)
     
-    phlogger.info("输出 df_factor_result 结果：".decode("utf-8") + df_factor_result_path)
+    phlogger.info("输出 df_factor_result 结果：" + df_factor_result_path)
         
     df_rlt_brf = df_rlt_brf.repartition(2)
     df_rlt_brf.write.format("parquet") \
         .mode("overwrite").save(df_rlt_brf_path)
         
-    phlogger.info("输出 df_rlt_brf 结果：".decode("utf-8") + df_rlt_brf_path)
+    phlogger.info("输出 df_rlt_brf 结果：" + df_rlt_brf_path)
     
     phlogger.info('数据执行-Finish')
     

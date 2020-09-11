@@ -6,7 +6,7 @@ This is job template for Pharbers Max Job
 from pyspark.sql import SparkSession
 from pyspark.sql.types import *
 from pyspark.sql import functions as func
-from phlogs.phlogs import phlogger
+from ph_logs.ph_logs import phlogger
 import os
 from pyspark.sql.functions import udf, from_json
 import json
@@ -17,7 +17,7 @@ import pandas as pd
 import itertools
 
 def execute(max_path, project_name, out_path, out_dir, doi, product_input, cities, num_ot_max, sample_max):
-    os.environ["PYSPARK_PYTHON"] = "python2"    
+    os.environ["PYSPARK_PYTHON"] = "python3"    
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \
@@ -121,7 +121,7 @@ def execute(max_path, project_name, out_path, out_dir, doi, product_input, citie
             df_eia = df_eia.withColumn(result_name, func.lit(0))
         for p in existing_names:
             df_eia = df_eia.withColumn(result_name,
-                                       df_eia[p.encode("utf-8")] + df_eia[result_name])
+                                       df_eia[p] + df_eia[result_name])
     
         return df_eia
         
@@ -221,7 +221,7 @@ def execute(max_path, project_name, out_path, out_dir, doi, product_input, citie
         for iprd in product_input:
             #print "sum(" + iprd + "_fd)"
             #other_seg_poi[iprd] = sum_result.at[0, iprd+"_fd"]
-            other_seg_poi[iprd] = sum_result.at[0, ("sum(" + iprd + "_fd)").encode("utf-8")]
+            other_seg_poi[iprd] = sum_result.at[0, ("sum(" + iprd + "_fd)")]
     
         #other_seg_oth = sum_result.at[0, "other_fd"]
         #other_seg_oth = sum_result.at[0, "sum(other_fd)"]

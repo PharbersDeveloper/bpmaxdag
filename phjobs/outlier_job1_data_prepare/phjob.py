@@ -6,14 +6,14 @@ This is job template for Pharbers Max Job
 from pyspark.sql import SparkSession
 from pyspark.sql.types import *
 from pyspark.sql import functions as func
-from phlogs.phlogs import phlogger
+from ph_logs.ph_logs import phlogger
 import os
 
 from pyspark.sql.functions import udf, from_json
 import json
 
 def execute(max_path, project_name, out_path, out_dir, panel_path, universe_path, doi, product_input, model_month_left, model_month_right, arg_year):
-    os.environ["PYSPARK_PYTHON"] = "python2"
+    os.environ["PYSPARK_PYTHON"] = "python3"
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \
@@ -215,7 +215,7 @@ def execute(max_path, project_name, out_path, out_dir, panel_path, universe_path
     df_uni.write.format("parquet") \
         .mode("overwrite").save(df_universe_path)
         
-    phlogger.info("输出 df_uni 结果：".decode("utf-8") + df_universe_path)
+    phlogger.info("输出 df_uni 结果：" + df_universe_path)
 
     # 3. ims 数据处理，生成df_ims_share
     df_ims_share = spark.read.parquet(ims_path)\
@@ -225,7 +225,7 @@ def execute(max_path, project_name, out_path, out_dir, panel_path, universe_path
     df_ims_share.write.format("parquet") \
         .mode("overwrite").save(df_ims_share_path)
     
-    phlogger.info("输出 df_ims_share 结果：".decode("utf-8") + df_ims_share_path)
+    phlogger.info("输出 df_ims_share 结果：" + df_ims_share_path)
         
     # 4. max_outlier_poi_job：df_EIA 处理，df_EIA_res 生成
     # df_EIA 处理
@@ -283,7 +283,7 @@ def execute(max_path, project_name, out_path, out_dir, panel_path, universe_path
     df_EIA.write.format("parquet") \
         .mode("overwrite").save(df_EIA_path)
         
-    phlogger.info("输出 df_EIA 结果：".decode("utf-8") + df_EIA_path)
+    phlogger.info("输出 df_EIA 结果：" + df_EIA_path)
         
     df_EIA_res = df_EIA_res.repartition(2)
     df_EIA_res.write.format("parquet") \
