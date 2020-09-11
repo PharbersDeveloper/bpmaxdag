@@ -4,7 +4,7 @@ This is job template for Pharbers Max Job
 """
 
 import pandas as pd
-from phlogs.phlogs import phlogger
+from ph_logs.ph_logs import phlogger
 import os
 from pyspark.sql import SparkSession
 from pyspark.sql.types import *
@@ -17,7 +17,7 @@ from scipy.spatial import distance
 import math
 
 def execute(max_path, project_name, out_path, out_dir):
-    os.environ["PYSPARK_PYTHON"] = "python2"
+    os.environ["PYSPARK_PYTHON"] = "python3"
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \
@@ -101,7 +101,6 @@ def execute(max_path, project_name, out_path, out_dir):
         
         empty = 0
         for i in range(len(weidao)):
-            print i
             example = weidao.loc[i,]
             
             data_his_hosp = data.where((data.ID == example.ID) & (data.Date <= example.Date)) \
