@@ -8,13 +8,19 @@ metadata:
 spec:
   containers:
     repository: local
+    runtime: python3
     code: phmain.py
     config: phconf.yaml
     args:
-      - key: a
-        value: 123
-      - key: b
-        value: 456
+    args:
+      - key: max_path
+        value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
+      - key: project_name
+        value: "New_add_test"
+      - key: out_path
+        value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
+      - key: out_dir
+        value: "New_add_Out"
     outputs:
       - key: a
         value: abcde
