@@ -53,8 +53,6 @@ cpa_gyc, bedsize, hospital_level):
         raise ValueError('bedsize: False or True')
     if hospital_level != "False" and hospital_level != "True":
         raise ValueError('hospital_level: False or True')
-    if bedsize == "False" and hospital_level != "True":
-        raise ValueError('bedsize not match hospital_level')
     
     if left_models != "Empty":
         left_models = left_models.replace(", ",",").split(",")
@@ -104,6 +102,9 @@ cpa_gyc, bedsize, hospital_level):
     elif hospital_level == "True":
         max_result_city_csv_path = out_path_dir + "/MAX_result/MAX_result_" + time_range + "_hospital_level.csv"
         max_result_city_tmp_path = out_path_dir + "/MAX_result/tmp_hospital_"+ time_range
+    elif hospital_level == "False" and bedsize == "False":
+        max_result_city_csv_path = out_path_dir + "/MAX_result/MAX_result_" + time_range + "_city_level_nobed.csv"
+        max_result_city_tmp_path = out_path_dir + "/MAX_result/tmp_city_nobed_"+ time_range
     else:
         max_result_city_path = out_path_dir + "/MAX_result/MAX_result_" + time_range + "_city_level"
         max_result_city_csv_path = out_path_dir + "/MAX_result/MAX_result_" + time_range + "_city_level.csv"
@@ -331,7 +332,7 @@ cpa_gyc, bedsize, hospital_level):
     max_result_city = max_result_all.union(raw_data_city)
     
     # hospital_level 的只输出csv
-    if hospital_level == "False":     
+    if hospital_level == "False" and bedsize == "True":     
         max_result_city = max_result_city.repartition(2)
         max_result_city.write.format("parquet") \
             .mode("overwrite").save(max_result_city_path)
