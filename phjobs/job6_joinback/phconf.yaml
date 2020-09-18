@@ -13,7 +13,7 @@ spec:
     config: phconf.yaml
     args:
       - key: out_path
-        value: "s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfizer_check/0.0.1"
+        value: "s3a://ph-max-auto/2020-08-11/BPBatchDAG/az_check/0.0.1"
       - key: cpa_raw_data_path
         value: "s3a://ph-max-auto/2020-08-11/BPBatchDAG/azsanofi_check"
     outputs:

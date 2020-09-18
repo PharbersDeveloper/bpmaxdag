@@ -74,7 +74,7 @@ def execute(out_path, in_hrpackid_path):
 	
 	# 把待进行编辑距离计算的写入
 	cpa_join_null.write.format("parquet").mode("overwrite").save(out_path + "/" + "cpa_to_ed")
-	print("写入 " + out_path + " 完成")
+	print("写入 " + out_path + "/" + "cpa_to_ed" + " 完成")
 	
 	cpa_join_hr = cpa_join.filter(cpa_join["PACK_ID"].isNotNull()) \
 					  .withColumn("match_MOLE_NAME_EN", func.lit("")) \
@@ -91,7 +91,7 @@ def execute(out_path, in_hrpackid_path):
 	
 	# 把已经用人工匹配表匹配完pack_id的写入
 	cpa_join_hr.write.format("parquet").mode("overwrite").save(out_path + "/" + "cpa_hr_done")
-	print("写入 " + out_path + " 完成")
+	print("写入 " + out_path + "/" + "cpa_hr_done" + " 完成")
 	
 	print("程序end job2_human_replace")
 	print("--"*80)

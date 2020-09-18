@@ -270,7 +270,7 @@ def execute(out_path):
 	@func.udf(returnType=IntegerType())
 	def product(in_value, check_value):
 		# 针对 product name
-		# 只要存在包含关系，编辑距离直接为0，填入true
+		# 只要存在包含关系，编辑距离直接为0
 
 		if (in_value in check_value) or (check_value in in_value):
 			return 0
@@ -279,7 +279,8 @@ def execute(out_path):
 		
 	@func.udf(returnType=IntegerType())
 	def pack_qty(in_value, check_value):
-		return edit_distance(in_value.replace(".0", ""), check_value.replace(".0", ""))  # 所有情况都需要直接计算编辑距离 因为这个是数字
+		return edit_distance(str(in_value), str(check_value).replace(".0", "")) 
+		# return edit_distance(in_value.replace(".0", ""), check_value.replace(".0", ""))  # 所有情况都需要直接计算编辑距离 因为这个是数字
 		
 	@func.udf(returnType=IntegerType())	
 	def replace_and_contain(in_value, check_value):
@@ -330,7 +331,7 @@ def execute(out_path):
 	@func.udf(returnType=IntegerType())			
 	def edit_distance_total(ed_DOSAGE, ed_SPEC, ed_PACK, ed_MNF_NAME_CH, ed_MNF_NAME_EN, ed_PROD_NAME_CH):
 		# 计算总编辑距离
-		ed = ed_DOSAGE + 10*ed_SPEC + 60*ed_PACK + 35*min(ed_MNF_NAME_CH, ed_MNF_NAME_EN) + ed_PROD_NAME_CH
+		ed = ed_DOSAGE + 10*ed_SPEC + 60*ed_PACK + 35*min(ed_MNF_NAME_CH, ed_MNF_NAME_EN) + 1*ed_PROD_NAME_CH
 		return ed
 			
 	mapping_config = {
