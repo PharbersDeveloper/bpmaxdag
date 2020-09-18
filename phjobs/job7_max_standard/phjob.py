@@ -63,7 +63,10 @@ def execute(max_path, out_path, project_name, max_path_list):
     # 去重：保证每个min2只有一条信息, dropDuplicates会取first
     product_map = product_map.dropDuplicates(["min2"])
     product_map = product_map.withColumn("pfc", product_map.pfc.cast(IntegerType())) \
-                        .withColumnRenamed("pfc", "PACK_ID")
+                        .withColumnRenamed("pfc", "PACK_ID") \
+                        .withColumn("min2", func.regexp_replace("min2", "&amp;", "&")) \
+                        .withColumn("min2", func.regexp_replace("min2", "&lt;", "<")) \
+                        .withColumn("min2", func.regexp_replace("min2", "&gt;", ">"))
     
     
     # product_map_all_ATC: 有补充的新的 PACK_ID - 标准通用名 - ACT （0是缺失）
@@ -90,7 +93,6 @@ def execute(max_path, out_path, project_name, max_path_list):
     # 储存时间
     time_list= []
     for i in range(len(max_result_path_list)):
-        # i = 3
         max_result_path = max_result_path_list.loc[i].path
         time_left = max_result_path_list.loc[i].time_left
         time_list.append(time_left)
@@ -101,9 +103,18 @@ def execute(max_path, out_path, project_name, max_path_list):
         max_result = max_result.withColumn("Date", max_result.Date.cast(IntegerType()))
         max_result = max_result.where((max_result.Date >= time_left) & (max_result.Date <= time_right))
         
+        # 杨森6月的max结果 衡水市- 湖北省 错误，先强制改为衡水市- 河北省
+        if project_name == "Janssen":
+            max_result = max_result.withColumn("Province", func.when(max_result.City == "衡水市", func.lit("河北省")) \
+                                                            .otherwise(max_result.Province))
+        
         # product 匹配 PACK_ID, 通用名, 标准商品名, 标准剂型, 标准规格, 标准包装数量, 标准生产企业
-        max_standard = max_result.join(product_map, max_result["Prod_Name"] == product_map["min2"], how="left") \
-                                .drop("min2")
+        max_result = max_result.withColumn("Prod_Name_tmp", max_result.Prod_Name)
+        max_result = max_result.withColumn("Prod_Name_tmp", func.regexp_replace("Prod_Name_tmp", "&amp;", "&")) \
+                                .withColumn("Prod_Name_tmp", func.regexp_replace("Prod_Name_tmp", "&lt;", "<")) \
+                                .withColumn("Prod_Name_tmp", func.regexp_replace("Prod_Name_tmp", "&gt;", ">"))
+        max_standard = max_result.join(product_map, max_result["Prod_Name_tmp"] == product_map["min2"], how="left") \
+                                .drop("min2","Prod_Name_tmp")
         
         # PACK_ID - 标准通用名 - ACT
         max_standard = max_standard.join(packID_ACT_map, on=["PACK_ID"], how="left")
@@ -122,7 +133,10 @@ def execute(max_path, out_path, project_name, max_path_list):
         max_standard = max_standard.withColumn("标准通用名", func.when(max_standard['标准通用名'].isNull(), max_standard['通用名']) \
                                                                 .otherwise(max_standard['标准通用名']))
         
-        # city 标准化：先标准化省，再标准化市
+        # city 标准化：
+        '''
+        先标准化省，再用(标准省份-City)标准化市
+        '''
         max_standard = max_standard.join(MAX_city_normalize.select("Province", "标准省份名称").distinct(), on=["Province"], how="left")
         max_standard = max_standard.join(MAX_city_normalize.select("City", "标准省份名称", "标准城市名称").distinct(),
                                     on=["标准省份名称", "City"], how="left")
