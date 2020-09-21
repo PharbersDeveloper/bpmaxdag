@@ -85,13 +85,13 @@ def execute(**kwargs):
 
     logger.info("Start write to PostgreSQL.")
 
-    df_company = spark.read.parquet(hor_measures_metadata_path).toPandas()
-    logger.info("df_company is {}.".format(df_company))
-
-    for idx, row in df_company.iterrows():
+    df_company = spark.read.parquet(hor_measures_metadata_path)
+    if hor_measures_metadata_path == hor_measures_content_path:
+        logger.info("start generate cpmpany distinct.")
+        df_company = spark.read.parquet(hor_measures_metadata_path).select("COMPANY").distinct()
+    pds_company = df_company.toPandas()
+    for idx, row in pds_company.iterrows():
         logger.info("idx is {},\trow is {}.".format(idx, row))
         company = row["COMPANY"]
         logger.info("company is {}.".format(company))
         write2postgres(hor_measures_content_path + "/COMPANY=" + str(company), company)
-
-    

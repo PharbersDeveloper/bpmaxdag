@@ -2,4 +2,4 @@
 Blackmirro and Pharbers Batch DAG
 
 ## Datacube jobs chain:
-metacube => cleancube => lattices => bucketlattices => latticesresult => finalresult => calmeasures2 => horcalmeasures => write2postgres
+metacube => cleancube => lattices(17h28min) => bucketlattices => latticesresult => finalresult => calmeasures => horcalmeasures => write2postgres
