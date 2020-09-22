@@ -14,8 +14,9 @@ import click
 @click.option('--in_mhr_path')
 @click.option('--out_path')
 @click.option('--min_keys_lst')
-def debug_execute(in_cpa_path, in_prod_path, in_hr_path, in_mhr_path, out_path, min_keys_lst):
-	 execute(in_cpa_path, in_prod_path, in_hr_path, in_mhr_path, out_path, min_keys_lst)
+@click.option('--in_mnf_path')
+def debug_execute(in_cpa_path, in_prod_path, in_hr_path, in_mhr_path, out_path, min_keys_lst, in_mnf_path):
+	 execute(in_cpa_path, in_prod_path, in_hr_path, in_mhr_path, out_path, min_keys_lst, in_mnf_path)
 
 
 if __name__ == '__main__':

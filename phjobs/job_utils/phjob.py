@@ -17,6 +17,9 @@ from pyspark.sql import functions as func
 import re
 import numpy as np
 from pyspark.sql.window import Window
+import pandas as pd
+import io
+import boto3
 
 
 
@@ -72,7 +75,7 @@ def execute():
 		# cpa_check = spark.read.parquet("s3a://ph-stream/common/public/pfizer_check") \
 		# cpa_check = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/azsanofi_check") \
 		cpa_check = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/chc_check/chc_raw_data") \
-		                        .na.fill("") \
+								.na.fill("") \
 								.withColumn("PACK_ID_CHECK", pack_id("PACK_ID_CHECK")) \
 								.drop("id")
 		# cpa_check = cpa_check.filter(cpa_check.PRODUCT_NAME != "").filter(cpa_check.DOSAGE != "") \
@@ -193,13 +196,13 @@ def execute():
 							  how="left")
 
 							  
-		check.select( \
-			         #"MANUFACTURER_NAME", "match_MANUFACTURER_NAME_CH", "right_MNF_NAME", "ed_MNF_NAME_CH", "ed_MNF_NAME_EN", \
-			         #"ed_SPEC", "ed_PACK", "ed_PROD_NAME_CH", "ed_DOSAGE", \
-					 #"PRODUCT_NAME", "match_PRODUCT_NAME", "right_PROD_NAME", "ed_PROD_NAME_CH", \
-					 #"DOSAGE", "match_DOSAGE", "right_DOSAGE", "ed_DOSAGE", \
-					 #"PACK_QTY", "match_PACK_QTY", "right_PACK", "ed_PACK", "PACK_ID_CHECK", "right_PACK_ID", \
-					 "SPEC", "match_SPEC", "right_SPEC", "ed_SPEC", "PACK_ID", \
+		check.filter(check.PACK_ID == "6101102").select( \
+					 "MANUFACTURER_NAME", "match_MANUFACTURER_NAME_CH", "right_MNF_NAME", \
+					 #"ed_SPEC", "ed_PACK", "ed_PROD_NAME_CH", \
+					 "PRODUCT_NAME", "match_PRODUCT_NAME", "right_PROD_NAME",  \
+					 "DOSAGE", "match_DOSAGE", "right_DOSAGE", \
+					 "PACK_QTY", "match_PACK_QTY", "right_PACK", "PACK_ID_CHECK", \
+					 "SPEC", "match_SPEC", "right_SPEC","PACK_ID", \
 					 "PACK_ID_CHECK", "PACK_ID", "ed_total").show(100)
 		
 		# spec_test1 = check.select("SPEC", "right_SPEC").distinct()
@@ -212,7 +215,7 @@ def execute():
 	def hr_check():
 		wrong_hr = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfi_check/0.0.4/wrong_hr") \
 							 .drop("MOLE_NAME", "PRODUCT_NAME", "DOSAGE", "SPEC", "PACK_QTY", "MANUFACTURER_NAME", "version", "id", \
-							       "ed_DOSAGE", "ed_PROD_NAME_CH", "ed_PACK", "ed_MNF_NAME_CH", "ed_MNF_NAME_EN", "ed_SPEC", "ed_total")
+								   "ed_DOSAGE", "ed_PROD_NAME_CH", "ed_PACK", "ed_MNF_NAME_CH", "ed_MNF_NAME_EN", "ed_SPEC", "ed_total")
 		# wrong_hr.show(4)
 		product_data = spark.read.parquet(in_prod_path).select("PACK_ID", "MOLE_NAME_CH", "PROD_NAME_CH", "MNF_NAME_CH", "DOSAGE", "SPEC", "PACK") \
 													   .withColumnRenamed("PACK_ID", "prod_PACK_ID") \
@@ -230,11 +233,11 @@ def execute():
 		# wrong_hr.show(5)
 		
 		wrong_hr.select( \
-			            # "in_PRODUCT_NAME", "match_PRODUCT_NAME", "prod_PROD_NAME", \
-			            # "in_MOLE_NAME", "match_MOLE_NAME_CH", "prod_MOLE_NAME", \
-			            "in_MANUFACTURER_NAME", "match_MANUFACTURER_NAME_CH", "prod_MNF_NAME", \
-			            ).show(54)
-			            
+						# "in_PRODUCT_NAME", "match_PRODUCT_NAME", "prod_PROD_NAME", \
+						# "in_MOLE_NAME", "match_MOLE_NAME_CH", "prod_MOLE_NAME", \
+						"in_MANUFACTURER_NAME", "match_MANUFACTURER_NAME_CH", "prod_MNF_NAME", \
+						).show(54)
+						
 		# wrong_hr.select( \
 		# 	            "in_PRODUCT_NAME", "match_PRODUCT_NAME", "prod_PROD_NAME", \
 		# 	            ).show()
@@ -444,12 +447,56 @@ def execute():
 		final_spec = get_final_spec(final_dict) # 输入dict 返回值是str
 		return final_spec
 
+
+
+	def s3excel2parquet():
+		access_key = "AKIAWPBDTVEANFK7R7YY"
+		secret_key = "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"
+		
+		SOURCE_BUCKET = 'ph-max-auto'
+		SOURCE_PATH = '2020-08-11/BPBatchDAG/mnf_name_mapping/mnf_name_mapping.xlsx'
+		TARGET_BUCKET = 'ph-max-auto'
+		TARGET_PATH = '2020-08-11/BPBatchDAG/mnf_name_mapping/mnf_name_mapping'
+		
+		print("开始读取")
+		
+		s3_client = boto3.client('s3', aws_access_key_id=access_key, aws_secret_access_key=secret_key)
+		object_file = s3_client.get_object(Bucket=SOURCE_BUCKET, Key=SOURCE_PATH)
+		data = object_file['Body'].read()
+		pd_df = pd.read_excel(io.BytesIO(data), encoding='utf-8')
+		
+		os.environ["PYSPARK_PYTHON"] = "python3"
+		spark = SparkSession.builder \
+		    .master("yarn") \
+		    .appName("data cube cal measures") \
+		    .config("spark.driver.memory", "1g") \
+		    .config("spark.executor.cores", "2") \
+		    .config("spark.executor.instance", "4") \
+		    .config("spark.executor.memory", "2g") \
+		    .config('spark.sql.codegen.wholeStage', False) \
+		    .getOrCreate()
+		
+		if access_key is not None:
+		    spark._jsc.hadoopConfiguration().set("fs.s3a.access.key", access_key)
+		    spark._jsc.hadoopConfiguration().set("fs.s3a.secret.key", secret_key)
+		    spark._jsc.hadoopConfiguration().set("fs.s3a.impl","org.apache.hadoop.fs.s3a.S3AFileSystem")
+		    spark._jsc.hadoopConfiguration().set("com.amazonaws.services.s3.enableV4", "true")
+		    # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
+		    spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
+		
+		sdf = spark.createDataFrame(pd_df.astype(str))
+		sdf.show()
+		save_path = "s3a://%s/%s" % (TARGET_BUCKET, TARGET_PATH)
+		sdf.write.format("parquet").mode("overwrite").save(save_path)
+		print("写入" + save_path + "完成")
+
 	# phizer_check()  # 检查有多少匹配错误的 包括hr和ed分别两种的数量
 	# prod_check()
 	# ed_wrong_check()
 	# spec_reformat_test()  # 将错误匹配的剂型信息对比一下
 	# hr_check()
 	# azsanofi_split()
+	# s3excel2parquet()
 	
 	# def spec_check():
 	# print(spec_reformat("10g:200万IU") == "10000.0MG 2000000.0U")
@@ -472,10 +519,13 @@ def execute():
 	# print(spec_reformat(" (250MG+8.77MG)") == "2.25G")
 	# print(spec_reformat("18ΜG"))
 	
-	azsanofi = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/chc_check/0.0.1/cpa_prod_join_null") \
-					.select("in_MOLE_NAME", "in_PRODUCT_NAME", "in_SPEC", "in_DOSAGE", "in_PACK_QTY")
-	# azsanofi.show()
-	# print(azsanofi.count())
+	azsanofi = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/mnf_name_mapping/mnf_name_mapping")
+	azsanofi.show()
+	print(azsanofi.count())
+	
+	# xixi = pd.read_excel('mnf_name_mapping.xlsx')
+	# xixi1 = spark.createDataFrame(xixi)
+	# xixi1.write.format("parquet").mode("overwrite").save("s3a://ph-max-auto/2020-08-11/BPBatchDAG/mnf_name_mapping")
 
 
 	print("程序end: job_utils")
