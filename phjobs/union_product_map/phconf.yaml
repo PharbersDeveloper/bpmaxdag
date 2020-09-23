@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: alfred
+  description: "pharbers job description"
+  labels:
+    name: alfred
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: max_path
+        value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
+      - key: project_list
+        value: "Astellas:202006,AZ:202006,Beite:202006, Gilead:202006, Janssen:202006, Mylan:202006, NHWA:202006, Pfizer:202006,Qilu:202006, Sankyo:202006, Sanofi:202006, Servier:202006, Tide:202006, XLT:202006, 京新:202006, 奥鸿:202005, 康哲:202006, 汇宇:202006, 海坤:202006, 贝达:202006"
+    outputs:
+      - key: a
+        value: abcde
+      - key: b
+        value: 6789
+
+
+
