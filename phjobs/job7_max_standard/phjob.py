@@ -49,7 +49,7 @@ def execute(max_path, out_path, project_name, max_path_list):
     product_map_path = max_path  + "/Common_files/product_map_all"
     molecule_ACT_path = max_path  + "/Common_files/product_map_all_ATC.csv"
     MAX_city_normalize_path = max_path  + "/Common_files/MAX_city_normalize.csv"
-    packID_ACT_map_path = max_path  + "/Common_files/packID_ACT_map.csv"
+    packID_ACT_map_path = max_path  + "/Common_files/packID_ATC_map.csv"
     
     # mapping用文件：注意各种mapping的去重，唯一匹配
     
