@@ -198,8 +198,8 @@ cpa_gyc, bedsize, hospital_level):
         raw_data = raw_data.join(product_map_for_rawdata, on="min1", how="left") \
             .drop("S_Molecule") \
             .withColumnRenamed("通用名", "S_Molecule")
-        
-     
+            
+            
     # 匹配市场名
     market_mapping = spark.read.parquet(market_mapping_path)
     market_mapping = market_mapping.withColumnRenamed("标准通用名", "通用名") \
@@ -245,10 +245,11 @@ cpa_gyc, bedsize, hospital_level):
     if raw_data.select("DOI").dtypes[0][1] == "double":
         raw_data = raw_data.withColumn("DOI", raw_data["DOI"].cast(IntegerType()))
     raw_data = raw_data.where(raw_data.DOI.isin(all_models))
-    
+
     # 计算
-    if project_name != "Janssen" or bedsize == "True":
-        raw_data = raw_data.where(raw_data.Bedsize > 99)
+    if project_name != "Janssen":
+        if bedsize == "True":
+            raw_data = raw_data.where(raw_data.Bedsize > 99)
     
     if hospital_level == "True":
         raw_data_city = raw_data \
