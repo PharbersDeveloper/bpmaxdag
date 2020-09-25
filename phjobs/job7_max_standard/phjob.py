@@ -46,10 +46,10 @@ def execute(max_path, out_path, project_name, max_path_list):
         max_result_path_list_path = max_path_list
     
     # 通用匹配文件
-    product_map_path = max_path  + "/Common_files/product_map_all"
-    molecule_ACT_path = max_path  + "/Common_files/product_map_all_ATC.csv"
-    MAX_city_normalize_path = max_path  + "/Common_files/MAX_city_normalize.csv"
-    packID_ACT_map_path = max_path  + "/Common_files/packID_ATC_map.csv"
+    product_map_path = max_path  + "/Common_files/extract_data_files/product_map_all"
+    molecule_ACT_path = max_path  + "/Common_files/extract_data_files/product_map_all_ATC.csv"
+    MAX_city_normalize_path = max_path  + "/Common_files/extract_data_files/MAX_city_normalize.csv"
+    packID_ACT_map_path = max_path  + "/Common_files/extract_data_files/packID_ATC_map.csv"
     
     # mapping用文件：注意各种mapping的去重，唯一匹配
     

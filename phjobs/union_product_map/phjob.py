@@ -137,8 +137,8 @@ def execute(max_path, project_list):
     
     product_map_all = product_map_all.repartition(1)
     product_map_all.write.format("parquet") \
-        .mode("overwrite").save("s3a://ph-max-auto/v0.0.1-2020-06-08/Common_files/product_map_all")
+        .mode("overwrite").save("s3a://ph-max-auto/v0.0.1-2020-06-08/Common_files/extract_data_files/product_map_all")
     # 保存为csv的时候会丢失尾部空格
     product_map_all.write.format("csv").option("header", "true") \
-        .mode("overwrite").save("s3a://ph-max-auto/v0.0.1-2020-06-08/Common_files/product_map_all.csv")
+        .mode("overwrite").save("s3a://ph-max-auto/v0.0.1-2020-06-08/Common_files/extract_data_files/product_map_all.csv")
     
