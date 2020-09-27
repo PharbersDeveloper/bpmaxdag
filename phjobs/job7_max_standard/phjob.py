@@ -55,7 +55,22 @@ def execute(max_path, out_path, project_name, max_path_list):
     
     # 城市标准化
     MAX_city_normalize = spark.read.csv(MAX_city_normalize_path, header=True)
-                    
+    
+    # product_map_all_ATC: 有补充的新的 PACK_ID - 标准通用名 - ACT （0是缺失）
+    molecule_ACT_map = spark.read.csv(molecule_ACT_path, header=True)
+    molecule_ACT_map = molecule_ACT_map.where(molecule_ACT_map.project == project_name)
+    add_PACK_ID = molecule_ACT_map.select("min2", "PackID").distinct() \
+                    .withColumn("PackID", molecule_ACT_map.PackID.cast(IntegerType()))
+    add_PACK_ID = add_PACK_ID.withColumn("PackID", func.when(add_PACK_ID.PackID == "0", None).otherwise(add_PACK_ID.PackID)) \
+                    .withColumnRenamed("PackID", "PackID_add") 
+    
+    molecule_ACT_map = molecule_ACT_map.select("通用名", "MOLE_NAME_CH", "ATC4_CODE") \
+                    .withColumnRenamed("MOLE_NAME_CH", "MOLE_NAME_CH_2") \
+                    .withColumnRenamed("ATC4_CODE", "ATC4_2") \
+                    .dropDuplicates(["通用名"])
+    molecule_ACT_map = molecule_ACT_map.withColumn("MOLE_NAME_CH_2", func.when(molecule_ACT_map.MOLE_NAME_CH_2 == "0", None).otherwise(molecule_ACT_map.MOLE_NAME_CH_2)) \
+                        .withColumn("ATC4_2", func.when(molecule_ACT_map.ATC4_2 == "0", None).otherwise(molecule_ACT_map.ATC4_2))
+                        
     # 产品信息
     # 有的min2结尾有空格与无空格的是两条不同的匹配
     product_map = spark.read.parquet(product_map_path)
@@ -67,17 +82,13 @@ def execute(max_path, out_path, project_name, max_path_list):
                     .withColumn("min2", func.regexp_replace("min2", "&amp;", "&")) \
                     .withColumn("min2", func.regexp_replace("min2", "&lt;", "<")) \
                     .withColumn("min2", func.regexp_replace("min2", "&gt;", ">"))
+    # 补充PACK_ID
+    product_map = product_map.join(add_PACK_ID, on="min2", how="left")
+    product_map = product_map.withColumn("PACK_ID", 
+                            func.when((product_map.PACK_ID.isNull()) & (~product_map.PackID_add.isNull()), 
+                            product_map.PackID_add).otherwise(product_map.PACK_ID)) \
+                            .drop("PackID_add")
     
-    
-    # product_map_all_ATC: 有补充的新的 PACK_ID - 标准通用名 - ACT （0是缺失）
-    molecule_ACT_map = spark.read.csv(molecule_ACT_path, header=True)
-    molecule_ACT_map = molecule_ACT_map.where(molecule_ACT_map.project == project_name)
-    molecule_ACT_map = molecule_ACT_map.select("通用名", "MOLE_NAME_CH", "ATC4_CODE") \
-                    .withColumnRenamed("MOLE_NAME_CH", "MOLE_NAME_CH_2") \
-                    .withColumnRenamed("ATC4_CODE", "ATC4_2") \
-                    .dropDuplicates(["通用名"])
-    molecule_ACT_map = molecule_ACT_map.withColumn("MOLE_NAME_CH_2", func.when(molecule_ACT_map.MOLE_NAME_CH_2 == "0", None).otherwise(molecule_ACT_map.MOLE_NAME_CH_2)) \
-                        .withColumn("ATC4_2", func.when(molecule_ACT_map.ATC4_2 == "0", None).otherwise(molecule_ACT_map.ATC4_2))
     
     # packID_ACT_map：PACK_ID - 标准通用名 - ACT, 无缺失
     packID_ACT_map = spark.read.csv(packID_ACT_map_path, header=True)
@@ -183,5 +194,4 @@ def execute(max_path, out_path, project_name, max_path_list):
 
 
 
-    
-    
+
