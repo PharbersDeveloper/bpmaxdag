@@ -14,8 +14,8 @@ spec:
     args:
       - key: a
         value: 123
-      - key: b
-        value: 456
+      # - key: b
+      #   value: 456
     outputs:
       - key: a
         value: abcde

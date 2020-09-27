@@ -54,7 +54,7 @@ def execute():
 		# spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
 		spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
 		
-	in_prod_path = "s3a://ph-stream/common/public/prod/0.0.15"
+	in_prod_path = "s3a://ph-stream/common/public/prod/0.0.16"
 	 
 	@func.udf(returnType=StringType())
 	def pack_id(in_value):
@@ -175,7 +175,7 @@ def execute():
 
 	def ed_wrong_check():
 		print("----------开始进行编辑距离错误数据检查----------")
-		wrong_ed = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/chc_check/0.0.1/wrong_ed") \
+		wrong_ed = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfi_check/0.0.15/wrong_ed") \
 							 .drop("version", "id", )
 		# wrong_ed.show(3)
 		# print(wrong_ed.count())
@@ -196,13 +196,13 @@ def execute():
 							  how="left")
 
 							  
-		check.filter(check.PACK_ID == "6101102").select( \
-					 "MANUFACTURER_NAME", "match_MANUFACTURER_NAME_CH", "right_MNF_NAME", \
+		check.select( \
+					 "MANUFACTURER_NAME", "match_MANUFACTURER_NAME_CH", "right_MNF_NAME", "ed_MNF_NAME_CH", \
 					 #"ed_SPEC", "ed_PACK", "ed_PROD_NAME_CH", \
-					 "PRODUCT_NAME", "match_PRODUCT_NAME", "right_PROD_NAME",  \
-					 "DOSAGE", "match_DOSAGE", "right_DOSAGE", \
-					 "PACK_QTY", "match_PACK_QTY", "right_PACK", "PACK_ID_CHECK", \
-					 "SPEC", "match_SPEC", "right_SPEC","PACK_ID", \
+					 #"PRODUCT_NAME", "match_PRODUCT_NAME", "right_PROD_NAME",  \
+					 #"DOSAGE", "match_DOSAGE", "right_DOSAGE", \
+					 #"PACK_QTY", "match_PACK_QTY", "right_PACK", "PACK_ID_CHECK", \
+					 #"SPEC", "match_SPEC", "right_SPEC","PACK_ID", \
 					 "PACK_ID_CHECK", "PACK_ID", "ed_total").show(100)
 		
 		# spec_test1 = check.select("SPEC", "right_SPEC").distinct()
@@ -490,7 +490,7 @@ def execute():
 		sdf.write.format("parquet").mode("overwrite").save(save_path)
 		print("写入" + save_path + "完成")
 
-	# phizer_check()  # 检查有多少匹配错误的 包括hr和ed分别两种的数量
+	phizer_check()  # 检查有多少匹配错误的 包括hr和ed分别两种的数量
 	# prod_check()
 	# ed_wrong_check()
 	# spec_reformat_test()  # 将错误匹配的剂型信息对比一下
@@ -519,9 +519,9 @@ def execute():
 	# print(spec_reformat(" (250MG+8.77MG)") == "2.25G")
 	# print(spec_reformat("18ΜG"))
 	
-	azsanofi = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/mnf_name_mapping/mnf_name_mapping")
-	azsanofi.show()
-	print(azsanofi.count())
+	# wrong = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfi_check/0.0.15/wrong_ed")
+	# wrong.show()
+	# print(wrong.count())
 	
 	# xixi = pd.read_excel('mnf_name_mapping.xlsx')
 	# xixi1 = spark.createDataFrame(xixi)

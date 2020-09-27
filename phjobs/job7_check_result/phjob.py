@@ -51,17 +51,16 @@ def execute():
 		
 	
 	# 参数配置
-	out_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/az_check/0.0.1"
+	out_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfi_check/0.0.15"
 
 	# 数据匹配率检查
 	print()
 	print("-----开始进行 " + out_path + " 数据匹配率检查-----")
 	
 	# 这个是有人工匹配pack_id的测试数据, 路径不一样的比较多
-	# cpa_check = spark.read.parquet("s3a://ph-stream/common/public/pfizer_check") \
-	
 	# cpa_check = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/az_check/chc_raw_data") \
-	cpa_check = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/az_check/raw_data") \
+	# cpa_check = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/az_check/raw_data") \
+	cpa_check = spark.read.parquet("s3a://ph-stream/common/public/pfizer_check") \
 						.na.fill("") \
 						.withColumn("PACK_ID_CHECK", pack_id("PACK_ID_CHECK")) \
 						.drop("id")
@@ -83,8 +82,8 @@ def execute():
 	# cpa_match.show(5)
 	print("其中最终匹配成功数据 " + str(cpa_match.count()) + " 条")
 	
-	cpa_prod_join_null = spark.read.parquet(out_path + "/cpa_prod_join_null").na.fill("")
-	print("其中匹配不上的有 " + str(cpa_prod_join_null.count()) + " 条")
+	# cpa_prod_join_null = spark.read.parquet(out_path + "/cpa_prod_join_null").na.fill("")
+	# print("其中匹配不上的有 " + str(cpa_prod_join_null.count()) + " 条")
 	
 	print()
 	print("-----开始join匹配数据和测试数据-----")
@@ -106,25 +105,25 @@ def execute():
 	print("共有匹配错误 " + str(wrong_count) + " 条")  # 1590
 	print("匹配率 " + str(round(100*(1 - wrong_count / cpa_examine_count), 2)) + "%")  # 1590
 	
-	xixi1=wrong.toPandas()
-	xixi1.to_excel('Pfizer_PFZ10_outlier.xlsx', index = False)
+	# xixi1=wrong.toPandas()
+	# xixi1.to_excel('Pfizer_PFZ10_outlier.xlsx', index = False)
 
 	
-	# wrong_hr = wrong.filter(cpa_examine.mark == "hr")
-	# total_hr = spark.read.parquet(out_path + "/cpa_hr_done")
-	# wrong_hr_count = wrong_hr.count()
-	# total_hr_count = total_hr.count()
-	# print("其中因为人工匹配表错误匹配 " + str(wrong_hr_count) + "/" + str(total_hr_count) + " 条")  # 54
+	wrong_hr = wrong.filter(cpa_examine.mark == "hr")
+	total_hr = spark.read.parquet(out_path + "/cpa_hr_done")
+	wrong_hr_count = wrong_hr.count()
+	total_hr_count = total_hr.count()
+	print("其中因为人工匹配表错误匹配 " + str(wrong_hr_count) + "/" + str(total_hr_count) + " 条")  # 54
 
-	# wrong_ed = wrong.filter(cpa_examine.mark == "ed").na.fill("")
-	# total_ed = spark.read.parquet(out_path + "/cpa_ed")
-	# wrong_ed_count = wrong_ed.count()
-	# total_ed_count = total_ed.count()
-	# print("其中因为编辑距离错误匹配 " + str(wrong_ed_count) + "/" + str(total_ed_count) + " 条")  # 1536
+	wrong_ed = wrong.filter(cpa_examine.mark == "ed").na.fill("")
+	total_ed = spark.read.parquet(out_path + "/cpa_ed")
+	wrong_ed_count = wrong_ed.count()
+	total_ed_count = total_ed.count()
+	print("其中因为编辑距离错误匹配 " + str(wrong_ed_count) + "/" + str(total_ed_count) + " 条")  # 1536
 	
 	# # 计算编辑距离出错的写入s3
-	# wrong_ed.write.format("parquet").mode("overwrite").save(out_path + "/wrong_ed")
-	# print("写入 " + out_path + "/wrong_ed" + " 完成")
+	wrong_ed.write.format("parquet").mode("overwrite").save(out_path + "/wrong_ed")
+	print("写入 " + out_path + "/wrong_ed" + " 完成")
 	
 	# wrong_hr.write.format("parquet").mode("overwrite").save(out_path + "/wrong_hr")
 	# print("写入 " + out_path + " 完成")

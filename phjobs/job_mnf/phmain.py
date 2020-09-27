@@ -9,9 +9,9 @@ import click
 
 @click.command()
 @click.option('--a')
-@click.option('--b')
-def debug_execute(a, b):
-	execute(a, b)
+# @click.option('--b')
+def debug_execute(a):
+	execute(a)
 
 
 if __name__ == '__main__':
