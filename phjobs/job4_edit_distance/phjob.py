@@ -317,7 +317,8 @@ def execute(out_path):
 		words = pseg.cut(mnf.replace(str_geo, ""))
 	
 		for word, flag in words:
-			if word in ["有限公司", "股份", "控股", "集团", "总公司", "总厂", "厂", "责任", "公司", "有限", "有限责任"]:
+			if word in ["有限公司", "股份", "控股", "集团", "总公司", "总厂", "厂", "责任", "公司", "有限", "有限责任", \
+					"药业", "医药", "制药", "控股集团", "医药集团", "控股集团", "集团股份", "生物医药"]:
 				str_name += word
 			else:
 				str_core += word
@@ -327,12 +328,33 @@ def execute(out_path):
 		
 	@func.udf(returnType=IntegerType())	
 	def mnf_ch(in_value, check_value):
-		in_value = in_value.replace("(", "").replace(")", "").replace("（", "").replace("）", "")
-		check_value = check_value.replace("(", "").replace(")", "").replace("（", "").replace("）", "")
-		in_str_geo, in_str_core, in_str_name = mnf_transform(in_value)
-		check_str_geo, check_str_core, check_str_name = mnf_transform(check_value)
-
-		ed = 3*edit_distance(in_str_geo, check_str_geo) + 6*edit_distance(in_str_core, check_str_core) + edit_distance(in_str_name, check_str_name)
+		redundancy_list = [u"股份", u"有限", u"总公司", u"公司", u"集团", u"制药", u"总厂", u"厂", u"药业", \
+							u"责任", u"健康", u"科技", u"生物", u"工业", u"保健", u"医药", u"(", u")", u"（", u"）"]
+		for redundancy in redundancy_list:
+			in_value_new = in_value.replace(redundancy, "")
+			check_value_new = check_value.replace(redundancy, "")
+		if (in_value_new in check_value_new) or (check_value_new in in_value_new):
+			ed = 0
+		else:
+			# ed = 35*edit_distance(in_value, check_value)
+			in_value = in_value.replace("(", "").replace(")", "").replace("（", "").replace("）", "")
+			check_value = check_value.replace("(", "").replace(")", "").replace("（", "").replace("）", "")
+			in_str_geo, in_str_core, in_str_name = mnf_transform(in_value)
+			check_str_geo, check_str_core, check_str_name = mnf_transform(check_value)
+	
+			if (in_str_geo in check_str_geo) or (check_str_geo in in_str_geo):
+				ed_geo = 0
+			else:
+				ed_geo = edit_distance(in_str_geo, check_str_geo)
+		
+			if (in_str_core in check_str_core) or (check_str_core in in_str_core):
+				ed_core = 0
+			else:
+				ed_core = edit_distance(in_str_core, check_str_core)
+		
+			ed_name = edit_distance(in_str_name, check_str_name)
+	
+			ed = int(35*(0.3 * ed_geo + 0.6 * ed_core + 0.1 * ed_name))
 		return ed
 
 	@func.udf(returnType=IntegerType())			

@@ -119,7 +119,7 @@ def execute():
 		# print("写入 " + out_path + " 完成")
 		
 		# out_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfi_check/0.0.4/wrong_hr"
-		# wrong_hr.write.format("parquet").mode("overwrite").save(out_path)
+		# wrong_hr.write.format("parquet").moade("overwrite").save(out_path)
 		# print("写入 " + out_path + " 完成")
 		
 	def human_replace_packid_check():
@@ -198,11 +198,11 @@ def execute():
 							  
 		check.select( \
 					 "MANUFACTURER_NAME", "match_MANUFACTURER_NAME_CH", "right_MNF_NAME", "ed_MNF_NAME_CH", \
-					 #"ed_SPEC", "ed_PACK", "ed_PROD_NAME_CH", \
-					 #"PRODUCT_NAME", "match_PRODUCT_NAME", "right_PROD_NAME",  \
-					 #"DOSAGE", "match_DOSAGE", "right_DOSAGE", \
-					 #"PACK_QTY", "match_PACK_QTY", "right_PACK", "PACK_ID_CHECK", \
-					 #"SPEC", "match_SPEC", "right_SPEC","PACK_ID", \
+					 "ed_SPEC", "ed_PACK", "ed_PROD_NAME_CH", \
+					 "PRODUCT_NAME", "match_PRODUCT_NAME", "right_PROD_NAME",  \
+					 "DOSAGE", "match_DOSAGE", "right_DOSAGE", \
+					 "PACK_QTY", "match_PACK_QTY", "right_PACK", "PACK_ID_CHECK", \
+					 "SPEC", "match_SPEC", "right_SPEC","PACK_ID", \
 					 "PACK_ID_CHECK", "PACK_ID", "ed_total").show(100)
 		
 		# spec_test1 = check.select("SPEC", "right_SPEC").distinct()
@@ -454,9 +454,9 @@ def execute():
 		secret_key = "s6/0Od1uDwOLQEebfbd0VlpC3H0VLoBSzBrrwTjJ"
 		
 		SOURCE_BUCKET = 'ph-max-auto'
-		SOURCE_PATH = '2020-08-11/BPBatchDAG/mnf_name_mapping/mnf_name_mapping.xlsx'
+		SOURCE_PATH = '2020-08-11/BPBatchDAG/pfizer1300/pfizer1300.xlsx'
 		TARGET_BUCKET = 'ph-max-auto'
-		TARGET_PATH = '2020-08-11/BPBatchDAG/mnf_name_mapping/mnf_name_mapping'
+		TARGET_PATH = '2020-08-11/BPBatchDAG/pfizer1300/pfizer1300'
 		
 		print("开始读取")
 		
@@ -490,13 +490,13 @@ def execute():
 		sdf.write.format("parquet").mode("overwrite").save(save_path)
 		print("写入" + save_path + "完成")
 
-	phizer_check()  # 检查有多少匹配错误的 包括hr和ed分别两种的数量
+	# phizer_check()  # 检查有多少匹配错误的 包括hr和ed分别两种的数量
 	# prod_check()
 	# ed_wrong_check()
 	# spec_reformat_test()  # 将错误匹配的剂型信息对比一下
 	# hr_check()
 	# azsanofi_split()
-	# s3excel2parquet()
+	s3excel2parquet()
 	
 	# def spec_check():
 	# print(spec_reformat("10g:200万IU") == "10000.0MG 2000000.0U")

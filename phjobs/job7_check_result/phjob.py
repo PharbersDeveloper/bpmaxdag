@@ -122,8 +122,8 @@ def execute():
 	print("其中因为编辑距离错误匹配 " + str(wrong_ed_count) + "/" + str(total_ed_count) + " 条")  # 1536
 	
 	# # 计算编辑距离出错的写入s3
-	wrong_ed.write.format("parquet").mode("overwrite").save(out_path + "/wrong_ed")
-	print("写入 " + out_path + "/wrong_ed" + " 完成")
+	# wrong_ed.write.format("parquet").mode("overwrite").save(out_path + "/wrong_ed")
+	# print("写入 " + out_path + "/wrong_ed" + " 完成")
 	
 	# wrong_hr.write.format("parquet").mode("overwrite").save(out_path + "/wrong_hr")
 	# print("写入 " + out_path + " 完成")
