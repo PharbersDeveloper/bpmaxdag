@@ -12,7 +12,7 @@ from pyspark.sql import functions as func
 import os
 from pyspark.sql.functions import pandas_udf, PandasUDFType
 
-def execute(max_path, path_for_extract_path):
+def execute(extract_path, extract_file, update_max):
     os.environ["PYSPARK_PYTHON"] = "python3"
     spark = SparkSession.builder \
         .master("yarn") \
@@ -33,12 +33,18 @@ def execute(max_path, path_for_extract_path):
         spark._jsc.hadoopConfiguration().set("com.amazonaws.services.s3.enableV4", "true")
         # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
         spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
-    
-    
-    # max_path = "s3a://ph-stream/common/public/max_result/0.0.5/"
-    max_standard_brief_all_path = max_path + "/max_standard_brief_all"
-    if path_for_extract_path == "Empty":
-        path_for_extract_path = max_path + "/path_for_extract.csv"
+        
+        
+    if update_max == "False":
+        phlogger.info("skip: 不需要更新max_standard_brief_all")
+        return
+
+    # extract_path = "s3a://ph-stream/common/public/max_result/0.0.5/"
+    max_standard_brief_all_path = extract_path + "/max_standard_brief_all"
+    if extract_file == "Empty":
+        path_for_extract_path = extract_path + "/path_for_extract.csv"
+    else:
+        path_for_extract_path = extract_file
     
     '''
     只有path_for_extract发生更新，才需要运行该job

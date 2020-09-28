@@ -8,10 +8,11 @@ import click
 
 
 @click.command()
-@click.option('--max_path')
-@click.option('--path_for_extract_path')
-def debug_execute(max_path, path_for_extract_path):
-	execute(max_path, path_for_extract_path)
+@click.option('--extract_path')
+@click.option('--extract_file')
+@click.option('--update_max')
+def debug_execute(extract_path, extract_file, update_max):
+	execute(extract_path, extract_file, update_max)
 
 
 if __name__ == '__main__':

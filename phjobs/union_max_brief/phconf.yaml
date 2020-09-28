@@ -12,10 +12,12 @@ spec:
     code: phmain.py
     config: phconf.yaml
     args:
-      - key: max_path
+      - key: extract_path
         value: "s3a://ph-stream/common/public/max_result/0.0.5/"
-      - key: path_for_extract_path
+      - key: extract_file
         value: "Empty"
+      - key: update_max
+        value: "False"
     outputs:
       - key: a
         value: abcde

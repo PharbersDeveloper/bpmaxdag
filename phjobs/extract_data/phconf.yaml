@@ -14,18 +14,18 @@ spec:
     args:
       - key: max_path
         value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
-      - key: extrac_path
+      - key: extract_path
         value: "s3a://ph-stream/common/public/max_result/0.0.5/"
       - key: out_path
         value: "s3a://ph-stream/common/public/max_result/0.0.5/extract_data_out"
       - key: extract_file
         value: "Empty"
       - key: time_left
-        value: "201610"
+        value: "201801"
       - key: time_right
-        value: "202002"
+        value: "201912"
       - key: molecule
-        value: "米格列奈, 那格列奈, 瑞格列奈"
+        value: "米格列奈, 那格列奈, 瑞格列奈, 多西他赛, 曲司氯铵"
       - key: atc
         value: "Empty"
       - key: project
@@ -33,7 +33,7 @@ spec:
       - key: doi
         value: "Empty"
       - key: out_suffix
-        value: "test_Molecule2"
+        value: "test"
     outputs:
       - key: a
         value: abcde

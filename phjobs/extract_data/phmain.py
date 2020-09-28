@@ -9,6 +9,7 @@ import click
 
 @click.command()
 @click.option('--max_path')
+@click.option('--extract_path')
 @click.option('--out_path')
 @click.option('--out_suffix')
 @click.option('--extract_file')
@@ -18,8 +19,8 @@ import click
 @click.option('--atc')
 @click.option('--project')
 @click.option('--doi')
-def debug_execute(max_path, out_path, out_suffix, extract_file, time_left, time_right, molecule, atc, project, doi):
-	execute(max_path, out_path, out_suffix, extract_file, time_left, time_right, molecule, atc, project, doi)
+def debug_execute(max_path, extract_path, out_path, out_suffix, extract_file, time_left, time_right, molecule, atc, project, doi):
+	execute(max_path, extract_path, out_path, out_suffix, extract_file, time_left, time_right, molecule, atc, project, doi)
 
 
 if __name__ == '__main__':
