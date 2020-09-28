@@ -21,11 +21,11 @@ spec:
       - key: extract_file
         value: "Empty"
       - key: time_left
-        value: "201801"
+        value: "Empty"
       - key: time_right
-        value: "201912"
+        value: "Empty"
       - key: molecule
-        value: "米格列奈, 那格列奈, 瑞格列奈, 多西他赛, 曲司氯铵"
+        value: "Empty"
       - key: atc
         value: "Empty"
       - key: project
