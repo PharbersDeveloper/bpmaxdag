@@ -16,14 +16,16 @@ spec:
         value: 201800
       - key: end
         value: 202000
-      - key: replace
-        value: False
+      - key: run_id
+        value: default
       - key: job_id
-        value: d7c065cb-365a-42f3-a247-0a89995b23d2
-      - key: start_date
-        value: 2020-08-19
-      - key: source
+        value: default
+      - key: version
+        value: 2020-08-31
+      - key: max_result_path
         value: s3a://ph-stream/common/public/max_result/0.0.4
+      - key: cleancube_result_path
+        value: default
     outputs:
       - key: a
         value: abcde

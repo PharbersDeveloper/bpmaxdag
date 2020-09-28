@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: alfred
+  description: "pharbers job description"
+  labels:
+    name: alfred
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: in_cpa_path
+        # value: "s3a://ph-max-auto/2020-08-11/BPBatchDAG/azsanofi_check"
+        # value: "s3a://ph-stream/common/public/pfizer_check"
+        value: "s3a://ph-stream/common/public/pfizer_test/0.0.1"
+      - key: in_prod_path
+        value: "s3a://ph-stream/common/public/prod/0.0.15"
+      - key: in_hr_path
+        value: "s3a://ph-stream/common/public/human_replace/0.0.14"
+      - key: in_mhr_path
+        value: "s3a://ph-stream/common/public/mole_human_replace/0.0.1"
+      - key: out_path
+        value: "s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfizer_check/0.0.1"
+      - key: min_keys_lst
+        value: ["MOLE_NAME", "PRODUCT_NAME", "SPEC", "DOSAGE", "PACK_QTY", "MANUFACTURER_NAME"]
+    outputs:
+      - key: a
+        value: abcde
+      - key: b
+        value: 6789
