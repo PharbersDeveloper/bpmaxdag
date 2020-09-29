@@ -217,6 +217,15 @@ cpa_gyc, bedsize, hospital_level):
     # 匹配通用cpa_city
     province_city_mapping = spark.read.parquet(province_city_mapping_path)
     province_city_mapping = province_city_mapping.distinct()
+    def distinguish_cpa_gyc(col, gyc_hospital_id_length):
+        # gyc_hospital_id_length是国药诚信医院编码长度，一般是7位数字，cpa医院编码一般是6位数字。医院编码长度可以用来区分cpa和gyc
+        return (func.length(col) < gyc_hospital_id_length)
+    province_city_mapping = province_city_mapping.withColumn("ID", province_city_mapping["ID"].cast(IntegerType()))
+    province_city_mapping = province_city_mapping.withColumn("ID", province_city_mapping["ID"].cast(StringType()))
+    province_city_mapping = province_city_mapping.withColumn("ID", 
+                                    func.when(distinguish_cpa_gyc(province_city_mapping.ID, 7), 
+                                    func.lpad(province_city_mapping.ID, 6, "0")).otherwise(province_city_mapping.ID))
+                                       
     raw_data = raw_data.join(province_city_mapping, on="ID", how="left") \
             .withColumn("PANEL", func.lit(1))
             
@@ -229,7 +238,12 @@ cpa_gyc, bedsize, hospital_level):
     cpa_pha_mapping_common = cpa_pha_mapping_common.where(cpa_pha_mapping_common["推荐版本"] == 1) \
             .withColumnRenamed("PHA", "PHA_common") \
             .select("ID", "PHA_common").distinct()
-            
+    cpa_pha_mapping_common = cpa_pha_mapping_common.withColumn("ID", cpa_pha_mapping_common["ID"].cast(IntegerType()))
+    cpa_pha_mapping_common = cpa_pha_mapping_common.withColumn("ID", cpa_pha_mapping_common["ID"].cast(StringType()))
+    cpa_pha_mapping_common = cpa_pha_mapping_common.withColumn("ID", 
+                                    func.when(distinguish_cpa_gyc(cpa_pha_mapping_common.ID, 7), 
+                                    func.lpad(cpa_pha_mapping_common.ID, 6, "0")).otherwise(cpa_pha_mapping_common.ID))
+                                    
     raw_data = raw_data.join(cpa_pha_mapping_common, on="ID", how="left")
     raw_data = raw_data.withColumn("PHA", func.when(raw_data.PHA.isNull(), raw_data.PHA_common).otherwise(raw_data.PHA)) \
                     .drop("PHA_common")
@@ -239,6 +253,11 @@ cpa_gyc, bedsize, hospital_level):
     
     # ID_Bedsize 匹配
     ID_Bedsize = spark.read.parquet(ID_Bedsize_path)
+    ID_Bedsize = ID_Bedsize.withColumn("ID", ID_Bedsize["ID"].cast(IntegerType()))
+    ID_Bedsize = ID_Bedsize.withColumn("ID", ID_Bedsize["ID"].cast(StringType()))
+    ID_Bedsize = ID_Bedsize.withColumn("ID",func.when(distinguish_cpa_gyc(ID_Bedsize.ID, 7), 
+                                    func.lpad(ID_Bedsize.ID, 6, "0")).otherwise(ID_Bedsize.ID))
+                                    
     raw_data = raw_data.join(ID_Bedsize, on="ID", how="left")
     
     # all_models 筛选
