@@ -278,7 +278,7 @@ cpa_gyc, bedsize, hospital_level):
         time_range = str(time_left) + '_' + str(time_right)
         
         if if_others:
-            max_path = out_path_dir + "/others_box/MAX_result/MAX_result_" + time_range + '_'  + market + "_hosp_level_box"
+            max_path = out_path_dir + "/MAX_result/MAX_result_" + time_range + '_'  + market + "_hosp_level_box"
         else:
             max_path = out_path_dir + "/MAX_result/MAX_result_" + time_range + '_' + market + "_hosp_level"
             
