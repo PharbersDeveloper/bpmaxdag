@@ -11,7 +11,7 @@ from pyspark.sql import functions as func
 import os
 from pyspark.sql.functions import pandas_udf, PandasUDFType
 
-def execute(max_path, out_path, project_name, max_path_list):
+def execute(max_path, out_path, project_name, max_path_list, out_dir):
     os.environ["PYSPARK_PYTHON"] = "python3"
     spark = SparkSession.builder \
         .master("yarn") \
@@ -33,7 +33,6 @@ def execute(max_path, out_path, project_name, max_path_list):
         # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
         spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
     
-    
     # max_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/"
     # out_path = "s3a://ph-stream/common/public/max_result/0.0.5/"
     # project_name = "Beite"
@@ -46,17 +45,57 @@ def execute(max_path, out_path, project_name, max_path_list):
         max_result_path_list_path = max_path_list
     
     # 通用匹配文件
-    product_map_path = max_path  + "/Common_files/extract_data_files/product_map_all"
+    # product_map_path = max_path  + "/Common_files/extract_data_files/product_map_all"
+    product_map_path = max_path + "/" + project_name + "/" + out_dir + "/prod_mapping"
     molecule_ACT_path = max_path  + "/Common_files/extract_data_files/product_map_all_ATC.csv"
     MAX_city_normalize_path = max_path  + "/Common_files/extract_data_files/MAX_city_normalize.csv"
     packID_ACT_map_path = max_path  + "/Common_files/extract_data_files/packID_ATC_map.csv"
     
+    # ========== 数据检查 prod_mapping =========
+    misscols_dict = {}
+    product_map = spark.read.parquet(product_map_path)
+    
+    if project_name == "Sanofi" or project_name == "AZ":
+        product_map = product_map.withColumnRenamed(product_map.columns[21], "pfc")
+    
+    colnames_product_map = product_map.columns
+    misscols_dict.setdefault(product_map_path, [])
+    if ("标准通用名" not in colnames_product_map) and ("通用名_标准"  not in colnames_product_map)  \
+    and ("药品名称_标准"  not in colnames_product_map) and ("通用名"  not in colnames_product_map) \
+    and ("S_Molecule_Name"  not in colnames_product_map):
+        misscols_dict[product_map_path].append("标准通用名")
+    if ("min2" not in colnames_product_map) and ("min1_标准" not in colnames_product_map):
+        misscols_dict[product_map_path].append("min2")
+    if ("pfc" not in colnames_product_map) and ("packcode" not in colnames_product_map) \
+    and ("Pack_ID" not in colnames_product_map) and ("Pack_Id" not in colnames_product_map) \
+    and ("PackID" not in colnames_product_map) and ("packid" not in colnames_product_map):
+        misscols_dict[product_map_path].append("pfc")
+            
+    # 判断输入文件是否有缺失列
+    misscols_dict_final = {}
+    for eachfile in misscols_dict.keys():
+        if len(misscols_dict[eachfile]) != 0:
+            misscols_dict_final[eachfile] = misscols_dict[eachfile]
+    # 如果有缺失列，则报错，停止运行
+    if misscols_dict_final:
+        phlogger.error('miss columns: %s' % (misscols_dict_final))
+        raise ValueError('miss columns: %s' % (misscols_dict_final))
+    
+    # ========== 数据 mapping =========
+    
     # mapping用文件：注意各种mapping的去重，唯一匹配
     
-    # 城市标准化
+    # 1. 城市标准化
     MAX_city_normalize = spark.read.csv(MAX_city_normalize_path, header=True)
     
-    # product_map_all_ATC: 有补充的新的 PACK_ID - 标准通用名 - ACT （0是缺失）
+    # 2. packID_ACT_map：PACK_ID - 标准通用名 - ACT, 无缺失
+    packID_ACT_map = spark.read.csv(packID_ACT_map_path, header=True)
+    packID_ACT_map = packID_ACT_map.select("PACK_ID", "MOLE_NAME_CH", "ATC4_CODE").distinct() \
+                    .withColumn("PACK_ID", packID_ACT_map.PACK_ID.cast(IntegerType())) \
+                    .withColumnRenamed("MOLE_NAME_CH", "MOLE_NAME_CH_1") \
+                    .withColumnRenamed("ATC4_CODE", "ATC4_1")
+    
+    # 3. product_map_all_ATC: 有补充的新的 PACK_ID - 标准通用名 - ACT （0是缺失）
     molecule_ACT_map = spark.read.csv(molecule_ACT_path, header=True)
 
     add_PACK_ID = molecule_ACT_map.where(molecule_ACT_map.project == project_name).select("min2", "PackID").distinct() \
@@ -71,36 +110,67 @@ def execute(max_path, out_path, project_name, max_path_list):
     molecule_ACT_map = molecule_ACT_map.withColumn("MOLE_NAME_CH_2", func.when(molecule_ACT_map.MOLE_NAME_CH_2 == "0", None).otherwise(molecule_ACT_map.MOLE_NAME_CH_2)) \
                         .withColumn("ATC4_2", func.when(molecule_ACT_map.ATC4_2 == "0", None).otherwise(molecule_ACT_map.ATC4_2))
                         
-    # 产品信息
-    # 有的min2结尾有空格与无空格的是两条不同的匹配
+    # 4. 产品信息，列名标准化
     product_map = spark.read.parquet(product_map_path)
-    product_map = product_map.where(product_map.project == project_name)
-    # 去重：保证每个min2只有一条信息, dropDuplicates会取first
+    # a. 列名清洗统一
+    # 有的min2结尾有空格与无空格的是两条不同的匹配
+    if project_name == "Sanofi" or project_name == "AZ":
+        product_map = product_map.withColumnRenamed(product_map.columns[21], "pfc")
+    for col in product_map.columns:
+        if col in ["标准通用名", "通用名_标准", "药品名称_标准", "S_Molecule_Name"]:
+            product_map = product_map.withColumnRenamed(col, "通用名")
+        if col in ["min1_标准"]:
+            product_map = product_map.withColumnRenamed(col, "min2")
+        if col in ["packcode", "Pack_ID", "Pack_Id", "PackID", "packid"]:
+            product_map = product_map.withColumnRenamed(col, "pfc")
+        if col in ["商品名_标准", "S_Product_Name"]:
+            product_map = product_map.withColumnRenamed(col, "标准商品名")
+        if col in ["剂型_标准", "Form_std", "S_Dosage"]:
+            product_map = product_map.withColumnRenamed(col, "标准剂型")
+        if col in ["规格_标准", "Specifications_std", "药品规格_标准", "S_Pack"]:
+            product_map = product_map.withColumnRenamed(col, "标准规格")
+        if col in ["包装数量2", "包装数量_标准", "Pack_Number_std", "S_PackNumber", "最小包装数量"]:
+            product_map = product_map.withColumnRenamed(col, "标准包装数量")
+        if col in ["标准企业", "生产企业_标准", "Manufacturer_std", "S_CORPORATION", "标准生产厂家"]:
+            product_map = product_map.withColumnRenamed(col, "标准生产企业")
+    if project_name == "Janssen" or project_name == "NHWA":
+        if "标准剂型" not in product_map.columns:
+            product_map = product_map.withColumnRenamed("剂型", "标准剂型")
+        if "标准规格" not in product_map.columns:
+            product_map = product_map.withColumnRenamed("规格", "标准规格")
+        if "标准生产企业" not in product_map.columns:
+            product_map = product_map.withColumnRenamed("生产企业", "标准生产企业")
+        if "标准包装数量" not in product_map.columns:
+            product_map = product_map.withColumnRenamed("包装数量", "标准包装数量")
+            
+    # b. 去重：保证每个min2只有一条信息, dropDuplicates会取first
     product_map = product_map.dropDuplicates(["min2"])
-    product_map = product_map.withColumn("pfc", product_map.pfc.cast(IntegerType())) \
-                    .withColumnRenamed("pfc", "PACK_ID") \
+    # c. 选取需要的列
+    product_map = product_map \
+                    .select("min2", "pfc", "通用名", "标准商品名", "标准剂型", "标准规格", "标准包装数量", "标准生产企业") \
+                    .withColumn("pfc", product_map["pfc"].cast(IntegerType())) \
+                    .withColumn("标准包装数量", product_map["标准包装数量"].cast(IntegerType())) \
+                    .distinct()
+    # d. pfc为0替换为null
+    product_map = product_map.withColumn("pfc", func.when(product_map.pfc == 0, None).otherwise(product_map.pfc)).distinct()
+    product_map = product_map.withColumn("project", func.lit(project_name)).distinct()
+    
+    # e. min2处理
+    product_map = product_map.withColumnRenamed("pfc", "PACK_ID") \
                     .withColumn("min2", func.regexp_replace("min2", "&amp;", "&")) \
                     .withColumn("min2", func.regexp_replace("min2", "&lt;", "<")) \
                     .withColumn("min2", func.regexp_replace("min2", "&gt;", ">"))
-    # 补充PACK_ID
+    # f. 补充PACK_ID
     product_map = product_map.join(add_PACK_ID, on="min2", how="left")
     product_map = product_map.withColumn("PACK_ID", 
                             func.when((product_map.PACK_ID.isNull()) & (~product_map.PackID_add.isNull()), 
                             product_map.PackID_add).otherwise(product_map.PACK_ID)) \
                             .drop("PackID_add")
     
-    
-    # packID_ACT_map：PACK_ID - 标准通用名 - ACT, 无缺失
-    packID_ACT_map = spark.read.csv(packID_ACT_map_path, header=True)
-    packID_ACT_map = packID_ACT_map.select("PACK_ID", "MOLE_NAME_CH", "ATC4_CODE").distinct() \
-                    .withColumn("PACK_ID", packID_ACT_map.PACK_ID.cast(IntegerType())) \
-                    .withColumnRenamed("MOLE_NAME_CH", "MOLE_NAME_CH_1") \
-                    .withColumnRenamed("ATC4_CODE", "ATC4_1")
-                    
+    # 5. 汇总max_result_path结果，并进行mapping                
     max_result_path_list = spark.read.csv(max_result_path_list_path, header=True)
     max_result_path_list = max_result_path_list.toPandas()
     
-    # 汇总max_result_path结果
     # 储存时间
     time_list= []
     for i in range(len(max_result_path_list)):

@@ -9,7 +9,8 @@ import click
 @click.option('--out_path')
 @click.option('--project_name')
 @click.option('--max_path_list')
-def debug_execute(max_path, out_path, project_name, max_path_list):
-	execute(max_path, out_path, project_name, max_path_list)
+@click.option('--out_dir')
+def debug_execute(max_path, out_path, project_name, max_path_list, out_dir):
+	execute(max_path, out_path, project_name, max_path_list, out_dir)
 if __name__ == '__main__':
     debug_execute()

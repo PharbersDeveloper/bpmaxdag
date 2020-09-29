@@ -17,8 +17,10 @@ spec:
       - key: out_path
         value: "s3a://ph-stream/common/public/max_result/0.0.5/"
       - key: project_name
-        value: "Beite"
+        value: "Empty"
       - key: max_path_list
+        value: "Empty"
+      - key: out_dir
         value: "Empty"
     outputs:
       - key: a
