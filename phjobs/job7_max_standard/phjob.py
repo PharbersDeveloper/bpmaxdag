@@ -11,7 +11,7 @@ from pyspark.sql import functions as func
 import os
 from pyspark.sql.functions import pandas_udf, PandasUDFType
 
-def execute(max_path, out_path, project_name, max_path_list, out_dir):
+def execute(max_path, extract_path, project_name, max_path_list, out_dir):
     os.environ["PYSPARK_PYTHON"] = "python3"
     spark = SparkSession.builder \
         .master("yarn") \
@@ -34,7 +34,7 @@ def execute(max_path, out_path, project_name, max_path_list, out_dir):
         spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
     
     # max_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/"
-    # out_path = "s3a://ph-stream/common/public/max_result/0.0.5/"
+    # extract_path = "s3a://ph-stream/common/public/max_result/0.0.5/"
     # project_name = "Beite"
     # "Astellas","Pfizer","Beite"
     
@@ -249,8 +249,8 @@ def execute(max_path, out_path, project_name, max_path_list, out_dir):
     time_range = str(min(time_list)) + '_' + str(max(time_list))
     
     # 输出文件名，时间区间
-    max_standard_path = out_path + "/" + project_name + "_" + time_range + "_max_standard"
-    max_standard_brief_path = out_path + "/" + project_name + "_" + time_range  + "_max_standard_brief"
+    max_standard_path = extract_path + "/" + project_name + "_" + time_range + "_max_standard"
+    max_standard_brief_path = extract_path + "/" + project_name + "_" + time_range  + "_max_standard_brief"
     
     
     # 根据日期分桶写出

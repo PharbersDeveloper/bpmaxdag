@@ -14,7 +14,7 @@ spec:
     args:
       - key: max_path
         value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
-      - key: out_path
+      - key: extract_path
         value: "s3a://ph-stream/common/public/max_result/0.0.5/"
       - key: project_name
         value: "Empty"
