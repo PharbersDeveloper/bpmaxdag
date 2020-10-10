@@ -17,7 +17,7 @@ spec:
       - key: extract_file
         value: "Empty"
       - key: update_max
-        value: "False"
+        value: "True"
     outputs:
       - key: a
         value: abcde

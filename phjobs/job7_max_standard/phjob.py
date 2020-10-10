@@ -51,6 +51,10 @@ def execute(max_path, extract_path, project_name, max_path_list, out_dir):
     MAX_city_normalize_path = max_path  + "/Common_files/extract_data_files/MAX_city_normalize.csv"
     packID_ACT_map_path = max_path  + "/Common_files/extract_data_files/packID_ATC_map.csv"
     
+    # 输出
+    max_standard_path = extract_path + "/" + project_name + "_max_standard"
+    max_standard_brief_path = extract_path + "/" + project_name + "_max_standard_brief"
+    
     # ========== 数据检查 prod_mapping =========
     misscols_dict = {}
     product_map = spark.read.parquet(product_map_path)
@@ -182,7 +186,7 @@ def execute(max_path, extract_path, project_name, max_path_list, out_dir):
         
         max_result = spark.read.parquet(max_result_path)
         max_result = max_result.withColumn("Date", max_result.Date.cast(IntegerType()))
-        max_result = max_result.where((max_result.Date >= time_left) & (max_result.Date <= time_right))
+        max_result = max_result.where((max_result.Date >= int(time_left)) & (max_result.Date <= int(time_right)))
         
         # 杨森6月的max结果 衡水市- 湖北省 错误，先强制改为衡水市- 河北省
         if project_name == "Janssen":
@@ -249,8 +253,8 @@ def execute(max_path, extract_path, project_name, max_path_list, out_dir):
     time_range = str(min(time_list)) + '_' + str(max(time_list))
     
     # 输出文件名，时间区间
-    max_standard_path = extract_path + "/" + project_name + "_" + time_range + "_max_standard"
-    max_standard_brief_path = extract_path + "/" + project_name + "_" + time_range  + "_max_standard_brief"
+    # max_standard_path = extract_path + "/" + project_name + "_" + time_range + "_max_standard"
+    # max_standard_brief_path = extract_path + "/" + project_name + "_" + time_range  + "_max_standard_brief"
     
     
     # 根据日期分桶写出
