@@ -351,6 +351,22 @@ cpa_gyc, bedsize, hospital_level):
     
     max_result_city = max_result_all.union(raw_data_city)
     
+    # 4. 合并后再进行一次group
+    if hospital_level == "True":
+        max_result_city = max_result_city \
+            .groupBy("Province", "City", "Date", "Prod_Name", "PANEL", "Molecule", "PHA", "DOI") \
+            .agg({"Predict_Sales":"sum", "Predict_Unit":"sum"}) \
+            .withColumnRenamed("sum(Predict_Sales)", "Predict_Sales") \
+            .withColumnRenamed("sum(Predict_Unit)", "Predict_Unit")
+        max_result_city = max_result_city.select("PHA", "Province", "City", "Date", "Prod_Name", "Molecule", "PANEL", "DOI", "Predict_Sales", "Predict_Unit")
+    else:
+        max_result_city = max_result_city \
+            .groupBy("Province", "City", "Date", "Prod_Name", "PANEL", "Molecule", "DOI") \
+            .agg({"Predict_Sales":"sum", "Predict_Unit":"sum"}) \
+            .withColumnRenamed("sum(Predict_Sales)", "Predict_Sales") \
+            .withColumnRenamed("sum(Predict_Unit)", "Predict_Unit")
+        max_result_city = max_result_city.select("Province", "City", "Date", "Prod_Name", "Molecule", "PANEL", "DOI", "Predict_Sales", "Predict_Unit")
+    
     # hospital_level 的只输出csv
     if hospital_level == "False" and bedsize == "True":     
         max_result_city = max_result_city.repartition(2)
