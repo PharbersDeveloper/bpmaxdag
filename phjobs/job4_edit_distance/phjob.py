@@ -300,7 +300,7 @@ def execute(out_path):
 		in_value = in_value.strip()
 		check_value = check_value.strip()
 		
-		return 35*edit_distance(in_value, check_value)
+		return 30*edit_distance(in_value, check_value)
 	
 	def mnf_transform(mnf):
 		str_geo = ""
@@ -354,7 +354,7 @@ def execute(out_path):
 		
 			ed_name = edit_distance(in_str_name, check_str_name)
 	
-			ed = int(35*(0.3 * ed_geo + 0.6 * ed_core + 0.1 * ed_name))
+			ed = int(60*(0.3 * ed_geo + 0.6 * ed_core + 0.1 * ed_name))
 		return ed
 
 	@func.udf(returnType=IntegerType())			

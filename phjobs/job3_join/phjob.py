@@ -69,9 +69,11 @@ def execute(in_prod_path, in_hr_path, out_path):
 								   how="left").na.fill("")
 	cpa_prod_join_null = cpa_prod_join_data.filter(cpa_prod_join_data.PACK_ID == "")
 	# print(cpa_prod_join_null.count())
+	# cpa_prod_join_null.show()
 	#  写入
-	# cpa_prod_join_null.write.format("parquet").mode("overwrite").save(out_path + "/" + "cpa_prod_join_null")
-	# print("写入 " + out_path + " 完成")
+	if cpa_prod_join_null.count() != 0:
+		cpa_prod_join_null.write.format("parquet").mode("overwrite").save(out_path + "/" + "cpa_prod_join_null")
+		print("写入 " + out_path + " 完成")
 	
 	cpa_prod_join_data = cpa_prod_join_data.filter(cpa_prod_join_data.PACK_ID != "")
 	# cpa_prod_join_data.show(5)

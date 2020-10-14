@@ -69,8 +69,8 @@ def execute(out_path, in_hrpackid_path):
 							"match_PACK_QTY", "match_MANUFACTURER_NAME", "mark", "match_MOLE_NAME_CH", "match_MANUFACTURER_NAME_CH", "PACK_ID")
 							
 							
-	# cpa_join_null.show(5)
-	# print(cpa_join_null.count())  # 8168
+	cpa_join_null.show(5)
+	print(cpa_join_null.count())  # 8168
 	
 	# 把待进行编辑距离计算的写入
 	cpa_join_null.write.format("parquet").mode("overwrite").save(out_path + "/" + "cpa_to_ed")

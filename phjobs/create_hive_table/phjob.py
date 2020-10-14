@@ -4,6 +4,7 @@
 Create Hive Table
 """
 import os
+import re
 import subprocess
 from pyspark.sql import SparkSession, functions as F
 
@@ -60,6 +61,20 @@ def get_all_table(spark):
 
 def delete_table(spark, table_name):
     return spark.sql("drop table {}".format(table_name))
+    
+
+def get_cur_version(spark, table_name):
+    # 表不存在
+    if not spark.sql("SHOW TABLES LIKE '{table_name}'".format(table_name=table_name)).collect():
+        return '0.0.1'
+    
+    # 表数据为空
+    target_table = spark.sql("SELECT * FROM {table_name} LIMIT 1".format(table_name=table_name)).collect()
+    if not target_table:
+        return '0.0.1'
+    
+    # 一个表中理论上只能有一种版本，得到它
+    return target_table[0].version
 
 
 def execute(input_file_format, input_path, output_file_format, output_path, save_mode, table_name):
@@ -95,6 +110,25 @@ def execute(input_file_format, input_path, output_file_format, output_path, save
     if save_mode not in ['overwrite', 'append']:
         raise Exception('The wrong mode ' + save_mode + ' for save_mode')
 
+    search_obj = re.search('\d\.\d\.\d$', output_path)
+    new_version = search_obj.group() if search_obj else '0.0.1'
+    cur_version = get_cur_version(spark, table_name)
+    if 'overwrite' == save_mode:
+        if new_version >= cur_version:
+            version = new_version
+        else:
+            arr = cur_version.split('.')
+            arr[-1] = str(int(arr[-1])+1)
+            version = '.'.join(arr)
+    else:
+        version = cur_version
+    
+    arr = output_path.split('/')
+    arr[-1] = version
+    output_path = '/'.join(arr)
+    
+    input_data_df = input_data_df.withColumn('version', F.lit(version))
+    
     input_data_df.coalesce(4).write \
         .mode(save_mode) \
         .option("compression", "snappy") \
