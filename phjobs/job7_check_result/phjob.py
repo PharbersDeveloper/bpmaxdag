@@ -51,7 +51,8 @@ def execute():
 		
 	
 	# 参数配置
-	out_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfi_check/0.0.15"
+	out_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/azsanofi_check/0.0.4"
+	# out_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfi_check/0.0.16/cpa_match"
 
 	# 数据匹配率检查
 	print()
@@ -60,20 +61,26 @@ def execute():
 	# 这个是有人工匹配pack_id的测试数据, 路径不一样的比较多
 	# cpa_check = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/az_check/chc_raw_data") \
 	# cpa_check = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/az_check/raw_data") \
-	cpa_check = spark.read.parquet("s3a://ph-stream/common/public/pfizer_check") \
+	# cpa_check = spark.read.parquet("s3a://ph-stream/common/public/pfizer_check") \
+	
+	# cpa_check = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/azsanofi_check") \
+	# cpa_check = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/chc_check/chc_raw_data") \
+	# cpa_check = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfizer1300/pfizer1300") \
+	cpa_check = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/azsanofi_check") \
 						.na.fill("") \
 						.withColumn("PACK_ID_CHECK", pack_id("PACK_ID_CHECK")) \
 						.drop("id")
 	print("测试数据共有 " + str(cpa_check.count()) + " 条")
 	
-	cpa_check_valid = cpa_check.filter(cpa_check.DOSAGE != "") \
-						.filter(cpa_check.PACK_ID_CHECK != "").filter(cpa_check.PACK_ID_CHECK != "NULL")
-	print("有效测试数据有 " + str(cpa_check_valid.count()) + " 条")
-
+	cpa_check_distinct = cpa_check.select("MOLE_NAME", "PRODUCT_NAME", "SPEC", "DOSAGE", "PACK_QTY", "MANUFACTURER_NAME", "PACK_ID_CHECK").distinct()
 	
 	cpa_distinct = spark.read.parquet(out_path + "/cpa_distinct")
 	print()
 	print("job1生成的去重数据 " + str(cpa_distinct.count()) + " 条")
+	
+	# cpa_check_valid = cpa_distinct.filter(cpa_distinct.DOSAGE != "") \
+	# 					.filter(cpa_distinct.PACK_ID_CHECK != "").filter(cpa_distinct.PACK_ID_CHECK != "NULL")
+	# print("其中有效测试数据有 " + str(cpa_check_valid.count()) + " 条")
 	
 	# 这个是我生成的数据
 	cpa_match = spark.read.parquet(out_path + "/cpa_match") \
@@ -88,22 +95,25 @@ def execute():
 	print()
 	print("-----开始join匹配数据和测试数据-----")
 
-	cpa_examine = cpa_match.join(cpa_check, \
-							 [cpa_match.in_MOLE_NAME == cpa_check.MOLE_NAME, \
-							 cpa_match.in_PRODUCT_NAME == cpa_check.PRODUCT_NAME, \
-							 cpa_match.in_SPEC == cpa_check.SPEC, \
-							 cpa_match.in_DOSAGE == cpa_check.DOSAGE, \
-							 cpa_match.in_PACK_QTY == cpa_check.PACK_QTY, \
-							 cpa_match.in_MANUFACTURER_NAME == cpa_check.MANUFACTURER_NAME], \
+	cpa_examine = cpa_match.join(cpa_check_distinct, \
+							 [cpa_match.in_MOLE_NAME == cpa_check_distinct.MOLE_NAME, \
+							 cpa_match.in_PRODUCT_NAME == cpa_check_distinct.PRODUCT_NAME, \
+							 cpa_match.in_SPEC == cpa_check_distinct.SPEC, \
+							 cpa_match.in_DOSAGE == cpa_check_distinct.DOSAGE, \
+							 cpa_match.in_PACK_QTY == cpa_check_distinct.PACK_QTY, \
+							 cpa_match.in_MANUFACTURER_NAME == cpa_check_distinct.MANUFACTURER_NAME], \
 							 how="left")
 	cpa_examine_count = cpa_examine.count()
-	print("匹配数据共有 " + str(cpa_examine_count) + " 条")
+	print("需要进行机器匹配的数据（去重）共有 " + str(cpa_examine_count) + " 条")
 
 	wrong = cpa_examine.filter(cpa_examine.PACK_ID_CHECK != cpa_examine.PACK_ID)
 	# wrong.select("PRODUCT_NAME", "match_PRODUCT_NAME", "ed_PROD_NAME_CH").show(30)
 	wrong_count = wrong.count()
 	print("共有匹配错误 " + str(wrong_count) + " 条")  # 1590
 	print("匹配率 " + str(round(100*(1 - wrong_count / cpa_examine_count), 2)) + "%")  # 1590
+	
+	wrong_mole_mull = cpa_examine.filter(cpa_examine.PACK_ID_CHECK.isNull())
+	print("匹配错误的数据中，由于pack_id_check为空导致的错误有" + str(wrong_mole_mull.count()) + "条")
 	
 	# xixi1=wrong.toPandas()
 	# xixi1.to_excel('Pfizer_PFZ10_outlier.xlsx', index = False)
@@ -119,11 +129,11 @@ def execute():
 	total_ed = spark.read.parquet(out_path + "/cpa_ed")
 	wrong_ed_count = wrong_ed.count()
 	total_ed_count = total_ed.count()
-	print("其中因为编辑距离错误匹配 " + str(wrong_ed_count) + "/" + str(total_ed_count) + " 条")  # 1536
+	print("其中因为编辑距离错误匹配 " + str(wrong_ed_count) + " 条")  # 1536
 	
 	# # 计算编辑距离出错的写入s3
-	# wrong_ed.write.format("parquet").mode("overwrite").save(out_path + "/wrong_ed")
-	# print("写入 " + out_path + "/wrong_ed" + " 完成")
+	wrong_ed.write.format("parquet").mode("overwrite").save(out_path + "/wrong_ed")
+	print("写入 " + out_path + "/wrong_ed" + " 完成")
 	
 	# wrong_hr.write.format("parquet").mode("overwrite").save(out_path + "/wrong_hr")
 	# print("写入 " + out_path + " 完成")

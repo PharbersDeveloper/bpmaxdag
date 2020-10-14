@@ -175,7 +175,7 @@ def execute():
 
 	def ed_wrong_check():
 		print("----------开始进行编辑距离错误数据检查----------")
-		wrong_ed = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfi_check/0.0.15/wrong_ed") \
+		wrong_ed = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfi_check/0.0.16/wrong_ed") \
 							 .drop("version", "id", )
 		# wrong_ed.show(3)
 		# print(wrong_ed.count())
@@ -496,7 +496,7 @@ def execute():
 	# spec_reformat_test()  # 将错误匹配的剂型信息对比一下
 	# hr_check()
 	# azsanofi_split()
-	s3excel2parquet()
+	# s3excel2parquet()
 	
 	# def spec_check():
 	# print(spec_reformat("10g:200万IU") == "10000.0MG 2000000.0U")
@@ -519,9 +519,12 @@ def execute():
 	# print(spec_reformat(" (250MG+8.77MG)") == "2.25G")
 	# print(spec_reformat("18ΜG"))
 	
-	# wrong = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfi_check/0.0.15/wrong_ed")
-	# wrong.show()
-	# print(wrong.count())
+	mnf1 = spark.read.parquet("s3a://ph-stream/common/public/pfizer_check") 
+				# .select("IN_MANUFACTURER_NAME", "match_MANUFACTURER_NAME_CH", "", "ed_MNF_NAME_CH", "ed_MNF_NAME_EN", "ed_total")
+	mnf1.show()
+	print(mnf1.count())
+	
+	
 	
 	# xixi = pd.read_excel('mnf_name_mapping.xlsx')
 	# xixi1 = spark.createDataFrame(xixi)

@@ -100,7 +100,7 @@ def execute(out_path, in_prod_path):
 	# 写入cpa_match
 	out_path = out_path + "/" + "cpa_match"
 	cpa_match.write.format("parquet").mode("overwrite").save(out_path)
-	print("写入 " + out_path + "/" + "cpa_match" + " 完成")
+	print("写入 " + out_path + "/"  + " 完成")
 
 	print("程序end job5_match")
 	print("--"*80)

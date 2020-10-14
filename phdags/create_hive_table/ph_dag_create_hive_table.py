@@ -40,8 +40,8 @@ for k, v in dag_params:
 ############## == create_hive_table == ###################
 create_hive_table_cmd = """
 echo "192.168.1.28    spark.master" >> /etc/hosts
-pip install 'phcli==0.2.18'
-phcli maxauto --cmd submit --path create_hive_table --context "{{ params }}" "{{ dag_run.conf }}"
+pip3 install 'phcli==0.3.6'
+phcli maxauto --runtime python3 --cmd submit --namespace create_hive_table --path create_hive_table --context "{{ params }}" "{{ dag_run.conf }}"
 """
 
 create_hive_table = BashOperator(
@@ -52,7 +52,6 @@ create_hive_table = BashOperator(
                                 spec_task_params.get("create_hive_table".lower(), []))
                )
 ############## == create_hive_table == ###################
-
 
 ############## == sqs-email start == ###################
 import uuid
@@ -115,5 +114,3 @@ failed_operator = PythonOperator(
 
 
 create_hive_table >> [succeed_operator, failed_operator]
-
-

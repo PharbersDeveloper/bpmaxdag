@@ -12,13 +12,15 @@ spec:
     code: phmain.py
     config: phconf.yaml
     args:
-      - key: out_path
-        value: "s3a://ph-max-auto/2020-08-11/BPBatchDAG/azsanofi_check/0.0.5"
-      - key: in_hrpackid_path
-        value: "s3a://ph-max-auto/2020-08-11/BPBatchDAG/human_replace_packid"
+      - key: a
+        value: 123
+      - key: b
+        value: 456
     outputs:
       - key: a
         value: abcde
       - key: b
         value: 6789
+
+
 
