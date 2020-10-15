@@ -68,6 +68,12 @@ def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_lef
     doi = "Empty"
     project = "Servier"
     out_suffix = "test3_project_molecule"
+    
+    # 方案3
+    time_left = 201701
+    time_right = 202006
+    atc = "C02,C03,C07,C08,C09,C10"
+    out_suffix = "HTN_LD"
     '''
     
     # 输入文件
@@ -95,6 +101,10 @@ def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_lef
     report_a_path = out_path + "/" + outdir + "/report_a.csv"
     report_b_path = out_path + "/" + outdir + "/report_b.csv"
     report_c_path = out_path + "/" + outdir + "/report_c.csv"
+    
+    out_tmp_path = out_path + "/" + outdir + "/out_tmp"
+    max_filter_raw_path = out_path + "/" + outdir + "/max_filter_raw_tmp"
+    
     
     # 提数条件
     time_left = int(time_left)
@@ -133,22 +143,24 @@ def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_lef
     # ims mapping:ATC - Molecule - Pack_Id
     ims_mapping = spark.read.csv(ims_mapping_path, header=True)
     ims_mapping = ims_mapping.select("Pack_Id0", "ATC4_Code", "Molecule_Composition").distinct() \
-    					.withColumn("Pack_Id0", ims_mapping.Pack_Id0.cast(IntegerType())) \
-    					.withColumnRenamed("Pack_Id0", "PACK_ID") \
-    					.withColumnRenamed("ATC4_Code", "ATC") \
-    					.withColumnRenamed("Molecule_Composition", "MOLE_NAME_EN")
+                        .withColumn("Pack_Id0", ims_mapping.Pack_Id0.cast(IntegerType())) \
+                        .withColumnRenamed("Pack_Id0", "PACK_ID") \
+                        .withColumnRenamed("ATC4_Code", "ATC") \
+                        .withColumnRenamed("Molecule_Composition", "MOLE_NAME_EN")
     
     # 2019年全国的ims销售数据
     ims_sales = spark.read.csv(ims_sales_path, header=True)
     ims_sales = ims_sales.where(func.substring(ims_sales.Period_Code, 0, 4) == '2019') \
-    					.where(ims_sales.Geography_id == 'CHT') \
-    					.groupby("Pack_ID").agg(func.sum("LC").alias("Sales_ims")) \
-    					.withColumn("Pack_ID", ims_sales.Pack_ID.cast(IntegerType())) \
-    					.withColumnRenamed("Pack_ID", "PACK_ID")
+                        .where(ims_sales.Geography_id == 'CHT') \
+                        .groupby("Pack_ID").agg(func.sum("LC").alias("Sales_ims")) \
+                        .withColumn("Pack_ID", ims_sales.Pack_ID.cast(IntegerType())) \
+                        .withColumnRenamed("Pack_ID", "PACK_ID")
     
     ims_sales = ims_sales.join(ims_mapping, on="Pack_ID", how="left")
     ims_sales = ims_sales.join(molecule_name_map, on="MOLE_NAME_EN", how="left").distinct()
     
+    if atc and max([len(i) for i in atc]) == 3:
+        ims_sales = ims_sales.withColumn("ATC", func.substring(ims_sales.ATC, 0, 3)).distinct()
     
     # 1. 根据提数需求获取 max_filter_path_month
     path_for_extract = spark.read.csv(path_for_extract_path, header=True)
@@ -157,13 +169,15 @@ def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_lef
     # 筛选,获取符合条件的项目和月份
     max_filter_list = max_standard_brief_all.where((max_standard_brief_all.Date >= time_left) & (max_standard_brief_all.Date <= time_right))
     if project:
-        max_filter_list = max_filter_list.where(max_standard_brief_all.project.isin(project))
+        max_filter_list = max_filter_list.where(max_filter_list.project.isin(project))
     if doi:
-        max_filter_list = max_filter_list.where(max_standard_brief_all.DOI.isin(doi))
+        max_filter_list = max_filter_list.where(max_filter_list.DOI.isin(doi))
     if atc:
-        max_filter_list = max_filter_list.where(max_standard_brief_all.ATC.isin(atc))
+        if max([len(i) for i in atc]) == 3:
+            max_filter_list = max_filter_list.withColumn("ATC", func.substring(max_filter_list.ATC, 0, 3)).distinct()
+        max_filter_list = max_filter_list.where(max_filter_list.ATC.isin(atc))
     if molecule:
-        max_filter_list = max_filter_list.where(max_standard_brief_all['标准通用名'].isin(molecule))
+        max_filter_list = max_filter_list.where(max_filter_list['标准通用名'].isin(molecule))
     
     
     project_Date_list = max_filter_list.select("project", "Date").distinct()
@@ -181,16 +195,26 @@ def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_lef
         if doi:
             df = df.where(df.DOI.isin(doi))
         if atc:
+            if max([len(i) for i in atc]) == 3:
+                df = df.withColumn("ATC", func.substring(df.ATC, 0, 3)).distinct()
             df = df.where(df.ATC.isin(atc))
         if molecule:
             df = df.where(df['标准通用名'].isin(molecule))
         # 汇总    
         if index ==0:
-            max_filter_raw = df
+            # max_filter_raw = df
+            df = df.repartition(1)
+            df.write.format("parquet") \
+                .mode("overwrite").save(max_filter_raw_path)
         else:
-            max_filter_raw = max_filter_raw.union(df)
+            # max_filter_raw = max_filter_raw.union(df)
+            df = df.repartition(1)
+            df.write.format("parquet") \
+                .mode("append").save(max_filter_raw_path)
         index += 1
     
+    # max_filter_raw
+    max_filter_raw = spark.read.parquet(max_filter_raw_path)    
     
     # 3. 注释项目排名
     project_rank = spark.read.csv(project_rank_path, header=True)
@@ -198,7 +222,7 @@ def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_lef
                         .withColumn("排名", project_rank["排名"].cast(IntegerType())) \
                         .withColumnRenamed("排名", "project_score")
                         
-    max_filter_out = max_filter_raw.join(project_rank, on="project", how="left")
+    max_filter_out = max_filter_raw.join(project_rank, on="project", how="left").persist()
     
     
     # 4. 原始提数结果
@@ -237,6 +261,8 @@ def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_lef
     report_a = report_a.repartition(1)
     report_a.write.format("csv").option("header", "true") \
         .mode("overwrite").save(report_a_path)
+    # 重新读入，否则当数据量大的时候后面的join report_a 报错
+    report_a = spark.read.csv(report_a_path, header=True)
     
     # 根据report_a去重
     out_extract_data = max_filter_out.join(report_a.where(report_a.drop_for_score == 0).select("标准通用名", "project"), 
@@ -249,6 +275,12 @@ def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_lef
     out_extract_data_final = out_extract_data_final.repartition(1)
     out_extract_data_final.write.format("csv").option("header", "true") \
         .mode("overwrite").save(out_extract_data_path)
+    
+    # 缓解存储
+    out_extract_data = out_extract_data.repartition(4)
+    out_extract_data.write.format("parquet") \
+            .mode("overwrite").save(out_tmp_path)
+    out_extract_data = spark.read.parquet(out_tmp_path)
         
     # report_b
     if atc:
@@ -268,7 +300,6 @@ def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_lef
         report_b = report_b.repartition(1)
         report_b.write.format("csv").option("header", "true") \
             .mode("overwrite").save(report_b_path)
-    
     
     # report_c
     extract_sales = out_extract_data.select("project", "PACK_ID", "ATC", "标准通用名").distinct() \
@@ -293,4 +324,4 @@ def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_lef
     report_c = report_c.repartition(1)
     report_c.write.format("csv").option("header", "true") \
         .mode("overwrite").save(report_c_path)
-        
+            
