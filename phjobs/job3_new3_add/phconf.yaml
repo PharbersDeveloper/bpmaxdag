@@ -15,11 +15,21 @@ spec:
       - key: max_path
         value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
       - key: project_name
-        value: "New_add_test"
+        value: "Sankyo"
       - key: out_path
         value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
       - key: out_dir
-        value: "New_add_Out"
+        value: "202007"
+      - key: model_month_right
+        value: "201912"
+      - key: model_month_left
+        value: "201901"
+      - key: current_year
+        value: "2020"
+      - key: current_month
+        value: "7"
+      - key: first_month
+        value: "1"
     outputs:
       - key: a
         value: abcde

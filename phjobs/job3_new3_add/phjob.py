@@ -18,7 +18,7 @@ from scipy.spatial import distance
 import math
 import json
 
-def execute(max_path, project_name, out_path, out_dir):
+def execute(max_path, project_name, out_path, out_dir, model_month_right, model_month_left, current_year, current_month, first_month):
     os.environ["PYSPARK_PYTHON"] = "python3"
     spark = SparkSession.builder \
         .master("yarn") \
@@ -41,53 +41,41 @@ def execute(max_path, project_name, out_path, out_dir):
         spark._jsc.hadoopConfiguration().set("com.amazonaws.services.s3.enableV4", "true")
         # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
         spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
-    '''        
-    max_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/"
-    project_name = "New_add_test"
-    out_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/"
-    out_dir = "Out"
-    '''
+    
+    
     out_path_dir = out_path + "/" + project_name + '/' + out_dir
     
     # 输入
-    df_sales_path = out_path_dir + "/df_sales"
-    df_units_path = out_path_dir + "/df_units"
+    df_sales_path = out_path_dir + "/New_data_add_Out/df_sales"
+    df_units_path = out_path_dir + "/New_data_add_Out/df_units"
     
-    universe_path = out_path + "/" + project_name + '/universe'
-    cpa_pha_path = out_path + "/" + project_name + '/cpa_pha_mapping'
-    prod_map_path = out_path + "/" + project_name + '/prod_mapping'
-    MNFPath = out_path + "/" + project_name + '/MNF_TYPE_PFC'
-    VBPPath = out_path + "/" + project_name + '/Zhongbiao'
+    product_map_path = out_path_dir + '/prod_mapping'
+    universe_path = out_path + "/" + project_name + '/universe_base'
+    cpa_pha_mapping_path = out_path + "/" + project_name + '/cpa_pha_mapping'
+    MNF_path = max_path  + "/Common_files/MNF_TYPE_PFC"
+    VBP_path = max_path  + "/Common_files/VBP_pfc_molecule"
     
-    '''
-    df_sales_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/df_sales"
-    df_units_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/df_sales"
-    universe_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/universe"
-    cpa_pha_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/cpa_pha_mapping"
-    prod_map_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/prod_mapping"
-    MNFPath = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/MNF_TYPE_PFC"
-    VBPPath = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Zhongbiao"
-    '''
+    df_near_hosp_non_vbp_sku_path = out_path_dir + "/New_data_add_Out/df_near_hosp_non_vbp_sku"
+    df_near_hosp_mnc_sku_path = out_path_dir + "/New_data_add_Out/df_near_hosp_mnc_sku"
+    
+    current_year = int(current_year)
+    current_month = int(current_month)
+    first_month = int(first_month)
+    model_month_right = int(model_month_right)
+    model_month_left = int(model_month_left)
+    
+    model_month_colnames = [("Date" + str(i)) for i in list(range(model_month_left, model_month_right + 1))]
+    
+    
     # 输出
-    df_near_hosp_non_vbp_sku_path = out_path_dir + "/df_near_hosp_non_vbp_sku"
-    df_near_hosp_mnc_sku_path = out_path_dir + "/df_near_hosp_mnc_sku"
-    result_ma_tmp_1_path = out_path_dir + "/result_ma_tmp_1"
-    result_ma_tmp_2_path = out_path_dir + "/result_ma_tmp_2"
-    result_ma_path = out_path_dir + "/result_ma"
-    result_non_vbp_path = out_path_dir + "/result_non_vbp"
-    result_mnc_path = out_path_dir + "/result_mnc"
-    result_vbp_path = out_path_dir + "/result_vbp"
+    result_ma_tmp_1_path = out_path_dir + "/New_data_add_Out/result_ma_tmp_1"
+    result_ma_tmp_2_path = out_path_dir + "/New_data_add_Out/result_ma_tmp_2"
+    result_ma_path = out_path_dir + "/New_data_add_Out/result_ma"
+    result_non_vbp_path = out_path_dir + "/New_data_add_Out/result_non_vbp"
+    result_mnc_path = out_path_dir + "/New_data_add_Out/result_mnc"
+    result_vbp_path = out_path_dir + "/New_data_add_Out/result_vbp"
     
-    '''
-    df_near_hosp_non_vbp_sku_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/df_near_hosp_non_vbp_sku"
-    df_near_hosp_mnc_sku_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/df_near_hosp_mnc_sku"
-    result_ma_tmp_1_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/result_ma_tmp_1"
-    result_ma_tmp_2_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/result_ma_tmp_2"
-    result_ma_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/result_ma"
-    result_non_vbp_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/result_non_vbp"
-    result_mnc_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/result_mnc"
-    result_vbp_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/result_vbp"
-    '''
+    
     # =============== 数据执行 =================
     
     #%% Read-in 
@@ -101,34 +89,69 @@ def execute(max_path, project_name, out_path, out_dir):
                     .withColumnRenamed("ID_Units", "ID") \
                     .withColumnRenamed("pfc_Units", "pfc")
     
-    df=df_sales.join(df_units, on=['ID','pfc'], how = 'inner')
+    df = df_sales.join(df_units, on=['ID','pfc'], how = 'inner')
     
     
-    #%% 产品匹配
+    # universe
     universe = spark.read.parquet(universe_path)
-    cpa_pha = spark.read.parquet(cpa_pha_path)
-    hosp_info = universe.where(universe["重复"] == "0").select('新版ID', '新版名称', 'Hosp_level', 'Province', 'City')
-    cpa_pha = cpa_pha.where(cpa_pha["推荐版本"] == "1").select('ID','PHA')
+    if "CITYGROUP" in universe.columns:
+        universe = universe.withColumnRenamed("CITYGROUP", "City_Tier_2010")
+    elif "City_Tier" in universe.columns:
+        universe = universe.withColumnRenamed("City_Tier", "City_Tier_2010")
+    universe = universe \
+        .withColumnRenamed("Panel_ID", "PHA") \
+        .withColumnRenamed("Hosp_name", "HOSP_NAME") \
+        .withColumn("City_Tier_2010", universe["City_Tier_2010"].cast(StringType()))
+    if "HOSP_NAME" not in universe.columns:
+        universe = universe.withColumn("HOSP_NAME",func.lit("0"))
+    hosp_info = universe.select('PHA', 'HOSP_NAME', 'Province', 'City')
     
-    mnf_map = spark.read.parquet(MNFPath)
-    vbp_map = spark.read.parquet(VBPPath)
-    vbp_map = vbp_map.select('pfc','药品通用名_标准').distinct()
     
-    prod_map = spark.read.parquet(prod_map_path)
-    prod_map = prod_map.select('pfc','标准通用名').distinct()
+    # id不足7位的补足为6位
+    def distinguish_cpa_gyc(col, gyc_hospital_id_length):
+        # gyc_hospital_id_length是国药诚信医院编码长度，一般是7位数字，cpa医院编码一般是6位数字。医院编码长度可以用来区分cpa和gyc
+        return (func.length(col) < gyc_hospital_id_length)
+        
+    # cpa_pha
+    cpa_pha_mapping = spark.read.parquet(cpa_pha_mapping_path)
+    cpa_pha_mapping = cpa_pha_mapping.where(cpa_pha_mapping["推荐版本"] == "1").select('ID','PHA').distinct()
+    cpa_pha_mapping = cpa_pha_mapping.withColumn("ID", cpa_pha_mapping["ID"].cast(IntegerType()))
+    cpa_pha_mapping = cpa_pha_mapping.withColumn("ID", cpa_pha_mapping["ID"].cast(StringType()))
+    cpa_pha_mapping = cpa_pha_mapping.withColumn("ID", 
+                                func.when(distinguish_cpa_gyc(cpa_pha_mapping.ID, 7), 
+                                func.lpad(cpa_pha_mapping.ID, 6, "0")).otherwise(cpa_pha_mapping.ID))
+                                    
+    # MNF, VBP
+    mnf_map = spark.read.parquet(MNF_path)
+    mnf_map = mnf_map.withColumn("pfc", mnf_map["pfc"].cast(IntegerType()))
+    
+    vbp_map = spark.read.parquet(VBP_path)
+    vbp_map = vbp_map.select('pfc','药品通用名_标准').distinct() \
+                .withColumnRenamed("药品通用名_标准", "通用名") \
+                .withColumn("pfc", vbp_map["pfc"].cast(IntegerType()))
+    
+    # prod_map
+    product_map = spark.read.parquet(product_map_path)
+    if project_name == "Sanofi" or project_name == "AZ":
+        product_map = product_map.withColumnRenamed(product_map.columns[21], "pfc")
+    for col in product_map.columns:
+        if col in ["标准通用名", "通用名_标准", "药品名称_标准", "S_Molecule_Name"]:
+            product_map = product_map.withColumnRenamed(col, "通用名")
+        if col in ["packcode", "Pack_ID", "Pack_Id", "PackID", "packid"]:
+            product_map = product_map.withColumnRenamed(col, "pfc")
+    product_map = product_map.select('pfc','通用名').distinct() \
+                .withColumn("pfc", product_map["pfc"].cast(IntegerType()))
     
     #%% 匹配各种信息
-    data_prod = df.join(cpa_pha, on='ID', how = 'left')
-    data_prod = data_prod.join(hosp_info, data_prod["PHA"]==hosp_info["新版ID"], how = 'left') \
+    data_prod = df.join(cpa_pha_mapping, on='ID', how = 'left')
+    data_prod = data_prod.join(hosp_info, on=["PHA"], how = 'left') \
             .join(mnf_map,  on = 'pfc', how = 'left') \
-            .join(prod_map, on='pfc', how = 'left')
+            .join(product_map, on='pfc', how = 'left')
             
     vbp_map_pfc = vbp_map.select("pfc").distinct().toPandas()["pfc"].tolist()        
     data_prod = data_prod.withColumn("VBP_prod", func.when(data_prod.pfc.isin(vbp_map_pfc), func.lit("True")).otherwise(func.lit("False")))
-    # 有中文的药品通用名_标准 ，toPandas()报错
-    data_prod = data_prod.join(vbp_map.select("药品通用名_标准").distinct(), data_prod[u"标准通用名"] == vbp_map[u"药品通用名_标准"], how="left")
-    data_prod = data_prod.withColumn("VBP_mole", func.when(func.isnull(data_prod["药品通用名_标准"]), func.lit("False")).otherwise(func.lit("True")))
-    data_prod = data_prod.drop("药品通用名_标准")
+    vbp_map_molecule = vbp_map.select("通用名").distinct().toPandas()["通用名"].tolist()
+    data_prod = data_prod.withColumn("VBP_mole", func.when(data_prod["通用名"].isin(vbp_map_molecule), func.lit("True")).otherwise(func.lit("False")))
     
     data_prod = data_prod.withColumn("Province" , \
                 func.when(data_prod.City.isin('大连市','沈阳市','西安市','厦门市','广州市', '深圳市','成都市'), data_prod.City). \
@@ -141,7 +164,6 @@ def execute(max_path, project_name, out_path, out_dir):
         if "_Sales" in eachcol:
             data_non_vbp = data_non_vbp.withColumnRenamed(eachcol, eachcol.replace("_Sales", ""))
     
-    
     data_vbp = data_prod.where(data_prod.VBP_mole == "True") \
                 .drop(*[i for i in data_prod.columns if "Sales" in i])
     for eachcol in data_vbp.columns:
@@ -149,7 +171,6 @@ def execute(max_path, project_name, out_path, out_dir):
             data_vbp = data_vbp.withColumnRenamed(eachcol, eachcol.replace("_Units", ""))
     
     data_mnc = data_vbp.where(data_vbp.MNF_TYPE != 'L')
-    data_mnc.persist()
     
     data_local = data_vbp.where(data_vbp.MNF_TYPE == 'L')   
     
@@ -269,15 +290,14 @@ def execute(max_path, project_name, out_path, out_dir):
             return pandas_udf_MovAvg_func(df, level, date, near_hosp_sku)
         # 输出 level，dict
         result = data.groupby([level]).apply(pandas_udf_MovAvg)
-        result = result.withColumn("ID", result["ID"].cast(IntegerType())) \
-                .withColumn(level, result[level].cast(IntegerType()))
         return result
     
     
     #%% ma
     ## 循环写出result_ma_tmp，否则内存溢出
-    for m in range(201901, 201912 + 1):
-        if m == 201901:
+    data_non_vbp = data_non_vbp.withColumn("pfc", data_non_vbp.pfc.cast(StringType()))
+    for m in range(current_year*100 + first_month, current_year*100 + current_month + 1):
+        if m == current_year*100 + first_month:
             result_ma = data_non_vbp
         else:
             if (m % 2) == 0:
@@ -358,13 +378,11 @@ def execute(max_path, project_name, out_path, out_dir):
             return pandas_udf_NHospImpute_func(df, level, date, near_hosp_non_vbp_sku, min_level)
         # 输出 level，dict
         result = data.groupby([level]).apply(pandas_udf_MovAvg)
-        result = result.withColumn("ID", result["ID"].cast(IntegerType())) \
-                .withColumn(level, result[level].cast(IntegerType()))
         return result
         
     # %% nn  
-    result_non_vbp = data_non_vbp.select(['ID', 'pfc'] + [i for i in data_non_vbp.columns if "Date2018" in i])
-    for m in range(201901, 201912 + 1):
+    result_non_vbp = data_non_vbp.select(['ID', 'pfc'] + model_month_colnames)
+    for m in range(current_year*100 + first_month, current_year*100 + current_month + 1):
         result_month = NHospImpute(result_ma, 'pfc', m, near_hosp_non_vbp_sku)
         result_non_vbp = result_non_vbp.join(result_month, on=['ID', 'pfc'], how='left')
     result_non_vbp = result_non_vbp.fillna(0)    
@@ -377,8 +395,9 @@ def execute(max_path, project_name, out_path, out_dir):
     phlogger.info("result_non_vbp")
     
     # %% MNC
-    result_mnc = data_mnc.select(['ID', 'pfc'] + [i for i in data_mnc.columns if "Date2018" in i])
-    for m in range(201901, 201912 + 1):
+    data_mnc = data_mnc.withColumn("pfc", data_mnc.pfc.cast(StringType()))
+    result_mnc = data_mnc.select(['ID', 'pfc'] + model_month_colnames)
+    for m in range(current_year*100 + first_month, current_year*100 + current_month + 1):
         result_month = NHospImpute(data_mnc, 'pfc', m, near_hosp_mnc_sku)
         result_mnc = result_mnc.join(result_month, on=['ID', 'pfc'], how='left')
         
@@ -390,7 +409,7 @@ def execute(max_path, project_name, out_path, out_dir):
     # %% Local
     # *** yyw *** isnan 改为isnull
     result_local = data_local
-    for i in range(201901, 201912 + 1):
+    for i in range(current_year*100 + first_month, current_year*100 + current_month + 1):
         temp_date = result_local.columns
         current_index = temp_date.index('Date' + str(i))
         current_cols = 'Date' + str(i)
