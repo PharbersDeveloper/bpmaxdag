@@ -9,9 +9,8 @@ import click
 
 @click.command()
 @click.option('--out_path')
-@click.option('--in_prod_path')
-def debug_execute(out_path, in_prod_path):
-	execute(out_path, in_prod_path)
+def debug_execute(out_path):
+	execute(out_path)
 
 
 if __name__ == '__main__':

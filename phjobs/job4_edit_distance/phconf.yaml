@@ -13,7 +13,10 @@ spec:
     config: phconf.yaml
     args:
       - key: out_path
-        value: "s3a://ph-max-auto/2020-08-11/BPBatchDAG/azsanofi_check/0.0.5"
+        value: "s3a://ph-max-auto/2020-08-11/BPBatchDAG/azsanofi_check/0.0.11"
+      - key: pk
+        value: "MANUFACTURER_NAME"
+        # value: "MOLE_NAME"
     outputs:
       - key: a
         value: abcde

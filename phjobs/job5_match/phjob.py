@@ -19,7 +19,7 @@ import re
 import numpy as np
 from pyspark.sql.window import Window
 
-def execute(out_path, in_prod_path):
+def execute(out_path):
 	"""
 		please input your code below
 	"""
@@ -52,7 +52,6 @@ def execute(out_path, in_prod_path):
   
 	# 需要的所有四个表格命名
 	cpa_ed = spark.read.parquet(out_path + "/" + "cpa_ed")
-	product_data = spark.read.parquet(in_prod_path)
 	cpa_join_hr = spark.read.parquet(out_path + "/" + "cpa_hr_done") \
 						.withColumnRenamed("MOLE_NAME", "in_MOLE_NAME") \
 						.withColumnRenamed("PRODUCT_NAME", "in_PRODUCT_NAME") \
@@ -81,15 +80,16 @@ def execute(out_path, in_prod_path):
 					   .withColumnRenamed("check_PACK", "match_PACK_QTY") \
 				   	   .withColumnRenamed("check_MNF_NAME_CH", "match_MANUFACTURER_NAME_CH") \
 				   	   .withColumnRenamed("check_MNF_NAME_EN", "match_MANUFACTURER_NAME_EN") \
+				   	   .withColumnRenamed("in_PACK_ID_CHECK", "PACK_ID_CHECK") \
 				   	   .drop("rank")
 
-	# cpa_join_ed.show(2)
+	cpa_join_ed.show(2)
 	# print(cpa_join_ed.count())  # 8168
 	# 写入 cpa_join_ed
 	cpa_join_ed.write.format("parquet").mode("overwrite").save(out_path + "/" + "cpa_join_ed")
 	print("写入 " + out_path + "/" + "cpa_join_ed" + " 完成")
 	
-	# cpa_join_hr.show(3)
+	cpa_join_hr.show(3)
 
 	# 把人工匹配和ed匹配两张表union起来
 	cpa_match = cpa_join_ed.unionByName(cpa_join_hr)

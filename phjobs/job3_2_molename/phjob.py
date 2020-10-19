@@ -81,20 +81,20 @@ def execute():
 	# 						   )
 	# 	return dp[m][n]
 	
-	# @func.udf(returnType=StringType())
-	# def mole_rename(cpa_mole_name):
-	# 	ed_lst = [100]
-	# 	for prod_mole_name in mole_name_lst:
-	# 		ed = edit_distance(cpa_mole_name, prod_mole_name)
-	# 		if ed < min(ed_lst):
-	# 			ed_lst.append(ed)
-	# 			return_name = prod_mole_name
-	# 	print(return_name)
-	# 	return return_name
+	@func.udf(returnType=StringType())
+	def mole_rename(cpa_mole_name):
+		ed_lst = [100]
+		for prod_mole_name in mole_name_lst:
+			ed = edit_distance(cpa_mole_name, prod_mole_name)
+			if ed < min(ed_lst):
+				ed_lst.append(ed)
+				return_name = prod_mole_name
+		print(return_name)
+		return return_name
 	
-	# cpa_mole_null_replace = cpa_mole_null.withColumn("new_MOLE_NAME", mole_rename("in_MOLE_NAME"))
-	# # cpa_mole_null_replace.show(100)
-	# print(cpa_mole_null_replace.count())
+	cpa_mole_null_replace = cpa_mole_null.withColumn("new_MOLE_NAME", mole_rename("in_MOLE_NAME"))
+	# cpa_mole_null_replace.show(100)
+	print(cpa_mole_null_replace.count())
 
 	# # 写入：
 	# cpa_mole_null_replace.write.format("parquet").mode("overwrite").save(out_path + "/" + "cpa_mole_null_replace")
@@ -102,20 +102,34 @@ def execute():
 	
 	# 将模糊匹配完成的数据再join，然后union得到cpa_prod_join
 	cpa_mole_null_replace = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/azsanofi_check/0.0.4/cpa_mole_null_replace")
-	cpa_mole_null_replace = cpa_prod_join_null.join(cpa_mole_null_replace, "in_MOLE_NAME", how="left")
-	# cpa_mole_null_replace.show()
-	# print(cpa_mole_null_replace.count())
+	cpa_mole_null_replace = cpa_prod_join_null.join(cpa_mole_null_replace, "in_MOLE_NAME", how="left") \
+						.drop("in_PRODUCT_NAME", "in_SPEC", "in_DOSAGE", "in_PACK_QTY", "in_MANUFACTURER_NAME", "id")
+	cpa_mole_null_replace.show()
+	print(cpa_mole_null_replace.count())
 	
-	azsanofi_456 = cpa_mole_null_replace.withColumn("in_MOLE_NAME", cpa_mole_null_replace.new_mole_name).drop("new_mole_name", "id") \
-								.withColumnRenamed("in_MOLE_NAME", "MOLE_NAME") \
-								.withColumnRenamed("in_PRODUCT_NAME", "PRODUCT_NAME") \
-								.withColumnRenamed("in_SPEC", "SPEC") \
-								.withColumnRenamed("in_DOSAGE", "DOSAGE") \
-								.withColumnRenamed("in_PACK_QTY", "PACK_QTY") \
-								.withColumnRenamed("in_MANUFACTURER_NAME", "MANUFACTURER_NAME")
-	azsanofi_456.show()
-	print(azsanofi_456.count())
-	azsanofi_456.write.format("parquet").mode("overwrite").save("s3a://ph-max-auto/2020-08-11/BPBatchDAG/azsanofi_check/0.0.5/raw_data")
+	# azsanofi_456 = cpa_mole_null_replace.withColumn("in_MOLE_NAME", cpa_mole_null_replace.new_mole_name).drop("new_mole_name", "id") \
+	# 							.withColumnRenamed("in_MOLE_NAME", "MOLE_NAME") \
+	# 							.withColumnRenamed("in_PRODUCT_NAME", "PRODUCT_NAME") \
+	# 							.withColumnRenamed("in_SPEC", "SPEC") \
+	# 							.withColumnRenamed("in_DOSAGE", "DOSAGE") \
+	# 							.withColumnRenamed("in_PACK_QTY", "PACK_QTY") \
+	# 							.withColumnRenamed("in_MANUFACTURER_NAME", "MANUFACTURER_NAME")
+	# azsanofi_456.show()
+	# print(azsanofi_456.count())
+	
+	azsanofi = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/azsanofi_check")
+	# azsanofi.show(2)
+	# print(azsanofi.count())  # 11437
+	
+	
+	azsanofi_new_test = azsanofi.join(cpa_mole_null_replace, cpa_mole_null_replace.in_MOLE_NAME == azsanofi.MOLE_NAME, how="left").drop("in_MOLE_NAME")
+	azsanofi_new_test.withColumn("MOLE_NAME", func.when((azsanofi_new_test.new_mole_name == "") | (azsanofi_new_test.new_mole_name.isNull()), azsanofi_new_test.MOLE_NAME). \
+															  otherwise(azsanofi_new_test.new_mole_name))
+	azsanofi_new_test.show(100)
+	print(azsanofi.count())
+	# azsanofi_456.write.format("parquet").mode("overwrite").save("s3a://ph-max-auto/2020-08-11/BPBatchDAG/azsanofi_check/0.0.5/raw_data")
+	
+	
 	
 	
 

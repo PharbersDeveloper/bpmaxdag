@@ -23,7 +23,7 @@ import jieba
 import jieba.posseg as pseg
 import jieba.analyse
 
-def execute(out_path):
+def execute(out_path, pk):
 	"""
 		please input your code below
 	"""
@@ -285,6 +285,10 @@ def execute(out_path):
 		return edit_distance(str(in_value), str(check_value).replace(".0", "")) 
 		# return edit_distance(in_value.replace(".0", ""), check_value.replace(".0", ""))  # 所有情况都需要直接计算编辑距离 因为这个是数字
 	
+	@func.udf(returnType=IntegerType())
+	def mole_name(in_value, check_value):
+		return edit_distance(in_value, check_value) 
+		
 	@func.udf(returnType=IntegerType())	
 	def mnf_en(in_value, check_value):
 		# 针对英文生产厂家
@@ -388,9 +392,14 @@ def execute(out_path):
 			return edit_distance(new_in_spec, new_check_spec)
 		
 	@func.udf(returnType=IntegerType())			
-	def edit_distance_total(ed_DOSAGE, ed_SPEC, ed_PACK, ed_MNF_NAME_CH, ed_MNF_NAME_EN, ed_PROD_NAME_CH):
+	def edit_distance_total(ed_DOSAGE, ed_SPEC, ed_PACK, ed_MNF_NAME_CH, ed_MNF_NAME_EN, ed_PROD_NAME_CH, ed_MOLE_NAME_CH):
 		# 计算总编辑距离
-		ed = ed_DOSAGE + 10*ed_SPEC + 60*ed_PACK + min(ed_MNF_NAME_CH, ed_MNF_NAME_EN) + ed_PROD_NAME_CH
+		if pk == "MANUFACTURER_NAME":
+			ed = ed_DOSAGE + 10*ed_SPEC + 60*ed_PACK + ed_MOLE_NAME_CH + ed_PROD_NAME_CH
+		elif pk == "MOLE_NAME":
+			ed = ed_DOSAGE + 10*ed_SPEC + 60*ed_PACK + min(ed_MNF_NAME_CH, ed_MNF_NAME_EN) + ed_PROD_NAME_CH
+		elif pk == "PRODUCT_NAME":
+			ed = ed_DOSAGE + 10*ed_SPEC + 60*ed_PACK + ed_MOLE_NAME_CH + min(ed_MNF_NAME_CH, ed_MNF_NAME_EN)
 		return ed
 			
 	mapping_config = {
@@ -400,6 +409,7 @@ def execute(out_path):
 		'check_MNF_NAME_CH': "in_MANUFACTURER_NAME",
 		'check_MNF_NAME_EN': "in_MANUFACTURER_NAME",
 		'check_SPEC': "in_SPEC",
+		"check_MOLE_NAME_CH": "in_MOLE_NAME",
 	}
 	
 	# 编辑距离计算（0或过算法计算）
@@ -417,8 +427,11 @@ def execute(out_path):
 			cpa_ed = cpa_ed.withColumn(check_name.replace("check", "ed"), pack_qty(in_name, check_name))
 		elif check_name == "check_SPEC":
 			cpa_ed = cpa_ed.withColumn(check_name.replace("check", "ed"), spec(in_name, check_name))
-	cpa_ed = cpa_ed.withColumn("ed_total", edit_distance_total("ed_DOSAGE", "ed_SPEC", "ed_PACK", "ed_MNF_NAME_CH", "ed_MNF_NAME_EN", "ed_PROD_NAME_CH"))
-
+		elif check_name == "check_MOLE_NAME_CH":
+			cpa_ed = cpa_ed.withColumn(check_name.replace("check", "ed"), mole_name(in_name, check_name))
+	cpa_ed = cpa_ed.withColumn("ed_total", edit_distance_total("ed_DOSAGE", "ed_SPEC", "ed_PACK", \
+											"ed_MNF_NAME_CH", "ed_MNF_NAME_EN", "ed_PROD_NAME_CH", "ed_MOLE_NAME_CH"))
+	cpa_ed.show(4)
 	# cpa_ed.select("in_SPEC", "check_SPEC", "ed_SPEC", "ed_total").show(100)
 	# print(cpa_ed.count())  # 1181917
 	

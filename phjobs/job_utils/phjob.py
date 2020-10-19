@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """alfredyang@pharbers.com.
 
-功能描述：job6: 不在自动化流程中 用于各种检查匹配错误的数据 
+功能描述：job_utils
   * @author yzy
   * @version 0.0
   * @since 2020/08/25
@@ -60,67 +60,6 @@ def execute():
 	def pack_id(in_value):
 		return in_value.lstrip("0")
 	 
-	def phizer_check(): 
-		print("----------开始进行数据匹配率检查----------")
-		# 我匹配出来的结果
-		# cpa_match = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/azsanofi_check") \
-		cpa_match = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/chc_check/0.0.1/cpa_match") \
-								.na.fill("") \
-								.withColumn("PACK_ID", pack_id("PACK_ID"))
-		# cpa_match.show(5)
-		# print(cpa_match.count())
-
-
-		# 测试数据
-		# cpa_check = spark.read.parquet("s3a://ph-stream/common/public/pfizer_check") \
-		# cpa_check = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/azsanofi_check") \
-		cpa_check = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/chc_check/chc_raw_data") \
-								.na.fill("") \
-								.withColumn("PACK_ID_CHECK", pack_id("PACK_ID_CHECK")) \
-								.drop("id")
-		# cpa_check = cpa_check.filter(cpa_check.PRODUCT_NAME != "").filter(cpa_check.DOSAGE != "") \
-		# 						.filter(cpa_check.PACK_ID_CHECK != "").filter(cpa_check.PACK_ID_CHECK != "NULL") \
-		# 						.filter(cpa_check.PACK_ID != "").filter(cpa_check.PACK_ID.isNotNull())
-		# print(cpa_check.count())
-		# cpa_check.show(4)
-
-		
-		cpa_examine = cpa_match.join(cpa_check, \
-								 [cpa_match.in_MOLE_NAME == cpa_check.MOLE_NAME, \
-								 cpa_match.in_PRODUCT_NAME == cpa_check.PRODUCT_NAME, \
-								 cpa_match.in_SPEC == cpa_check.SPEC, \
-								 cpa_match.in_DOSAGE == cpa_check.DOSAGE, \
-								 cpa_match.in_PACK_QTY == cpa_check.PACK_QTY, \
-								 cpa_match.in_MANUFACTURER_NAME == cpa_check.MANUFACTURER_NAME], \
-								 how="left")
-								
-		# cpa_examine.select("PACK_ID_CHECK", "PACK_ID", "ed_total", "mark").show(100)
-		print(cpa_examine.count())
-
-		# cpa_examine.select()
-		wrong = cpa_examine.filter(cpa_examine.PACK_ID_CHECK != cpa_examine.PACK_ID)
-		# wrong.select("PRODUCT_NAME", "match_PRODUCT_NAME", "ed_PROD_NAME_CH").show(30)
-		# print("匹配错误总数： " + wrong.count())  # 1590
-		print(wrong.count())
-		
-		wrong_hr = wrong.filter(cpa_examine.mark == "hr")
-		print(wrong_hr.count())
-		# print("其中因为人工匹配表出现错误的有： " + wrong_hr.count())  # 54
-
-		wrong_ed = wrong.filter(cpa_examine.mark == "ed").na.fill("")
-		# wrong_ed.show(4)
-		# wrong_ed.select("SPEC", "match_SPEC", "ed_total").show(100)
-		# print("其中因为编辑距离计算出现错误的有： " + wrong_ed.count())  # 1536
-		print(wrong_ed.count())
-		
-		# 计算编辑距离出错的写入s3
-		# out_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/azsanofi_check/0.0.1/wrong_ed"
-		# wrong_ed.write.format("parquet").mode("overwrite").save(out_path)
-		# print("写入 " + out_path + " 完成")
-		
-		# out_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfi_check/0.0.4/wrong_hr"
-		# wrong_hr.write.format("parquet").moade("overwrite").save(out_path)
-		# print("写入 " + out_path + " 完成")
 		
 	def human_replace_packid_check():
 		# human_replace = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfizer_check/human_replace_packid").withColumn("PACK_ID", pack_id("PACK_ID"))
@@ -175,10 +114,11 @@ def execute():
 
 	def ed_wrong_check():
 		print("----------开始进行编辑距离错误数据检查----------")
-		wrong_ed = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/pfi_check/0.0.16/wrong_ed") \
+		wrong_ed = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/azsanofi_check/0.0.10/wrong_ed") \
 							 .drop("version", "id", )
 		# wrong_ed.show(3)
-		# print(wrong_ed.count())
+		print(wrong_ed.count())
+		
 		product_data = spark.read.parquet(in_prod_path) \
 								.select("PACK_ID", "MOLE_NAME_CH", "MNF_NAME_CH", "DOSAGE", "SPEC", "PACK", "PROD_NAME_CH") \
 								.withColumnRenamed("PACK_ID", "right_PACK_ID") \
@@ -194,22 +134,17 @@ def execute():
 		check = wrong_ed.join(product_data, \
 							  wrong_ed.PACK_ID_CHECK == product_data.right_PACK_ID, \
 							  how="left")
-
-							  
-		check.select( \
-					 "MANUFACTURER_NAME", "match_MANUFACTURER_NAME_CH", "right_MNF_NAME", "ed_MNF_NAME_CH", \
-					 "ed_SPEC", "ed_PACK", "ed_PROD_NAME_CH", \
-					 "PRODUCT_NAME", "match_PRODUCT_NAME", "right_PROD_NAME",  \
-					 "DOSAGE", "match_DOSAGE", "right_DOSAGE", \
-					 "PACK_QTY", "match_PACK_QTY", "right_PACK", "PACK_ID_CHECK", \
-					 "SPEC", "match_SPEC", "right_SPEC","PACK_ID", \
+		xixi1=check.toPandas()
+		xixi1.to_excel('Pfizer_PFZ10_outlier.xlsx', index = False)
+ 
+		check.select( "MOLE_NAME",\
+					 #"MANUFACTURER_NAME", "match_MANUFACTURER_NAME_CH", "right_MNF_NAME", "ed_MNF_NAME_CH", \
+					 #"ed_SPEC", "ed_PACK", "ed_PROD_NAME_CH", \
+					 #"PRODUCT_NAME", "match_PRODUCT_NAME", "right_PROD_NAME",  \
+					 "DOSAGE", "match_DOSAGE", "right_DOSAGE", "ed_DOSAGE", \
+					 #"PACK_QTY", "match_PACK_QTY", "right_PACK", "PACK_ID_CHECK", \
+					 #"SPEC", "match_SPEC", "right_SPEC","ed_SPEC", \
 					 "PACK_ID_CHECK", "PACK_ID", "ed_total").show(100)
-		
-		# spec_test1 = check.select("SPEC", "right_SPEC").distinct()
-		# spec_test1.show(3)
-		# out_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/spec_test_data"
-		# spec_test1.write.format("parquet").mode("overwrite").save(out_path)
-		# print("写入 " + out_path + " 完成")
 		
 		
 	def hr_check():
@@ -450,13 +385,13 @@ def execute():
 
 
 	def s3excel2parquet():
-		access_key = "AKIAWPBDTVEANFK7R7YY"
-		secret_key = "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"
+		access_key = os.getenv("AWS_ACCESS_KEY_ID")
+		secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
 		
 		SOURCE_BUCKET = 'ph-max-auto'
-		SOURCE_PATH = '2020-08-11/BPBatchDAG/pfizer1300/pfizer1300.xlsx'
+		SOURCE_PATH = "2020-08-11/BPBatchDAG/mnf_name_mapping/mnf_name_mapping.xlsx"
 		TARGET_BUCKET = 'ph-max-auto'
-		TARGET_PATH = '2020-08-11/BPBatchDAG/pfizer1300/pfizer1300'
+		TARGET_PATH = "2020-08-11/BPBatchDAG/mnf_name_mapping"
 		
 		print("开始读取")
 		
@@ -485,19 +420,46 @@ def execute():
 		    spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
 		
 		sdf = spark.createDataFrame(pd_df.astype(str))
-		sdf.show()
+		sdf.show(5)
+		
+		print("开始写入")
 		save_path = "s3a://%s/%s" % (TARGET_BUCKET, TARGET_PATH)
 		sdf.write.format("parquet").mode("overwrite").save(save_path)
 		print("写入" + save_path + "完成")
 
-	# phizer_check()  # 检查有多少匹配错误的 包括hr和ed分别两种的数量
+	def rematch_null_raw_data():
+		# 需要加job 进行mole_name / mnf_name 等匹配不上的数据进行二次匹配
+		mole_replace_mine = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/azsanofi_check/0.0.11/cpa_prod_join_null_PRODUCT_NAME") \
+										.select("in_MOLE_NAME", "in_PRODUCT_NAME", "in_SPEC", "in_DOSAGE", "in_PACK_QTY", "in_MANUFACTURER_NAME")
+		mole_replace_mine.show(3)
+		# print(mole_replace_mine.count())
+		
+		azsanofi = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/azsanofi_check/0.0.11/cpa_distinct")
+		azsanofi.show(3)
+		# print(azsanofi.count())
+		
+		mole_replace_mine = mole_replace_mine.join(azsanofi, \
+													[mole_replace_mine.in_MOLE_NAME == azsanofi.MOLE_NAME, \
+													mole_replace_mine.in_PRODUCT_NAME == azsanofi.PRODUCT_NAME, \
+													mole_replace_mine.in_SPEC == azsanofi.SPEC, \
+													mole_replace_mine.in_DOSAGE == azsanofi.DOSAGE, \
+													mole_replace_mine.in_PACK_QTY == azsanofi.PACK_QTY, \
+													mole_replace_mine.in_MANUFACTURER_NAME == azsanofi.MANUFACTURER_NAME,],\
+													how="left").select("MOLE_NAME", "PRODUCT_NAME", "SPEC", "DOSAGE", "PACK_QTY", "MANUFACTURER_NAME", "PACK_ID_CHECK")
+		mole_replace_mine.show(5)
+		print(mole_replace_mine.count())
+		# print(mole_replace_mine.filter(mole_replace_mine.PACK_ID_CHECK.isNull()).count())
+		mole_replace_mine.write.format("parquet").mode("overwrite").save("s3a://ph-max-auto/2020-08-11/BPBatchDAG/azsanofi_check/0.0.12/raw_data")
+
+
+	rematch_null_raw_data()
 	# prod_check()
 	# ed_wrong_check()
 	# spec_reformat_test()  # 将错误匹配的剂型信息对比一下
 	# hr_check()
 	# azsanofi_split()
 	# s3excel2parquet()
-	
+
 	# def spec_check():
 	# print(spec_reformat("10g:200万IU") == "10000.0MG 2000000.0U")
 	# print(spec_reformat("倍氯米松50μg") == "0.05MG")
@@ -519,18 +481,7 @@ def execute():
 	# print(spec_reformat(" (250MG+8.77MG)") == "2.25G")
 	# print(spec_reformat("18ΜG"))
 	
-	mnf1 = spark.read.parquet("s3a://ph-stream/common/public/pfizer_check") 
-				# .select("IN_MANUFACTURER_NAME", "match_MANUFACTURER_NAME_CH", "", "ed_MNF_NAME_CH", "ed_MNF_NAME_EN", "ed_total")
-	mnf1.show()
-	print(mnf1.count())
 	
-	
-	
-	# xixi = pd.read_excel('mnf_name_mapping.xlsx')
-	# xixi1 = spark.createDataFrame(xixi)
-	# xixi1.write.format("parquet").mode("overwrite").save("s3a://ph-max-auto/2020-08-11/BPBatchDAG/mnf_name_mapping")
-
-
 	print("程序end: job_utils")
 	print("--"*80)
 	

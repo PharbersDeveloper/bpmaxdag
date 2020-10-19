@@ -44,7 +44,9 @@ def execute(in_cpa_path, in_prod_path, in_hr_path, in_mhr_path, out_path, min_ke
   
 	# 需要的所有四个表格命名
 	cpa_input_data = spark.read.parquet(in_cpa_path).drop("id")
-	# print(cpa_input_data.count())
+	cpa_input_data.show()
+	print("测试数据条目: ")
+	print(cpa_input_data.count())
 	# cpa_input_data = cpa_input_data.filter(cpa_input_data.PRODUCT_NAME.isNotNull()).filter(cpa_input_data.DOSAGE.isNotNull()) \
 	# 						.filter(cpa_input_data.PACK_ID_CHECK.isNotNull()).filter(cpa_input_data.PACK_ID_CHECK !="NULL").filter(cpa_input_data.PACK_ID_CHECK !="")
 	
@@ -84,7 +86,7 @@ def execute(in_cpa_path, in_prod_path, in_hr_path, in_mhr_path, out_path, min_ke
 	# mnf_replace = all_cpa_data.filter(all_cpa_data.FORMER_MNF_NAME.isNotNull())
 	# print(mnf_replace.count())
 	# select 6个产品字段并去重 + id
-	min_keys_lst = ["MOLE_NAME", "PRODUCT_NAME", "SPEC", "DOSAGE", "PACK_QTY", "MANUFACTURER_NAME"]
+	min_keys_lst = ["MOLE_NAME", "PRODUCT_NAME", "SPEC", "DOSAGE", "PACK_QTY", "MANUFACTURER_NAME", "PACK_ID_CHECK"]
 	cpa_distinct_data = all_cpa_data.select(min_keys_lst).distinct() \
 									.withColumn("id", func.monotonically_increasing_id())
 	# cpa_distinct_data.show(10)  

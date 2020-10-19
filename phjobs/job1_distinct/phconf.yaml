@@ -17,19 +17,20 @@ spec:
         # value: "s3a://ph-max-auto/2020-08-11/BPBatchDAG/sanofi_check/raw_data"
         # value: "s3a://ph-max-auto/2020-08-11/BPBatchDAG/chc_check/chc_raw_data"
         # value: "s3a://ph-max-auto/2020-08-11/BPBatchDAG/azsanofi_check"
-        value: "s3a://ph-max-auto/2020-08-11/BPBatchDAG/azsanofi_check/0.0.5/raw_data"
+        value: "s3a://ph-max-auto/2020-08-11/BPBatchDAG/azsanofi_check/0.0.11/raw_data"
         # value: "s3a://ph-stream/common/public/pfizer_check"
+        # value: "s3a://ph-max-auto/2020-08-11/BPBatchDAG/azsanofi_check/0.0.10/cpa_prod_join_null_MANUFACTURER_NAME"
         # value: "s3a://ph-stream/common/public/pfizer_test/0.0.1"
       - key: in_prod_path
-        value: "s3a://ph-stream/common/public/prod/0.0.16"
+        value: "s3a://ph-stream/common/public/prod/0.0.17"
       - key: in_mnf_path
-        value: "s3a://ph-max-auto/2020-08-11/BPBatchDAG/mnf_name_mapping/mnf_name_mapping"
+        value: "s3a://ph-max-auto/2020-08-11/BPBatchDAG/mnf_name_mapping"
       - key: in_hr_path
         value: "s3a://ph-stream/common/public/human_replace/0.0.14"
       - key: in_mhr_path
         value: "s3a://ph-stream/common/public/mole_human_replace/0.0.1"
       - key: out_path
-        value: "s3a://ph-max-auto/2020-08-11/BPBatchDAG/azsanofi_check/0.0.5"
+        value: "s3a://ph-max-auto/2020-08-11/BPBatchDAG/azsanofi_check/0.0.11"
       - key: min_keys_lst
         value: ["MOLE_NAME", "PRODUCT_NAME", "SPEC", "DOSAGE", "PACK_QTY", "MANUFACTURER_NAME"]
     outputs:

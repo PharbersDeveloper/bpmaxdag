@@ -70,6 +70,7 @@ def execute(out_path, in_hrpackid_path):
 							
 							
 	cpa_join_null.show(5)
+	print("需要进行编辑距离计算的：")
 	print(cpa_join_null.count())  # 8168
 	
 	# 把待进行编辑距离计算的写入
@@ -85,7 +86,8 @@ def execute(out_path, in_hrpackid_path):
 					  .withColumn("ed_DOSAGE", func.lit("")) \
 					  .withColumn("ed_MNF_NAME_EN", func.lit("")) \
 					  .withColumn("ed_PACK", func.lit("")) \
-					  .withColumn("ed_total", func.lit("")) 
+					  .withColumn("ed_total", func.lit("")) \
+					  .withColumn("ed_MOLE_NAME_CH", func.lit("")) 
 	# cpa_join_hr.show(5)
 	# print(cpa_join_hr.count())  # 9062
 	

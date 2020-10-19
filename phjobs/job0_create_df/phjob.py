@@ -96,7 +96,7 @@ def execute():
 	def create_prod_check():
 		# 选择prod表中的有用列并重命名列名
 		prod_min_key_lst = ["MOLE_NAME_EN", "MOLE_NAME_CH", "PROD_NAME_CH", "SPEC", "DOSAGE", "PACK", "MNF_NAME_CH", "MNF_NAME_EN", "PACK_ID"]
-		product_data = spark.read.parquet("s3a://ph-stream/common/public/prod/0.0.15").select(prod_min_key_lst)
+		product_data = spark.read.parquet("s3a://ph-stream/common/public/prod/0.0.17").select(prod_min_key_lst)
 		product_data.show(3)
 		
 		prod_renamed = product_data
@@ -104,11 +104,12 @@ def execute():
 			prod_renamed = prod_renamed.withColumnRenamed(col, "check_" + col)
 		prod_renamed = prod_renamed.withColumnRenamed("check_PACK_ID", "PACK_ID")	
 		prod_renamed.show(3)
+		print(prod_renamed.count())
 		
 		# 写入
-		# out_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/check_prod_renamed"
-		# prod_renamed.write.format("parquet").mode("overwrite").save(out_path)
-		# print("写入 " + out_path + " 完成")
+		out_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/check_prod_renamed"
+		prod_renamed.write.format("parquet").mode("overwrite").save(out_path)
+		print("写入 " + out_path + " 完成")
 		
 		
 		
@@ -131,7 +132,7 @@ def execute():
 		azsanofi_check.show(4)
 		# print(azsanofi_check.count())
 
-
-
-	sechma_reformat()
+	create_prod_check()
+	
+	
 execute()
