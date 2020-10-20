@@ -87,7 +87,7 @@ def execute(max_path, project_name, out_path, out_dir, current_year, current_mon
     
     # 匹配VBP
     VBP = spark.read.parquet(VBP_path)
-    VBP_packid = VBP_packid.distinct().toPandas()["pfc"].values.tolist()
+    VBP_packid = VBP.distinct().toPandas()["pfc"].values.tolist()
     
     data_info = data_info.withColumn("VBP_prod", func.when(data_info.pfc.isin(VBP_packid), func.lit("True")).otherwise(func.lit("False")))
     
@@ -113,14 +113,14 @@ def execute(max_path, project_name, out_path, out_dir, current_year, current_mon
         weidao = weidao.withColumnRenamed("Date", "Date_weidao") \
                 .withColumnRenamed("ID", "ID_weidao")
         
-        # 未到id的历史数据：ID 在weidao中，日期小于weidao日期，得到每个weidao的历史医院
+        # 未到id的历史数据：ID 在weidao中，日期小于weidao日期，得到每个weidao的历史Province-pfc
         data_all = data.join(weidao, data.ID == weidao.ID_weidao, how="inner")
         data_his_hosp = data_all.where(data_all.Date < data_all.Date_weidao) \
                     .withColumnRenamed("Province", "Province_his") \
                     .select('ID_weidao','Date_weidao' ,'pfc', 'Province_his') \
                     .distinct()
         
-        # 日期在weidao中，Province在历史中
+        # 日期在weidao中，Province在历史中，获得的pfc
         data_all_Date = data.join(data_his_hosp.select('ID_weidao','Date_weidao','Province_his'),
                             data.Date == data_his_hosp.Date_weidao, how="inner") \
                             .select("ID_weidao", "Date_weidao", "Province", "Province_his", 'VBP_prod', 'pfc') \
@@ -128,13 +128,12 @@ def execute(max_path, project_name, out_path, out_dir, current_year, current_mon
         data_same_date = data_all_Date.where(data_all_Date.Province == data_all_Date.Province_his) \
                         .select("ID_weidao", "Date_weidao", 'VBP_prod', 'pfc').distinct()
         
-        # data_same_date 和 data_his_hosp 合并，获得data_missing
+        # 获得data_missing
         data_missing = data_same_date.join(data_his_hosp, on=['ID_weidao', 'Date_weidao', 'pfc'], how='left') \
                                     .distinct() \
                                     .withColumnRenamed("Province_his", "Province") \
                                     .withColumnRenamed("ID_weidao", "ID") \
                                     .withColumnRenamed("Date_weidao", "Date")
-                                    
         data_missing = data_missing.where((data_missing.VBP_prod == "True") | (~data_missing.Province.isNull()))
         data_missing = data_missing.withColumn(target, func.lit(3.1415926))
         
