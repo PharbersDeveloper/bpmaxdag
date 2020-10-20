@@ -261,7 +261,6 @@ def execute(max_path, project_name, out_path, out_dir, model_month_right, model_
         data_month_na_his = data_mole.loc[data_mole[current_col].isna(), his_col]. \
             reset_index(drop=True)
         for i in range(len(data_month_na)):
-            # *** yyw *** 数据类型统一，否则字典找不到key,near_hosp[na_id] id是字符串， near_hosp['TOP1']里面储存的是数字list
             na_id = data_month_na.loc[i].ID
             na_min = data_month_na.loc[i][level]
             if (len(near_hosp[na_id]['NN']) < 3) | (na_id in near_hosp['TOP1']):
@@ -271,7 +270,6 @@ def execute(max_path, project_name, out_path, out_dir, model_month_right, model_
         data_month = pd.concat([data_month, data_month_na])
         data_month = data_month[~data_month[current_col].isna()]
         
-        # *** yyw *** 数据类型,int 报错
         data_month[['ID', level]] = data_month[['ID', level]].astype("str")
         return data_month
         

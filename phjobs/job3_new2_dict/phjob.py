@@ -59,24 +59,11 @@ def execute(max_path, project_name, out_path, out_dir, model_month_right, model_
     current_year = int(current_year)
     current_month = int(current_month)
     
-    '''
-    df_sales_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/df_sales"
-    df_units_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/df_units"
-    universe_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/universe"
-    cpa_pha_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/cpa_pha_mapping"
-    prod_map_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/prod_mapping"
-    MNFPath = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/MNF_TYPE_PFC"
-    VBPPath = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Zhongbiao"
-    '''
     
     # 输出
     df_near_hosp_non_vbp_sku_path = out_path_dir + "/New_data_add_Out//df_near_hosp_non_vbp_sku"
     df_near_hosp_mnc_sku_path = out_path_dir + "/New_data_add_Out//df_near_hosp_mnc_sku"
     
-    '''
-    df_near_hosp_non_vbp_sku_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/df_near_hosp_non_vbp_sku"
-    df_near_hosp_mnc_sku_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/df_near_hosp_mnc_sku"
-    '''
     
     # =============== 数据执行 =================
     
@@ -232,7 +219,7 @@ def execute(max_path, project_name, out_path, out_dir, model_month_right, model_
             a = disttmp.apply(lambda x: x.index[np.argpartition(x, (0, n))],
                               axis=0). \
                 reset_index(drop=True)
-            # ***yyw*** python2没有ignore_index=True，用python2的方法.values替换
+
             c = disttmp.apply(lambda x: x.sort_values().values, axis=0). \
                 reset_index(drop=True)
                 

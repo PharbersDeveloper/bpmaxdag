@@ -45,33 +45,19 @@ def execute(max_path, project_name, out_path, out_dir, current_year, current_mon
     product_map_path = out_path_dir + "/prod_mapping"
     VBP_path = max_path  + "/Common_files/VBP_pfc_molecule"
     
-    # weidao_path = out_path + "/" + project_name + u'/2019年未到名单_v2.csv'   #合并所有2020
-    # universe_path = out_path + "/" + project_name + '/universe_base' 
-    # cpa_pha_path = out_path + "/" + project_name + '/cpa_pha_mapping'
-    
     current_year = int(current_year)
     current_month = int(current_month)
     
-    '''
-    data_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/data"
-    weidao_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/2019年未到名单_v2.csv"
-    universe_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/universe"
-    cpa_pha_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/cpa_pha_mapping"
-    '''
+    # weidao_path = out_path + "/" + project_name + u'/2019年未到名单_v2.csv'   #合并所有2020
     
     # 输出
     df_sales_path = out_path_dir + "/New_data_add_Out/df_sales"
     df_units_path = out_path_dir + "/New_data_add_Out/df_units"
     
-    '''
-    df_sales_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/df_sales"
-    df_units_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/New_add_test/Out/df_units"
-    '''    
     
     # =============== 数据执行 =================
     
     # 未到名单生成
-     # weidao = spark.read.csv(weidao_path, header=True)
     data_range = list(range(current_year*100 + 1, current_year*100 + current_month +1, 1))
     for index, i in enumerate(data_range):
         not_arrived_path = max_path + "/Common_files/Not_arrived" + str(i) + ".csv"
@@ -160,7 +146,6 @@ def execute(max_path, project_name, out_path, out_dir, current_year, current_mon
         # data_info 中 ID|Date|pfc 个别有多条Sales，目前算法取均值
         df = df.groupBy("ID", "pfc").pivot("Date").agg(func.mean(target)).fillna(0)
         
-        # df = df.replace(3.1415926, np.nan, inplace=True)
         # 将3.1415926替换为null
         for eachcol in df.columns:
             df = df.withColumn(eachcol, func.when(df[eachcol] == 3.1415926, None).otherwise(df[eachcol]))
