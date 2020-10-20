@@ -252,10 +252,21 @@ def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_lef
     report = report.withColumn("drop_for_score", func.when(report.project_score == report.max_score, func.lit(0)).otherwise(func.lit(1)))
     report = report.withColumn("drop_for_score", func.when(report.drop_for_months == 0, report.drop_for_score).otherwise(None))
     
+    # 时间范围range，最小月-最大月
+    time_range = max_filter_out.select("project","标准通用名", "ATC", "Date") \
+                    .distinct() \
+                    .groupby(["project","标准通用名", "ATC"]).agg(func.min("Date").alias("min_time"), func.max("Date").alias("max_time"))
+    time_range = time_range.withColumn("time_range", func.concat(time_range.min_time, func.lit("_"), time_range.max_time))
+    
+    # report_a生成
+    # report_a.withColumn("time_range", func.lit(str(time_left) + '_' + str(time_right)))
     report_a = report.drop("max_score", "max_month") \
-                .withColumn("time_range", func.lit(str(time_left) + '_' + str(time_right)))
+                .join(time_range.drop("min_time", "max_time"), on=["project","标准通用名", "ATC"], how="left")
     # 列名顺序调整
-    report_a = report_a.select("project", "ATC", "标准通用名", "time_range", "months_num", "drop_for_months", "project_score", "drop_for_score")
+    report_a = report_a.select("project", "ATC", "标准通用名", "time_range", "months_num", "drop_for_months", "project_score", "drop_for_score") \
+                    .withColumn("flag", func.when(report_a.drop_for_score == 0, func.lit(1)).otherwise(func.lit(None)))
+    report_a = report_a.orderBy(["标准通用名", "months_num", "project_score"], ascending=[0, 0, 1])               
+    
     
     # 输出report_a            
     report_a = report_a.repartition(1)
@@ -271,19 +282,23 @@ def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_lef
     
     # 输出提数结果                                    
     out_extract_data_final = out_extract_data.select("project", "project_score", "Date", "ATC", "标准通用名", "标准商品名", "标准剂型", 
-                                    "标准规格", "标准包装数量", "标准生产企业", "标准省份名称", "标准城市名称", "Sales", "Units")
+                                    "标准规格", "标准包装数量", "标准生产企业", "标准省份名称", "标准城市名称", "PACK_ID", "Sales", "Units")
     out_extract_data_final = out_extract_data_final.repartition(1)
     out_extract_data_final.write.format("csv").option("header", "true") \
         .mode("overwrite").save(out_extract_data_path)
     
     # 缓解存储
-    out_extract_data = out_extract_data.repartition(4)
-    out_extract_data.write.format("parquet") \
-            .mode("overwrite").save(out_tmp_path)
-    out_extract_data = spark.read.parquet(out_tmp_path)
+    # out_extract_data = out_extract_data.repartition(4)
+    # out_extract_data.write.format("parquet") \
+    #          .mode("overwrite").save(out_tmp_path)
+    # out_extract_data = spark.read.parquet(out_tmp_path)
         
     # report_b
     if atc:
+        time_range_act = out_extract_data.select("ATC", "Date").distinct() \
+                            .groupby(["ATC"]).agg(func.min("Date").alias("min_time"), func.max("Date").alias("max_time"))
+        time_range_act = time_range_act.withColumn("time_range", func.concat(time_range_act.min_time, func.lit("_"), time_range_act.max_time))
+        
         extract_sales = out_extract_data.select("PACK_ID", "ATC").distinct() \
                             .join(ims_sales.select("PACK_ID", "Sales_ims").distinct(), on="PACK_ID", how="left") \
                             .groupby("ATC").agg(func.sum("Sales_ims").alias("Sales_ims_extract")).persist()
@@ -292,7 +307,7 @@ def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_lef
                         .groupby("ATC").agg(func.sum("Sales_ims").alias("Sales_ims_atc")).persist()
         report_b = extract_sales.join(atc_sales, on="ATC", how="left")
         report_b = report_b.withColumn("Sales_rate", report_b.Sales_ims_extract/report_b.Sales_ims_atc) \
-                        .withColumn("time_range", func.lit(str(time_left) + '_' + str(time_right))) \
+                        .join(time_range_act.select("ATC", "time_range"), on="ATC", how="left") \
                         .drop("Sales_ims_extract", "Sales_ims_atc")
         # 列名顺序调整
         report_b = report_b.select("ATC", "time_range", "Sales_rate")
