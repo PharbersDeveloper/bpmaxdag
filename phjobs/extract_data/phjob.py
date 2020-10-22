@@ -228,9 +228,37 @@ def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_lef
     # 4. 原始提数结果
     max_filter_out = max_filter_out.select("project", "project_score", "Date", "ATC", "标准通用名", "标准商品名", "标准剂型", "标准规格", 
                     "标准包装数量", "标准生产企业", "标准省份名称", "标准城市名称", "DOI", "Predict_Sales", "Predict_Unit", "PACK_ID")
-    max_filter_out = max_filter_out.withColumnRenamed("Predict_Sales", "Sales") \
-                            .withColumnRenamed("Predict_Unit", "Units")
-                            
+    
+    # Sales，Units 处理
+    '''
+    包装数量为空的是others， Sales 或者 Units 可以为0
+    包装数量不为空的，Sales和Units只要有一列为0，那么都调整为0；Units先四舍五入为整数，然后变化的系数乘以Sales获得新的Sales
+    Sales 保留两位小数
+    去掉 Sales，Units 同时为0的行
+    '''
+    max_filter_out = max_filter_out.withColumn("Predict_Sales", max_filter_out["Predict_Sales"].cast(DoubleType())) \
+                            .withColumn("Predict_Unit", max_filter_out["Predict_Unit"].cast(DoubleType()))
+    
+    max_filter_out = max_filter_out.withColumn("Units", func.when((~max_filter_out["标准包装数量"].isNull()) & (max_filter_out.Predict_Unit <= 0), func.lit(0)) \
+                                                                    .otherwise(func.round(max_filter_out.Predict_Unit, 0)))
+                                        
+    max_filter_out = max_filter_out.withColumn("p", max_filter_out.Units/max_filter_out.Predict_Unit)
+    max_filter_out = max_filter_out.withColumn("p", func.when((~max_filter_out["标准包装数量"].isNull()) & (max_filter_out["p"].isNull()), func.lit(0)) \
+                                                        .otherwise(max_filter_out.p))
+    max_filter_out = max_filter_out.withColumn("p", func.when((max_filter_out["标准包装数量"].isNull()) & (max_filter_out["p"].isNull()), func.lit(1)) \
+                                                        .otherwise(max_filter_out.p))
+    
+    max_filter_out = max_filter_out.withColumn("Sales", max_filter_out.Predict_Sales * max_filter_out.p)
+    
+    max_filter_out = max_filter_out.withColumn("Sales", func.round(max_filter_out.Sales, 2)) \
+                                .withColumn("Units", max_filter_out["Units"].cast(IntegerType())) \
+                                .drop("Predict_Unit", "Predict_Sales", "p")
+                                
+    max_filter_out_1 = max_filter_out.where(max_filter_out["标准包装数量"].isNull())
+    max_filter_out_2 = max_filter_out.where((~max_filter_out["标准包装数量"].isNull()) & (max_filter_out.Sales != 0) & (max_filter_out.Units != 0))
+    
+    max_filter_out =  max_filter_out_1.union(max_filter_out_2)                      
+    
     # 5. 提数报告以及提数去重
     report = max_filter_out.select("project","project_score","标准通用名", "ATC", "Date") \
                             .distinct() \
@@ -339,4 +367,4 @@ def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_lef
     report_c = report_c.repartition(1)
     report_c.write.format("csv").option("header", "true") \
         .mode("overwrite").save(report_c_path)
-            
+        
