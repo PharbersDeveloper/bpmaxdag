@@ -49,7 +49,7 @@ def execute(max_path, extract_path, project_name, max_path_list, out_dir):
     product_map_path = max_path + "/" + project_name + "/" + out_dir + "/prod_mapping"
     molecule_ACT_path = max_path  + "/Common_files/extract_data_files/product_map_all_ATC.csv"
     MAX_city_normalize_path = max_path  + "/Common_files/extract_data_files/MAX_city_normalize.csv"
-    packID_ACT_map_path = max_path  + "/Common_files/extract_data_files/packID_ATC_map.csv"
+    master_data_map_path = max_path  + "/Common_files/extract_data_files/packID_ATC_map.csv"
     
     # 输出
     max_standard_path = extract_path + "/" + project_name + "_max_standard"
@@ -92,16 +92,23 @@ def execute(max_path, extract_path, project_name, max_path_list, out_dir):
     # 1. 城市标准化
     MAX_city_normalize = spark.read.csv(MAX_city_normalize_path, header=True)
     
-    # 2. packID_ACT_map：PACK_ID - 标准通用名 - ACT, 无缺失
-    packID_ACT_map = spark.read.csv(packID_ACT_map_path, header=True)
-    packID_ACT_map = packID_ACT_map.select("PACK_ID", "MOLE_NAME_CH", "ATC4_CODE").distinct() \
-                    .withColumn("PACK_ID", packID_ACT_map.PACK_ID.cast(IntegerType())) \
-                    .withColumnRenamed("MOLE_NAME_CH", "MOLE_NAME_CH_1") \
-                    .withColumnRenamed("ATC4_CODE", "ATC4_1")
+    # 2. master_data_map：PACK_ID - 标准通用名 - ACT, 无缺失
+    master_data_map = spark.read.csv(master_data_map_path, header=True)
+    packID_master_map = master_data_map.select("PACK_ID", "MOLE_NAME_CH", "PROD_NAME_CH", "CORP_NAME_CH", "DOSAGE", "SPEC", "PACK", "ATC4_CODE") \
+                                        .distinct() \
+                                        .withColumn("PACK_ID", master_data_map.PACK_ID.cast(IntegerType())) \
+                                        .withColumnRenamed("MOLE_NAME_CH", "MOLE_NAME_CH_1") \
+                                        .withColumnRenamed("ATC4_CODE", "ATC4_1")
+    # 是否有重复
+    num1 = packID_master_map.count()
+    num2 = packID_master_map.dropDuplicates(["PACK_ID"]).count()
+    print(num1 - num2)
+    packID_master_map = packID_master_map.dropDuplicates(["PACK_ID"])
+                        
     
     # 3. product_map_all_ATC: 有补充的新的 PACK_ID - 标准通用名 - ACT （0是缺失）
     molecule_ACT_map = spark.read.csv(molecule_ACT_path, header=True)
-
+    
     add_PACK_ID = molecule_ACT_map.where(molecule_ACT_map.project == project_name).select("min2", "PackID").distinct() \
                     .withColumn("PackID", molecule_ACT_map.PackID.cast(IntegerType()))
     add_PACK_ID = add_PACK_ID.withColumn("PackID", func.when(add_PACK_ID.PackID == "0", None).otherwise(add_PACK_ID.PackID)) \
@@ -147,29 +154,31 @@ def execute(max_path, extract_path, project_name, max_path_list, out_dir):
         if "标准包装数量" not in product_map.columns:
             product_map = product_map.withColumnRenamed("包装数量", "标准包装数量")
             
-    # b. 去重：保证每个min2只有一条信息, dropDuplicates会取first
-    product_map = product_map.dropDuplicates(["min2"])
-    # c. 选取需要的列
+    # b. 选取需要的列
     product_map = product_map \
                     .select("min2", "pfc", "通用名", "标准商品名", "标准剂型", "标准规格", "标准包装数量", "标准生产企业") \
                     .withColumn("pfc", product_map["pfc"].cast(IntegerType())) \
                     .withColumn("标准包装数量", product_map["标准包装数量"].cast(IntegerType())) \
                     .distinct()
-    # d. pfc为0替换为null
+    
+    # c. pfc为0统一替换为null
     product_map = product_map.withColumn("pfc", func.when(product_map.pfc == 0, None).otherwise(product_map.pfc)).distinct()
     product_map = product_map.withColumn("project", func.lit(project_name)).distinct()
     
-    # e. min2处理
+    # d. min2处理
     product_map = product_map.withColumnRenamed("pfc", "PACK_ID") \
                     .withColumn("min2", func.regexp_replace("min2", "&amp;", "&")) \
                     .withColumn("min2", func.regexp_replace("min2", "&lt;", "<")) \
                     .withColumn("min2", func.regexp_replace("min2", "&gt;", ">"))
-    # f. 补充PACK_ID
+                    
+    # e. 补充PACK_ID
     product_map = product_map.join(add_PACK_ID, on="min2", how="left")
     product_map = product_map.withColumn("PACK_ID", 
                             func.when((product_map.PACK_ID.isNull()) & (~product_map.PackID_add.isNull()), 
                             product_map.PackID_add).otherwise(product_map.PACK_ID)) \
                             .drop("PackID_add")
+    # f. 去重：保证每个min2只有一条信息, dropDuplicates会取first
+    product_map = product_map.dropDuplicates(["min2"])
     
     # 5. 汇总max_result_path结果，并进行mapping                
     max_result_path_list = spark.read.csv(max_result_path_list_path, header=True)
@@ -193,7 +202,7 @@ def execute(max_path, extract_path, project_name, max_path_list, out_dir):
             max_result = max_result.withColumn("Province", func.when(max_result.City == "衡水市", func.lit("河北省")) \
                                                         .otherwise(max_result.Province))
         
-        # product 匹配 PACK_ID, 通用名, 标准商品名, 标准剂型, 标准规格, 标准包装数量, 标准生产企业
+        # 1. max_result 的 Prod_Name（min2） 处理
         max_result = max_result.withColumn("Prod_Name_tmp", max_result.Prod_Name)
         max_result = max_result.withColumn("Prod_Name_tmp", func.regexp_replace("Prod_Name_tmp", "&amp;", "&")) \
                             .withColumn("Prod_Name_tmp", func.regexp_replace("Prod_Name_tmp", "&lt;", "<")) \
@@ -203,20 +212,47 @@ def execute(max_path, extract_path, project_name, max_path_list, out_dir):
         if project_name == "NHWA":
             max_result = max_result.withColumn("Prod_Name_tmp", func.regexp_replace("Prod_Name_tmp", "迪施宁乳剂", "迪施乐乳剂"))
         
+        # 2. product_map 匹配 min2 ：获得 PACK_ID, 通用名, 标准商品名, 标准剂型, 标准规格, 标准包装数量, 标准生产企业
         max_standard = max_result.join(product_map, max_result["Prod_Name_tmp"] == product_map["min2"], how="left") \
                             .drop("min2","Prod_Name_tmp")
+                            
+        # 3. packID_master_map 匹配 PACK_ID ：获得 MOLE_NAME_CH_1, ATC4_1, PROD_NAME_CH, "CORP_NAME_CH, DOSAGE, SPEC, PACK
+        max_standard = max_standard.join(packID_master_map, on=["PACK_ID"], how="left")
         
-        # PACK_ID - 标准通用名 - ACT
-        max_standard = max_standard.join(packID_ACT_map, on=["PACK_ID"], how="left")
-        
-        # 通用名, PackID, MOLE_NAME_CH, ATC4_CODE
+        # 4. molecule_ACT_map 匹配 通用名：获得 MOLE_NAME_CH_2, ATC4_2
         max_standard = max_standard.join(molecule_ACT_map, on=["通用名"], how="left")
         
-        # packID_ACT_map 匹配不上的用 molecule_ACT_map 
+        # 5. 整合 master 匹配结果 和 product_map, molecule_ACT_map 匹配结果
+        '''
+        ATC4_1 和 MOLE_NAME_CH_1 来自 master 有 pack_id 匹配得到 ; ATC4_2 和 MOLE_NAME_CH_2 来自 molecule_ACT_map 
+        '''
+        # A10C/D/E是胰岛素, 通用名和公司名用master, 其他信息用product_map
+        max_standard_yidaosu = max_standard.where(func.substring(max_standard.ATC4_1, 0, 4).isin(['A10C', 'A10D', 'A10E'])) \
+                                .withColumn("PROD_NAME_CH", max_standard['标准商品名']) \
+                                .withColumn("DOSAGE", max_standard['标准剂型']) \
+                                .withColumn("SPEC", max_standard['标准规格']) \
+                                .withColumn("PACK", max_standard['标准包装数量'])
+        
+        max_standard_others = max_standard.where(~func.substring(max_standard.ATC4_1, 0, 4).isin(['A10C', 'A10D', 'A10E']))
+        
+        # 合并 max_standard_yidaosu 和 max_standard_others
+        max_standard = max_standard_others.union(max_standard_yidaosu.select(max_standard_others.columns))
+        
+        # master 匹配不上的(ATC4_1是null)c用 molecule_ACT_map 和 product_map 信息
         max_standard = max_standard.withColumn("ATC", func.when(max_standard["ATC4_1"].isNull(), max_standard["ATC4_2"]) \
                                                 .otherwise(max_standard["ATC4_1"])) \
                                 .withColumn("标准通用名", func.when(max_standard["MOLE_NAME_CH_1"].isNull(), max_standard["MOLE_NAME_CH_2"]) \
                                                 .otherwise(max_standard["MOLE_NAME_CH_1"])) \
+                                .withColumn("标准商品名", func.when(max_standard["ATC4_1"].isNull(), max_standard["标准商品名"]) \
+                                                .otherwise(max_standard["PROD_NAME_CH"])) \
+                                .withColumn("标准剂型", func.when(max_standard["ATC4_1"].isNull(), max_standard["标准剂型"]) \
+                                                .otherwise(max_standard["DOSAGE"])) \
+                                .withColumn("标准规格", func.when(max_standard["ATC4_1"].isNull(), max_standard["标准规格"]) \
+                                                .otherwise(max_standard["SPEC"])) \
+                                .withColumn("标准包装数量", func.when(max_standard["ATC4_1"].isNull(), max_standard["标准包装数量"]) \
+                                                .otherwise(max_standard["PACK"])) \
+                                .withColumn("标准生产企业", func.when(max_standard["ATC4_1"].isNull(), max_standard["标准生产企业"]) \
+                                                .otherwise(max_standard["CORP_NAME_CH"])) \
                                 .drop("ATC4_1", "ATC4_2", "MOLE_NAME_CH_1", "MOLE_NAME_CH_2")
         
         # 没有标准通用名的 用原始的通用名
@@ -265,7 +301,7 @@ def execute(max_path, extract_path, project_name, max_path_list, out_dir):
     max_standard_brief = max_standard_brief.repartition(1)
     max_standard_brief.write.format("parquet") \
     .mode("overwrite").save(max_standard_brief_path)
-
-
-
-
+    
+    
+    
+    
