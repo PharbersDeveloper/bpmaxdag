@@ -193,7 +193,11 @@ def execute(max_path, extract_path, project_name, max_path_list, out_dir):
         time_right = max_result_path_list.loc[i].time_right
         time_list.append(time_right)
         
-        max_result = spark.read.parquet(max_result_path)
+        # csv 文件和 parquet 文件判断
+        if max_result_path.endswith(".csv"):
+            max_result = spark.read.csv(max_result_path, header=True)
+        else:
+            max_result = spark.read.parquet(max_result_path)
         max_result = max_result.withColumn("Date", max_result.Date.cast(IntegerType()))
         max_result = max_result.where((max_result.Date >= int(time_left)) & (max_result.Date <= int(time_right)))
         
