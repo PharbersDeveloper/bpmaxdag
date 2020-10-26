@@ -49,7 +49,7 @@ def execute(max_path, extract_path, project_name, max_path_list, out_dir):
     product_map_path = max_path + "/" + project_name + "/" + out_dir + "/prod_mapping"
     molecule_ACT_path = max_path  + "/Common_files/extract_data_files/product_map_all_ATC.csv"
     MAX_city_normalize_path = max_path  + "/Common_files/extract_data_files/MAX_city_normalize.csv"
-    master_data_map_path = max_path  + "/Common_files/extract_data_files/packID_ATC_map.csv"
+    master_data_map_path = max_path  + "/Common_files/extract_data_files/master_data_map.csv"
     
     # 输出
     max_standard_path = extract_path + "/" + project_name + "_max_standard"
