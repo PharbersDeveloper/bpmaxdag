@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: alfred
+  description: "pharbers job description"
+  labels:
+    name: alfred
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: human_replace_input_path
+        value: s3a://ph-stream/common/public/human_replace/0.0.14
+      - key: mnfs_input_path
+        value: s3a://ph-platform/2020-08-10/datamart/standard/dimensions/mnfs/v20201001_20201015_1
+      - key: prod_input_path
+        value: s3a://ph-platform/2020-08-10/datamart/standard/dimensions/products/v20201001_20201015_1
+      - key: clean_rules_output_path
+        value: s3a://ph-platform/2020-08-10/datamart/standard/dimensions/clean_rules/v20201001_20201015_1
+    outputs:
+      - key: a
+        value: abcde
+      - key: b
+        value: 6789
+
+
+
