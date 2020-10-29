@@ -26,6 +26,8 @@ spec:
         value: "Empty"
       - key: molecule
         value: "Empty"
+      - key: molecule_sep
+        value: "Empty"
       - key: atc
         value: "Empty"
       - key: project

@@ -12,7 +12,7 @@ import os
 from pyspark.sql.functions import pandas_udf, PandasUDFType
 import time
 
-def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_left, time_right, molecule, atc, project, doi):
+def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_left, time_right, molecule, atc, project, doi, molecule_sep):
     os.environ["PYSPARK_PYTHON"] = "python3"
     spark = SparkSession.builder \
         .master("yarn") \
@@ -112,8 +112,11 @@ def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_lef
     
     if molecule == "Empty":
         molecule = [] 
-    else:    
-        molecule = molecule.replace(" ","").split(",")
+    else:
+        if molecule_sep == "Empty": 
+            molecule = molecule.replace(" ","").split(",")
+        else:
+            molecule = molecule.replace(" ","").split(molecule_sep)
     
     if atc == "Empty":
         atc = []

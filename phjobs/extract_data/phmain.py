@@ -19,8 +19,9 @@ import click
 @click.option('--atc')
 @click.option('--project')
 @click.option('--doi')
-def debug_execute(max_path, extract_path, out_path, out_suffix, extract_file, time_left, time_right, molecule, atc, project, doi):
-	execute(max_path, extract_path, out_path, out_suffix, extract_file, time_left, time_right, molecule, atc, project, doi)
+@click.option('--molecule_sep')
+def debug_execute(max_path, extract_path, out_path, out_suffix, extract_file, time_left, time_right, molecule, atc, project, doi, molecule_sep):
+	execute(max_path, extract_path, out_path, out_suffix, extract_file, time_left, time_right, molecule, atc, project, doi, molecule_sep)
 
 
 if __name__ == '__main__':
