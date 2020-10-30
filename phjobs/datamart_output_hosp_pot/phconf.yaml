@@ -17,7 +17,7 @@ spec:
       - key: revision
         value: LATEST
       - key: output_path
-        value: s3a://ph-origin-files/universe/MAX/Other MKT Segment_Pfizer_0823.csv
+        value: s3a://ph-platform/2020-08-10/datamart/standard/flat_tables/max_hosps/Other MKT Segment_Pfizer_0823.csv
     outputs:
       - key: a
         value: abcde

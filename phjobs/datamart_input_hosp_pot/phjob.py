@@ -129,13 +129,5 @@ def execute(**kwargs):
     source_bucket = max_universe_path_lst[2]
     source_path = "/".join(max_universe_path_lst[3:])
     
-    standard_universe_df = spark.read.parquet(standard_universe_path)
-    
     df = s3excel2df(spark, source_bucket=source_bucket, source_path=source_path)
-    df = max_universe_format_to_standard(df)
-    df = align_schema(df, standard_universe_df.schema)
-    df = df.dropDuplicates(['STANDARD', 'REVISION', 'PHA_ID'])
-    
-    df = df.repartition("STANDARD", "REVISION")
-    df.write.format("parquet").mode('append').partitionBy("STANDARD", "REVISION").save(standard_universe_path)
-    
+    df.repartition(1).write.format("csv").option("header", "true").mode("overwrite").save('s3a://ph-platform/2020-08-10/datamart/standard/flat_tables/pot_hosps/DSCN_Cleaned_0923.csv')

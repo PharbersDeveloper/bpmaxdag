@@ -8,18 +8,6 @@ from pyspark.sql.functions import lit, udf, monotonically_increasing_id
 import logging
 import os
 
-	
-def tag2rv(tag):
-    if tag == '2011_initial':
-        return '2011'
-    elif tag == '2013_updated':
-        return '2013'
-    elif tag == '2019_updated':
-        return '2019'
-    else:
-        return 'LATEST'
-tag2rv_udf = udf(tag2rv, StringType())
-
 
 def execute(**kwargs):
 	logging.basicConfig(format='%(asctime)s %(filename)s %(funcName)s %(lineno)d %(message)s')
@@ -59,14 +47,7 @@ def execute(**kwargs):
 
 	logger.info("preparing data")
 	
-	reading = spark.read.parquet(input_path)
+	reading = spark.read.parquet(input_path).withColumnRenamed("生殖中心", "REPRODUCT").drop("version")
 	
-	dest = reading.withColumnRenamed("生殖中心", "REPRODUCT") \
-	    .withColumn("_ID", reading.PHA_ID) \
-	    .withColumn('STANDARD', lit('STANDARD')) \
-	    .withColumn('REVISION', tag2rv_udf(reading['UPDATE_LABEL'])) \
-	    .drop("version")
-	    
-    dest = dest.dropDuplicates(['STANDARD', 'REVISION', 'PHA_ID'])
-	dest = dest.repartition("STANDARD", "REVISION")
-    dest.write.format("parquet").mode('overwrite').partitionBy("STANDARD", "REVISION").save(output_path)
+	dest = reading.withColumn('STANDARD', lit('COMMON')).repartition(1).withColumn("_ID", monotonically_increasing_id()).cache()
+	dest.repartition("STANDARD").write.format("parquet").mode('overwrite').partitionBy("STANDARD").save(output_path)

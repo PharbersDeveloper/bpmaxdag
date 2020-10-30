@@ -5,9 +5,8 @@ This is job template for Pharbers Max Job
 from phjob import execute
 import click
 @click.command()
-@click.option('--origin_prod_path')
-@click.option('--national_drug_code_domestically_path')
-@click.option('--national_drug_code_imported_path')
+@click.option('--standard_universe_path')
+@click.option('--max_universe_path')
 def debug_execute(**kwargs):
 	execute(**kwargs)
 if __name__ == '__main__':

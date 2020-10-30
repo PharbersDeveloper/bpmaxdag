@@ -66,7 +66,7 @@ def max_universe_format_to_standard(df):
         .withColumnRenamed('住院药品收入', 'IN_HOSP_DRUG_INCOME') \
         .withColumnRenamed('住院西药收入', 'IN_HOSP_WST_DRUG_INCOME')
         
-    df = df.withColumn('STANDARD', lit('MAX')).withColumn('REVISION', lit('LATEST')).withColumn("_ID", df.PHA_ID)
+    df = df.withColumn('STANDARD', lit('MAX')).repartition(1).withColumn("_ID", monotonically_increasing_id()).cache()
     return df
     
     
@@ -97,13 +97,13 @@ def execute(**kwargs):
     logger.info("Origin kwargs = {}.".format(str(kwargs)))
     
     # input required
-    standard_universe_path = kwargs.get('standard_universe_path', '')
-    if standard_universe_path == 'not set' or standard_universe_path == '':
-        raise Exception("Invalid standard_universe_path!", standard_universe_path)
+    input_path = kwargs.get('input_path', '')
+    if input_path == 'not set' or input_path == '':
+        raise Exception("Invalid input_path!", input_path)
         
-    max_universe_path = kwargs.get('max_universe_path', '')
-    if max_universe_path == 'not set' or max_universe_path == '':
-        raise Exception("Invalid max_universe_path!", max_universe_path)
+    output_path = kwargs.get('output_path', '')
+    if output_path == 'not set' or output_path == '':
+        raise Exception("Invalid output_path!", output_path)
     
     os.environ["PYSPARK_PYTHON"] = "python3"
     spark = SparkSession.builder \
@@ -125,17 +125,12 @@ def execute(**kwargs):
         spark._jsc.hadoopConfiguration().set("com.amazonaws.services.s3.enableV4", "true")
         spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
         
-    max_universe_path_lst = max_universe_path.split('/')
-    source_bucket = max_universe_path_lst[2]
-    source_path = "/".join(max_universe_path_lst[3:])
-    
-    standard_universe_df = spark.read.parquet(standard_universe_path)
+    input_path_lst = input_path.split('/')
+    source_bucket = input_path_lst[2]
+    source_path = "/".join(input_path_lst[3:])
     
     df = s3excel2df(spark, source_bucket=source_bucket, source_path=source_path)
     df = max_universe_format_to_standard(df)
-    df = align_schema(df, standard_universe_df.schema)
-    df = df.dropDuplicates(['STANDARD', 'REVISION', 'PHA_ID'])
-    
-    df = df.repartition("STANDARD", "REVISION")
-    df.write.format("parquet").mode('append').partitionBy("STANDARD", "REVISION").save(standard_universe_path)
+
+    df.repartition("STANDARD").write.format("parquet").mode('overwrite').partitionBy("STANDARD").save(output_path)
     
