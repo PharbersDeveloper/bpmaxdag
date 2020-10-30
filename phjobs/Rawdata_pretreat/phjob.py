@@ -38,19 +38,23 @@ if access_key is not None:
 # 输入
 time_left = 202001
 time_right = 202008
-project_name = 'Gilead'
-if_two_source = 'True'
+
 minimum_product_sep = '|'
 minimum_product_columns = "Brand, Form, Specifications, Pack_Number, Manufacturer"
 minimum_product_columns = minimum_product_columns.replace(" ","").split(",")
-# project_name = 'XLT'
-# if_two_source = 'False'
 max_path = 's3a://ph-max-auto/v0.0.1-2020-06-08/Test/'
 outdir = '202008'
 history_outdir = 'Empty'
 if history_outdir == 'Empty':
     history_outdir = str(int(outdir) - 1)
 
+#project_name = 'XLT'
+#if_two_source = 'False'
+#product_map = spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/XLT/202006/prod_mapping')
+
+project_name = 'Gilead'
+if_two_source = 'True'
+product_map = spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/Gilead/202008/prod_mapping')
 
 raw_data_path = max_path + '/' + project_name + '/' + outdir + '/all_raw_data.csv'
 molecule_adjust_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/Common_files/新老通用名转换.csv"
@@ -89,8 +93,8 @@ raw_data = spark.read.csv(raw_data_path, header=True)
 # 1. 同sheet去重
 raw_data = raw_data.groupby(raw_data.columns).count()
 same_sheet_dup = raw_data.where(raw_data['count'] > 1)
-print("重复条目数:", same_sheet_dup.groupby('Sheet', 'Path').count().show())
-print("重复条目占比:", same_sheet_dupraw_data_duplicates.count()/raw_data.count())
+print(u"重复条目数:", same_sheet_dup.groupby('Sheet', 'Path').count().show())
+print(u"重复条目占比:", same_sheet_dup.count()/raw_data.count())
 
 
 # 同sheet重复条目输出	
@@ -136,9 +140,9 @@ if across_sheet_dup.count() > 0:
     across_sheet_dup.write.format("csv").option("header", "true") \
         .mode("overwrite").save(across_sheet_dup_path)
 
-print(raw_data_dedup.count() + raw_data_dup.count() == raw_data.count())
+print(raw_data_dedup.count() + across_sheet_dup.count() == raw_data.count())
 
-# 跨源去重
+# 3. 跨源去重
 if if_two_source == 'True':
     # drop_dup_hospital
     cpa_pha_mapping = spark.read.parquet(cpa_pha_mapping_path)
@@ -172,7 +176,7 @@ if if_two_source == 'True':
     raw_data_dedup = drop_dup_hospital(raw_data_dedup, cpa_pha_mapping)    
     
 
-# 数据合并
+# 4. 与历史数据合并
 history_raw_data = spark.read.parquet(history_raw_data_path)
 history_raw_data = history_raw_data.withColumn('Date', history_raw_data.Date.cast(IntegerType()))
 history_raw_data = history_raw_data.where(history_raw_data.Date < time_left)
@@ -182,7 +186,7 @@ new_raw_data = raw_data_dedup.where(raw_data_dedup.Date >= time_left)
 all_raw_data = new_raw_data.select(history_raw_data.columns).union(history_raw_data)
 
 all_raw_data = all_raw_data.repartition(1)
-all_raw_data.write.format("csv").option("header", "true") \
+all_raw_data.write.format("parquet") \
     .mode("overwrite").save(all_raw_data_path)
     
 if if_two_source == 'True':
@@ -195,7 +199,7 @@ if if_two_source == 'True':
     all_raw_data_std = new_raw_data_std.select(history_raw_data_std.columns).union(history_raw_data_std)
     
     all_raw_data_std = all_raw_data_std.repartition(1)
-    all_raw_data_std.write.format("csv").option("header", "true") \
+    all_raw_data_std.write.format("parquet") \
         .mode("overwrite").save(all_raw_data_std_path)
     
     
@@ -214,8 +218,7 @@ for col in minimum_product_columns[1:]:
         func.when(func.isnull(clean[col]), func.lit("NA")).otherwise(clean[col])))
 
 
-# product_map = spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/XLT/202006/prod_mapping')
-product_map = spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/Gilead/202008/prod_mapping')
+
 product_map = product_map.distinct() \
                     .withColumn("min1", func.regexp_replace("min1", "&amp;", "&")) \
                     .withColumn("min1", func.regexp_replace("min1", "&lt;", "<")) \
