@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: alfred
+  description: "pharbers job description"
+  labels:
+    name: alfred
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: origin_prod_path
+        value: s3a://ph-stream/common/public/prod/0.0.16
+      - key: national_drug_code_domestically_path
+        value: s3a://ph-origin-files/prod/国家药品编码本位码信息（国产药品）截至2020年9月30日.xlsx
+      - key: national_drug_code_imported_path
+        value: s3a://ph-origin-files/prod/国家药品编码本位码信息（进口药品）截至2020年9月30日.xlsx
+    outputs:
+      - key: a
+        value: abcde
+      - key: b
+        value: 6789

@@ -13,9 +13,9 @@ spec:
     config: phconf.yaml
     args:
       - key: input_path
-        value: s3a://ph-stream/common/public/universe/0.0.1
+        value: s3a://ph-origin-files/universe/2020年Universe更新维护_20200717.xlsx
       - key: output_path
-        value: s3a://ph-platform/2020-08-10/datamart/standard/dimensions/hosps/v20201001_20201030_2
+        value: s3a://ph-platform/2020-08-10/datamart/standard/dimensions/hosp_phaid_match/v20201001_20201030_2
     outputs:
       - key: a
         value: abcde

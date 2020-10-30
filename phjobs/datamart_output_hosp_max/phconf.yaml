@@ -13,14 +13,13 @@ spec:
     config: phconf.yaml
     args:
       - key: input_path
-        value: s3a://ph-stream/common/public/universe/0.0.1
-      - key: output_path
         value: s3a://ph-platform/2020-08-10/datamart/standard/dimensions/hosps/v20201001_20201030_2
+      - key: revision
+        value: LATEST
+      - key: output_path
+        value: s3a://ph-origin-files/universe/MAX/Other MKT Segment_Pfizer_0823.csv
     outputs:
       - key: a
         value: abcde
       - key: b
         value: 6789
-
-
-
