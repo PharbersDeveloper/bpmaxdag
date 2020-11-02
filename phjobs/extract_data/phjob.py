@@ -307,7 +307,7 @@ def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_lef
     report_a = spark.read.csv(report_a_path, header=True)
     
     # 根据report_a去重
-    out_extract_data = max_filter_out.join(report_a.where(report_a.drop_for_score == 0).select("标准通用名", "project"), 
+    out_extract_data = max_filter_out.join(report_a.where(report_a.drop_for_score == 0).select("标准通用名", "project").distinct(), 
                                         on=["标准通用名", "project"], 
                                         how="inner").persist()
     
