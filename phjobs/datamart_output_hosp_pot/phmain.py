@@ -6,7 +6,7 @@ from phjob import execute
 import click
 @click.command()
 @click.option('--input_path')
-@click.option('--revision')
+@click.option('--standard')
 @click.option('--output_path')
 def debug_execute(**kwargs):
 	execute(**kwargs)

@@ -13,8 +13,8 @@ spec:
     config: phconf.yaml
     args:
       - key: standard_universe_path
-        value: s3a://ph-platform/2020-08-10/datamart/standard/dimensions/hosps/v20201001_20201030_2
-      - key: max_universe_path
+        value: s3a://ph-platform/2020-08-10/datamart/standard/dimensions/hosps/v20200729_20201102_1
+      - key: pot_universe_path
         value: s3a://ph-origin-files/universe/POT/DSCN_Cleaned_0923.xlsx
     outputs:
       - key: a

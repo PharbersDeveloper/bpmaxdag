@@ -66,7 +66,6 @@ def max_universe_format_to_standard(df):
         .withColumnRenamed('住院药品收入', 'IN_HOSP_DRUG_INCOME') \
         .withColumnRenamed('住院西药收入', 'IN_HOSP_WST_DRUG_INCOME')
         
-    df = df.withColumn('STANDARD', lit('MAX')).repartition(1).withColumn("_ID", monotonically_increasing_id()).cache()
     return df
     
     
@@ -132,5 +131,6 @@ def execute(**kwargs):
     df = s3excel2df(spark, source_bucket=source_bucket, source_path=source_path)
     df = max_universe_format_to_standard(df)
 
+    df = df.withColumn('STANDARD', lit('MAX')).repartition(1).withColumn("_ID", monotonically_increasing_id()).cache()
     df.repartition("STANDARD").write.format("parquet").mode('overwrite').partitionBy("STANDARD").save(output_path)
     

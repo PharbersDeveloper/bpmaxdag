@@ -49,5 +49,14 @@ def execute(**kwargs):
 	
 	reading = spark.read.parquet(input_path).withColumnRenamed("生殖中心", "REPRODUCT").drop("version")
 	
-	dest = reading.withColumn('STANDARD', lit('COMMON')).repartition(1).withColumn("_ID", monotonically_increasing_id()).cache()
+# 	dest = reading.filter(reading.UPDATE_LABEL == '2011_initial').withColumn('EXT', lit('{}')).withColumn('STANDARD', lit('COMMON')).repartition(1).withColumn("_ID", monotonically_increasing_id()).cache()
+# 	dest.repartition("STANDARD").write.format("parquet").mode('overwrite').partitionBy("STANDARD").save('s3a://ph-platform/2020-08-10/datamart/standard/dimensions/hosps/v20111001_20201030_1')
+	
+# 	dest = reading.filter(reading.UPDATE_LABEL == '2013_updated').withColumn('EXT', lit('{}')).withColumn('STANDARD', lit('COMMON')).repartition(1).withColumn("_ID", monotonically_increasing_id()).cache()
+# 	dest.repartition("STANDARD").write.format("parquet").mode('overwrite').partitionBy("STANDARD").save('s3a://ph-platform/2020-08-10/datamart/standard/dimensions/hosps/v20131001_20201030_1')
+	
+# 	dest = reading.filter(reading.UPDATE_LABEL == '2019_updated').withColumn('EXT', lit('{}')).withColumn('STANDARD', lit('COMMON')).repartition(1).withColumn("_ID", monotonically_increasing_id()).cache()
+# 	dest.repartition("STANDARD").write.format("parquet").mode('overwrite').partitionBy("STANDARD").save('s3a://ph-platform/2020-08-10/datamart/standard/dimensions/hosps/v20191001_20201030_1')
+	
+	dest = reading.filter(reading.UPDATE_LABEL == '2019_updated').withColumn('EXT', lit('{}')).withColumn('STANDARD', lit('COMMON')).repartition(1).withColumn("_ID", monotonically_increasing_id()).cache()
 	dest.repartition("STANDARD").write.format("parquet").mode('overwrite').partitionBy("STANDARD").save(output_path)
