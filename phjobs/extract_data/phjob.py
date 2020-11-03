@@ -34,47 +34,6 @@ def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_lef
         # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
         spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
         
-    '''
-    max_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/"
-    extract_path = "s3a://ph-stream/common/public/max_result/0.0.5/"
-    out_path = "s3a://ph-stream/common/public/max_result/0.0.5/extract_data_out"
-    extract_file = "Empty"
-    '''
-    
-    '''
-    # 方案1
-    time_left = 201801
-    time_right = 201912
-    molecule = "米格列奈, 那格列奈, 瑞格列奈, 多西他赛, 曲司氯铵"
-    atc = "Empty"
-    doi = "Empty"
-    project = "Empty"
-    out_suffix = "test1_molecule"
-    
-    # 方案2
-    time_left = 201801
-    time_right = 201912
-    molecule = "Empty"
-    atc = "A10M1, L01C2"
-    doi = "Empty"
-    project = "Empty"
-    out_suffix = "test2_atc"
-    
-    # 方案3
-    time_left = 201801
-    time_right = 201912
-    molecule = "二甲双胍, 格列喹酮"
-    atc = "Empty"
-    doi = "Empty"
-    project = "Servier"
-    out_suffix = "test3_project_molecule"
-    
-    # 方案3
-    time_left = 201701
-    time_right = 202006
-    atc = "C02,C03,C07,C08,C09,C10"
-    out_suffix = "HTN_LD"
-    '''
     
     # 输入文件
     project_rank_path =  max_path + "/Common_files/extract_data_files/project_rank.csv"
@@ -164,6 +123,8 @@ def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_lef
     
     if atc and max([len(i) for i in atc]) == 3:
         ims_sales = ims_sales.withColumn("ATC", func.substring(ims_sales.ATC, 0, 3)).distinct()
+    elif atc and max([len(i) for i in atc]) == 4:
+        ims_sales = ims_sales.withColumn("ATC", func.substring(ims_sales.ATC, 0, 4)).distinct()
     
     # 1. 根据提数需求获取 max_filter_path_month
     path_for_extract = spark.read.csv(path_for_extract_path, header=True)
@@ -178,6 +139,8 @@ def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_lef
     if atc:
         if max([len(i) for i in atc]) == 3:
             max_filter_list = max_filter_list.withColumn("ATC", func.substring(max_filter_list.ATC, 0, 3)).distinct()
+        elif max([len(i) for i in atc]) == 4:
+            max_filter_list = max_filter_list.withColumn("ATC", func.substring(max_filter_list.ATC, 0, 4)).distinct()
         max_filter_list = max_filter_list.where(max_filter_list.ATC.isin(atc))
     if molecule:
         max_filter_list = max_filter_list.where(max_filter_list['标准通用名'].isin(molecule))
@@ -200,6 +163,8 @@ def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_lef
         if atc:
             if max([len(i) for i in atc]) == 3:
                 df = df.withColumn("ATC", func.substring(df.ATC, 0, 3)).distinct()
+            elif max([len(i) for i in atc]) == 4:
+                df = df.withColumn("ATC", func.substring(df.ATC, 0, 4)).distinct()
             df = df.where(df.ATC.isin(atc))
         if molecule:
             df = df.where(df['标准通用名'].isin(molecule))
