@@ -15,13 +15,13 @@ spec:
       - key: max_path
         value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
       - key: project_name
-        value: "贝达"
+        value: "Empty"
       - key: if_base
         value: "False"
       - key: time_left
-        value: "202001"
+        value: "0"
       - key: time_right
-        value: "202008"
+        value: "0"
       - key: left_models
         value: "Empty"
       - key: left_models_time_left
@@ -31,15 +31,15 @@ spec:
       - key: right_models_time_right
         value: "Empty"
       - key: all_models
-        value: "BD1"
+        value: "Empty"
       - key: universe_choice
-        value: "BD1:universe_onc"
+        value: "Empty"
       - key: if_others
         value: "False"
       - key: out_path
         value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
       - key: out_dir
-        value: "test"  
+        value: "Empty"  
       - key: need_test
         value: 0
     outputs:
