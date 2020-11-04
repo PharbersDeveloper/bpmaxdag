@@ -195,8 +195,8 @@ check_result_5 = (MTH_hospital_Sales/PREMTH_hospital_Sales < 0.01)
 # 每家医院的月销金额在最近12期的误差范围内（mean+-1.96std），范围内的医院数量占比大于95%；
 check_5_2 = Raw_data.where((Raw_data.Date > (year-1)*100+month-1 ) & (Raw_data.Date < year*100+month)) \
                     .groupBy('ID', 'Date').agg(func.sum('Sales').alias('Sales')) \
-                    .groupBy('ID').agg(func.mean('Sales').alias('Mean_Sales'), func.stddev('Sales').alias('Sd_Sales')) \
-                    .orderBy('ID')
+                    .groupBy('ID').agg(func.mean('Sales').alias('Mean_Sales'), func.stddev('Sales').alias('Sd_Sales'))
+                    
 check_5_2 = check_5_2.join(Raw_data.where(Raw_data.Date == year*100+month).groupBy('ID').agg(func.sum('Sales').alias('Sales_newmonth')), 
                                         on='ID', how='left')
 check_5_2 = check_5_2.withColumn('Check', func.when(check_5_2.Sales_newmonth < check_5_2.Mean_Sales-1.96*check_5_2.Sd_Sales, func.lit('F')) \
@@ -205,9 +205,91 @@ check_5_2 = check_5_2.withColumn('Check', func.when(check_5_2.Sales_newmonth < c
 check_5_2 = check_5_2.withColumn('Check', func.when(func.isnan(check_5_2.Mean_Sales) | func.isnan(check_5_2.Sd_Sales) | check_5_2.Sales_newmonth.isNull(), func.lit(None)) \
                                                 .otherwise(check_5_2.Check))                            
 
-check_5 = check_5_1.join(check_5_2, on='ID', how='left')
+check_5 = check_5_1.join(check_5_2, on='ID', how='left').orderBy('ID')
 
 # 最近12期每家医院每个月的销量规模
-check_6_1 = Raw_data.where(Raw_data.Date > (year-1)*100+month-1)
-
+check_6_1 = Raw_data.where(Raw_data.Date > (year-1)*100+month-1) \
+                    .groupby('ID', 'Date').agg(func.sum('Units').alias('Units')) \
+                    .groupBy("ID").pivot("Date").agg(func.sum('Units')).persist()
                     
+# 每家医院的月销数量在最近12期的误差范围内（mean+-1.96std），范围内的医院数量占比大于95%；
+check_6_2 = Raw_data.where((Raw_data.Date > (year-1)*100+month-1 ) & (Raw_data.Date < year*100+month)) \
+                    .groupBy('ID', 'Date').agg(func.sum('Units').alias('Units')) \
+                    .groupBy('ID').agg(func.mean('Units').alias('Mean_Units'), func.stddev('Units').alias('Sd_Units'))
+check_6_2 = check_6_2.join(Raw_data.where(Raw_data.Date == year*100+month).groupBy('ID').agg(func.sum('Units').alias('Units_newmonth')), 
+                                        on='ID', how='left')
+check_6_2 = check_6_2.withColumn('Check', func.when(check_6_2.Units_newmonth < check_6_2.Mean_Units-1.96*check_6_2.Sd_Units, func.lit('F')) \
+                                            .otherwise(func.when(check_6_2.Units_newmonth > check_6_2.Mean_Units+1.96*check_6_2.Sd_Units, func.lit('F')) \
+                                                            .otherwise(func.lit('T'))))
+check_6_2 = check_6_2.withColumn('Check', func.when(func.isnan(check_6_2.Mean_Units) | func.isnan(check_6_2.Sd_Units) | check_6_2.Units_newmonth.isNull(), func.lit(None)) \
+                                                .otherwise(check_6_2.Check)) 
+                                                
+check_6 = check_6_1.join(check_6_2, on='ID', how='left').orderBy('ID')
+
+# 最近12期每家医院每个月每个产品(Packid)的平均价格
+check_7_1 = Raw_data_1.where(Raw_data_1.Date > (year-1)*100+month-1) \
+                    .groupBy('ID', 'Date', '通用名','商品名','Pack_ID') \
+                    .agg(func.sum('Sales').alias('Sales'), func.sum('Units').alias('Units'))
+check_7_1 = check_7_1.withColumn('Price', check_7_1.Sales/check_7_1.Units)
+check_7_1 = check_7_1.groupBy('ID', '通用名', '商品名', 'Pack_ID').pivot("Date").agg(func.sum('Price')) \
+                    .orderBy('ID', '通用名', '商品名').persist()
+
+# 每家医院的每个产品单价在最近12期的误差范围内（mean+-1.96std或gap10%以内），范围内的产品数量占比大于95%；
+check_7_2 = Raw_data_1.where((Raw_data_1.Date > (year-1)*100+month-1 ) & (Raw_data_1.Date < year*100+month)) \
+                    .groupBy('ID', 'Date', '通用名', '商品名', 'Pack_ID') \
+                    .agg(func.sum('Sales').alias('Sales'), func.sum('Units').alias('Units'))
+check_7_2 = check_7_2.withColumn('Price', check_7_2.Sales/check_7_2.Units)
+check_7_2 = check_7_2.groupBy('ID', '通用名', '商品名', 'Pack_ID') \
+                    .agg(func.mean('Price').alias('Mean_Price'), func.stddev('Price').alias('Sd_Price'))
+check_7_2 = check_7_2.withColumn('Sd_Price', func.when(func.isnan(check_7_2.Sd_Price), func.lit(0)).otherwise(check_7_2.Sd_Price))
+Raw_data_1_tmp = Raw_data_1.where(Raw_data_1.Date == year*100+month) \
+                            .groupBy('ID', '通用名', '商品名', 'Pack_ID') \
+                            .agg(func.sum('Sales').alias('Sales_newmonth'), func.sum('Units').alias('Units_newmonth'))
+Raw_data_1_tmp = Raw_data_1_tmp.withColumn('Price_newmonth', Raw_data_1_tmp.Sales_newmonth/Raw_data_1_tmp.Units_newmonth)
+Raw_data_1_tmp = Raw_data_1_tmp.withColumn('Pack_ID', func.when(Raw_data_1_tmp.Pack_ID.isNull(), func.lit(0)).otherwise(Raw_data_1_tmp.Pack_ID))
+check_7_2 = check_7_2.withColumn('Pack_ID', func.when(check_7_2.Pack_ID.isNull(), func.lit(0)).otherwise(check_7_2.Pack_ID))
+check_7_2 = check_7_2.join(Raw_data_1_tmp, on=['ID', '通用名', '商品名', 'Pack_ID'], how='left')
+
+check_7_2 = check_7_2.withColumn('Check', \
+            func.when((check_7_2.Price_newmonth < check_7_2.Mean_Price-1.96*check_7_2.Sd_Price) & (check_7_2.Price_newmonth < check_7_2.Mean_Price*0.9), func.lit('F')) \
+                .otherwise(func.when((check_7_2.Price_newmonth > check_7_2.Mean_Price+1.96*check_7_2.Sd_Price) & (check_7_2.Price_newmonth > check_7_2.Mean_Price*1.1), func.lit('F')) \
+                                .otherwise(func.lit('T'))))
+check_7_2 = check_7_2.withColumn('Check', func.when(check_7_2.Sales_newmonth.isNull() | check_7_2.Units_newmonth.isNull(), func.lit(None)) \
+                                                .otherwise(check_7_2.Check)) 
+
+check_7_1 = check_7_1.withColumn('Pack_ID', func.when(check_7_1.Pack_ID.isNull(), func.lit(0)).otherwise(check_7_1.Pack_ID))
+check_7 = check_7_1.join(check_7_2, on=['ID', '通用名', '商品名', 'Pack_ID'], how='left').orderBy('ID', '通用名', '商品名').persist()
+check_7 = check_7.withColumn('Pack_ID', func.when(check_7.Pack_ID == 0, func.lit(None)).otherwise(check_7.Pack_ID))
+
+check_7.groupby('Check').count().show()
+
+# 每个月产品个数
+check_8 = Raw_data_1.select('Date', 'ID', 'Prod_Name').distinct() \
+                    .groupBy('Date').count() \
+                    .withColumnRenamed('count', '每月产品个数_min1')
+                    .orderBy('Date')
+# 最近三个月全部医院的产品总数
+check_8_1 = Raw_data_1.where(Raw_data_1.Date.isin(RQMTH)) \
+                    .select('Date', 'ID', 'Prod_Name').distinct() \
+                    .count()/3
+# 当月月产品个数                  
+check_8_2 = Raw_data_1.where(Raw_data_1.Date.isin(MTH)) \
+                    .select('Date', 'ID', 'Prod_Name').distinct() \
+                    .count()
+
+check_result_8 = (check_8_2/check_8_1 < 0.03)
+
+# 全部医院的全部产品金额、份额、排名与历史月份对比(含缺失医院)
+check_9_1 = Raw_data_1.groupBy('Date', '商品名').agg(func.sum(Raw_data_1.Sales).alias('Sales')) \
+                    .groupBy('商品名').pivot('Date').agg(func.sum('Sales')).persist()
+check_9_2 = Raw_data_1.groupBy('Date', '商品名').agg(func.sum(Raw_data_1.Sales).alias('Sales')) \
+                    .join(Raw_data_1.groupBy('Date').agg(func.sum('Sales').alias('Sales_month')), on='Date', how='left')
+check_9_2 = check_9_2.withColumn('share', check_9_2.Sales/check_9_2.Sales_month) \
+                    .groupBy('商品名').pivot('Date').agg(func.sum('share')).persist()
+check_9_3 = Raw_data_1.groupBy('Date', '商品名').agg(func.sum(Raw_data_1.Sales).alias('Sales'))
+check_9_3 = check_9_3.withColumn('Rank', func.row_number().over(Window.partitionBy('Date').orderBy(check_9_3['Sales'].desc())))
+check_9_3 = check_9_3.groupBy('商品名').pivot('Date').agg(func.sum('Rank'))
+
+# group by 产品和月份，count 医院ID，省份
+# 检查是否有退市产品突然有销量；例如（17120906_2019M12,Pfizer_HTN）
+check_10 = 
