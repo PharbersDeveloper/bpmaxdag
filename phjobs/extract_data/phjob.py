@@ -125,11 +125,23 @@ def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_lef
         ims_sales = ims_sales.withColumn("ATC", func.substring(ims_sales.ATC, 0, 3)).distinct()
     elif atc and max([len(i) for i in atc]) == 4:
         ims_sales = ims_sales.withColumn("ATC", func.substring(ims_sales.ATC, 0, 4)).distinct()
-    
-    # 1. 根据提数需求获取 max_filter_path_month
+        
+    # 1. 根据path_for_extract， 合并项目brief，生成max_standard_brief_all
     path_for_extract = spark.read.csv(path_for_extract_path, header=True)
-    max_standard_brief_all = spark.read.parquet(max_standard_brief_all_path)
+    path_all = path_for_extract.toPandas()["path"].tolist()
+    path_all_brief = [i + "_brief" for i in path_all]
     
+    # "project", "Date", "标准通用名", "ATC", "DOI"
+    index = 0
+    for eachpath in path_all_brief:
+        df = spark.read.parquet(eachpath)
+        if index ==0:
+            max_standard_brief_all = df
+        else:
+            max_standard_brief_all = max_standard_brief_all.union(df)
+        index += 1    
+    
+    # 2. 根据提数需求获取 max_filter_path_month
     # 筛选,获取符合条件的项目和月份
     max_filter_list = max_standard_brief_all.where((max_standard_brief_all.Date >= time_left) & (max_standard_brief_all.Date <= time_right))
     if project:
@@ -153,7 +165,7 @@ def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_lef
     max_filter_path = max_filter_path.withColumn("path_month", func.concat(max_filter_path.path, func.lit("/Date_copy="), max_filter_path.Date))
     max_filter_path_month = max_filter_path.select("path_month").distinct().toPandas()["path_month"].tolist()
     
-    # 2. 根据 max_filter_path_month 汇总max结果
+    # 3. 根据 max_filter_path_month 汇总max结果
     index = 0
     for eachpath in max_filter_path_month:
         df = spark.read.parquet(eachpath)
@@ -184,7 +196,7 @@ def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_lef
     # max_filter_raw
     max_filter_raw = spark.read.parquet(max_filter_raw_path)    
     
-    # 3. 注释项目排名
+    # 4. 注释项目排名
     project_rank = spark.read.csv(project_rank_path, header=True)
     project_rank = project_rank.withColumnRenamed("项目", "project") \
                         .withColumn("排名", project_rank["排名"].cast(IntegerType())) \
@@ -193,7 +205,7 @@ def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_lef
     max_filter_out = max_filter_raw.join(project_rank, on="project", how="left").persist()
     
     
-    # 4. 原始提数结果
+    # 5. 原始提数结果
     max_filter_out = max_filter_out.select("project", "project_score", "Date", "ATC", "标准通用名", "标准商品名", "标准剂型", "标准规格", 
                     "标准包装数量", "标准生产企业", "标准省份名称", "标准城市名称", "DOI", "Predict_Sales", "Predict_Unit", "PACK_ID")
     
@@ -227,7 +239,7 @@ def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_lef
     
     max_filter_out =  max_filter_out_1.union(max_filter_out_2)                      
     
-    # 5. 提数报告以及提数去重
+    # 6. 提数报告以及提数去重
     report = max_filter_out.select("project","project_score","标准通用名", "ATC", "Date") \
                             .distinct() \
                             .groupby(["标准通用名", "ATC", "project","project_score"]).count() \
