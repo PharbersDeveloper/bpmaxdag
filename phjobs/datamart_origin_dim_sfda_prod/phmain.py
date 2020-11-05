@@ -8,6 +8,7 @@ import click
 @click.option('--origin_prod_path')
 @click.option('--national_drug_code_domestically_path')
 @click.option('--national_drug_code_imported_path')
+@click.option('--origin_dim_sfda_prods_path')
 @click.option('--flat_table_prod_path')
 def debug_execute(**kwargs):
 	execute(**kwargs)

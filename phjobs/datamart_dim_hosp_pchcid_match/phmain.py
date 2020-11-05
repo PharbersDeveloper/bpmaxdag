@@ -8,9 +8,8 @@ import click
 
 
 @click.command()
-@click.option('--prod_input_path')
-@click.option('--mnfs_input_path')
-@click.option('--mnfs_output_path')
+@click.option('--input_path')
+@click.option('--output_path')
 def debug_execute(**kwargs):
 	execute(**kwargs)
 

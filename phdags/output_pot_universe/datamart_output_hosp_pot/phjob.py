@@ -75,6 +75,6 @@ def execute(**kwargs):
 	union_df = spec_df.unionByName(common_null_df)
 	ext_schema = ArrayType(StructType([StructField(col, StringType()) for col in ext_col]))
 	union_df = union_df.withColumn('EXT', from_json('EXT', ext_schema).getItem(0)).select("*", 'EXT.*').drop('EXT')
-
+	
 	union_df.repartition(1).write.format("csv").option("header", "true").mode("overwrite").save(output_path+standard)
-		
+	

@@ -18,6 +18,8 @@ spec:
         value: s3a://ph-origin-files/prod/国家药品编码本位码信息（国产药品）截至2020年9月30日.xlsx
       - key: national_drug_code_imported_path
         value: s3a://ph-origin-files/prod/国家药品编码本位码信息（进口药品）截至2020年9月30日.xlsx
+      - key: origin_dim_sfda_prods_path
+        value: s3a://ph-platform/2020-08-10/datamart/original/dimensions/sfda_prods/v20201009_20201104_1
       - key: flat_table_prod_path
         value: s3a://ph-platform/2020-08-10/datamart/original/flat_tables/prod/v20201001_20201030_1
     outputs:

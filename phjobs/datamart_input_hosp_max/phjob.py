@@ -132,5 +132,5 @@ def execute(**kwargs):
     df = max_universe_format_to_standard(df)
 
     df = df.withColumn('STANDARD', lit('MAX')).repartition(1).withColumn("_ID", monotonically_increasing_id()).cache()
-    df.repartition("STANDARD").write.format("parquet").mode('overwrite').partitionBy("STANDARD").save(output_path)
+    df.repartition("STANDARD").write.format("parquet").mode('append').partitionBy("STANDARD").save(standard_universe_path)
     

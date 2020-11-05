@@ -12,17 +12,14 @@ spec:
     code: phmain.py
     config: phconf.yaml
     args:
-      - key: prod_input_path
-        value: s3a://ph-stream/common/public/prod/0.0.15
-      - key: mnfs_input_path
-        value: s3a://ph-origin-files/mnfs/公司曾用名.xlsx
-      - key: mnfs_output_path
-        value: s3a://ph-platform/2020-08-10/datamart/standard/dimensions/mnfs/v20201001_20201105_1
+      - key: input_path
+        value: s3a://ph-platform/2020-08-10/datamart/standard/dimensions/hosps_chc/v20201022_20201103_1
+      - key: standard
+        value: CHC
+      - key: output_path
+        value: s3a://ph-platform/2020-08-10/datamart/standard/flat_tables/chc_hosps/
     outputs:
       - key: a
         value: abcde
       - key: b
         value: 6789
-
-
-

@@ -58,19 +58,19 @@ def execute(**kwargs):
     mnfs_data_df = spark.read.parquet(mnfs_input_path)
     
     mnfs_data_df = mnfs_data_df.withColumnRenamed('_ID', 'PH_MNF_ID')
-	cond = [
-		product_data_df.MNF_ID == mnfs_data_df.MNF_ID,
-		product_data_df.MNF_TYPE == mnfs_data_df.MNF_TYPE,
-		product_data_df.MNF_TYPE_NAME == mnfs_data_df.MNF_TYPE_NAME_EN,
-		product_data_df.MNF_TYPE_NAME_CH == mnfs_data_df.MNF_TYPE_NAME_CH,
-		product_data_df.MNF_NAME_EN == mnfs_data_df.MNF_NAME_EN,
-		product_data_df.MNF_NAME_CH == mnfs_data_df.MNF_NAME_CH,
-	]
-	product_data_df = product_data_df.join(mnfs_data_df, cond, "left_outer") \
-						.drop('MNF_ID', 'MNF_TYPE', 'MNF_TYPE_NAME', 'MNF_TYPE_NAME_EN', 'MNF_TYPE_NAME_CH', 'MNF_NAME_EN', 'MNF_NAME_CH') \
-						.drop('NFC1', 'NFC1_NAME', 'NFC1_NAME_CH', 'NFC12', 'NFC12_NAME', 'NFC12_NAME_CH') \
-						.drop('ATC1', 'ATC1_CODE', 'ATC1_DESC', 'ATC2', 'ATC2_CODE', 'ATC2_DESC', "ATC3", "ATC3_CODE", "ATC3_DESC") \
-						.drop('COMPANY', 'SOURCE', 'TAG', 'PARENT_ID') \
-						.withColumn("_ID", F.monotonically_increasing_id())
+    cond = [
+        product_data_df.MNF_ID == mnfs_data_df.MNF_ID,
+        product_data_df.MNF_TYPE == mnfs_data_df.MNF_TYPE,
+        product_data_df.MNF_TYPE_NAME == mnfs_data_df.MNF_TYPE_NAME_EN,
+        product_data_df.MNF_TYPE_NAME_CH == mnfs_data_df.MNF_TYPE_NAME_CH,
+        product_data_df.MNF_NAME_EN == mnfs_data_df.MNF_NAME_EN,
+        product_data_df.MNF_NAME_CH == mnfs_data_df.MNF_NAME_CH,
+    ]
+    product_data_df = product_data_df.join(mnfs_data_df, cond, "left_outer") \
+                        .drop('MNF_ID', 'MNF_TYPE', 'MNF_TYPE_NAME', 'MNF_TYPE_NAME_EN', 'MNF_TYPE_NAME_CH', 'MNF_NAME_EN', 'MNF_NAME_CH') \
+                        .drop('NFC1', 'NFC1_NAME', 'NFC1_NAME_CH', 'NFC12', 'NFC12_NAME', 'NFC12_NAME_CH') \
+                        .drop('ATC1', 'ATC1_CODE', 'ATC1_DESC', 'ATC2', 'ATC2_CODE', 'ATC2_DESC', "ATC3", "ATC3_CODE", "ATC3_DESC") \
+                        .drop('COMPANY', 'SOURCE', 'TAG', 'PARENT_ID') \
+                        .repartition(1).withColumn("_ID", monotonically_increasing_id())
     
     product_data_df.write.format("parquet").mode("overwrite").save(prod_output_path)
