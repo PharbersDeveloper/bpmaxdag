@@ -54,16 +54,16 @@ def execute(max_path, project_name, outdir, minimum_product_sep, minimum_product
     raw_data_check_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_test/'
     
     # 输出
-    check_1_path = raw_data_check_path + '/check_1_out.csv'
-    check_2_path = raw_data_check_path + '/check_2_out.csv'
-    check_3_path = raw_data_check_path + '/check_3_out.csv'
-    check_4_path = raw_data_check_path + '/check_4_out.csv'
-    check_5_path = raw_data_check_path + '/check_5_out.csv'
-    check_8_path = raw_data_check_path + '/check_8_out.csv'
-    check_9_1_path = raw_data_check_path + '/check_9_1_out.csv'
-    check_9_2_path = raw_data_check_path + '/check_9_2_out.csv'
-    check_9_3_path = raw_data_check_path + '/check_9_3_out.csv'
-    check_10_path = raw_data_check_path + '/check_10_out.csv'
+    check_result_path = raw_data_check_path + '/check_result.csv'
+    check_1_path = raw_data_check_path + '/check_1_每个月产品个数.csv'
+    check_2_path = raw_data_check_path + '/check_2_各产品历史月份销量.csv'
+    check_3_path = raw_data_check_path + '/check_3_历史医院个数.csv'
+    check_5_path = raw_data_check_path + '/check_5_最近12期每家医院每个月的金额规模.csv'
+    check_8_path = raw_data_check_path + '/check_8_每个医院每个月产品个数.csv'
+    check_9_1_path = raw_data_check_path + '/check_9_1_所有产品每个月金额.csv'
+    check_9_2_path = raw_data_check_path + '/check_9_2_所有产品每个月份额.csv'
+    check_9_3_path = raw_data_check_path + '/check_9_3_所有产品每个月排名.csv'
+    check_10_path = raw_data_check_path + '/check_10_在售产品医院个数.csv'
     
     # ================
     
@@ -315,7 +315,11 @@ def execute(max_path, project_name, outdir, minimum_product_sep, minimum_product
         ('全部医院的全部产品总个数与最近三个月的均值相差不超过0.03', str(check_result_8))], 
         ('check', 'result'))
     
-    # 输出结果    
+    # 输出结果
+    check_result = check_result.repartition(1)
+    check_result.write.format("csv").option("header", "true") \
+        .mode("overwrite").save(check_result_path)
+        
     check_1 = check_1.repartition(1)
     check_1.write.format("csv").option("header", "true") \
         .mode("overwrite").save(check_1_path)
