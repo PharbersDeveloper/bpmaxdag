@@ -19,8 +19,9 @@ def s3excel2df(spark, path):
     source_bucket = path_lst[2]
     source_path = "/".join(path_lst[3:])
     
-    access_key = os.getenv("AWS_ACCESS_KEY_ID")
-    secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+    confs = spark.sparkContext.getConf()
+    access_key = confs.get('spark.hadoop.fs.s3a.access.key') if confs.get('spark.hadoop.fs.s3a.access.key') else os.getenv("AWS_ACCESS_KEY_ID")
+    secret_key = confs.get('spark.hadoop.fs.s3a.secret.key') if confs.get('spark.hadoop.fs.s3a.secret.key') else os.getenv("AWS_SECRET_ACCESS_KEY")
         
     s3_client = boto3.client('s3', aws_access_key_id=access_key, aws_secret_access_key=secret_key)
     object_file = s3_client.get_object(Bucket=source_bucket, Key=source_path)
@@ -49,7 +50,6 @@ def align_schema(df, schemas):
 	
 
 def execute(**kwargs):
-    
     logging.basicConfig(format='%(asctime)s %(filename)s %(funcName)s %(lineno)d %(message)s')
     logger = logging.getLogger('driver_logger')
     logger.setLevel(logging.INFO)
@@ -82,7 +82,7 @@ def execute(**kwargs):
     access_key = os.getenv("AWS_ACCESS_KEY_ID")
     secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
     
-    if access_key is not None:
+    if access_key:
         spark._jsc.hadoopConfiguration().set("fs.s3a.access.key", access_key)
         spark._jsc.hadoopConfiguration().set("fs.s3a.secret.key", secret_key)
         spark._jsc.hadoopConfiguration().set("fs.s3a.impl","org.apache.hadoop.fs.s3a.S3AFileSystem")
@@ -100,6 +100,9 @@ def execute(**kwargs):
         .select(
             "MNF_ID", 
             "MNF_TYPE", 
+            "CORP_ID",
+            'CORP_NAME_EN',
+            'CORP_NAME_CH',
             "MNF_TYPE_NAME_EN", 
             "MNF_TYPE_NAME_CH", 
             "MNF_NAME_EN", 
@@ -114,10 +117,10 @@ def execute(**kwargs):
                                 .withColumnRenamed('MNFS_NAME', 'MNF_NAME_CH') # 187
     mnfs_df = unmatch_mnfs_df.unionByName(match_mnfs_df).unionByName(new_mnfs_df) \
                 .repartition(1).withColumn("_ID", monotonically_increasing_id()).cache() # 2940
-    
+
     mnfs_id_df = mnfs_df.select(col('MNF_NAME_CH').alias('MI_MNF_NAME_CH'), col('_ID').alias('MI_ID'))
     mnfs_df = mnfs_df.join(mnfs_id_df, mnfs_df.PARENT_MNFS == mnfs_id_df.MI_MNF_NAME_CH, 'left') \
                         .drop('PARENT_MNFS', 'MI_MNF_NAME_CH') \
                         .withColumnRenamed('MI_ID', 'PARENT_ID')
-    
+
     mnfs_df.write.format("parquet").mode("overwrite").save(mnfs_output_path)

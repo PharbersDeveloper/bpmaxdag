@@ -59,7 +59,6 @@ def execute(**kwargs):
 
 	logger.info("preparing data")
 	
-	
 	human_replace_data_df = spark.read.parquet(human_replace_input_path)
 	mnfs_data_df = spark.read.parquet(mnfs_input_path)
 	product_data_df = spark.read.parquet(prod_input_path)

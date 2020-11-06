@@ -17,7 +17,7 @@ spec:
       - key: mnfs_input_path
         value: s3a://ph-origin-files/mnfs/公司曾用名.xlsx
       - key: mnfs_output_path
-        value: s3a://ph-platform/2020-08-10/datamart/standard/dimensions/mnfs/v20201001_20201105_1
+        value: s3a://ph-platform/2020-08-10/datamart/standard/dimensions/mnfs/v20201001_20201106_1
     outputs:
       - key: a
         value: abcde

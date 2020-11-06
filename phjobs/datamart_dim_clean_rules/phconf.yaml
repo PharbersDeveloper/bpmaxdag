@@ -13,13 +13,13 @@ spec:
     config: phconf.yaml
     args:
       - key: human_replace_input_path
-        value: s3a://ph-stream/common/public/human_replace/0.0.14
+        value: s3a://ph-stream/common/public/human_replace/0.0.15
       - key: mnfs_input_path
-        value: s3a://ph-platform/2020-08-10/datamart/standard/dimensions/mnfs/v20201001_20201105_1
+        value: s3a://ph-platform/2020-08-10/datamart/standard/dimensions/mnfs/v20201001_20201106_1
       - key: prod_input_path
-        value: s3a://ph-platform/2020-08-10/datamart/standard/dimensions/products/v20201001_20201105_1
+        value: s3a://ph-platform/2020-08-10/datamart/standard/dimensions/products/v20201001_20201106_1
       - key: clean_rules_output_path
-        value: s3a://ph-platform/2020-08-10/datamart/standard/dimensions/clean_rules/v20201001_20201105_1
+        value: s3a://ph-platform/2020-08-10/datamart/standard/dimensions/clean_rules/v20201001_20201106_1
     outputs:
       - key: a
         value: abcde
