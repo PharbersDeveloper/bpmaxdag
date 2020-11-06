@@ -292,10 +292,6 @@ def execute(max_path, extract_path, project_name, max_path_list, out_dir):
     time_list = [int(x) for x in time_list]
     time_range = str(min(time_list)) + '_' + str(max(time_list))
     
-    # 输出文件名，时间区间
-    # max_standard_path = extract_path + "/" + project_name + "_" + time_range + "_max_standard"
-    # max_standard_brief_path = extract_path + "/" + project_name + "_" + time_range  + "_max_standard_brief"
-    
     
     # 根据日期分桶写出
     max_standard_all = max_standard_all.repartition("Date_copy")
