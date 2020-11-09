@@ -13,7 +13,7 @@ import os
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as func
 
-def execute(in_cpa_path, in_prod_path, in_hr_path, in_mhr_path, out_path, min_keys_lst):
+def execute(in_cpa_path, in_prod_path, in_hr_path, in_mhr_path, out_path, min_keys_lst, in_mnf_path):
 	"""
 		please input your code below
 	"""
@@ -47,8 +47,10 @@ def execute(in_cpa_path, in_prod_path, in_hr_path, in_mhr_path, out_path, min_ke
 	# print(cpa_input_data.count())
 	# cpa_input_data = cpa_input_data.filter(cpa_input_data.PRODUCT_NAME.isNotNull()).filter(cpa_input_data.DOSAGE.isNotNull()) \
 	# 						.filter(cpa_input_data.PACK_ID_CHECK.isNotNull()).filter(cpa_input_data.PACK_ID_CHECK !="NULL").filter(cpa_input_data.PACK_ID_CHECK !="")
+	
 	# print(cpa_input_data.count())
 	mole_human_replace_data = spark.read.parquet(in_mhr_path)
+	mnf_name_replace = spark.read.parquet(in_mnf_path)
 
 	# cpa_input_data.show(4)
 	# print(cpa_input_data.count())
@@ -71,9 +73,16 @@ def execute(in_cpa_path, in_prod_path, in_hr_path, in_mhr_path, out_path, min_ke
 								.withColumn("MOLE_NAME", func.when((mole_human_replace_data.INPUT_MOLE == "") | (mole_human_replace_data.INPUT_MOLE.isNull()), cpa_input_data.MOLE_NAME). \
 															  otherwise(mole_human_replace_data.PROD_MOLE)) \
 								 .drop("INPUT_MOLE", "PROD_MOLE")
-	
+
 	# all_cpa_data.select("MOLE_NAME", "PRODUCT_NAME", "SPEC", "DOSAGE", "PACK_QTY", "MANUFACTURER_NAME").show(10)  # 原来有共23405221条数据（不是测试数据
-	
+	all_cpa_data = all_cpa_data.join(mnf_name_replace, \
+								all_cpa_data.MANUFACTURER_NAME == mnf_name_replace.FORMER_MNF_NAME, \
+								how="left") \
+								.withColumn("MANUFACTURER_NAME", func.when((mnf_name_replace.FORMER_MNF_NAME == "") | (mnf_name_replace.FORMER_MNF_NAME.isNull()), all_cpa_data.MANUFACTURER_NAME). \
+															  otherwise(mnf_name_replace.MNF_NAME)) \
+								 .drop("MNF_NAME", "FORMER_MNF_NAME")
+	# mnf_replace = all_cpa_data.filter(all_cpa_data.FORMER_MNF_NAME.isNotNull())
+	# print(mnf_replace.count())
 	# select 6个产品字段并去重 + id
 	min_keys_lst = ["MOLE_NAME", "PRODUCT_NAME", "SPEC", "DOSAGE", "PACK_QTY", "MANUFACTURER_NAME"]
 	cpa_distinct_data = all_cpa_data.select(min_keys_lst).distinct() \
@@ -85,7 +94,7 @@ def execute(in_cpa_path, in_prod_path, in_hr_path, in_mhr_path, out_path, min_ke
 	out_path = out_path + "/" + "cpa_distinct"
 	cpa_distinct_data.write.format("parquet").mode("overwrite").save(out_path)
 	print("写入 " + out_path + " 完成")
-	
+
 	print("程序end job1_create_distinct_data")
 	print("--"*80)
 	

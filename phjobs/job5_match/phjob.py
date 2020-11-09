@@ -85,6 +85,9 @@ def execute(out_path, in_prod_path):
 
 	# cpa_join_ed.show(2)
 	# print(cpa_join_ed.count())  # 8168
+	# 写入 cpa_join_ed
+	cpa_join_ed.write.format("parquet").mode("overwrite").save(out_path + "/" + "cpa_join_ed")
+	print("写入 " + out_path + "/" + "cpa_join_ed" + " 完成")
 	
 	# cpa_join_hr.show(3)
 
@@ -97,7 +100,7 @@ def execute(out_path, in_prod_path):
 	# 写入cpa_match
 	out_path = out_path + "/" + "cpa_match"
 	cpa_match.write.format("parquet").mode("overwrite").save(out_path)
-	print("写入 " + out_path + " 完成")
+	print("写入 " + out_path + "/"  + " 完成")
 
 	print("程序end job5_match")
 	print("--"*80)

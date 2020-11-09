@@ -128,7 +128,7 @@ def execute():
 		azsanofi_check.write.format("parquet").mode("overwrite").save(out_path)
 		print("写入 " + out_path + " 完成")
 										
-		# azsanofi_check.show(4)
+		azsanofi_check.show(4)
 		# print(azsanofi_check.count())
 
 

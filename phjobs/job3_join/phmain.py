@@ -8,13 +8,13 @@ import click
 
 
 @click.command()
-@click.option('--prod_renamed_path')
+@click.option('--in_prod_path')
 @click.option('--in_hr_path')
 @click.option('--out_path')
 # @click.option('--prod_min_key_lst')
 
-def debug_execute(prod_renamed_path, in_hr_path, out_path):
-	execute(prod_renamed_path, in_hr_path, out_path)
+def debug_execute(in_prod_path, in_hr_path, out_path):
+	execute(in_prod_path, in_hr_path, out_path)
 
 
 if __name__ == '__main__':

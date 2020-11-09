@@ -19,6 +19,9 @@ from pyspark.sql.types import *
 from pyspark.sql import functions as func
 import re
 import numpy as np
+import jieba
+import jieba.posseg as pseg
+import jieba.analyse
 
 def execute(out_path):
 	"""
@@ -270,7 +273,7 @@ def execute(out_path):
 	@func.udf(returnType=IntegerType())
 	def product(in_value, check_value):
 		# 针对 product name
-		# 只要存在包含关系，编辑距离直接为0，填入true
+		# 只要存在包含关系，编辑距离直接为0
 
 		if (in_value in check_value) or (check_value in in_value):
 			return 0
@@ -279,23 +282,80 @@ def execute(out_path):
 		
 	@func.udf(returnType=IntegerType())
 	def pack_qty(in_value, check_value):
-		return edit_distance(in_value.replace(".0", ""), check_value.replace(".0", ""))  # 所有情况都需要直接计算编辑距离 因为这个是数字
-		
+		return edit_distance(str(in_value), str(check_value).replace(".0", "")) 
+		# return edit_distance(in_value.replace(".0", ""), check_value.replace(".0", ""))  # 所有情况都需要直接计算编辑距离 因为这个是数字
+	
 	@func.udf(returnType=IntegerType())	
-	def replace_and_contain(in_value, check_value):
-		# 针对生产厂家
-		redundancy_list = [u"股份", u"公司", u"有限", u"总公司", u"集团", u"制药", u"总厂", u"厂", u"药业", u"责任", \
-						   u"健康", u"科技", u"生物", u"工业", u"保健", u"医药", "(", ")", u"（", u"）", " "]
+	def mnf_en(in_value, check_value):
+		# 针对英文生产厂家
+		in_value = in_value.upper()
+		check_value = check_value.upper()
+		
+		redundancy_list = ["GROUP", "LTD", "FACTORY", "OF", "CORPORATION", "&", "COMPANY", "S.R.L", "SRL", "CO", "PHARMA", "PHARM", \
+							"PHA", "PH", "SA", "CARE", "INC", "PHAR", "PHARMACAL"]
 		for redundancy in redundancy_list:
 			# 这里将cpa数据与prod表的公司名称都去除了冗余字段
 			in_value = in_value.replace(redundancy, "")
 			check_value = check_value.replace(redundancy, "")
-			
-		if (in_value in check_value):
-		# or (check_value in in_value):
-			return 0
+		in_value = in_value.strip()
+		check_value = check_value.strip()
+		
+		return 30*edit_distance(in_value, check_value)
+	
+	def mnf_transform(mnf):
+		str_geo = ""
+		str_core = ""
+		str_name = ""
+	
+		geo = jieba.analyse.extract_tags(mnf, topK=20, withWeight=True, allowPOS=('ns',))
+		len_geo = len(geo)
+		if len_geo == 1:
+			str_geo = geo[0][0]
+		elif len_geo > 1:
+			str_geo = geo[-1][0]
+	
+		words = pseg.cut(mnf.replace(str_geo, ""))
+	
+		for word, flag in words:
+			if word in ["有限公司", "股份", "控股", "集团", "总公司", "总厂", "厂", "责任", "公司", "有限", "有限责任", \
+					"药业", "医药", "制药", "控股集团", "医药集团", "控股集团", "集团股份", "生物医药"]:
+				str_name += word
+			else:
+				str_core += word
+	
+		return str_geo, str_core, str_name
+		
+		
+	@func.udf(returnType=IntegerType())	
+	def mnf_ch(in_value, check_value):
+		redundancy_list = [u"股份", u"有限", u"总公司", u"公司", u"集团", u"制药", u"总厂", u"厂", u"药业", \
+							u"责任", u"健康", u"科技", u"生物", u"工业", u"保健", u"医药", u"(", u")", u"（", u"）"]
+		for redundancy in redundancy_list:
+			in_value_new = in_value.replace(redundancy, "")
+			check_value_new = check_value.replace(redundancy, "")
+		if (in_value_new in check_value_new) or (check_value_new in in_value_new):
+			ed = 0
 		else:
-			return edit_distance(in_value, check_value)
+			# ed = 35*edit_distance(in_value, check_value)
+			in_value = in_value.replace("(", "").replace(")", "").replace("（", "").replace("）", "")
+			check_value = check_value.replace("(", "").replace(")", "").replace("（", "").replace("）", "")
+			in_str_geo, in_str_core, in_str_name = mnf_transform(in_value)
+			check_str_geo, check_str_core, check_str_name = mnf_transform(check_value)
+	
+			if (in_str_geo in check_str_geo) or (check_str_geo in in_str_geo):
+				ed_geo = 0
+			else:
+				ed_geo = edit_distance(in_str_geo, check_str_geo)
+		
+			if (in_str_core in check_str_core) or (check_str_core in in_str_core):
+				ed_core = 0
+			else:
+				ed_core = edit_distance(in_str_core, check_str_core)
+		
+			ed_name = edit_distance(in_str_name, check_str_name)
+	
+			ed = int(60*(0.3 * ed_geo + 0.6 * ed_core + 0.1 * ed_name))
+		return ed
 
 	@func.udf(returnType=IntegerType())			
 	def spec(in_value, check_value):
@@ -330,7 +390,7 @@ def execute(out_path):
 	@func.udf(returnType=IntegerType())			
 	def edit_distance_total(ed_DOSAGE, ed_SPEC, ed_PACK, ed_MNF_NAME_CH, ed_MNF_NAME_EN, ed_PROD_NAME_CH):
 		# 计算总编辑距离
-		ed = ed_DOSAGE + 10*ed_SPEC + 60*ed_PACK + 35*min(ed_MNF_NAME_CH, ed_MNF_NAME_EN) + ed_PROD_NAME_CH
+		ed = ed_DOSAGE + 10*ed_SPEC + 60*ed_PACK + min(ed_MNF_NAME_CH, ed_MNF_NAME_EN) + ed_PROD_NAME_CH
 		return ed
 			
 	mapping_config = {
@@ -350,9 +410,9 @@ def execute(out_path):
 		elif check_name == "check_DOSAGE":
 			cpa_ed = cpa_ed.withColumn(check_name.replace("check", "ed"), dosage(in_name, check_name))
 		elif check_name == "check_MNF_NAME_CH":
-			cpa_ed = cpa_ed.withColumn(check_name.replace("check", "ed"), replace_and_contain(in_name, check_name))
+			cpa_ed = cpa_ed.withColumn(check_name.replace("check", "ed"), mnf_ch(in_name, check_name))
 		elif check_name == "check_MNF_NAME_EN":
-			cpa_ed = cpa_ed.withColumn(check_name.replace("check", "ed"), replace_and_contain(in_name, check_name))	
+			cpa_ed = cpa_ed.withColumn(check_name.replace("check", "ed"), mnf_en(in_name, check_name))	
 		elif check_name == "check_PACK":
 			cpa_ed = cpa_ed.withColumn(check_name.replace("check", "ed"), pack_qty(in_name, check_name))
 		elif check_name == "check_SPEC":
