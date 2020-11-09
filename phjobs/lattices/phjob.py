@@ -15,6 +15,7 @@ from pyspark.sql.functions import array_union
 from pyspark.sql.functions import broadcast
 from pyspark.sql.functions import lit
 import logging
+import os
 import string
 import pandas as pd
 
@@ -67,10 +68,9 @@ def execute(**kwargs):
         .config("spark.shuffle.memoryFraction", "0.4") \
         .getOrCreate()
 
-    # access_key = os.getenv("AWS_ACCESS_KEY_ID")
-    # secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
-	access_key = "AKIAWPBDTVEAJ6CCFVCP"
-	secret_key = "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"
+    access_key = os.getenv("AWS_ACCESS_KEY_ID")
+    secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+
 	if access_key is not None:
 		spark._jsc.hadoopConfiguration().set("fs.s3a.access.key", access_key)
 		spark._jsc.hadoopConfiguration().set("fs.s3a.secret.key", secret_key)

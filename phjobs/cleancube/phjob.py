@@ -14,6 +14,7 @@ from pyspark.sql.functions import udf
 from pyspark.sql.functions import col
 from pyspark.sql.streaming import *
 import logging
+import os
 import string
 from uuid import uuid4
 
@@ -64,10 +65,9 @@ def execute(**kwargs):
         .config('spark.sql.codegen.wholeStage', False) \
         .getOrCreate()
 
-    # access_key = os.getenv("AWS_ACCESS_KEY_ID")
-    # secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
-    access_key = "AKIAWPBDTVEAJ6CCFVCP"
-    secret_key = "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"
+    access_key = os.getenv("AWS_ACCESS_KEY_ID")
+    secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+
     if access_key is not None:
         spark._jsc.hadoopConfiguration().set("fs.s3a.access.key", access_key)
         spark._jsc.hadoopConfiguration().set("fs.s3a.secret.key", secret_key)
