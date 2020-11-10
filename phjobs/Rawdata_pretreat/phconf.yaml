@@ -15,17 +15,21 @@ spec:
       - key: max_path
         value: 's3a://ph-max-auto/v0.0.1-2020-06-08/'
       - key: project_name
-        value: '京新'
+        value: 'Empty'
       - key: outdir
-        value: '202008'
-      - key: history_outdir
+        value: 'Empty'
+      - key: history_raw_data_path
+        value: 'Empty'
+      - key: raw_data_path
         value: 'Empty'
       - key: if_two_source
         value: 'False'
-      - key: time_left
-        value: '202001'
-      - key: time_right
-        value: '202008'
+      - key: cut_time_left
+        value: 'Empty'
+      - key: cut_time_right
+        value: 'Empty'
+      - key: test
+        value: 'True'
     outputs:
       - key: a
         value: abcde

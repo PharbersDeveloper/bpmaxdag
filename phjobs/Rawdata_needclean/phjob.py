@@ -11,7 +11,7 @@ import os
 from pyspark.sql.functions import pandas_udf, PandasUDFType
 import time
 
-def execute(max_path, project_name, outdir, minimum_product_sep, minimum_product_columns):
+def execute(max_path, project_name, outdir, minimum_product_sep, minimum_product_columns, test):
     os.environ["PYSPARK_PYTHON"] = "python3"
     spark = SparkSession.builder \
         .master("yarn") \
@@ -40,12 +40,18 @@ def execute(max_path, project_name, outdir, minimum_product_sep, minimum_product
     outdir = '202008'
     project_name = 'Gilead'
     '''
+    if minimum_product_sep == "kong":
+        minimum_product_sep = ""
     minimum_product_columns = minimum_product_columns.replace(" ","").split(",")
     product_map_path = max_path + '/' + project_name + '/' + outdir + '/prod_mapping'
-    all_raw_data_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_test/raw_data'
+    
+    if test == 'True':
+        all_raw_data_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_check/raw_data'
+    else:
+        all_raw_data_path = max_path + '/' + project_name + '/' + outdir + '/raw_data'
     
     # 输出
-    need_clean_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_test/need_cleaning_raw.csv'
+    need_clean_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_check/need_cleaning_raw.csv'
     
     # =========  数据执行  =============
     all_raw_data = spark.read.parquet(all_raw_data_path)

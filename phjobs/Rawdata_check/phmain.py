@@ -10,11 +10,14 @@ import click
 @click.option('--outdir')
 @click.option('--minimum_product_sep')
 @click.option('--minimum_product_columns')
-@click.option('--year')
-@click.option('--month')
+@click.option('--current_year')
+@click.option('--current_month')
 @click.option('--three')
 @click.option('--twelve')
-def debug_execute(max_path, project_name, outdir, minimum_product_sep, minimum_product_columns, year, month, three, twelve):
-	execute(max_path, project_name, outdir, minimum_product_sep, minimum_product_columns, year, month, three, twelve)
+@click.option('--test')
+def debug_execute(max_path, project_name, outdir, minimum_product_sep, minimum_product_columns, current_year, current_month, 
+three, twelve, test):
+	execute(max_path, project_name, outdir, minimum_product_sep, minimum_product_columns, current_year, current_month, 
+	three, twelve, test)
 if __name__ == '__main__':
     debug_execute()

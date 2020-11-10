@@ -10,7 +10,8 @@ import click
 @click.option('--outdir')
 @click.option('--minimum_product_sep')
 @click.option('--minimum_product_columns')
-def debug_execute(max_path, project_name, outdir, minimum_product_sep, minimum_product_columns):
-	execute(max_path, project_name, outdir, minimum_product_sep, minimum_product_columns)
+@click.option('--test')
+def debug_execute(max_path, project_name, outdir, minimum_product_sep, minimum_product_columns, test):
+	execute(max_path, project_name, outdir, minimum_product_sep, minimum_product_columns, test)
 if __name__ == '__main__':
     debug_execute()

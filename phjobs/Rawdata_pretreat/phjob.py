@@ -9,10 +9,10 @@ from pyspark.sql.types import *
 from pyspark.sql.types import StringType, IntegerType, DoubleType
 from pyspark.sql import functions as func
 import os
-from pyspark.sql.functions import pandas_udf, PandasUDFType
+from pyspark.sql.functions import pandas_udf, PandasUDFType, udf
 import time
 
-def execute(max_path, project_name, outdir, history_outdir, if_two_source, time_left, time_right):
+def execute(max_path, project_name, outdir, history_raw_data_path, if_two_source, cut_time_left, cut_time_right, raw_data_path, test):
     os.environ["PYSPARK_PYTHON"] = "python3"
     spark = SparkSession.builder \
         .master("yarn") \
@@ -37,8 +37,8 @@ def execute(max_path, project_name, outdir, history_outdir, if_two_source, time_
     
     # 输入
     '''
-    time_left = 202001
-    time_right = 202008
+    cut_time_left = 202001
+    cut_time_right = 202008
     max_path = 's3a://ph-max-auto/v0.0.1-2020-06-08/'
     outdir = '202008'
     history_outdir = 'Empty'
@@ -47,15 +47,17 @@ def execute(max_path, project_name, outdir, history_outdir, if_two_source, time_
     #project_name = 'XLT'
     #if_two_source = 'False'
     '''
-    time_left = int(time_left)
-    time_right = int(time_right)
+    cut_time_left = int(cut_time_left)
+    cut_time_right = int(cut_time_right)
     
-    if history_outdir == 'Empty':
+    if raw_data_path == 'Empty':
+        raw_data_path = max_path + '/' + project_name + '/' + outdir + '/raw_data.csv'
+    
+    if history_raw_data_path == 'Empty':
         history_outdir = str(int(outdir) - 1)
-    
-    raw_data_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_test/all_raw_data.csv'
+        history_raw_data_path = max_path + '/' + project_name + '/' + history_outdir + '/raw_data'
+        
     molecule_adjust_path = max_path + "/Common_files/新老通用名转换.csv"
-    history_raw_data_path = max_path + '/' + project_name + '/' + history_outdir + '/raw_data'
     if if_two_source == 'True':
         history_raw_data_std_path = max_path + '/' + project_name + '/' + history_outdir + '/raw_data_std'
         cpa_pha_mapping_path = max_path + '/' + project_name + '/cpa_pha_mapping'
@@ -67,17 +69,23 @@ def execute(max_path, project_name, outdir, history_outdir, if_two_source, time_
      
     # 输出
     # raw_data_check
-    same_sheet_dup_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_test/same_sheet_dup.csv'
-    across_sheet_dup_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_test/across_sheet_dup.csv'
-    all_raw_data_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_test/raw_data'
-    if if_two_source == 'True':
-        all_raw_data_std_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_test/raw_data_std'
+    same_sheet_dup_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_check/same_sheet_dup.csv'
+    across_sheet_dup_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_check/across_sheet_dup.csv'
+    across_sheet_dup_bymonth_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_check/across_sheet_dup_bymonth.csv'
+    if test == 'True':
+        all_raw_data_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_check/raw_data'
+        if if_two_source == 'True':
+            all_raw_data_std_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_check/raw_data_std'
+    else:
+        all_raw_data_path = max_path + '/' + project_name + '/' + outdir + '/raw_data'
+        if if_two_source == 'True':
+            all_raw_data_std_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_std'
     
     
     # ===========  数据执行 ============
     raw_data = spark.read.csv(raw_data_path, header=True)
     
-    # 1. 同sheet去重
+    # 1. 同sheet去重(两行完全一样的)
     raw_data = raw_data.groupby(raw_data.columns).count()
     same_sheet_dup = raw_data.where(raw_data['count'] > 1)
     print(u"重复条目数:", same_sheet_dup.groupby('Sheet', 'Path').count().show())
@@ -90,7 +98,7 @@ def execute(max_path, project_name, outdir, history_outdir, if_two_source, time_
         same_sheet_dup.write.format("csv").option("header", "true") \
             .mode("overwrite").save(same_sheet_dup_path)
     
-    # group计算
+    # group计算金额和数量（std_names + ['Sheet', 'Path']）
     raw_data = raw_data.withColumn('Sales', raw_data['Sales'].cast(DoubleType())) \
                     .withColumn('Units', raw_data['Units'].cast(DoubleType())) \
                     .withColumn('Units_Box', raw_data['Units_Box'].cast(DoubleType()))
@@ -109,25 +117,52 @@ def execute(max_path, project_name, outdir, history_outdir, if_two_source, time_
     raw_data.groupby('Path').count().show()
     
     # 2. 跨sheet去重
-    '''
-    保留金额大的
-    '''
-    dedup_check = raw_data.groupby('Date', 'S_Molecule', 'Path', 'Sheet', 'Source') \
-                            .agg(func.sum(raw_data.Sales).alias('Sales'), func.sum(raw_data.Sales).alias('Units'))
-    dedup_check = dedup_check.withColumn('rank', func.row_number().over(Window.partitionBy('Date', 'S_Molecule', 'Source').orderBy(dedup_check['Sales'].desc())))
-    dedup_check = dedup_check.where(dedup_check['rank'] == 1).select('Date', 'S_Molecule', 'Path', 'Sheet','Source')
+    # 2.1 path来自不同月份文件夹：'Date, S_Molecule' 优先最大月份文件夹来源的数据
+    
+    # 获取path的日期文件夹名
+    @udf(StringType())
+    def path_split(path):
+        path_month = path.replace('//', '/').split('/')[-2]
+        return path_month
+    
+    dedup_check_bymonth = raw_data.select('Date', 'S_Molecule', 'Path', 'Sheet', 'Source').distinct() \
+                                .withColumn('month_dir', path_split(raw_data.Path))
+    dedup_check_bymonth = dedup_check_bymonth.withColumn('month_dir', dedup_check_bymonth.month_dir.cast(IntegerType()))
+    dedup_check_bymonth = dedup_check_bymonth.withColumn('rank', func.rank().over(Window.partitionBy('Date', 'S_Molecule', 'Source') \
+                                                                        .orderBy(dedup_check_bymonth['month_dir'].desc())))
+    dedup_check_bymonth = dedup_check_bymonth.where(dedup_check_bymonth['rank'] == 1).select('Date', 'S_Molecule', 'Path', 'Sheet','Source')
     
     # 去重后数据
-    raw_data_dedup = raw_data.join(dedup_check, on=['Date', 'S_Molecule', 'Path', 'Sheet','Source'], how='inner')
+    raw_data_dedup_bymonth = raw_data.join(dedup_check_bymonth, on=['Date', 'S_Molecule', 'Path', 'Sheet','Source'], how='inner')
     # 重复数据
-    across_sheet_dup = raw_data.join(dedup_check, on=['Date', 'S_Molecule', 'Path', 'Sheet','Source'], how='left_anti')
+    across_sheet_dup_bymonth = raw_data.join(dedup_check_bymonth, on=['Date', 'S_Molecule', 'Path', 'Sheet', 'Source'], how='left_anti')
+    
+    print(raw_data_dedup_bymonth.count() + across_sheet_dup_bymonth.count() == raw_data.count())
+    
+    if across_sheet_dup_bymonth.count() > 0:
+        across_sheet_dup_bymonth = across_sheet_dup_bymonth.repartition(1)
+        across_sheet_dup_bymonth.write.format("csv").option("header", "true") \
+            .mode("overwrite").save(across_sheet_dup_bymonth_path)
+    
+    # 2.2  保留金额大的数据
+    dedup_check_bysales = raw_data_dedup_bymonth.groupby('Date', 'S_Molecule', 'Path', 'Sheet', 'Source') \
+                            .agg(func.sum(raw_data_dedup_bymonth.Sales).alias('Sales'), func.sum(raw_data_dedup_bymonth.Sales).alias('Units'))
+    dedup_check_bysales = dedup_check_bysales.withColumn('rank', func.row_number().over(Window.partitionBy('Date', 'S_Molecule', 'Source') \
+                                                                    .orderBy(dedup_check_bysales['Sales'].desc())))
+    dedup_check_bysales = dedup_check_bysales.where(dedup_check_bysales['rank'] == 1).select('Date', 'S_Molecule', 'Path', 'Sheet','Source')
+    
+    # 去重后数据
+    raw_data_dedup = raw_data_dedup_bymonth.join(dedup_check_bysales, on=['Date', 'S_Molecule', 'Path', 'Sheet','Source'], how='inner')
+    # 重复数据
+    across_sheet_dup = raw_data_dedup_bymonth.join(dedup_check_bysales, on=['Date', 'S_Molecule', 'Path', 'Sheet','Source'], how='left_anti')
+    
+    print(raw_data_dedup.count() + across_sheet_dup.count() == raw_data_dedup_bymonth.count())
     
     if across_sheet_dup.count() > 0:
         across_sheet_dup = across_sheet_dup.repartition(1)
         across_sheet_dup.write.format("csv").option("header", "true") \
             .mode("overwrite").save(across_sheet_dup_path)
     
-    print(raw_data_dedup.count() + across_sheet_dup.count() == raw_data.count())
     
     # 3. 跨源去重
     if if_two_source == 'True':
@@ -166,10 +201,10 @@ def execute(max_path, project_name, outdir, history_outdir, if_two_source, time_
     # 4. 与历史数据合并
     history_raw_data = spark.read.parquet(history_raw_data_path)
     history_raw_data = history_raw_data.withColumn('Date', history_raw_data.Date.cast(IntegerType()))
-    history_raw_data = history_raw_data.where(history_raw_data.Date < time_left)
+    history_raw_data = history_raw_data.where(history_raw_data.Date < cut_time_left)
     
     raw_data_dedup = raw_data_dedup.withColumn('Date', raw_data_dedup.Date.cast(IntegerType()))
-    new_raw_data = raw_data_dedup.where((raw_data_dedup.Date >= time_left) & (raw_data_dedup.Date <= time_right))
+    new_raw_data = raw_data_dedup.where((raw_data_dedup.Date >= cut_time_left) & (raw_data_dedup.Date <= cut_time_right))
     all_raw_data = new_raw_data.select(history_raw_data.columns).union(history_raw_data)
     
     all_raw_data = all_raw_data.repartition(1)
@@ -179,14 +214,14 @@ def execute(max_path, project_name, outdir, history_outdir, if_two_source, time_
     if if_two_source == 'True':
         history_raw_data_std = spark.read.parquet(history_raw_data_std_path)
         history_raw_data_std = history_raw_data_std.withColumn('Date', history_raw_data_std.Date.cast(IntegerType()))
-        history_raw_data_std = history_raw_data_std.where(history_raw_data_std.Date < time_left)
+        history_raw_data_std = history_raw_data_std.where(history_raw_data_std.Date < cut_time_left)
         
         raw_data_dedup_std = raw_data_dedup_std.withColumn('Date', raw_data_dedup_std.Date.cast(IntegerType()))
-        new_raw_data_std = raw_data_dedup_std.where((raw_data_dedup_std.Date >= time_left) & (raw_data_dedup_std.Date <= time_right))
+        new_raw_data_std = raw_data_dedup_std.where((raw_data_dedup_std.Date >= cut_time_left) & (raw_data_dedup_std.Date <= cut_time_right))
         all_raw_data_std = new_raw_data_std.select(history_raw_data_std.columns).union(history_raw_data_std)
         
         all_raw_data_std = all_raw_data_std.repartition(1)
         all_raw_data_std.write.format("parquet") \
             .mode("overwrite").save(all_raw_data_std_path)
+
     
-        
