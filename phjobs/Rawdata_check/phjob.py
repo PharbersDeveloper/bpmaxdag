@@ -59,6 +59,7 @@ three, twelve, test):
     check_9_2_path = raw_data_check_path + '/check_9_2_所有产品每个月份额.csv'
     check_9_3_path = raw_data_check_path + '/check_9_3_所有产品每个月排名.csv'
     check_10_path = raw_data_check_path + '/check_10_在售产品医院个数.csv'
+    check_11_path = raw_data_check_path + '/check_11_全部医院历史贡献率等级.csv'
     
     # ================
     
@@ -83,6 +84,9 @@ three, twelve, test):
     
     # ================= 数据执行 ==================	
     Raw_data = spark.read.parquet(raw_data_path)
+    Raw_data = Raw_data.withColumn('Date', Raw_data['Date'].cast(IntegerType())) \
+                    .withColumn('Units', Raw_data['Units'].cast(DoubleType())) \
+                    .withColumn('Sales', Raw_data['Sales'].cast(DoubleType()))
     
     # 生成min1
     Raw_data = Raw_data.withColumn('Brand_bak', Raw_data.Brand)
@@ -96,7 +100,6 @@ three, twelve, test):
             Raw_data["min1"],
             func.lit(minimum_product_sep),
             func.when(func.isnull(Raw_data[col]), func.lit("NA")).otherwise(Raw_data[col])))
-    	
     Raw_data = Raw_data.withColumn('Brand', Raw_data.Brand_bak).drop('Brand_bak')
     
     # 产品匹配表处理 
@@ -149,6 +152,7 @@ three, twelve, test):
                             .agg(func.sum('Sales').alias('Sales'), func.sum('Units').alias('Units')) \
                             .withColumnRenamed('min2', 'Prod_Name')
     
+    #========== check_1 ==========
     
     # 每个月产品个数(min2)
     check_1 = Raw_data_1.select('Date', 'Prod_Name').distinct() \
@@ -161,6 +165,12 @@ three, twelve, test):
     PREMTH_product_num = check_1.where(check_1.Date == PREMTH).toPandas()['每月产品个数_min2'][0]
     check_result_1 = (MTH_product_num/PREMTH_product_num < 0.08)
     
+    check_1 = check_1.repartition(1)
+    check_1.write.format("csv").option("header", "true") \
+        .mode("overwrite").save(check_1_path)
+        
+    #========== check_2 ==========
+    
     # 各产品历史月份销量
     check_2 = Raw_data_1.groupby('Date', 'Prod_Name').agg(func.sum('Sales').alias('Sales'))
     check_2 = check_2.groupBy("Prod_Name").pivot("Date").agg(func.sum('Sales')).persist()
@@ -169,6 +179,12 @@ three, twelve, test):
     MTH_product_Sales = check_2.where(check_2[str(MTH)].isNull()).groupBy().agg(func.sum(str(PREMTH)).alias('sum')).toPandas()['sum'][0]
     PREMTH_product_Sales = check_2.groupBy().agg(func.sum(str(PREMTH)).alias('sum')).toPandas()['sum'][0]
     check_result_2 = (MTH_product_Sales/PREMTH_product_Sales < 0.08)
+    
+    check_2 = check_2.repartition(1)
+    check_2.write.format("csv").option("header", "true") \
+        .mode("overwrite").save(check_2_path)
+        
+    #========== check_3 ==========
     
     # 历史医院个数
     check_3 = Raw_data.select('Date', 'ID').distinct() \
@@ -180,6 +196,12 @@ three, twelve, test):
     MTH_hospital_num = check_3.where(check_3.Date == MTH).toPandas()['医院个数'][0]
     PREMTH_hospital_num = check_3.where(check_3.Date == PREMTH).toPandas()['医院个数'][0]
     check_result_3 = (MTH_hospital_num/PREMTH_hospital_num -1 < 0.01)
+    
+    check_3 = check_3.repartition(1)
+    check_3.write.format("csv").option("header", "true") \
+        .mode("overwrite").save(check_3_path)
+        
+    
     
     # 最近12期每家医院每个月的销量规模
     check_5_1 = Raw_data.where(Raw_data.Date > (current_year - 1)*100 + current_month - 1) \
@@ -207,6 +229,12 @@ three, twelve, test):
     
     check_5 = check_5_1.join(check_5_2, on='ID', how='left').orderBy('ID').persist()
     
+    check_5 = check_5.repartition(1)
+    check_5.write.format("csv").option("header", "true") \
+        .mode("overwrite").save(check_5_path)
+        
+    #========== check_6 ==========
+    
     # 最近12期每家医院每个月的销量规模
     check_6_1 = Raw_data.where(Raw_data.Date > (current_year-1)*100+current_month-1) \
                         .groupby('ID', 'Date').agg(func.sum('Units').alias('Units')) \
@@ -225,6 +253,8 @@ three, twelve, test):
                                                     .otherwise(check_6_2.Check)) 
                                                     
     check_6 = check_6_1.join(check_6_2, on='ID', how='left').orderBy('ID')
+    
+    #========== check_7 ==========
     
     # 最近12期每家医院每个月每个产品(Packid)的平均价格
     check_7_1 = Raw_data_1.where(Raw_data_1.Date > (current_year-1)*100+current_month-1) \
@@ -263,6 +293,8 @@ three, twelve, test):
     
     check_7.groupby('Check').count().show()
     
+    #========== check_8 ==========
+    
     # 每个月产品个数
     check_8 = Raw_data_1.select('Date', 'ID', 'Prod_Name').distinct() \
                         .groupBy('Date').count() \
@@ -279,6 +311,12 @@ three, twelve, test):
     
     check_result_8 = (check_8_2/check_8_1 < 0.03)
     
+    check_8 = check_8.repartition(1)
+    check_8.write.format("csv").option("header", "true") \
+        .mode("overwrite").save(check_8_path)
+    
+    #========== check_9 ==========
+    
     # 全部医院的全部产品金额、份额、排名与历史月份对比(含缺失医院)
     check_9_1 = Raw_data_1.groupBy('Date', '商品名').agg(func.sum(Raw_data_1.Sales).alias('Sales')) \
                         .groupBy('商品名').pivot('Date').agg(func.sum('Sales')).persist()
@@ -290,47 +328,6 @@ three, twelve, test):
     check_9_3 = check_9_3.withColumn('Rank', func.row_number().over(Window.partitionBy('Date').orderBy(check_9_3['Sales'].desc())))
     check_9_3 = check_9_3.groupBy('商品名').pivot('Date').agg(func.sum('Rank')).persist()
     
-    # group by 产品和月份，count 医院ID，省份
-    # 检查是否有退市产品突然有销量；例如（17120906_2019M12,Pfizer_HTN）
-    check_10 = Raw_data_1.select('Date', 'Prod_Name', 'ID').distinct() \
-                        .groupBy('Date', 'Prod_Name').count() \
-                        .withColumnRenamed('count', '在售产品医院个数') \
-                        .groupBy('Prod_Name').pivot('Date').agg(func.sum('在售产品医院个数')).persist()
-                        
-    # 汇总检查结果
-    check_result = spark.createDataFrame(
-        [('产品个数与历史相差不超过0.08', str(check_result_1)), 
-        ('缺失产品销售额占比不超过0.02', str(check_result_2)), 
-        ('医院个数和历史相差不超过0.01', str(check_result_3)), 
-        ('缺失医院销售额占比不超过0.01', str(check_result_5)), 
-        ('全部医院的全部产品总个数与最近三个月的均值相差不超过0.03', str(check_result_8))], 
-        ('check', 'result'))
-    
-    # 输出结果
-    check_result = check_result.repartition(1)
-    check_result.write.format("csv").option("header", "true") \
-        .mode("overwrite").save(check_result_path)
-        
-    check_1 = check_1.repartition(1)
-    check_1.write.format("csv").option("header", "true") \
-        .mode("overwrite").save(check_1_path)
-    
-    check_2 = check_2.repartition(1)
-    check_2.write.format("csv").option("header", "true") \
-        .mode("overwrite").save(check_2_path)
-        
-    check_3 = check_3.repartition(1)
-    check_3.write.format("csv").option("header", "true") \
-        .mode("overwrite").save(check_3_path)
-    
-    check_5 = check_5.repartition(1)
-    check_5.write.format("csv").option("header", "true") \
-        .mode("overwrite").save(check_5_path)
-        
-    check_8 = check_8.repartition(1)
-    check_8.write.format("csv").option("header", "true") \
-        .mode("overwrite").save(check_8_path)
-        
     check_9_1 = check_9_1.repartition(1)
     check_9_1.write.format("csv").option("header", "true") \
         .mode("overwrite").save(check_9_1_path)
@@ -343,8 +340,70 @@ three, twelve, test):
     check_9_3.write.format("csv").option("header", "true") \
         .mode("overwrite").save(check_9_3_path)
         
+    #========== check_10 ==========
+    
+    # group by 产品和月份，count 医院ID，省份
+    # 检查是否有退市产品突然有销量；例如（17120906_2019M12,Pfizer_HTN）
+    check_10 = Raw_data_1.select('Date', 'Prod_Name', 'ID').distinct() \
+                        .groupBy('Date', 'Prod_Name').count() \
+                        .withColumnRenamed('count', '在售产品医院个数') \
+                        .groupBy('Prod_Name').pivot('Date').agg(func.sum('在售产品医院个数')).persist()
+    
     check_10 = check_10.repartition(1)
     check_10.write.format("csv").option("header", "true") \
         .mode("overwrite").save(check_10_path)
+        
+    #========== check_11 ==========
+    
+    # 全部医院历史贡献率等级
+    check_11 = Raw_data.select('ID').distinct().sort('ID')
+    
+    allmonth = Raw_data.select('Date').distinct().sort('Date').toPandas()['Date'].values
+    
+    for month in allmonth:
+        month = int(month)
+        tmp = Raw_data.where(Raw_data.Date == month).groupby('ID').agg(func.sum('Sales').alias('Sales')) \
+                    .withColumn('tmp', func.lit('tmp'))
+        tmp = tmp.withColumn('num',func.row_number().over(Window.partitionBy('tmp').orderBy(tmp['Sales'].desc())))
+        tmp = tmp.withColumn('cumsum', func.sum(tmp['Sales']).over(Window.orderBy('num'))) \
+                .withColumn('all', func.sum(tmp['Sales']).over(Window.orderBy('tmp')))
+        tmp = tmp.withColumn('con_add', tmp.cumsum/tmp.all)
+        tmp = tmp.withColumn('Sales_level', func.when(func.ceil(tmp.con_add*10) >10, func.lit(10)).otherwise(func.ceil(tmp.con_add*10))) \
+                .select('ID', 'Sales_level') \
+                .withColumnRenamed('Sales_level', str(month))
+        
+        check_11 = check_11.join(tmp, on='ID', how='left')
+        
+    check_11 = check_11.repartition(1)
+    check_11.write.format("csv").option("header", "true") \
+        .mode("overwrite").save(check_11_path)
+    
+    #========== 汇总检查结果 ==========
+    
+    # 汇总检查结果
+    check_result = spark.createDataFrame(
+        [('产品个数与历史相差不超过0.08', str(check_result_1)), 
+        ('缺失产品销售额占比不超过0.02', str(check_result_2)), 
+        ('医院个数和历史相差不超过0.01', str(check_result_3)), 
+        ('缺失医院销售额占比不超过0.01', str(check_result_5)), 
+        ('全部医院的全部产品总个数与最近三个月的均值相差不超过0.03', str(check_result_8))], 
+        ('check', 'result'))
+    
+    check_result = check_result.repartition(1)
+    check_result.write.format("csv").option("header", "true") \
+        .mode("overwrite").save(check_result_path)
+        
+    
+        
+    
+    
+    
+        
+    
+        
+    
+        
+    
+    
     
     
