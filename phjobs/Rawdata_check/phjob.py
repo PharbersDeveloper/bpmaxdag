@@ -35,15 +35,6 @@ three, twelve, test):
         spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
     
     # 输入
-    '''
-    current_year = 2020
-    current_month = 8
-    three = 3
-    twelve = 12
-    outdir = '202008'
-    project_name = '京新'
-    # project_name = 'XLT'
-    '''
     current_year = int(current_year)
     current_month = int(current_month)
     three = int(three)
@@ -90,7 +81,7 @@ three, twelve, test):
     	mat_month = [i for i in range(MTH - current_month + 1 , MTH)][-twelve:]
     
     
-    # ========== 数据执行 ============	
+    # ================= 数据执行 ==================	
     Raw_data = spark.read.parquet(raw_data_path)
     
     # 生成min1
@@ -111,7 +102,6 @@ three, twelve, test):
     # 产品匹配表处理 
     product_map = spark.read.parquet(product_map_path)
     # a. 列名清洗统一
-    # 有的min2结尾有空格与无空格的是两条不同的匹配
     if project_name == "Sanofi" or project_name == "AZ":
         product_map = product_map.withColumnRenamed(product_map.columns[21], "pfc")
     for col in product_map.columns:
@@ -164,7 +154,7 @@ three, twelve, test):
     check_1 = Raw_data_1.select('Date', 'Prod_Name').distinct() \
                         .groupby('Date').count() \
                         .withColumnRenamed('count', '每月产品个数_min2') \
-                        .orderBy('Date')
+                        .orderBy('Date').persist()
     
     ### 判断产品个数与上月相比是否超过 8%
     MTH_product_num = check_1.where(check_1.Date == MTH).toPandas()['每月产品个数_min2'][0]
@@ -184,7 +174,7 @@ three, twelve, test):
     check_3 = Raw_data.select('Date', 'ID').distinct() \
                     .groupBy('Date').count() \
                     .withColumnRenamed('count', '医院个数') \
-                    .orderBy('Date')
+                    .orderBy('Date').persist()
     
     ### 判断历史医院个数是否超过1%                
     MTH_hospital_num = check_3.where(check_3.Date == MTH).toPandas()['医院个数'][0]
@@ -195,7 +185,7 @@ three, twelve, test):
     check_5_1 = Raw_data.where(Raw_data.Date > (current_year - 1)*100 + current_month - 1) \
                         .groupBy('ID', 'Date').agg(func.sum('Sales').alias('Sales'))
     check_5_1 = check_5_1.groupBy("ID").pivot("Date").agg(func.sum('Sales')).persist() \
-                        .orderBy('ID')
+                        .orderBy('ID').persist()
                         
     ### 检查当月缺失医院在上个月的销售额占比
     MTH_hospital_Sales = check_5_1.where(check_5_1[str(MTH)].isNull()).groupBy().agg(func.sum(str(PREMTH)).alias('sum')).toPandas()['sum'][0]
@@ -205,17 +195,17 @@ three, twelve, test):
     # 每家医院的月销金额在最近12期的误差范围内（mean+-1.96std），范围内的医院数量占比大于95%；
     check_5_2 = Raw_data.where((Raw_data.Date > (current_year-1)*100+current_month-1 ) & (Raw_data.Date < current_year*100+current_month)) \
                         .groupBy('ID', 'Date').agg(func.sum('Sales').alias('Sales')) \
-                        .groupBy('ID').agg(func.mean('Sales').alias('Mean_Sales'), func.stddev('Sales').alias('Sd_Sales'))
+                        .groupBy('ID').agg(func.mean('Sales').alias('Mean_Sales'), func.stddev('Sales').alias('Sd_Sales')).persist()
                         
     check_5_2 = check_5_2.join(Raw_data.where(Raw_data.Date == current_year*100+current_month).groupBy('ID').agg(func.sum('Sales').alias('Sales_newmonth')), 
-                                            on='ID', how='left')
+                                            on='ID', how='left').persist()
     check_5_2 = check_5_2.withColumn('Check', func.when(check_5_2.Sales_newmonth < check_5_2.Mean_Sales-1.96*check_5_2.Sd_Sales, func.lit('F')) \
                                                 .otherwise(func.when(check_5_2.Sales_newmonth > check_5_2.Mean_Sales+1.96*check_5_2.Sd_Sales, func.lit('F')) \
                                                                 .otherwise(func.lit('T'))))
     check_5_2 = check_5_2.withColumn('Check', func.when(func.isnan(check_5_2.Mean_Sales) | func.isnan(check_5_2.Sd_Sales) | check_5_2.Sales_newmonth.isNull(), func.lit(None)) \
                                                     .otherwise(check_5_2.Check))                            
     
-    check_5 = check_5_1.join(check_5_2, on='ID', how='left').orderBy('ID')
+    check_5 = check_5_1.join(check_5_2, on='ID', how='left').orderBy('ID').persist()
     
     # 最近12期每家医院每个月的销量规模
     check_6_1 = Raw_data.where(Raw_data.Date > (current_year-1)*100+current_month-1) \
@@ -227,7 +217,7 @@ three, twelve, test):
                         .groupBy('ID', 'Date').agg(func.sum('Units').alias('Units')) \
                         .groupBy('ID').agg(func.mean('Units').alias('Mean_Units'), func.stddev('Units').alias('Sd_Units'))
     check_6_2 = check_6_2.join(Raw_data.where(Raw_data.Date == current_year*100+current_month).groupBy('ID').agg(func.sum('Units').alias('Units_newmonth')), 
-                                            on='ID', how='left')
+                                            on='ID', how='left').persist()
     check_6_2 = check_6_2.withColumn('Check', func.when(check_6_2.Units_newmonth < check_6_2.Mean_Units-1.96*check_6_2.Sd_Units, func.lit('F')) \
                                                 .otherwise(func.when(check_6_2.Units_newmonth > check_6_2.Mean_Units+1.96*check_6_2.Sd_Units, func.lit('F')) \
                                                                 .otherwise(func.lit('T'))))
@@ -239,7 +229,7 @@ three, twelve, test):
     # 最近12期每家医院每个月每个产品(Packid)的平均价格
     check_7_1 = Raw_data_1.where(Raw_data_1.Date > (current_year-1)*100+current_month-1) \
                         .groupBy('ID', 'Date', '通用名','商品名','Pack_ID') \
-                        .agg(func.sum('Sales').alias('Sales'), func.sum('Units').alias('Units'))
+                        .agg(func.sum('Sales').alias('Sales'), func.sum('Units').alias('Units')).persist()
     check_7_1 = check_7_1.withColumn('Price', check_7_1.Sales/check_7_1.Units)
     check_7_1 = check_7_1.groupBy('ID', '通用名', '商品名', 'Pack_ID').pivot("Date").agg(func.sum('Price')) \
                         .orderBy('ID', '通用名', '商品名').persist()
@@ -258,7 +248,7 @@ three, twelve, test):
     Raw_data_1_tmp = Raw_data_1_tmp.withColumn('Price_newmonth', Raw_data_1_tmp.Sales_newmonth/Raw_data_1_tmp.Units_newmonth)
     Raw_data_1_tmp = Raw_data_1_tmp.withColumn('Pack_ID', func.when(Raw_data_1_tmp.Pack_ID.isNull(), func.lit(0)).otherwise(Raw_data_1_tmp.Pack_ID))
     check_7_2 = check_7_2.withColumn('Pack_ID', func.when(check_7_2.Pack_ID.isNull(), func.lit(0)).otherwise(check_7_2.Pack_ID))
-    check_7_2 = check_7_2.join(Raw_data_1_tmp, on=['ID', '通用名', '商品名', 'Pack_ID'], how='left')
+    check_7_2 = check_7_2.join(Raw_data_1_tmp, on=['ID', '通用名', '商品名', 'Pack_ID'], how='left').persist()
     
     check_7_2 = check_7_2.withColumn('Check', \
                 func.when((check_7_2.Price_newmonth < check_7_2.Mean_Price-1.96*check_7_2.Sd_Price) & (check_7_2.Price_newmonth < check_7_2.Mean_Price*0.9), func.lit('F')) \
@@ -277,7 +267,7 @@ three, twelve, test):
     check_8 = Raw_data_1.select('Date', 'ID', 'Prod_Name').distinct() \
                         .groupBy('Date').count() \
                         .withColumnRenamed('count', '每月产品个数_min1') \
-                        .orderBy('Date')
+                        .orderBy('Date').persist()
     # 最近三个月全部医院的产品总数
     check_8_1 = Raw_data_1.where(Raw_data_1.Date.isin(RQMTH)) \
                         .select('Date', 'ID', 'Prod_Name').distinct() \
@@ -298,7 +288,7 @@ three, twelve, test):
                         .groupBy('商品名').pivot('Date').agg(func.sum('share')).persist()
     check_9_3 = Raw_data_1.groupBy('Date', '商品名').agg(func.sum(Raw_data_1.Sales).alias('Sales'))
     check_9_3 = check_9_3.withColumn('Rank', func.row_number().over(Window.partitionBy('Date').orderBy(check_9_3['Sales'].desc())))
-    check_9_3 = check_9_3.groupBy('商品名').pivot('Date').agg(func.sum('Rank'))
+    check_9_3 = check_9_3.groupBy('商品名').pivot('Date').agg(func.sum('Rank')).persist()
     
     # group by 产品和月份，count 医院ID，省份
     # 检查是否有退市产品突然有销量；例如（17120906_2019M12,Pfizer_HTN）

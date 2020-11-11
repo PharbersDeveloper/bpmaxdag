@@ -34,12 +34,6 @@ def execute(max_path, project_name, outdir, minimum_product_sep, minimum_product
         spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
         
     # 输入
-    '''
-    minimum_product_sep = '|'
-    minimum_product_columns = "Brand, Form, Specifications, Pack_Number, Manufacturer"
-    outdir = '202008'
-    project_name = 'Gilead'
-    '''
     if minimum_product_sep == "kong":
         minimum_product_sep = ""
     minimum_product_columns = minimum_product_columns.replace(" ","").split(",")
@@ -56,10 +50,10 @@ def execute(max_path, project_name, outdir, minimum_product_sep, minimum_product
     # =========  数据执行  =============
     all_raw_data = spark.read.parquet(all_raw_data_path)
     
-    # 待清洗
     clean = all_raw_data.select('Brand','Form','Specifications','Pack_Number','Manufacturer','Molecule','Corp','Route','Path','Sheet').distinct()
-    clean = clean.withColumn('Brand', func.when((clean.Brand.isNull()) | (clean.Brand == 'NA'), clean.Molecule).otherwise(clean.Brand))
     
+    # 生成min1
+    clean = clean.withColumn('Brand', func.when((clean.Brand.isNull()) | (clean.Brand == 'NA'), clean.Molecule).otherwise(clean.Brand))
     clean = clean.withColumn("min1", func.when(clean[minimum_product_columns[0]].isNull(), func.lit("NA")).
                                        otherwise(clean[minimum_product_columns[0]]))
     for col in minimum_product_columns[1:]:
@@ -69,13 +63,14 @@ def execute(max_path, project_name, outdir, minimum_product_sep, minimum_product
             func.lit(minimum_product_sep),
             func.when(func.isnull(clean[col]), func.lit("NA")).otherwise(clean[col])))
     
-    
+    # 已有的product_map文件
     product_map = spark.read.parquet(product_map_path)
     product_map = product_map.distinct() \
                         .withColumn("min1", func.regexp_replace("min1", "&amp;", "&")) \
                         .withColumn("min1", func.regexp_replace("min1", "&lt;", "<")) \
                         .withColumn("min1", func.regexp_replace("min1", "&gt;", ">"))
-                        
+    
+    # min1不在product_map中的为需要清洗的条目                 
     need_clean = clean.join(product_map.select('min1').distinct(), on='min1', how='left_anti')
     if need_clean.count() > 0:
         need_clean = need_clean.repartition(1)

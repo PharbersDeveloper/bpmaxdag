@@ -29,7 +29,7 @@ spec:
       - key: cut_time_right
         value: 'Empty'
       - key: test
-        value: 'True'
+        value: 'False'
     outputs:
       - key: a
         value: abcde

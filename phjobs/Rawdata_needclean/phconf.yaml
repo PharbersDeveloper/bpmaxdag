@@ -23,7 +23,7 @@ spec:
       - key: minimum_product_columns
         value: "Brand, Form, Specifications, Pack_Number, Manufacturer"
       - key: test
-        value: 'True'
+        value: 'False'
     outputs:
       - key: a
         value: abcde

@@ -31,7 +31,7 @@ spec:
       - key: twelve
         value: '12'
       - key: test
-        value: 'True'
+        value: 'False'
     outputs:
       - key: a
         value: abcde
