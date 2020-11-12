@@ -62,20 +62,17 @@ def execute(**kwargs):
 		spark._jsc.hadoopConfiguration().set("com.amazonaws.services.s3.enableV4", "true")
 		spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
 	
-	# common_df = spark.read.parquet(input_path+'STANDARD=COMMON')
-	# spec_df = spark.read.parquet(input_path+'STANDARD=%s'%(standard))
+	common_df = spark.read.parquet(input_path+'STANDARD=COMMON')
+	spec_df = spark.read.parquet(input_path+'STANDARD=%s'%(standard))
 	
-	# spec_join_df = spec_df.select(col('_ID').alias('S_ID'))
-	# common_null_df = common_df.join(spec_join_df, common_df._ID == spec_join_df.S_ID, 'left') \
-	# 				.filter(spec_join_df.S_ID.isNull()) \
-	# 				.drop('S_ID')
+	spec_join_df = spec_df.select(col('_ID').alias('S_ID'))
+	common_null_df = common_df.join(spec_join_df, common_df._ID == spec_join_df.S_ID, 'left') \
+					.filter(spec_join_df.S_ID.isNull()) \
+					.drop('S_ID')
 				
-	# union_df = spec_df.unionByName(common_null_df)
-	# ext_schema = ArrayType(StructType([StructField(col, StringType()) for col in ext_col]))
-	# union_df = union_df.withColumn('EXT', from_json('EXT', ext_schema).getItem(0)).select("*", 'EXT.*').drop('EXT')
+	union_df = spec_df.unionByName(common_null_df)
+	ext_schema = ArrayType(StructType([StructField(col, StringType()) for col in ext_col]))
+	union_df = union_df.withColumn('EXT', from_json('EXT', ext_schema).getItem(0)).select("*", 'EXT.*').drop('EXT')
 	
-	# union_df.repartition(1).write.format("csv").option("header", "true").mode("overwrite").save(output_path+standard)
-	# spark.read.parquet('s3a://ph-platform/2020-08-10/datamart/standard/dimensions/alias/v20201001_20201015_1').show()
-	# spark.read.parquet('s3a://ph-platform/2020-08-10/datamart/standard/dimensions/clean_rules/v20201001_20201015_1').show()
-	spark.read.parquet('s3a://ph-platform/2020-08-10/datamart/standard/dimensions/mnfs/v20201001_20201015_1').show()
+	union_df.repartition(1).write.format("csv").option("header", "true").mode("overwrite").save(output_path+standard)
 	
