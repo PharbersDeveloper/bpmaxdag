@@ -94,7 +94,9 @@ def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_lef
     
     # ================ 数据执行 ==================
     
-    # 0. 满足率文件准备
+    # 一. 文件准备
+    
+    # 1. 满足率文件准备
     # 通用名中英文对照
     molecule_ACT = spark.read.csv(molecule_ACT_path, header=True)
     packID_ACT_map = spark.read.csv(packID_ACT_map_path, header=True)
@@ -125,6 +127,14 @@ def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_lef
         ims_sales = ims_sales.withColumn("ATC", func.substring(ims_sales.ATC, 0, 3)).distinct()
     elif atc and max([len(i) for i in atc]) == 4:
         ims_sales = ims_sales.withColumn("ATC", func.substring(ims_sales.ATC, 0, 4)).distinct()
+        
+    # 2. 项目排名文件
+    project_rank = spark.read.csv(project_rank_path, header=True)
+    project_rank = project_rank.withColumnRenamed("项目", "project") \
+                        .withColumn("排名", project_rank["排名"].cast(IntegerType())) \
+                        .withColumnRenamed("排名", "project_score")
+    
+    # 二. 根据 max_standard_brief_all 确定最终提数来源
         
     # 1. 根据path_for_extract， 合并项目brief，生成max_standard_brief_all
     path_for_extract = spark.read.csv(path_for_extract_path, header=True)
@@ -157,6 +167,58 @@ def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_lef
     if molecule:
         max_filter_list = max_filter_list.where(max_filter_list['标准通用名'].isin(molecule))
     
+    # 3. 注释项目排名
+    max_filter_list = max_filter_list.join(project_rank, on="project", how="left").persist()
+    
+    # 4. 根据月份数以及项目排名进行去重，确定最终提数来源，生成报告 report_a 
+    report = max_filter_list.select("project","project_score","标准通用名", "ATC", "Date") \
+                            .distinct() \
+                            .groupby(["标准通用名", "ATC", "project","project_score"]).count() \
+                            .withColumnRenamed("count", "months_num") \
+                            .persist()
+    
+    # 分子最大月份数, 月份最全-得分
+    months_max = report.groupby("标准通用名").agg(func.max("months_num").alias("max_month"))
+    
+    report = report.join(months_max, on="标准通用名", how="left")
+    report = report.withColumn("drop_for_months", func.when(report.months_num == report.max_month, func.lit(0)).otherwise(func.lit(1)))
+    
+    score_max = report.where(report.drop_for_months == 0) \
+                .groupby("标准通用名").agg(func.min("project_score").alias("max_score"))
+                
+    report = report.join(score_max, on="标准通用名", how="left")
+                    
+    report = report.withColumn("drop_for_score", func.when(report.project_score == report.max_score, func.lit(0)).otherwise(func.lit(1)))
+    report = report.withColumn("drop_for_score", func.when(report.drop_for_months == 0, report.drop_for_score).otherwise(None))
+    
+    # 时间范围range，最小月-最大月
+    time_range = max_filter_list.select("project","标准通用名", "ATC", "Date") \
+                    .distinct() \
+                    .groupby(["project","标准通用名", "ATC"]).agg(func.min("Date").alias("min_time"), func.max("Date").alias("max_time"))
+    time_range = time_range.withColumn("time_range", func.concat(time_range.min_time, func.lit("_"), time_range.max_time))
+    
+    # report_a生成
+    # report_a.withColumn("time_range", func.lit(str(time_left) + '_' + str(time_right)))
+    report_a = report.drop("max_score", "max_month") \
+                .join(time_range.drop("min_time", "max_time"), on=["project","标准通用名", "ATC"], how="left")
+    # 列名顺序调整
+    report_a = report_a.select("project", "ATC", "标准通用名", "time_range", "months_num", "drop_for_months", "project_score", "drop_for_score") \
+                    .withColumn("flag", func.when(report_a.drop_for_score == 0, func.lit(1)).otherwise(func.lit(None)))
+    report_a = report_a.orderBy(["标准通用名", "months_num", "project_score"], ascending=[0, 0, 1])               
+    
+    # 输出report_a            
+    report_a = report_a.repartition(1)
+    report_a.write.format("csv").option("header", "true") \
+        .mode("overwrite").save(report_a_path)
+    # 重新读入，否则当数据量大的时候后面的join report_a 报错
+    report_a = spark.read.csv(report_a_path, header=True)
+    
+    # 根据 report_a 去重
+    max_filter_list = max_filter_list.join(report_a.where(report_a.drop_for_score == 0).select("标准通用名", "project").distinct(), 
+                                    on=["标准通用名", "project"], 
+                                    how="inner").persist()
+    
+    # 三. 原始数据提取
     
     project_Date_list = max_filter_list.select("project", "Date").distinct()
     
@@ -197,11 +259,6 @@ def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_lef
     max_filter_raw = spark.read.parquet(max_filter_raw_path)    
     
     # 4. 注释项目排名
-    project_rank = spark.read.csv(project_rank_path, header=True)
-    project_rank = project_rank.withColumnRenamed("项目", "project") \
-                        .withColumn("排名", project_rank["排名"].cast(IntegerType())) \
-                        .withColumnRenamed("排名", "project_score")
-                        
     max_filter_out = max_filter_raw.join(project_rank, on="project", how="left").persist()
     
     
@@ -237,56 +294,12 @@ def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_lef
     max_filter_out_1 = max_filter_out.where(max_filter_out["标准包装数量"].isNull())
     max_filter_out_2 = max_filter_out.where((~max_filter_out["标准包装数量"].isNull()) & (max_filter_out.Sales != 0) & (max_filter_out.Units != 0))
     
-    max_filter_out =  max_filter_out_1.union(max_filter_out_2)                      
+    max_filter_out =  max_filter_out_1.union(max_filter_out_2)   
     
-    # 6. 提数报告以及提数去重
-    report = max_filter_out.select("project","project_score","标准通用名", "ATC", "Date") \
-                            .distinct() \
-                            .groupby(["标准通用名", "ATC", "project","project_score"]).count() \
-                            .withColumnRenamed("count", "months_num") \
-                            .persist()
-    
-    # 分子最大月份数, 月份最全-得分
-    months_max = report.groupby("标准通用名").agg(func.max("months_num").alias("max_month"))
-    
-    report = report.join(months_max, on="标准通用名", how="left")
-    report = report.withColumn("drop_for_months", func.when(report.months_num == report.max_month, func.lit(0)).otherwise(func.lit(1)))
-    
-    score_max = report.where(report.drop_for_months == 0) \
-                .groupby("标准通用名").agg(func.min("project_score").alias("max_score"))
-                
-    report = report.join(score_max, on="标准通用名", how="left")
-                    
-    report = report.withColumn("drop_for_score", func.when(report.project_score == report.max_score, func.lit(0)).otherwise(func.lit(1)))
-    report = report.withColumn("drop_for_score", func.when(report.drop_for_months == 0, report.drop_for_score).otherwise(None))
-    
-    # 时间范围range，最小月-最大月
-    time_range = max_filter_out.select("project","标准通用名", "ATC", "Date") \
-                    .distinct() \
-                    .groupby(["project","标准通用名", "ATC"]).agg(func.min("Date").alias("min_time"), func.max("Date").alias("max_time"))
-    time_range = time_range.withColumn("time_range", func.concat(time_range.min_time, func.lit("_"), time_range.max_time))
-    
-    # report_a生成
-    # report_a.withColumn("time_range", func.lit(str(time_left) + '_' + str(time_right)))
-    report_a = report.drop("max_score", "max_month") \
-                .join(time_range.drop("min_time", "max_time"), on=["project","标准通用名", "ATC"], how="left")
-    # 列名顺序调整
-    report_a = report_a.select("project", "ATC", "标准通用名", "time_range", "months_num", "drop_for_months", "project_score", "drop_for_score") \
-                    .withColumn("flag", func.when(report_a.drop_for_score == 0, func.lit(1)).otherwise(func.lit(None)))
-    report_a = report_a.orderBy(["标准通用名", "months_num", "project_score"], ascending=[0, 0, 1])               
-    
-    
-    # 输出report_a            
-    report_a = report_a.repartition(1)
-    report_a.write.format("csv").option("header", "true") \
-        .mode("overwrite").save(report_a_path)
-    # 重新读入，否则当数据量大的时候后面的join report_a 报错
-    report_a = spark.read.csv(report_a_path, header=True)
-    
-    # 根据report_a去重
+    # 根据 report_a 去重
     out_extract_data = max_filter_out.join(report_a.where(report_a.drop_for_score == 0).select("标准通用名", "project").distinct(), 
-                                        on=["标准通用名", "project"], 
-                                        how="inner").persist()
+                                    on=["标准通用名", "project"], 
+                                    how="inner").persist()
     
     # 输出提数结果                                    
     out_extract_data_final = out_extract_data.select("project", "project_score", "Date", "ATC", "标准通用名", "标准商品名", "标准剂型", 
