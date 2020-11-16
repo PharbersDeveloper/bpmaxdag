@@ -25,9 +25,11 @@ spec:
       - key: if_two_source
         value: 'False'
       - key: cut_time_left
-        value: 'Empty'
+        value: '0'
       - key: cut_time_right
-        value: 'Empty'
+        value: '0'
+      - key: if_union
+        value: 'True'
       - key: test
         value: 'False'
     outputs:

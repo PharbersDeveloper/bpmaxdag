@@ -12,7 +12,7 @@ import os
 from pyspark.sql.functions import pandas_udf, PandasUDFType, udf
 import time
 
-def execute(max_path, project_name, outdir, history_raw_data_path, if_two_source, cut_time_left, cut_time_right, raw_data_path, test):
+def execute(max_path, project_name, outdir, history_raw_data_path, if_two_source, cut_time_left, cut_time_right, raw_data_path, if_union, test):
     os.environ["PYSPARK_PYTHON"] = "python3"
     spark = SparkSession.builder \
         .master("yarn") \
@@ -60,6 +60,10 @@ def execute(max_path, project_name, outdir, history_raw_data_path, if_two_source
     same_sheet_dup_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_check/same_sheet_dup.csv'
     across_sheet_dup_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_check/across_sheet_dup.csv'
     across_sheet_dup_bymonth_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_check/across_sheet_dup_bymonth.csv'
+    
+    if test != "False" and test != "True":
+        phlogger.error('wrong input: test, False or True') 
+        raise ValueError('wrong input: test, False or True')
     
     if test == 'True':
         all_raw_data_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_check/raw_data'
@@ -202,29 +206,41 @@ def execute(max_path, project_name, outdir, history_raw_data_path, if_two_source
         
     
     # 4. 与历史数据合并
-    history_raw_data = spark.read.parquet(history_raw_data_path)
-    history_raw_data = history_raw_data.withColumn('Date', history_raw_data.Date.cast(IntegerType()))
-    history_raw_data = history_raw_data.where(history_raw_data.Date < cut_time_left)
-    
-    raw_data_dedup = raw_data_dedup.withColumn('Date', raw_data_dedup.Date.cast(IntegerType()))
-    new_raw_data = raw_data_dedup.where((raw_data_dedup.Date >= cut_time_left) & (raw_data_dedup.Date <= cut_time_right))
-    all_raw_data = new_raw_data.select(history_raw_data.columns).union(history_raw_data)
-    
-    all_raw_data = all_raw_data.repartition(2)
-    all_raw_data.write.format("parquet") \
-        .mode("overwrite").save(all_raw_data_path)
+    if if_union == 'True':
+        history_raw_data = spark.read.parquet(history_raw_data_path)
+        history_raw_data = history_raw_data.withColumn('Date', history_raw_data.Date.cast(IntegerType()))
+        history_raw_data = history_raw_data.where(history_raw_data.Date < cut_time_left)
         
-    if if_two_source == 'True':
-        history_raw_data_std = spark.read.parquet(history_raw_data_std_path)
-        history_raw_data_std = history_raw_data_std.withColumn('Date', history_raw_data_std.Date.cast(IntegerType()))
-        history_raw_data_std = history_raw_data_std.where(history_raw_data_std.Date < cut_time_left)
+        raw_data_dedup = raw_data_dedup.withColumn('Date', raw_data_dedup.Date.cast(IntegerType()))
+        new_raw_data = raw_data_dedup.where((raw_data_dedup.Date >= cut_time_left) & (raw_data_dedup.Date <= cut_time_right))
+        all_raw_data = new_raw_data.select(history_raw_data.columns).union(history_raw_data)
         
-        raw_data_dedup_std = raw_data_dedup_std.withColumn('Date', raw_data_dedup_std.Date.cast(IntegerType()))
-        new_raw_data_std = raw_data_dedup_std.where((raw_data_dedup_std.Date >= cut_time_left) & (raw_data_dedup_std.Date <= cut_time_right))
-        all_raw_data_std = new_raw_data_std.select(history_raw_data_std.columns).union(history_raw_data_std)
+        all_raw_data = all_raw_data.repartition(2)
+        all_raw_data.write.format("parquet") \
+            .mode("overwrite").save(all_raw_data_path)
+            
+        if if_two_source == 'True':
+            history_raw_data_std = spark.read.parquet(history_raw_data_std_path)
+            history_raw_data_std = history_raw_data_std.withColumn('Date', history_raw_data_std.Date.cast(IntegerType()))
+            history_raw_data_std = history_raw_data_std.where(history_raw_data_std.Date < cut_time_left)
+            
+            raw_data_dedup_std = raw_data_dedup_std.withColumn('Date', raw_data_dedup_std.Date.cast(IntegerType()))
+            new_raw_data_std = raw_data_dedup_std.where((raw_data_dedup_std.Date >= cut_time_left) & (raw_data_dedup_std.Date <= cut_time_right))
+            all_raw_data_std = new_raw_data_std.select(history_raw_data_std.columns).union(history_raw_data_std)
+            
+            all_raw_data_std = all_raw_data_std.repartition(2)
+            all_raw_data_std.write.format("parquet") \
+                .mode("overwrite").save(all_raw_data_std_path)
+    else:
+        raw_data_dedup = raw_data_dedup.repartition(2)
+        raw_data_dedup.write.format("parquet") \
+            .mode("overwrite").save(all_raw_data_path)
+            
+        if if_two_source == 'True':
+            raw_data_dedup_std = raw_data_dedup_std.repartition(2)
+            raw_data_dedup_std.write.format("parquet") \
+                .mode("overwrite").save(all_raw_data_std_path)
         
-        all_raw_data_std = all_raw_data_std.repartition(2)
-        all_raw_data_std.write.format("parquet") \
-            .mode("overwrite").save(all_raw_data_std_path)
+        
 
     
