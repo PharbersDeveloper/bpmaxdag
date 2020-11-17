@@ -12,7 +12,8 @@ import os
 from pyspark.sql.functions import pandas_udf, PandasUDFType, udf
 import time
 
-def execute(max_path, project_name, outdir, history_raw_data_path, if_two_source, cut_time_left, cut_time_right, raw_data_path, if_union, test):
+def execute(max_path, project_name, outdir, history_outdir, if_two_source, cut_time_left, cut_time_right, 
+raw_data_path, if_union, test):
     os.environ["PYSPARK_PYTHON"] = "python3"
     spark = SparkSession.builder \
         .master("yarn") \
@@ -44,10 +45,10 @@ def execute(max_path, project_name, outdir, history_raw_data_path, if_two_source
     if raw_data_path == 'Empty':
         raw_data_path = max_path + '/' + project_name + '/' + outdir + '/raw_data.csv'
     
-    if history_raw_data_path == 'Empty':
+    if history_outdir == 'Empty':
         history_outdir = str(int(outdir) - 1)
-        history_raw_data_path = max_path + '/' + project_name + '/' + history_outdir + '/raw_data'
         
+    history_raw_data_path = max_path + '/' + project_name + '/' + history_outdir + '/raw_data'
     if if_two_source == 'True':
         history_raw_data_std_path = max_path + '/' + project_name + '/' + history_outdir + '/raw_data_std'
         cpa_pha_mapping_path = max_path + '/' + project_name + '/cpa_pha_mapping'

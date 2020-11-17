@@ -18,7 +18,7 @@ spec:
         value: 'Empty'
       - key: outdir
         value: 'Empty'
-      - key: history_raw_data_path
+      - key: history_outdir
         value: 'Empty'
       - key: raw_data_path
         value: 'Empty'
