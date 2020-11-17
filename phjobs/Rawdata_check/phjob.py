@@ -8,7 +8,7 @@ from pyspark.sql.types import *
 from pyspark.sql.types import StringType, IntegerType, DoubleType
 from pyspark.sql import functions as func
 import os
-from pyspark.sql.functions import pandas_udf, PandasUDFType
+from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, greatest, least
 import time
 
 def execute(max_path, project_name, outdir, minimum_product_sep, minimum_product_columns, current_year, current_month, 
@@ -60,6 +60,8 @@ three, twelve, test):
     check_9_3_path = raw_data_check_path + '/check_9_3_所有产品每个月排名.csv'
     check_10_path = raw_data_check_path + '/check_10_在售产品医院个数.csv'
     check_11_path = raw_data_check_path + '/check_11_全部医院历史贡献率等级.csv'
+    tmp_1_path  = raw_data_check_path + '/tmp_1'
+    tmp_2_path  = raw_data_check_path + '/tmp_2'
     
     # ================
     
@@ -356,10 +358,10 @@ three, twelve, test):
     #========== check_11 ==========
     
     # 全部医院历史贡献率等级
-    check_11 = Raw_data.select('ID').distinct().sort('ID')
-    
     allmonth = Raw_data.select('Date').distinct().sort('Date').toPandas()['Date'].values
     
+    check_11 = Raw_data.select('ID').distinct().sort('ID')
+    index = 0
     for month in allmonth:
         month = int(month)
         tmp = Raw_data.where(Raw_data.Date == month).groupby('ID').agg(func.sum('Sales').alias('Sales')) \
@@ -374,6 +376,61 @@ three, twelve, test):
         
         check_11 = check_11.join(tmp, on='ID', how='left')
         
+        # 输出避免内存溢出，每20个输出一次
+        if (index / 20) % 2 == 0:
+            check_11.repartition(1).write.format("parquet") \
+                .mode("overwrite").save(tmp_1_path)
+            check_11 = spark.read.parquet(tmp_1_path)
+        elif (index / 20) % 2 == 1:
+            check_11.repartition(1).write.format("parquet") \
+                .mode("overwrite").save(tmp_2_path)
+            check_11 = spark.read.parquet(tmp_2_path)
+        
+        index += 1
+    
+    # 定义的udf返回类型不能包含numpy数据类型，必须强制转化为python基础类型float
+    
+    #  去掉最大值和最小值后的平均值 
+    @udf(DoubleType())
+    def mean_adj(*cols):
+        import numpy as np
+        row_max = cols[0]
+        row_min = cols[1]
+        others = cols[2:]
+        row_mean_list = [x for x in others if x is not None]
+        if len(row_mean_list) > 3:
+            row_mean = (np.sum(row_mean_list) - row_max - row_min)/(len(row_mean_list) -2)
+        else:
+            row_mean = 0
+        return float(row_mean)
+    
+    # row_min 与 mean_adj 的差值
+    @udf(DoubleType())
+    def min_diff(row_max, row_min, mean_adj):
+        import numpy as np
+        if mean_adj is not None:
+            # diff1 = abs(row_max - mean_adj)
+            diff2 = abs(row_min - mean_adj)
+            row_diff = diff2
+        else:
+            row_diff = 0
+        return float(row_diff)
+        
+    check_11_cols = check_11.columns
+    check_11_cols.remove('ID')
+    for each in check_11_cols:
+        check_11 = check_11.withColumn(each, check_11[each].cast(IntegerType()))
+    
+    # 平均值计算
+    check_11 = check_11.withColumn("row_max", func.greatest(*check_11_cols)) \
+                    .withColumn("row_min", func.least(*check_11_cols))
+    check_11 = check_11.withColumn("mean_adj", 
+                        mean_adj(func.col('row_max'), func.col('row_min'), *(func.col(x) for x in check_11_cols)))
+    check_11 = check_11.withColumn("mean_adj", func.when(func.col('mean_adj') == 0, func.lit(None)).otherwise(func.col('mean_adj')))
+    # row_min 与 mean_adj 的差值
+    check_11 = check_11.withColumn("min_diff", min_diff(func.col('row_max'), func.col('row_min'), func.col('mean_adj')))
+    check_11 = check_11.withColumn("min_diff", func.when(func.col('mean_adj').isNull(), func.lit(None)).otherwise(func.col('min_diff')))
+    
     check_11 = check_11.repartition(1)
     check_11.write.format("csv").option("header", "true") \
         .mode("overwrite").save(check_11_path)
@@ -392,18 +449,18 @@ three, twelve, test):
     check_result = check_result.repartition(1)
     check_result.write.format("csv").option("header", "true") \
         .mode("overwrite").save(check_result_path)
-        
     
-        
+
     
+
+
+
     
+
     
-        
+
     
-        
-    
-        
-    
-    
-    
-    
+
+
+
+
