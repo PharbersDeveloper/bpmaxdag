@@ -180,6 +180,8 @@ three, twelve, test):
     ### 判断缺失产品是否在上个月销售金额超过 2%
     MTH_product_Sales = check_2.where(check_2[str(MTH)].isNull()).groupBy().agg(func.sum(str(PREMTH)).alias('sum')).toPandas()['sum'][0]
     PREMTH_product_Sales = check_2.groupBy().agg(func.sum(str(PREMTH)).alias('sum')).toPandas()['sum'][0]
+    if MTH_product_Sales == None:
+        MTH_product_Sales = 0
     check_result_2 = (MTH_product_Sales/PREMTH_product_Sales < 0.08)
     
     check_2 = check_2.repartition(1)
@@ -214,6 +216,8 @@ three, twelve, test):
     ### 检查当月缺失医院在上个月的销售额占比
     MTH_hospital_Sales = check_5_1.where(check_5_1[str(MTH)].isNull()).groupBy().agg(func.sum(str(PREMTH)).alias('sum')).toPandas()['sum'][0]
     PREMTH_hospital_Sales = check_5_1.groupBy().agg(func.sum(str(PREMTH)).alias('sum')).toPandas()['sum'][0]
+    if MTH_hospital_Sales == None:
+        MTH_hospital_Sales = 0
     check_result_5 = (MTH_hospital_Sales/PREMTH_hospital_Sales < 0.01)
     
     # 每家医院的月销金额在最近12期的误差范围内（mean+-1.96std），范围内的医院数量占比大于95%；
@@ -376,12 +380,12 @@ three, twelve, test):
         
         check_11 = check_11.join(tmp, on='ID', how='left')
         
-        # 输出避免内存溢出，每20个输出一次
-        if (index / 20) % 2 == 0:
+        # 输出避免内存溢出，每5个输出一次
+        if (index / 5) % 2 == 0:
             check_11.repartition(1).write.format("parquet") \
                 .mode("overwrite").save(tmp_1_path)
             check_11 = spark.read.parquet(tmp_1_path)
-        elif (index / 20) % 2 == 1:
+        elif (index / 5) % 2 == 1:
             check_11.repartition(1).write.format("parquet") \
                 .mode("overwrite").save(tmp_2_path)
             check_11 = spark.read.parquet(tmp_2_path)
@@ -450,17 +454,17 @@ three, twelve, test):
     check_result.write.format("csv").option("header", "true") \
         .mode("overwrite").save(check_result_path)
     
-
     
-
-
-
     
-
     
-
     
-
-
-
-
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
