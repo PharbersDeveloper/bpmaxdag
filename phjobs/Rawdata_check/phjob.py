@@ -40,6 +40,8 @@ three, twelve, test):
     three = int(three)
     twelve = int(twelve)
     
+    if minimum_product_sep == "kong":
+        minimum_product_sep = ""
     minimum_product_columns = minimum_product_columns.replace(" ","").split(",")
     product_map_path = max_path + '/' + project_name + '/' + outdir + '/prod_mapping'
     if test == 'True':
