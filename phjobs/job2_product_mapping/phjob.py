@@ -95,7 +95,7 @@ def execute(max_path, project_name, minimum_product_columns, minimum_product_sep
     # raw_data_job1_out_path = "/user/ywyuan/max/Sankyo/raw_data_job1_out"
     raw_data = spark.read.parquet(hospital_mapping_out_path)
     if project_name != "Mylan":
-        raw_data = raw_data.withColumn("Brand", func.when(func.isnull(raw_data.Brand), raw_data.Molecule).
+        raw_data = raw_data.withColumn("Brand", func.when((raw_data.Brand.isNull()) | (raw_data.Brand == 'NA'), raw_data.Molecule).
                                    otherwise(raw_data.Brand))
 
     # concat_multi_cols
