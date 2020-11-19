@@ -206,6 +206,16 @@ raw_data_path, if_union, test):
         raw_data_dedup = drop_dup_hospital(raw_data_dedup, cpa_pha_mapping)    
         
     
+    # ID 的长度统一
+    def distinguish_cpa_gyc(col, gyc_hospital_id_length):
+        # gyc_hospital_id_length是国药诚信医院编码长度，一般是7位数字，cpa医院编码一般是6位数字。医院编码长度可以用来区分cpa和gyc
+        return (func.length(col) < gyc_hospital_id_length)
+    def deal_ID_length(df):
+        df = df.withColumn("ID", df["ID"].cast(StringType()))
+        df = df.withColumn("ID", func.regexp_replace("ID", "\\.0", ""))
+        df = df.withColumn("ID", func.when(distinguish_cpa_gyc(df.ID, 7), func.lpad(df.ID, 6, "0")).otherwise(df.ID))
+        return df
+    
     # 4. 与历史数据合并
     if if_union == 'True':
         history_raw_data = spark.read.parquet(history_raw_data_path)
@@ -216,6 +226,8 @@ raw_data_path, if_union, test):
         raw_data_dedup = raw_data_dedup.withColumn('Date', raw_data_dedup.Date.cast(IntegerType()))
         new_raw_data = raw_data_dedup.where((raw_data_dedup.Date >= cut_time_left) & (raw_data_dedup.Date <= cut_time_right))
         all_raw_data = new_raw_data.select(history_raw_data.columns).union(history_raw_data)
+        
+        all_raw_data = deal_ID_length(all_raw_data)
         
         all_raw_data = all_raw_data.repartition(2)
         all_raw_data.write.format("parquet") \
@@ -231,15 +243,21 @@ raw_data_path, if_union, test):
             new_raw_data_std = raw_data_dedup_std.where((raw_data_dedup_std.Date >= cut_time_left) & (raw_data_dedup_std.Date <= cut_time_right))
             all_raw_data_std = new_raw_data_std.select(history_raw_data_std.columns).union(history_raw_data_std)
             
+            all_raw_data_std = deal_ID_length(all_raw_data_std)
+            
             all_raw_data_std = all_raw_data_std.repartition(2)
             all_raw_data_std.write.format("parquet") \
                 .mode("overwrite").save(all_raw_data_std_path)
     else:
+        raw_data_dedup = deal_ID_length(raw_data_dedup)
+        
         raw_data_dedup = raw_data_dedup.repartition(2)
         raw_data_dedup.write.format("parquet") \
             .mode("overwrite").save(all_raw_data_path)
             
         if if_two_source == 'True':
+            raw_data_dedup_std = deal_ID_length(raw_data_dedup_std)
+            
             raw_data_dedup_std = raw_data_dedup_std.repartition(2)
             raw_data_dedup_std.write.format("parquet") \
                 .mode("overwrite").save(all_raw_data_std_path)
