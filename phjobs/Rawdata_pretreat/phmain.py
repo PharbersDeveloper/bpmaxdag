@@ -15,7 +15,10 @@ import click
 @click.option('--raw_data_path')
 @click.option('--if_union')
 @click.option('--test')
-def debug_execute(max_path, project_name, outdir, history_outdir, if_two_source, cut_time_left, cut_time_right, raw_data_path, if_union, test):
-	execute(max_path, project_name, outdir, history_outdir, if_two_source, cut_time_left, cut_time_right, raw_data_path, if_union, test)
+@click.option('--auto_max')
+def debug_execute(max_path, project_name, outdir, history_outdir, if_two_source, cut_time_left, cut_time_right, 
+raw_data_path, if_union, test, auto_max):
+	execute(max_path, project_name, outdir, history_outdir, if_two_source, cut_time_left, cut_time_right, 
+	raw_data_path, if_union, test, auto_max)
 if __name__ == '__main__':
     debug_execute()

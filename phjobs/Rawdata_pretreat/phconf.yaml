@@ -32,6 +32,8 @@ spec:
         value: 'True'
       - key: test
         value: 'False'
+      - key: auto_max
+        value: 'True'
     outputs:
       - key: a
         value: abcde

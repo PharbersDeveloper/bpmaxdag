@@ -13,8 +13,16 @@ from pyspark.sql.functions import pandas_udf, PandasUDFType, udf
 import time
 
 def execute(max_path, project_name, outdir, history_outdir, if_two_source, cut_time_left, cut_time_right, 
-raw_data_path, if_union, test):
+raw_data_path, if_union, test, auto_max):
     os.environ["PYSPARK_PYTHON"] = "python3"
+    
+    if auto_max != "False" and auto_max != "True":
+        phlogger.error('wrong input: auto_max, False or True') 
+        raise ValueError('wrong input: auto_max, False or True')
+        
+    if auto_max == "False":
+        raise ValueError('auto_max: False 非自动化')
+        
     spark = SparkSession.builder \
         .master("yarn") \
         .appName("data from s3") \
@@ -37,6 +45,10 @@ raw_data_path, if_union, test):
     
     
     # 输入
+    if if_two_source != "False" and if_two_source != "True":
+        phlogger.error('wrong input: if_two_source, False or True') 
+        raise ValueError('wrong input: if_two_source, False or True')
+        
     cut_time_left = int(cut_time_left)
     cut_time_right = int(cut_time_right)
     
