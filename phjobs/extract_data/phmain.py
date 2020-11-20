@@ -20,8 +20,11 @@ import click
 @click.option('--project')
 @click.option('--doi')
 @click.option('--molecule_sep')
-def debug_execute(max_path, extract_path, out_path, out_suffix, extract_file, time_left, time_right, molecule, atc, project, doi, molecule_sep):
-	execute(max_path, extract_path, out_path, out_suffix, extract_file, time_left, time_right, molecule, atc, project, doi, molecule_sep)
+@click.option('--data_type')
+def debug_execute(max_path, extract_path, out_path, out_suffix, extract_file, time_left, time_right, molecule, atc, 
+project, doi, molecule_sep, data_type):
+	execute(max_path, extract_path, out_path, out_suffix, extract_file, time_left, time_right, molecule, atc, 
+	project, doi, molecule_sep, data_type)
 
 
 if __name__ == '__main__':

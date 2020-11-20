@@ -4,7 +4,7 @@
 This is job template for Pharbers Max Job
 """
 from ph_logs.ph_logs import phlogger
-from pyspark.sql import SparkSession
+from pyspark.sql import SparkSession, Window
 from pyspark.sql.types import *
 from pyspark.sql.types import StringType, IntegerType, DoubleType
 from pyspark.sql import functions as func
@@ -12,7 +12,8 @@ import os
 from pyspark.sql.functions import pandas_udf, PandasUDFType
 import time
 
-def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_left, time_right, molecule, atc, project, doi, molecule_sep):
+def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_left, time_right, molecule, atc, 
+project, doi, molecule_sep, data_type):
     os.environ["PYSPARK_PYTHON"] = "python3"
     spark = SparkSession.builder \
         .master("yarn") \
@@ -35,36 +36,24 @@ def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_lef
         spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
         
     
-    # 输入文件
-    project_rank_path =  max_path + "/Common_files/extract_data_files/project_rank.csv"
+    # a. 输入
+    if data_type != "max" and data_type != "raw":
+        phlogger.error('wrong input: data_type, max or raw') 
+        raise ValueError('wrong input: data_type, max or raw')
+        
+    if data_type == 'max':
+        extract_path = extract_path + '/max_standard'
+    elif data_type == 'raw':
+        extract_path = extract_path + '/rawdata_standard'
     
-    max_standard_brief_all_path = extract_path + "/max_standard_brief_all"
-    if  extract_file == "Empty":
+    if extract_file == "Empty":
         path_for_extract_path = extract_path + "/path_for_extract.csv"
     else:
         path_for_extract_path = extract_file
     
     if out_suffix == "Empty":
         raise ValueError('out_suffix: missing')
-    
-    # 满足率计算输入文件
-    ims_mapping_path = max_path + "/Common_files/extract_data_files/ims_mapping_202007.csv"
-    ims_sales_path = max_path + "/Common_files/extract_data_files/cn_IMS_Sales_Fdata_202007.csv"
-    molecule_ACT_path = max_path  + "/Common_files/extract_data_files/product_map_all_ATC.csv"
-    packID_ACT_map_path = max_path  + "/Common_files/extract_data_files/packID_ATC_map.csv"
-    
-    # 输出文件
-    timenow = time.strftime("%Y-%m-%d", time.localtime()).replace("-", "_")
-    outdir = "out_" + timenow + "_" + out_suffix
-    out_extract_data_path = out_path + "/" + outdir + "/out_" + timenow + "_" + out_suffix + '.csv'
-    report_a_path = out_path + "/" + outdir + "/report_a.csv"
-    report_b_path = out_path + "/" + outdir + "/report_b.csv"
-    report_c_path = out_path + "/" + outdir + "/report_c.csv"
-    
-    out_tmp_path = out_path + "/" + outdir + "/out_tmp"
-    max_filter_raw_path = out_path + "/" + outdir + "/max_filter_raw_tmp"
-    
-    
+        
     # 提数条件
     time_left = int(time_left)
     time_right = int(time_right)
@@ -92,7 +81,39 @@ def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_lef
     else:
         doi = doi.replace(" ","").split(",")
     
+    # project_rank 文件
+    project_rank_path =  max_path + "/Common_files/extract_data_files/project_rank.csv"
+    
+    # 满足率计算输入文件
+    ims_mapping_path = max_path + "/Common_files/extract_data_files/ims_mapping_202007.csv"
+    ims_sales_path = max_path + "/Common_files/extract_data_files/cn_IMS_Sales_Fdata_202007.csv"
+    molecule_ACT_path = max_path  + "/Common_files/extract_data_files/product_map_all_ATC.csv"
+    packID_ACT_map_path = max_path  + "/Common_files/extract_data_files/packID_ATC_map.csv"
+    
+    # b. 输出
+    timenow = time.strftime("%Y-%m-%d", time.localtime()).replace("-", "_")
+    if data_type == 'raw':
+        outdir = "raw_out_" + timenow + "_" + out_suffix
+    elif data_type == 'max':
+        outdir = "out_" + timenow + "_" + out_suffix
+    out_extract_data_path = out_path + "/" + outdir + "/out_" + timenow + "_" + out_suffix + '.csv'
+    report_a_path = out_path + "/" + outdir + "/report_a.csv"
+    report_b_path = out_path + "/" + outdir + "/report_b.csv"
+    report_c_path = out_path + "/" + outdir + "/report_c.csv"
+    
+    out_tmp_path = out_path + "/" + outdir + "/out_tmp"
+    max_filter_raw_path = out_path + "/" + outdir + "/max_filter_raw_tmp"
+    
     # ================ 数据执行 ==================
+    '''
+    raw 和 max 区别：
+    1. raw：Sales，Units 不处理，就用原始的数据
+    2. report A 去重依据：
+        max：月份数-项目排名
+        raw: 月份数-医院数-项目排名；增加了source来源统计
+    3. 提数结果
+        raw：增加了医院ID，原始医院名，PHA，PHA医院名
+    '''
     
     # 一. 文件准备
     
@@ -138,10 +159,13 @@ def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_lef
         
     # 1. 根据path_for_extract， 合并项目brief，生成max_standard_brief_all
     path_for_extract = spark.read.csv(path_for_extract_path, header=True)
-    path_all = path_for_extract.toPandas()["path"].tolist()
-    path_all_brief = [i + "_brief" for i in path_all]
+    project_all = path_for_extract.toPandas()["project"].tolist()
+    if data_type == 'raw':
+        path_all_brief = [extract_path + '/' + i + "_rawdata_standard_brief" for i in project_all]
+    elif data_type == 'max':
+        path_all_brief = [extract_path + '/' + i + "_max_standard_brief" for i in project_all]
     
-    # "project", "Date", "标准通用名", "ATC", "DOI"
+    # "project", "Date", "标准通用名", "ATC", "DOI"  ("PHA", "Source")
     index = 0
     for eachpath in path_all_brief:
         df = spark.read.parquet(eachpath)
@@ -183,13 +207,50 @@ def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_lef
     report = report.join(months_max, on="标准通用名", how="left")
     report = report.withColumn("drop_for_months", func.when(report.months_num == report.max_month, func.lit(0)).otherwise(func.lit(1)))
     
-    score_max = report.where(report.drop_for_months == 0) \
-                .groupby("标准通用名").agg(func.min("project_score").alias("max_score"))
-                
-    report = report.join(score_max, on="标准通用名", how="left")
-                    
-    report = report.withColumn("drop_for_score", func.when(report.project_score == report.max_score, func.lit(0)).otherwise(func.lit(1)))
-    report = report.withColumn("drop_for_score", func.when(report.drop_for_months == 0, report.drop_for_score).otherwise(None))
+    # 对于raw_data 医院数量作为第二去重条件
+    if data_type == 'raw':
+        # 数据来源
+        Source_window = Window.partitionBy("project", "标准通用名").orderBy(func.col('Source'))
+        rank_window = Window.partitionBy("project", "标准通用名").orderBy(func.col('Source').desc())
+        
+        Source = max_filter_list.select("project", "标准通用名", 'Source').distinct() \
+                                .select("project", "标准通用名",
+                                         func.collect_list(func.col('Source')).over(Source_window).alias('Source'),
+                                         func.rank().over(rank_window).alias('rank')).persist()
+        Source = Source.where(Source.rank == 1).drop('rank')
+        Source = Source.withColumn('Source', func.concat_ws(',', func.col('Source')))
+        
+        report = report.join(Source, on=["project", "标准通用名"], how='left').persist()                                
+        
+        # 医院数统计                    
+        PHA_num = max_filter_list.select("project","project_score","标准通用名", "ATC", "PHA") \
+                            .distinct() \
+                            .groupby(["标准通用名", "ATC", "project","project_score"]).count() \
+                            .withColumnRenamed("count", "PHA_num") \
+                            .persist()
+        report = report.join(PHA_num, on=["标准通用名", "ATC", "project", "project_score"], how="left").persist()
+        
+        # 月份相同的 计算医院数量最大的
+        PHA_num_max = report.where(report.drop_for_months == 0) \
+                    .groupby("标准通用名").agg(func.max("PHA_num").alias("max_PHA_num"))
+        report = report.join(PHA_num_max, on="标准通用名", how="left")
+        
+        report = report.withColumn("drop_for_PHA", func.when(report.PHA_num == report.max_PHA_num, func.lit(0)).otherwise(func.lit(1)))
+        report = report.withColumn("drop_for_PHA", func.when(report.drop_for_months == 0, report.drop_for_PHA).otherwise(None))
+        
+        # 项目得分
+        score_max = report.where(report.drop_for_PHA == 0) \
+                    .groupby("标准通用名").agg(func.min("project_score").alias("max_score"))
+        report = report.join(score_max, on="标准通用名", how="left")
+        report = report.withColumn("drop_for_score", func.when(report.project_score == report.max_score, func.lit(0)).otherwise(func.lit(1)))
+        report = report.withColumn("drop_for_score", func.when(report.drop_for_PHA == 0, report.drop_for_score).otherwise(None))
+    elif data_type == 'max':
+        # 项目得分
+        score_max = report.where(report.drop_for_months == 0) \
+                    .groupby("标准通用名").agg(func.min("project_score").alias("max_score"))
+        report = report.join(score_max, on="标准通用名", how="left")
+        report = report.withColumn("drop_for_score", func.when(report.project_score == report.max_score, func.lit(0)).otherwise(func.lit(1)))
+        report = report.withColumn("drop_for_score", func.when(report.drop_for_months == 0, report.drop_for_score).otherwise(None))
     
     # 时间范围range，最小月-最大月
     time_range = max_filter_list.select("project","标准通用名", "ATC", "Date") \
@@ -202,10 +263,15 @@ def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_lef
     report_a = report.drop("max_score", "max_month") \
                 .join(time_range.drop("min_time", "max_time"), on=["project","标准通用名", "ATC"], how="left")
     # 列名顺序调整
-    report_a = report_a.select("project", "ATC", "标准通用名", "time_range", "months_num", "drop_for_months", "project_score", "drop_for_score") \
-                    .withColumn("flag", func.when(report_a.drop_for_score == 0, func.lit(1)).otherwise(func.lit(None)))
-    report_a = report_a.orderBy(["标准通用名", "months_num", "project_score"], ascending=[0, 0, 1])               
+    if data_type == 'raw':
+        report_a = report_a.select("project", "ATC", "标准通用名", 'Source', "time_range", "months_num", "drop_for_months", 
+                                    "PHA_num", "drop_for_PHA", "project_score", "drop_for_score")
+        report_a = report_a.orderBy(["标准通用名", "months_num", "PHA_num", "project_score"], ascending=[0, 0, 0, 1])
+    else:
+        report_a = report_a.select("project", "ATC", "标准通用名", "time_range", "months_num", "drop_for_months", "project_score", "drop_for_score")
+        report_a = report_a.orderBy(["标准通用名", "months_num", "project_score"], ascending=[0, 0, 1])               
     
+    report_a = report_a.withColumn("flag", func.when(report_a.drop_for_score == 0, func.lit(1)).otherwise(func.lit(None)))
     # 输出report_a            
     report_a = report_a.repartition(1)
     report_a.write.format("csv").option("header", "true") \
@@ -214,7 +280,7 @@ def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_lef
     report_a = spark.read.csv(report_a_path, header=True)
     
     # 根据 report_a 去重
-    max_filter_list = max_filter_list.join(report_a.where(report_a.drop_for_score == 0).select("标准通用名", "project").distinct(), 
+    max_filter_list = max_filter_list.join(report_a.where(report_a.flag == 1).select("标准通用名", "project").distinct(), 
                                     on=["标准通用名", "project"], 
                                     how="inner").persist()
     
@@ -222,8 +288,15 @@ def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_lef
     
     project_Date_list = max_filter_list.select("project", "Date").distinct()
     
-    # 获取要读取的文件路径        
-    max_filter_path = project_Date_list.join(path_for_extract, on="project", how="left")
+    # 获取要读取的文件路径
+    if data_type == 'raw':
+        max_filter_path = project_Date_list.withColumn('path', func.concat(func.lit(extract_path + '/'), 
+                                                        project_Date_list.project, func.lit("_rawdata_standard")))
+    elif data_type == 'max':
+        max_filter_path = project_Date_list.withColumn('path', func.concat(func.lit(extract_path + '/'), 
+                                                        project_Date_list.project, func.lit("_max_standard")))
+                                                        
+    # max_filter_path = project_Date_list.join(path_for_extract, on="project", how="left")
     max_filter_path = max_filter_path.withColumn("path_month", func.concat(max_filter_path.path, func.lit("/Date_copy="), max_filter_path.Date))
     max_filter_path_month = max_filter_path.select("path_month").distinct().toPandas()["path_month"].tolist()
     
@@ -261,49 +334,61 @@ def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_lef
     # 4. 注释项目排名
     max_filter_out = max_filter_raw.join(project_rank, on="project", how="left").persist()
     
-    
     # 5. 原始提数结果
-    max_filter_out = max_filter_out.select("project", "project_score", "Date", "ATC", "标准通用名", "标准商品名", "标准剂型", "标准规格", 
-                    "标准包装数量", "标准生产企业", "标准省份名称", "标准城市名称", "DOI", "Predict_Sales", "Predict_Unit", "PACK_ID")
-    
-    # Sales，Units 处理
-    '''
-    包装数量为空的是others， Sales 或者 Units 可以为0
-    包装数量不为空的，Sales和Units只要有一列为0，那么都调整为0；Units先四舍五入为整数，然后变化的系数乘以Sales获得新的Sales
-    Sales 保留两位小数
-    去掉 Sales，Units 同时为0的行
-    '''
-    max_filter_out = max_filter_out.withColumn("Predict_Sales", max_filter_out["Predict_Sales"].cast(DoubleType())) \
-                            .withColumn("Predict_Unit", max_filter_out["Predict_Unit"].cast(DoubleType()))
-    
-    max_filter_out = max_filter_out.withColumn("Units", func.when((~max_filter_out["标准包装数量"].isNull()) & (max_filter_out.Predict_Unit <= 0), func.lit(0)) \
-                                                                    .otherwise(func.round(max_filter_out.Predict_Unit, 0)))
-                                        
-    max_filter_out = max_filter_out.withColumn("p", max_filter_out.Units/max_filter_out.Predict_Unit)
-    max_filter_out = max_filter_out.withColumn("p", func.when((~max_filter_out["标准包装数量"].isNull()) & (max_filter_out["p"].isNull()), func.lit(0)) \
-                                                        .otherwise(max_filter_out.p))
-    max_filter_out = max_filter_out.withColumn("p", func.when((max_filter_out["标准包装数量"].isNull()) & (max_filter_out["p"].isNull()), func.lit(1)) \
-                                                        .otherwise(max_filter_out.p))
-    
-    max_filter_out = max_filter_out.withColumn("Sales", max_filter_out.Predict_Sales * max_filter_out.p)
-    
-    max_filter_out = max_filter_out.withColumn("Sales", func.round(max_filter_out.Sales, 2)) \
-                                .withColumn("Units", max_filter_out["Units"].cast(IntegerType())) \
-                                .drop("Predict_Unit", "Predict_Sales", "p")
-                                
-    max_filter_out_1 = max_filter_out.where(max_filter_out["标准包装数量"].isNull())
-    max_filter_out_2 = max_filter_out.where((~max_filter_out["标准包装数量"].isNull()) & (max_filter_out.Sales != 0) & (max_filter_out.Units != 0))
-    
-    max_filter_out =  max_filter_out_1.union(max_filter_out_2)   
+    if data_type == 'max':
+        out_cols = ["project", "project_score", "Date", "ATC", "标准通用名", "标准商品名", "标准剂型", "标准规格", 
+                "标准包装数量", "标准生产企业", "标准省份名称", "标准城市名称", "DOI", "PACK_ID", "Predict_Sales", "Predict_Unit"]
+    elif data_type == 'raw':
+        out_cols = ["project", "project_score", "ID", "Raw_Hosp_Name", "PHA", "PHA医院名称" ,"Date", "ATC", "标准通用名", 
+                    "标准商品名", "标准剂型", "标准规格", "标准包装数量", "标准生产企业", "标准省份名称", "标准城市名称", 
+                    "DOI", "PACK_ID", "Sales", "Units", "Units_Box"]
+    max_filter_out = max_filter_out.select(out_cols)
+                    
+    if data_type == 'max':
+        # Sales，Units 处理
+        '''
+        包装数量为空的是others， Sales 或者 Units 可以为0
+        包装数量不为空的，Sales和Units只要有一列为0，那么都调整为0；Units先四舍五入为整数，然后变化的系数乘以Sales获得新的Sales
+        Sales 保留两位小数
+        去掉 Sales，Units 同时为0的行
+        '''
+        max_filter_out = max_filter_out.withColumn("Predict_Sales", max_filter_out["Predict_Sales"].cast(DoubleType())) \
+                                .withColumn("Predict_Unit", max_filter_out["Predict_Unit"].cast(DoubleType()))
+        
+        max_filter_out = max_filter_out.withColumn("Units", func.when((~max_filter_out["标准包装数量"].isNull()) & (max_filter_out.Predict_Unit <= 0), func.lit(0)) \
+                                                                        .otherwise(func.round(max_filter_out.Predict_Unit, 0)))
+                                            
+        max_filter_out = max_filter_out.withColumn("p", max_filter_out.Units/max_filter_out.Predict_Unit)
+        max_filter_out = max_filter_out.withColumn("p", func.when((~max_filter_out["标准包装数量"].isNull()) & (max_filter_out["p"].isNull()), func.lit(0)) \
+                                                            .otherwise(max_filter_out.p))
+        max_filter_out = max_filter_out.withColumn("p", func.when((max_filter_out["标准包装数量"].isNull()) & (max_filter_out["p"].isNull()), func.lit(1)) \
+                                                            .otherwise(max_filter_out.p))
+        
+        max_filter_out = max_filter_out.withColumn("Sales", max_filter_out.Predict_Sales * max_filter_out.p)
+        
+        max_filter_out = max_filter_out.withColumn("Sales", func.round(max_filter_out.Sales, 2)) \
+                                    .withColumn("Units", max_filter_out["Units"].cast(IntegerType())) \
+                                    .drop("Predict_Unit", "Predict_Sales", "p")
+                                    
+        max_filter_out_1 = max_filter_out.where(max_filter_out["标准包装数量"].isNull())
+        max_filter_out_2 = max_filter_out.where((~max_filter_out["标准包装数量"].isNull()) & (max_filter_out.Sales != 0) & (max_filter_out.Units != 0))
+        
+        max_filter_out =  max_filter_out_1.union(max_filter_out_2)   
     
     # 根据 report_a 去重
-    out_extract_data = max_filter_out.join(report_a.where(report_a.drop_for_score == 0).select("标准通用名", "project").distinct(), 
+    out_extract_data = max_filter_out.join(report_a.where(report_a.flag == 1).select("标准通用名", "project").distinct(), 
                                     on=["标准通用名", "project"], 
                                     how="inner").persist()
-    
-    # 输出提数结果                                    
-    out_extract_data_final = out_extract_data.select("project", "project_score", "Date", "ATC", "标准通用名", "标准商品名", "标准剂型", 
-                                    "标准规格", "标准包装数量", "标准生产企业", "标准省份名称", "标准城市名称", "PACK_ID", "Sales", "Units")
+
+    # 输出提数结果
+    if data_type == 'max':
+        out_cols = ["project", "project_score", "Date", "ATC", "标准通用名", "标准商品名", "标准剂型", "标准规格", 
+                    "标准包装数量", "标准生产企业", "标准省份名称", "标准城市名称", "PACK_ID", "Sales", "Units"]
+    elif data_type == 'raw':
+        out_cols = ["project", "project_score", "ID", "Raw_Hosp_Name", "PHA", "PHA医院名称" ,"Date", "ATC", "标准通用名", "标准商品名", "标准剂型", "标准规格", 
+                    "标准包装数量", "标准生产企业", "标准省份名称", "标准城市名称", "PACK_ID", "Sales", "Units", "Units_Box"]
+                    
+    out_extract_data_final = out_extract_data.select(out_cols)
     out_extract_data_final = out_extract_data_final.repartition(1)
     out_extract_data_final.write.format("csv").option("header", "true") \
         .mode("overwrite").save(out_extract_data_path)
@@ -360,4 +445,4 @@ def execute(max_path, extract_path, out_path, out_suffix, extract_file, time_lef
     report_c = report_c.repartition(1)
     report_c.write.format("csv").option("header", "true") \
         .mode("overwrite").save(report_c_path)
-        
+    
