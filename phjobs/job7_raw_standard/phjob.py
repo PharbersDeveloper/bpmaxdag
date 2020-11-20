@@ -284,7 +284,14 @@ def execute(max_path, extract_path, project_name, if_two_source, out_dir, minimu
                             on=["标准省份名称", "City"], how="left")
     
     # 全量结果汇总
-    raw_data_standard = data_standard.select(raw_data.columns + ["DOI", "标准通用名", "标准商品名", "标准剂型", "标准规格", 
+    std_names = ["Date", "ID", "Raw_Hosp_Name", "Brand", "Form", "Specifications", "Pack_Number", "Manufacturer", "Molecule",
+             "Source", "Sales", "Units", "Units_Box", "PHA", "PHA医院名称", "Province", "City", "min1"]
+    if "Raw_Hosp_Name" not in data_standard.columns:
+        data_standard = data_standard.withColumn("Raw_Hosp_Name", func.lit("null"))
+    if "Units_Box" not in data_standard.columns:
+        data_standard = data_standard.withColumn("Units_Box", func.lit("null"))
+        
+    raw_data_standard = data_standard.select(std_names + ["DOI", "标准通用名", "标准商品名", "标准剂型", "标准规格", 
     	"标准包装数量", "标准生产企业", "标准省份名称", "标准城市名称", "PACK_ID", "ATC", "project"])
     	
     raw_data_standard = raw_data_standard.withColumn("Date_copy", raw_data_standard.Date)
