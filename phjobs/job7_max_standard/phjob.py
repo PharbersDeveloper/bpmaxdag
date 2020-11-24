@@ -182,6 +182,8 @@ def execute(max_path, extract_path, project_name, max_path_list, out_dir):
     
     # 5. 汇总max_result_path结果，并进行mapping                
     max_result_path_list = spark.read.csv(max_result_path_list_path, header=True)
+    max_result_path_list = max_result_path_list.withColumn('time_left', max_result_path_list.time_left.cast(IntegerType())) \
+                                            .withColumn('time_right', max_result_path_list.time_right.cast(IntegerType()))
     max_result_path_list = max_result_path_list.toPandas()
     
     # 储存时间
@@ -231,21 +233,22 @@ def execute(max_path, extract_path, project_name, max_path_list, out_dir):
         ATC4_1 和 MOLE_NAME_CH_1 来自 master 有 pack_id 匹配得到 ; ATC4_2 和 MOLE_NAME_CH_2 来自 molecule_ACT_map 
         '''
         # A10C/D/E是胰岛素, 通用名和公司名用master, 其他信息用product_map
-        max_standard_yidaosu = max_standard.where(func.substring(max_standard.ATC4_1, 0, 4).isin(['A10C', 'A10D', 'A10E'])) \
+        max_standard = max_standard.withColumn("ATC", func.when(max_standard["ATC4_1"].isNull(), max_standard["ATC4_2"]) \
+                                                .otherwise(max_standard["ATC4_1"]))
+                                                
+        max_standard_yidaosu = max_standard.where(func.substring(max_standard.ATC, 0, 4).isin(['A10C', 'A10D', 'A10E'])) \
                                 .withColumn("PROD_NAME_CH", max_standard['标准商品名']) \
                                 .withColumn("DOSAGE", max_standard['标准剂型']) \
                                 .withColumn("SPEC", max_standard['标准规格']) \
                                 .withColumn("PACK", max_standard['标准包装数量'])
         
-        max_standard_others = max_standard.where(~func.substring(max_standard.ATC4_1, 0, 4).isin(['A10C', 'A10D', 'A10E']))
+        max_standard_others = max_standard.where((~func.substring(max_standard.ATC, 0, 4).isin(['A10C', 'A10D', 'A10E'])) | max_standard.ATC.isNull())
         
         # 合并 max_standard_yidaosu 和 max_standard_others
         max_standard = max_standard_others.union(max_standard_yidaosu.select(max_standard_others.columns))
         
         # master 匹配不上的(ATC4_1是null)c用 molecule_ACT_map 和 product_map 信息
-        max_standard = max_standard.withColumn("ATC", func.when(max_standard["ATC4_1"].isNull(), max_standard["ATC4_2"]) \
-                                                .otherwise(max_standard["ATC4_1"])) \
-                                .withColumn("标准通用名", func.when(max_standard["MOLE_NAME_CH_1"].isNull(), max_standard["MOLE_NAME_CH_2"]) \
+        max_standard = max_standard.withColumn("标准通用名", func.when(max_standard["MOLE_NAME_CH_1"].isNull(), max_standard["MOLE_NAME_CH_2"]) \
                                                 .otherwise(max_standard["MOLE_NAME_CH_1"])) \
                                 .withColumn("标准商品名", func.when(max_standard["ATC4_1"].isNull(), max_standard["标准商品名"]) \
                                                 .otherwise(max_standard["PROD_NAME_CH"])) \

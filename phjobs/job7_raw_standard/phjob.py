@@ -221,6 +221,9 @@ def execute(max_path, extract_path, project_name, if_two_source, out_dir, minimu
     # 三. 标准化raw_data
     
     # 2. product_map 匹配 min2 ：获得 PACK_ID, 通用名, 标准商品名, 标准剂型, 标准规格, 标准包装数量, 标准生产企业
+    if project_name == "Mylan":
+        product_map = product_map.drop('PACK_ID')
+        raw_data = raw_data.withColumnRenamed('Pack_ID', 'PACK_ID')
     data_standard = raw_data.join(product_map, on='min1', how="left")
     
     # 市场名匹配
@@ -243,21 +246,22 @@ def execute(max_path, extract_path, project_name, if_two_source, out_dir, minimu
     ATC4_1 和 MOLE_NAME_CH_1 来自 master 有 pack_id 匹配得到 ; ATC4_2 和 MOLE_NAME_CH_2 来自 molecule_ACT_map 
     '''
     # A10C/D/E是胰岛素, 通用名和公司名用master, 其他信息用product_map
-    data_standard_yidaosu = data_standard.where(func.substring(data_standard.ATC4_1, 0, 4).isin(['A10C', 'A10D', 'A10E'])) \
+    data_standard = data_standard.withColumn("ATC", func.when(data_standard["ATC4_1"].isNull(), data_standard["ATC4_2"]) \
+                                            .otherwise(data_standard["ATC4_1"]))
+                                            
+    data_standard_yidaosu = data_standard.where(func.substring(data_standard.ATC, 0, 4).isin(['A10C', 'A10D', 'A10E'])) \
                             .withColumn("PROD_NAME_CH", data_standard['标准商品名']) \
                             .withColumn("DOSAGE", data_standard['标准剂型']) \
                             .withColumn("SPEC", data_standard['标准规格']) \
                             .withColumn("PACK", data_standard['标准包装数量'])
     
-    data_standard_others = data_standard.where(~func.substring(data_standard.ATC4_1, 0, 4).isin(['A10C', 'A10D', 'A10E']))
+    data_standard_others = data_standard.where((~func.substring(data_standard.ATC, 0, 4).isin(['A10C', 'A10D', 'A10E'])) | data_standard.ATC.isNull())
     
     # 合并 max_standard_yidaosu 和 max_standard_others
     data_standard = data_standard_others.union(data_standard_yidaosu.select(data_standard_others.columns))
     
     # master 匹配不上的(ATC4_1是null) 用 molecule_ACT_map 和 product_map 信息
-    data_standard = data_standard.withColumn("ATC", func.when(data_standard["ATC4_1"].isNull(), data_standard["ATC4_2"]) \
-                                            .otherwise(data_standard["ATC4_1"])) \
-                            .withColumn("标准通用名", func.when(data_standard["MOLE_NAME_CH_1"].isNull(), data_standard["MOLE_NAME_CH_2"]) \
+    data_standard = data_standard.withColumn("标准通用名", func.when(data_standard["MOLE_NAME_CH_1"].isNull(), data_standard["MOLE_NAME_CH_2"]) \
                                             .otherwise(data_standard["MOLE_NAME_CH_1"])) \
                             .withColumn("标准商品名", func.when(data_standard["ATC4_1"].isNull(), data_standard["标准商品名"]) \
                                             .otherwise(data_standard["PROD_NAME_CH"])) \
