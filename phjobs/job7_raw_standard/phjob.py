@@ -66,7 +66,6 @@ def execute(max_path, extract_path, project_name, if_two_source, out_dir, minimu
     master_data_map_path = max_path  + "/Common_files/extract_data_files/master_data_map.csv"
     
     # 输出
-    extract_path = "s3a://ph-stream/common/public/max_result/0.0.5/rawdata_standard"
     raw_data_standard_path = extract_path + "/" + project_name + "_rawdata_standard"
     raw_data_standard_brief_path = extract_path + "/" + project_name + "_rawdata_standard_brief"
     
