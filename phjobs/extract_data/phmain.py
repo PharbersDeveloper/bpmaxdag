@@ -8,6 +8,7 @@ import click
 
 
 @click.command()
+@click.option('--job_id')
 @click.option('--max_path')
 @click.option('--extract_path')
 @click.option('--out_path')
@@ -21,7 +22,9 @@ import click
 @click.option('--doi')
 @click.option('--molecule_sep')
 @click.option('--data_type')
-def debug_execute(max_path, extract_path, out_path, out_suffix, extract_file, time_left, time_right, molecule, atc, 
+@click.option('--a')
+@click.option('--b')
+def debug_execute(job_id, a, b, max_path, extract_path, out_path, out_suffix, extract_file, time_left, time_right, molecule, atc, 
 project, doi, molecule_sep, data_type):
 	execute(max_path, extract_path, out_path, out_suffix, extract_file, time_left, time_right, molecule, atc, 
 	project, doi, molecule_sep, data_type)

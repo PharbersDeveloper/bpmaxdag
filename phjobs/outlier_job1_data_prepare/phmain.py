@@ -8,6 +8,7 @@ import click
 
 
 @click.command()
+@click.option('--job_id')
 @click.option('--max_path')
 @click.option('--project_name')
 @click.option('--out_path')
@@ -19,8 +20,10 @@ import click
 @click.option('--model_month_left')
 @click.option('--model_month_right')
 @click.option('--arg_year')
+@click.option('--a')
+@click.option('--b')
 
-def debug_execute(max_path, project_name, out_path, out_dir, panel_path, universe_path, doi, product_input, model_month_left, model_month_right, arg_year):
+def debug_execute(job_id, a, b, max_path, project_name, out_path, out_dir, panel_path, universe_path, doi, product_input, model_month_left, model_month_right, arg_year):
 	execute(max_path, project_name, out_path, out_dir, panel_path, universe_path, doi, product_input, model_month_left, model_month_right, arg_year)
 
 

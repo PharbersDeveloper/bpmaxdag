@@ -3,6 +3,7 @@ import click
 
 
 @click.command()
+@click.option('--job_id')
 @click.option('--max_path')
 @click.option('--project_name')
 @click.option('--minimum_product_columns')
@@ -13,7 +14,9 @@ import click
 @click.option('--out_path')
 @click.option('--out_dir')
 @click.option('--need_test')
-def debug_execute(max_path, project_name, minimum_product_columns, minimum_product_sep, minimum_product_newname, need_cleaning_cols, if_others, out_path, out_dir, need_test):
+@click.option('--a')
+@click.option('--b')
+def debug_execute(job_id, a, b, max_path, project_name, minimum_product_columns, minimum_product_sep, minimum_product_newname, need_cleaning_cols, if_others, out_path, out_dir, need_test):
     execute(max_path, project_name, minimum_product_columns, minimum_product_sep, minimum_product_newname, need_cleaning_cols, if_others, out_path, out_dir, need_test)
 
 
