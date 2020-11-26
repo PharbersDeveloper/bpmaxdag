@@ -231,7 +231,8 @@ raw_data_path, if_union, test, auto_max):
     # 4. 与历史数据合并
     if if_union == 'True':
         history_raw_data = spark.read.parquet(history_raw_data_path)
-        history_raw_data = history_raw_data.withColumn('Corp', history_raw_data.Corp.cast(StringType()))
+        if 'Corp' in history_raw_data.columns:
+            history_raw_data = history_raw_data.withColumn('Corp', history_raw_data.Corp.cast(StringType()))
         history_raw_data = history_raw_data.withColumn('Date', history_raw_data.Date.cast(IntegerType()))
         history_raw_data = history_raw_data.where(history_raw_data.Date < cut_time_left)
         
@@ -247,7 +248,8 @@ raw_data_path, if_union, test, auto_max):
             
         if if_two_source == 'True':
             history_raw_data_std = spark.read.parquet(history_raw_data_std_path)
-            history_raw_data_std = history_raw_data_std.withColumn('Corp', history_raw_data_std.Corp.cast(StringType()))
+            if 'Corp' in history_raw_data_std.columns:
+                history_raw_data_std = history_raw_data_std.withColumn('Corp', history_raw_data_std.Corp.cast(StringType()))
             history_raw_data_std = history_raw_data_std.withColumn('Date', history_raw_data_std.Date.cast(IntegerType()))
             history_raw_data_std = history_raw_data_std.where(history_raw_data_std.Date < cut_time_left)
             
