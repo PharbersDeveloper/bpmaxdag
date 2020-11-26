@@ -5,14 +5,14 @@ This is job template for Pharbers Max Job
 """
 
 from ph_logs.ph_logs import phlogger
-from pyspark.sql import SparkSession
+from pyspark.sql import SparkSession, Window
 from pyspark.sql.types import *
 from pyspark.sql.types import StringType, IntegerType, DoubleType
 from pyspark.sql import functions as func
 import os
 from pyspark.sql.functions import pandas_udf, PandasUDFType
 
-def execute(extract_path, extract_file, update_max):
+def execute(extract_path, extract_file, data_type):
     os.environ["PYSPARK_PYTHON"] = "python3"
     spark = SparkSession.builder \
         .master("yarn") \
@@ -51,9 +51,18 @@ def execute(extract_path, extract_file, update_max):
     else:
         path_for_extract_path = extract_file
     
+    project_rank_path =  "s3a://ph-max-auto/v0.0.1-2020-06-08/" + "/Common_files/extract_data_files/project_rank.csv"
+    
     # 输出
-    max_standard_brief_all_path = extract_path + "/max_standard_brief_all"
+    max_standard_brief_all_path = extract_path + "/max_standard_brief_all.csv"
     report_a_path = extract_path + "/all_report_a.csv"
+    
+    # =============== 数据执行 =============
+    
+    project_rank = spark.read.csv(project_rank_path, header=True)
+    project_rank = project_rank.withColumnRenamed("项目", "project") \
+                        .withColumn("排名", project_rank["排名"].cast(IntegerType())) \
+                        .withColumnRenamed("排名", "project_score")
 
     # 二. 根据 max_standard_brief_all 确定最终提数来源
         
@@ -75,15 +84,16 @@ def execute(extract_path, extract_file, update_max):
             max_standard_brief_all = max_standard_brief_all.union(df)
         index += 1
         
-    '''    
-    max_standard_brief_all = max_standard_brief_all.repartition(2)
-    max_standard_brief_all.write.format("parquet") \
+
+    max_standard_brief_all = max_standard_brief_all.repartition(1)
+    max_standard_brief_all.write.format("csv").option("header", "true") \
         .mode("overwrite").save(max_standard_brief_all_path)
-    '''
+
+
     
     # 2. 根据提数需求获取 max_filter_path_month
     # 筛选,获取符合条件的项目和月份
-    max_filter_list = max_standard_brief_all.where((max_standard_brief_all.Date >= time_left) & (max_standard_brief_all.Date <= time_right))
+    max_filter_list = max_standard_brief_all
     if project:
         max_filter_list = max_filter_list.where(max_filter_list.project.isin(project))
     if doi:

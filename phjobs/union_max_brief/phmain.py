@@ -8,11 +8,14 @@ import click
 
 
 @click.command()
+@click.option('--job_id')
 @click.option('--extract_path')
 @click.option('--extract_file')
-@click.option('--update_max')
-def debug_execute(extract_path, extract_file, update_max):
-	execute(extract_path, extract_file, update_max)
+@click.option('--data_type')
+@click.option('--a')
+@click.option('--b')
+def debug_execute(job_id, a, b, extract_path, extract_file, data_type):
+	execute(extract_path, extract_file, data_type)
 
 
 if __name__ == '__main__':

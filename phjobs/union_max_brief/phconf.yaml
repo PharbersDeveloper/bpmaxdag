@@ -16,8 +16,8 @@ spec:
         value: "s3a://ph-stream/common/public/max_result/0.0.5/"
       - key: extract_file
         value: "Empty"
-      - key: update_max
-        value: "False"
+      - key: data_type
+        value: "raw"
     outputs:
       - key: a
         value: abcde
