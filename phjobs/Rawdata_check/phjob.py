@@ -91,20 +91,23 @@ three, twelve, test):
     Raw_data = Raw_data.withColumn('Date', Raw_data['Date'].cast(IntegerType())) \
                     .withColumn('Units', Raw_data['Units'].cast(DoubleType())) \
                     .withColumn('Sales', Raw_data['Sales'].cast(DoubleType()))
+    if 'Pack_ID' in Raw_data.columns:
+        Raw_data = Raw_data.drop('Pack_ID')
     
     # 生成min1
-    Raw_data = Raw_data.withColumn('Brand_bak', Raw_data.Brand)
-    Raw_data = Raw_data.withColumn('Brand', func.when((Raw_data.Brand.isNull()) | (Raw_data.Brand == 'NA'), Raw_data.Molecule).
-                                                otherwise(Raw_data.Brand))
-    Raw_data = Raw_data.withColumn("min1", func.when(Raw_data[minimum_product_columns[0]].isNull(), func.lit("NA")).
-                                       otherwise(Raw_data[minimum_product_columns[0]]))
-    for col in minimum_product_columns[1:]:
-        Raw_data = Raw_data.withColumn(col, Raw_data[col].cast(StringType()))
-        Raw_data = Raw_data.withColumn("min1", func.concat(
-            Raw_data["min1"],
-            func.lit(minimum_product_sep),
-            func.when(func.isnull(Raw_data[col]), func.lit("NA")).otherwise(Raw_data[col])))
-    Raw_data = Raw_data.withColumn('Brand', Raw_data.Brand_bak).drop('Brand_bak')
+    if project_name != 'Mylan':
+        Raw_data = Raw_data.withColumn('Brand_bak', Raw_data.Brand)
+        Raw_data = Raw_data.withColumn('Brand', func.when((Raw_data.Brand.isNull()) | (Raw_data.Brand == 'NA'), Raw_data.Molecule).
+                                                    otherwise(Raw_data.Brand))
+        Raw_data = Raw_data.withColumn("min1", func.when(Raw_data[minimum_product_columns[0]].isNull(), func.lit("NA")).
+                                           otherwise(Raw_data[minimum_product_columns[0]]))
+        for col in minimum_product_columns[1:]:
+            Raw_data = Raw_data.withColumn(col, Raw_data[col].cast(StringType()))
+            Raw_data = Raw_data.withColumn("min1", func.concat(
+                Raw_data["min1"],
+                func.lit(minimum_product_sep),
+                func.when(func.isnull(Raw_data[col]), func.lit("NA")).otherwise(Raw_data[col])))
+        Raw_data = Raw_data.withColumn('Brand', Raw_data.Brand_bak).drop('Brand_bak')
     
     # 产品匹配表处理 
     product_map = spark.read.parquet(product_map_path)

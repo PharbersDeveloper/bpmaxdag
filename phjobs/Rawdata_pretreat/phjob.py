@@ -69,6 +69,10 @@ raw_data_path, if_union, test, auto_max):
     std_names = ["Date", "ID", "Raw_Hosp_Name", "Brand", "Form", "Specifications", "Pack_Number", "Manufacturer", 
     "Molecule", "Source", "Corp", "Route", "ORG_Measure"]
     
+    if project_name == 'Mylan':
+        std_names = ["Date", "ID", "Raw_Hosp_Name", "Brand", "Form", "Specifications", "Pack_Number", "Manufacturer", 
+        "Molecule", "Source", "Corp", "Route", "ORG_Measure", "min1", "Pack_ID"]
+
     # 输出
     same_sheet_dup_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_check/same_sheet_dup.csv'
     across_sheet_dup_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_check/across_sheet_dup.csv'
@@ -90,7 +94,11 @@ raw_data_path, if_union, test, auto_max):
     
     # =============  数据执行 ==============
     raw_data = spark.read.csv(raw_data_path, header=True)
-    
+    if 'Corp' not in raw_data.columns:
+        raw_data = raw_data.withColumn('Corp', func.lit(''))
+    if 'Route' not in raw_data.columns:
+        raw_data = raw_data.withColumn('Route', func.lit(''))
+        
     # 1. 同sheet去重(两行完全一样的)
     raw_data = raw_data.groupby(raw_data.columns).count()
     same_sheet_dup = raw_data.where(raw_data['count'] > 1)
@@ -231,8 +239,12 @@ raw_data_path, if_union, test, auto_max):
     # 4. 与历史数据合并
     if if_union == 'True':
         history_raw_data = spark.read.parquet(history_raw_data_path)
-        if 'Corp' in history_raw_data.columns:
-            history_raw_data = history_raw_data.withColumn('Corp', history_raw_data.Corp.cast(StringType()))
+        if 'Corp' not in history_raw_data.columns:
+            history_raw_data = history_raw_data.withColumn('Corp', func.lit(''))
+        if 'Route' not in history_raw_data.columns:
+            history_raw_data = history_raw_data.withColumn('Route', func.lit(''))
+            
+        history_raw_data = history_raw_data.withColumn('Corp', history_raw_data.Corp.cast(StringType()))
         history_raw_data = history_raw_data.withColumn('Date', history_raw_data.Date.cast(IntegerType()))
         history_raw_data = history_raw_data.where(history_raw_data.Date < cut_time_left)
         
