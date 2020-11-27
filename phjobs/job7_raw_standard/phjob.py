@@ -36,12 +36,11 @@ def execute(max_path, extract_path, project_name, if_two_source, out_dir, minimu
     # 输入
     '''
     max_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/"
-    #project_name = "Gilead"
-    #if_two_source = "True"
-    project_name = "Servier"
-    if_two_source = "False"
+    extract_path = "s3a://ph-stream/common/public/max_result/0.0.5/rawdata_standard"
+    project_name = "Gilead"
+    if_two_source = "True"
     out_dir = "202008"
-    minimum_product_sep = 'kong'
+    minimum_product_sep = "|"
     minimum_product_columns = "Brand, Form, Specifications, Pack_Number, Manufacturer"
     '''
     
@@ -290,9 +289,16 @@ def execute(max_path, extract_path, project_name, if_two_source, out_dir, minimu
     std_names = ["Date", "ID", "Raw_Hosp_Name", "Brand", "Form", "Specifications", "Pack_Number", "Manufacturer", "Molecule",
              "Source", "Sales", "Units", "Units_Box", "PHA", "PHA医院名称", "Province", "City", "min1"]
     if "Raw_Hosp_Name" not in data_standard.columns:
-        data_standard = data_standard.withColumn("Raw_Hosp_Name", func.lit("null"))
+        data_standard = data_standard.withColumn("Raw_Hosp_Name", func.lit("0"))
     if "Units_Box" not in data_standard.columns:
-        data_standard = data_standard.withColumn("Units_Box", func.lit("null"))
+        data_standard = data_standard.withColumn("Units_Box", func.lit(0))
+        
+    # 有的项目Raw_Hosp_Name全都为null，会在提数中间结果写出再读取时引起报错
+    data_standard = data_standard.withColumn("Raw_Hosp_Name", func.when(data_standard.Raw_Hosp_Name.isNull(), func.lit("0")) \
+                                                                    .otherwise(data_standard.Raw_Hosp_Name))
+    
+    for each in data_standard.columns:                                                                
+        data_standard = data_standard.withColumn(each, data_standard[each].cast(StringType()))
         
     raw_data_standard = data_standard.select(std_names + ["DOI", "标准通用名", "标准商品名", "标准剂型", "标准规格", 
     	"标准包装数量", "标准生产企业", "标准省份名称", "标准城市名称", "PACK_ID", "ATC", "project"])
