@@ -29,6 +29,14 @@ def execute(**kwargs):
     dimensions_path = kwargs['dimensions_path']
     if dimensions_path == u'default':
         raise Exception("Invalid dimensions_path!", dimensions_path)
+    cleancube_result_path = kwargs['cleancube_result_path']
+    if cleancube_result_path == u'default':
+        raise Exception("Invalid cleancube_result_path!", cleancube_result_path)
+    logger.info("cleancube_result_path is {}.".format(cleancube_result_path))
+
+    cleancube_result_metadata_path = "metadata".join(cleancube_result_path.rsplit('content', 1))
+    logger.info("cleancube_result_metadata_path is {}.".format(cleancube_result_metadata_path))
+
     lattices_bucket_content_path = kwargs['lattices_bucket_content_path']
     if lattices_bucket_content_path == u'default':
         raise Exception("Invalid lattices_bucket_content_path!", lattices_bucket_content_path)
@@ -104,10 +112,9 @@ def execute(**kwargs):
             StructField("LATTLES", ArrayType(StringType()))
         ])
 
-    # years = [2018, 2019]
-    # months = range(1, 13)
-    years = eval(kwargs['years'])
-    months = range(1, 13)
+    metadata = spark.read.parquet(cleancube_result_metadata_path)
+    years = metadata.select("YEAR").rdd.flatMap(lambda x: x).collect()
+    months = metadata.select("MONTH").rdd.flatMap(lambda x: x).collect()
 
     dim = spark.read.parquet(dimensions_path) \
             .repartition(1).withColumn("LEVEL", monotonically_increasing_id())

@@ -1,0 +1,73 @@
+cleanextractdata_start
+{
+	"version": "2020-08-11",
+  "lattices_path": "s3://ph-max-auto/2020-08-11/cube/jobs/runId_29fac39b-88b4-4d45-ac72-bcc00b42a177/metacube/jobId_b5d02fa5-a036-421d-8dcf-f5b3c0153813/meta/lattices",
+	"max_result_path__NHWA": "s3a://ph-max-auto/2020-08-11/cube/jobs/runId_29fac39b-88b4-4d45-ac72-bcc00b42a177/extract_data/jobId_9d2bddb2-7808-4e9f-82e7-bb102b2adaa0/content/out_2020_11_12_test/out_2020_11_12_test.csv",
+	"max_result_path__Beida": "s3a://ph-max-auto/2020-08-11/cube/jobs/runId_29fac39b-88b4-4d45-ac72-bcc00b42a177/extract_data/jobId_ff2551d7-a9fc-4ef0-83e3-950253d69f53/content/out_2020_11_12_test/out_2020_11_12_test.csv",
+	"start": "201801",
+	"end": "201912"
+}
+
+lattices_start
+{
+	"version": "2020-08-11",
+  "lattices_path": "s3a://ph-max-auto/2020-08-11/cube/jobs/runId_29fac39b-88b4-4d45-ac72-bcc00b42a177/metacube/jobId_b5d02fa5-a036-421d-8dcf-f5b3c0153813/meta/lattices",
+	"cleancube_result_path__NHWA": "s3a://ph-max-auto/2020-08-11/cube/jobs/runId_01db5914-2f05-4663-8092-523061eab952/cleanextractdata/jobId_1f30dfa2-3af0-4208-9f55-dd1206930b8c/content",
+	"cleancube_result_path__Beida": "s3a://ph-max-auto/2020-08-11/cube/jobs/runId_01db5914-2f05-4663-8092-523061eab952/cleanextractdata/jobId_cef10b5b-5863-4bb5-8e7b-fa6dc2b28a97/content"
+}
+
+bucketlattices_start
+{
+	"version": "2020-08-11",
+  "lattices_content_path__NHWA": "s3a://ph-max-auto/2020-08-11/cube/jobs/runId_1a37be36-9d89-44c7-9f6e-2413fd38e48e/lattices/jobId_e2d0f9ed-d409-4005-ba0c-68233f772828/content",
+	"lattices_content_path__Beida": "s3a://ph-max-auto/2020-08-11/cube/jobs/runId_1a37be36-9d89-44c7-9f6e-2413fd38e48e/lattices/jobId_dfa66d9f-f07a-4aa3-9e54-9cda01232811/content"
+}
+
+latticesresult
+{
+	"version": "2020-08-11",
+	"lattices_path": "s3a://ph-max-auto/2020-08-11/cube/jobs/runId_29fac39b-88b4-4d45-ac72-bcc00b42a177/metacube/jobId_b5d02fa5-a036-421d-8dcf-f5b3c0153813/meta/lattices",
+	"dimensions_path": "s3a://ph-max-auto/2020-08-11/cube/jobs/runId_29fac39b-88b4-4d45-ac72-bcc00b42a177/metacube/jobId_b5d02fa5-a036-421d-8dcf-f5b3c0153813/meta/dimensions",
+  "lattices_bucket_content_path__NHWA": "s3a://ph-max-auto/2020-08-11/cube/jobs/runId_d1a5db0d-9d1b-40a4-a712-bebebb2457b0/bucketlattices/jobId_b14c25c9-9d6d-4fc0-a19c-aaa1b07981a7/content",
+	"lattices_bucket_content_path__Beida": "s3a://ph-max-auto/2020-08-11/cube/jobs/runId_d1a5db0d-9d1b-40a4-a712-bebebb2457b0/bucketlattices/jobId_e64b71f6-6403-46e1-a033-df6a0c179d2b/content"
+}
+{
+	"version": "2020-08-11",
+	"lattices_path": "s3a://ph-max-auto/2020-08-11/cube/jobs/runId_b1a82fdc-77b1-4660-8133-50c5336d4937/metacube/jobId_99c3da0c-9b1d-4b1a-9e0f-f86a282b9ec0/meta/lattices",
+	"dimensions_path": "s3a://ph-max-auto/2020-08-11/cube/jobs/runId_b1a82fdc-77b1-4660-8133-50c5336d4937/metacube/jobId_99c3da0c-9b1d-4b1a-9e0f-f86a282b9ec0/meta/dimensions",
+  "cleancube_result_path__Huiyu": "s3a://ph-max-auto/2020-08-11/cube/jobs/runId_b1a82fdc-77b1-4660-8133-50c5336d4937/cleanextractdata/jobId_37c5bff1-5d1d-42de-b22e-1feff7ab9a9c/content",
+	"lattices_bucket_content_path__Huiyu": "s3a://ph-max-auto/2020-08-11/cube/jobs/runId_b1a82fdc-77b1-4660-8133-50c5336d4937/bucketlattices/jobId_353baa02-f410-40a5-a1bb-204b89d0625d/content",
+  "cleancube_result_path__Mylan": "s3a://ph-max-auto/2020-08-11/cube/jobs/runId_b1a82fdc-77b1-4660-8133-50c5336d4937/cleanextractdata/jobId_18bf8b63-e4fa-43f6-b886-2bce48366146/content",
+	"lattices_bucket_content_path__Mylan": "s3a://ph-max-auto/2020-08-11/cube/jobs/runId_b1a82fdc-77b1-4660-8133-50c5336d4937/bucketlattices/jobId_41ed2e52-095b-4985-adf2-8921a6a5a3b9/content",
+  "cleancube_result_path__Sankyo": "s3a://ph-max-auto/2020-08-11/cube/jobs/runId_b1a82fdc-77b1-4660-8133-50c5336d4937/cleanextractdata/jobId_e9a8019b-21bf-4886-bbc2-f763afe393e1/content",
+	"lattices_bucket_content_path__Sankyo": "s3a://ph-max-auto/2020-08-11/cube/jobs/runId_b1a82fdc-77b1-4660-8133-50c5336d4937/bucketlattices/jobId_87c3d832-e1c5-45ac-b210-46ec1f0e0cc1/content"
+}
+
+finalresult
+{
+	"version": "2020-08-11",
+	"dimensions_path": "s3a://ph-max-auto/2020-08-11/cube/jobs/runId_29fac39b-88b4-4d45-ac72-bcc00b42a177/metacube/jobId_b5d02fa5-a036-421d-8dcf-f5b3c0153813/meta/dimensions",
+  "lattices_result_path__NHWA": "s3a://ph-max-auto/2020-08-11/cube/jobs/runId_8c062193-a9d8-4b4b-9acf-96427a52d347/latticesresult/jobId_352239d7-9761-422a-badd-75d4dc7f6dd5/content",
+	"lattices_result_path__Beida": "s3a://ph-max-auto/2020-08-11/cube/jobs/runId_8c062193-a9d8-4b4b-9acf-96427a52d347/latticesresult/jobId_0224dcb7-af02-4eae-bc7c-2e6a301194c0/content"
+}
+
+calmeasures
+{
+	"version": "2020-08-11",
+	"final_result_path__NHWA": "s3a://ph-max-auto/2020-08-11/cube/jobs/runId_9e5919ea-f378-48db-97ca-2bec4352a326/finalresult/jobId_d25858df-60a6-45ec-99f0-2d9614bdb312/content",
+	"final_result_path__Beida": "s3a://ph-max-auto/2020-08-11/cube/jobs/runId_9e5919ea-f378-48db-97ca-2bec4352a326/finalresult/jobId_5adc990b-1601-4c25-9566-d26c33cafbd9/content"
+}
+
+horcalmeasures
+{
+	"version": "2020-08-11",
+	"ver_measures_content_path__NHWA": "s3a://ph-max-auto/2020-08-11/cube/jobs/runId_f500df15-6359-4229-876e-46bba1d83fdb/calmeasures/jobId_0a7279cd-542b-44b1-8fbb-a0004c03ba61/content",
+	"ver_measures_content_path__Beida": "s3a://ph-max-auto/2020-08-11/cube/jobs/runId_f500df15-6359-4229-876e-46bba1d83fdb/calmeasures/jobId_d3fe3781-f481-4e6a-8d71-0785c6f96862/content"
+}
+
+write2postgres
+{
+	"version": "2020-08-11",
+	"hor_measures_content_path__NHWA": "s3a://ph-max-auto/2020-08-11/cube/jobs/runId_d7af00b8-e391-4515-b425-949b4a6dbd99/horcalmeasures/jobId_87382e90-c7e7-42ce-97d3-715a22dd0b58/content",
+	"hor_measures_content_path__Beida": "s3a://ph-max-auto/2020-08-11/cube/jobs/runId_d7af00b8-e391-4515-b425-949b4a6dbd99/horcalmeasures/jobId_ebbaddb7-1b64-4a5d-a9c9-f8ccda5e00fc/content"
+}

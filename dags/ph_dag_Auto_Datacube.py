@@ -148,7 +148,7 @@ def cleancube_func(**context):
     print(str(conf))
 
     if jobId == '':
-        jobId = lattices_content_path.split("jobId_")[1].split("/")[0]
+        jobId = cleancube_result_path.split("jobId_")[1].split("/")[0]
         print("jobId = %s" % jobId)
 
     params=dict(common_task_params + spec_task_params.get("cleancube".lower(), []))
