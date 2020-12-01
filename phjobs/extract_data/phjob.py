@@ -70,6 +70,9 @@ project, doi, molecule_sep, data_type):
         atc = []
     else:
         atc = atc.replace(" ","").split(",")
+    
+    if len(set(len(i) for i in atc)) >1 :
+        raise ValueError('atc length diff')
         
     if project == "Empty":
         project = []
