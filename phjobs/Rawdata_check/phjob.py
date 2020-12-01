@@ -114,6 +114,8 @@ three, twelve, test):
     # a. 列名清洗统一
     if project_name == "Sanofi" or project_name == "AZ":
         product_map = product_map.withColumnRenamed(product_map.columns[21], "pfc")
+    if project_name == "Eisai":
+        product_map = product_map.withColumnRenamed(product_map.columns[22], "pfc")
     for col in product_map.columns:
         if col in ["标准通用名", "通用名_标准", "药品名称_标准", "S_Molecule_Name"]:
             product_map = product_map.withColumnRenamed(col, "通用名")
