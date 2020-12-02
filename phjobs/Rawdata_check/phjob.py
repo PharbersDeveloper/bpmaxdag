@@ -154,6 +154,7 @@ three, twelve, test):
                     .withColumnRenamed("标准生产企业", "生产企业") \
                     .withColumnRenamed("pfc", "Pack_ID")
     
+    product_map = product_map.withColumn('Pack_ID', product_map.Pack_ID.cast(IntegerType()))
     
     # 匹配产品匹配表，标准化min2通用名商品名
     Raw_data_1 = Raw_data.join(product_map.select('min1','min2','通用名','商品名','Pack_ID').dropDuplicates(['min1']), on='min1', how='left')
