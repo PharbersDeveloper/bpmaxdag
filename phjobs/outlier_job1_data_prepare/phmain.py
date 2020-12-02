@@ -8,6 +8,8 @@ import click
 
 
 @click.command()
+@click.option('--owner')
+@click.option('--run_id')
 @click.option('--job_id')
 @click.option('--max_path')
 @click.option('--project_name')
@@ -23,7 +25,7 @@ import click
 @click.option('--a')
 @click.option('--b')
 
-def debug_execute(job_id, a, b, max_path, project_name, out_path, out_dir, panel_path, universe_path, doi, product_input, model_month_left, model_month_right, arg_year):
+def debug_execute(owner, run_id, job_id, a, b, max_path, project_name, out_path, out_dir, panel_path, universe_path, doi, product_input, model_month_left, model_month_right, arg_year):
 	execute(max_path, project_name, out_path, out_dir, panel_path, universe_path, doi, product_input, model_month_left, model_month_right, arg_year)
 
 

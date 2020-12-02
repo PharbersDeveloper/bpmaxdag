@@ -5,6 +5,8 @@ This is job template for Pharbers Max Job
 from phjob import execute
 import click
 @click.command()
+@click.option('--owner')
+@click.option('--run_id')
 @click.option('--job_id')
 @click.option('--max_path')
 @click.option('--project_name')
@@ -19,7 +21,7 @@ import click
 @click.option('--auto_max')
 @click.option('--a')
 @click.option('--b')
-def debug_execute(job_id, a, b, max_path, project_name, outdir, history_outdir, if_two_source, cut_time_left, cut_time_right, 
+def debug_execute(owner, run_id, job_id, a, b, max_path, project_name, outdir, history_outdir, if_two_source, cut_time_left, cut_time_right, 
 raw_data_path, if_union, test, auto_max):
 	execute(max_path, project_name, outdir, history_outdir, if_two_source, cut_time_left, cut_time_right, 
 	raw_data_path, if_union, test, auto_max)

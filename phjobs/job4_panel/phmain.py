@@ -8,6 +8,8 @@ import click
 
 
 @click.command()
+@click.option('--owner')
+@click.option('--run_id')
 @click.option('--job_id')
 @click.option('--max_path')
 @click.option('--project_name')
@@ -26,7 +28,7 @@ import click
 @click.option('--need_test')
 @click.option('--a')
 @click.option('--b')
-def debug_execute(job_id, a, b, max_path, project_name, model_month_left, model_month_right, if_others, current_year, current_month, paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_union, out_path, out_dir, need_test):
+def debug_execute(owner, run_id, job_id, a, b, max_path, project_name, model_month_left, model_month_right, if_others, current_year, current_month, paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_union, out_path, out_dir, need_test):
 	execute(max_path, project_name, model_month_left, model_month_right, if_others, current_year, current_month, paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_union, out_path, out_dir, need_test)
 
 
