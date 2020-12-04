@@ -288,10 +288,14 @@ def execute(max_path, extract_path, project_name, max_path_list, out_dir):
     
     
     # 全量结果汇总
+    max_standard_all = max_standard_all.withColumn("project", func.lit(project_name))
+    
     max_standard_all = max_standard_all.select("project", "Province", "City" ,"Date", "Prod_Name", "Molecule", "PANEL", "DOI", "Predict_Sales", "Predict_Unit", 
                                            "标准通用名", "标准商品名", "标准剂型", "标准规格", "标准包装数量", "标准生产企业", "标准省份名称", "标准城市名称", 
                                             "PACK_ID", "ATC")
     max_standard_all = max_standard_all.withColumn("Date_copy", max_standard_all.Date)
+    
+    
         
     # 目录结果汇总,
     max_standard_brief = max_standard_all.select("project", "Date", "标准通用名", "ATC", "DOI").distinct()

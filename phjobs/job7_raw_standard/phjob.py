@@ -302,6 +302,8 @@ def execute(max_path, extract_path, project_name, if_two_source, out_dir, minimu
     
     for each in data_standard.columns:                                                                
         data_standard = data_standard.withColumn(each, data_standard[each].cast(StringType()))
+    
+    data_standard = data_standard.withColumn("project", func.lit(project_name))
         
     raw_data_standard = data_standard.select(std_names + ["DOI", "标准通用名", "标准商品名", "标准剂型", "标准规格", 
     	"标准包装数量", "标准生产企业", "标准省份名称", "标准城市名称", "PACK_ID", "ATC", "project"])

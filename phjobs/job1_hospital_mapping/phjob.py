@@ -197,14 +197,17 @@ def execute(max_path, project_name, cpa_gyc, if_others, out_path, out_dir, auto_
         if col in ["PHA_ID_x", "PHA_ID"]:
             raw_data = raw_data.withColumnRenamed(col, "PHA")
 
-    if (cpa_gyc == "True"):
-        def distinguish_cpa_gyc(col, gyc_hospital_id_length):
-            # gyc_hospital_id_length是国药诚信医院编码长度，一般是7位数字，cpa医院编码一般是6位数字。医院编码长度可以用来区分cpa和gyc
-            return (func.length(col) < gyc_hospital_id_length)
+    # ID 的长度统一
+    def distinguish_cpa_gyc(col, gyc_hospital_id_length):
+        # gyc_hospital_id_length是国药诚信医院编码长度，一般是7位数字，cpa医院编码一般是6位数字。医院编码长度可以用来区分cpa和gyc
+        return (func.length(col) < gyc_hospital_id_length)
+    def deal_ID_length(df):
+        df = df.withColumn("ID", df["ID"].cast(StringType()))
+        df = df.withColumn("ID", func.regexp_replace("ID", "\\.0", ""))
+        df = df.withColumn("ID", func.when(distinguish_cpa_gyc(df.ID, 7), func.lpad(df.ID, 6, "0")).otherwise(df.ID))
+        return df
+    raw_data = deal_ID_length(raw_data)
 
-        raw_data = raw_data.withColumn("ID", raw_data["ID"].cast(StringType()))
-        raw_data = raw_data.withColumn("ID", func.when(distinguish_cpa_gyc(raw_data.ID, 7), func.lpad(raw_data.ID, 6, "0")).
-                                       otherwise(func.lpad(raw_data.ID, 7, "0")))
     if "year_month" in raw_data.columns:
         raw_data = raw_data.withColumn("year_month", raw_data["year_month"].cast(IntegerType()))
     if "Month" not in raw_data.columns:
