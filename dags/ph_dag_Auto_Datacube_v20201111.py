@@ -11,7 +11,7 @@ from airflow.utils.trigger_rule import TriggerRule
 import uuid
 import string
 
-# trigger json {"version":"2020-08-11","time_left":"201801","time_right":"201912","start":"201801","end":"201912"}
+# trigger json {"version":"2020-08-11","time_left":"201401","time_right":"202012","start":"201401","end":"202012"}
 
 args = {
     "owner": "jeorch",
@@ -61,9 +61,9 @@ def execSparkSubmit(namespace, jobName, conf):
     params=dict(var_key_lst.get("common", {}).items() + var_key_lst.get(jobName, {}).items())
     print(params)
     subprocess.call('echo "192.168.1.28    spark.master" >> /etc/hosts', shell=True)
-    subprocess.call("pip install 'phcli==0.3.6'", shell=True)
-    # subprocess.call('phcli maxauto --runtime python3 --cmd submit --namespace "{}" --path "{}" --context "{}" "{}"'.format(namespace, jobName, str(params), str(conf)), shell=True)
-    shell_cmd = 'phcli maxauto --runtime python3 --cmd submit --namespace "{}" --path "{}" --context "{}" "{}"'.format(namespace, jobName, str(params), str(conf))
+    subprocess.call("apt-get update && apt install -f -y postgresql-server-dev-all && pip3 install phcli==1.0.3", shell=True)
+    # subprocess.call('phcli maxauto --runtime python3 --cmd submit --group "{}" --path "{}" --context "{}" "{}"'.format(namespace, jobName, str(params), str(conf)), shell=True)
+    shell_cmd = 'phcli maxauto --runtime python3 --cmd submit --group "{}" --path "{}" --context "{}" "{}"'.format(namespace, jobName, str(params), str(conf))
     cmd = shlex.split(shell_cmd)
     p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     while p.poll() is None:
