@@ -41,6 +41,11 @@ def crossing_cmd(**context):
     job_id = ti.hostname.split("-")[-1]
     conf = context["dag_run"].conf
 
+    # selector
+    if 'model_path' in conf:
+        print(conf['model_path'])
+        return 'prediction'
+
     # inputs
 
     # outputs
@@ -81,12 +86,13 @@ def crossing_cmd(**context):
     # key = ti.xcom_pull(task_ids='test', key='key').decode("UTF-8")
     # ti.xcom_push(key="key", value=key)
 
-    # selector
-    if 'model_path' not in conf:
-        return 'training'
-    else:
-        print(conf['model_path'])
-        return 'prediction'
+    return 'training'
+    # # selector
+    # if 'model_path' not in conf:
+    #     return 'training'
+    # else:
+    #     print(conf['model_path'])
+    #     return 'prediction'
 
 crossing = BranchPythonOperator(
     task_id='crossing',
