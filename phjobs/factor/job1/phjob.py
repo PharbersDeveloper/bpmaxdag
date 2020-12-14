@@ -12,6 +12,16 @@ from pyspark.sql import functions as func
 import os
 from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col
 import time
+import re
+
+from pyspark.ml import Pipeline
+from pyspark.ml.regression import RandomForestRegressor
+from pyspark.ml.feature import VectorIndexer, StringIndexer
+from pyspark.ml.linalg import DenseVector
+from pyspark.ml.evaluation import RegressionEvaluator
+from pyspark.ml.feature import VectorAssembler
+import pandas as pd
+
 '''
 def execute(**kwargs):
     """
@@ -39,7 +49,19 @@ spark = SparkSession.builder \
     .config("spark.executor.memory", "1g") \
     .config('spark.sql.codegen.wholeStage', False) \
     .getOrCreate()
-
+'''    
+os.environ["PYSPARK_PYTHON"] = "python3"
+spark = SparkSession.builder \
+  .master("yarn") \
+  .appName("CPA&GYC match refactor") \
+  .config("spark.driver.memory", "1g") \
+  .config("spark.executor.cores", "2") \
+  .config("spark.executor.instances", "2") \
+  .config("spark.executor.memory", "2g") \
+  .config('spark.sql.codegen.wholeStage', False) \
+  .config("spark.sql.execution.arrow.pyspark.enabled", "true") \
+  .getOrCreate()
+'''
 access_key = os.getenv("AWS_ACCESS_KEY_ID")
 secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
 if access_key is not None:
@@ -77,17 +99,10 @@ if universe_choice != "Empty":
         universe_name = each.split(":")[1]
         universe_choice_dict[market_name]=universe_name
 
-
-    
-# 输出
-
-
 # =======  数据执行  ============
 
 
-
-
-# 匹配文件准备
+# 文件准备
 
 # 1. doctor 文件
 def unpivot(df, keys):
@@ -114,7 +129,7 @@ BT_PHA = spark.read.csv(BT_PHA_path, header='True')
 BT_PHA = BT_PHA.select('BT', 'PHA').dropDuplicates(['PHA'])
 
 # 3. ind 文件
-# 列名有点 无法识别
+# 列名有点 无法识别，把点换成_
 import re 
 ind = spark.read.csv(ind_path, header='True')
 ind = ind.toDF(*(re.sub(r'[\.\s]+', '_', c) for c in ind.columns))
@@ -135,7 +150,7 @@ mkt_mapping = mkt_mapping.withColumnRenamed('mkt', 'Market')
 mole_mkt_mapping = mole_mapping.join(mkt_mapping, on='标准通用名', how='left')
 mole_mkt_mapping.where(mole_mkt_mapping.Market.isNull()).select('标准通用名').show()
 
-# 数据读取
+# 7.rawdata 数据
 rawdata = spark.read.csv(raw_data_path, header='True')
 rawdata = rawdata.withColumn('Date', col('Date').cast(IntegerType()))
 rawdata = rawdata.where((col('Date') > 201900) & (col('Date') < 202000))
@@ -143,11 +158,15 @@ rawdata = rawdata.where((col('Date') > 201900) & (col('Date') < 202000))
 rawdata_m = rawdata.join(mole_mkt_mapping, on='Molecule', how='left') \
                     .join(hosp_mapping, on='ID', how='left')
                     
-$========================================
+# ======================== 每个市场进行 randomForest 分析 ================
 
-# 处理单个市场，用pandas udf
+
 market = '固力康'
-
+# 输出
+df_importances_path = max_path + '/' + project_name + '/forest/' + market + '_importances.csv'
+df_nmse_path = max_path + '/' + project_name + '/forest/' + market + '_NMSE.csv'
+result_path = max_path + '/' + project_name + '/forest/' + market + '__2分之1_rf'
+# 输入
 if market in universe_choice_dict.keys():
     universe_path = max_path + '/' + project_name + '/' + universe_choice_dict[market]
     hosp_range =  spark.read.parquet(universe_path)
@@ -163,17 +182,16 @@ rawdata_mkt = rawdata_m.where(rawdata_m.Market == market) \
                         .withColumnRenamed('PHA', 'PHA_ID') \
                         .withColumnRenamed('Market', 'DOI')
 
-####得到因变量
+# 得到因变量
 tmp=hosp_range.where(hosp_range.PANEL == 1).select('Panel_ID').distinct().toPandas()['Panel_ID'].values.tolist()
 rawdata_i = rawdata_mkt.where(col('PHA_ID').isin(tmp)) \
                         .groupBy('PHA_ID', 'DOI').agg(func.sum('Sales').alias('Sales'))
 
 ind_mkt = ind.join(hosp_range.select('Panel_ID').distinct(), ind['PHA_ID']==hosp_range['Panel_ID'], how='inner')
 
-# %% 计算 ind_mkt 每列非空的行数
+# %% 1. 计算 ind_mkt 每列非空的行数
 
 # 去掉无用的列名
-import re
 drop_cols = ["Panel_ID", "PHA_Hosp_name", "PHA_ID", "Bayer_ID", "If_Panel", "Segment", "Segment_Description", "If_County"]
 all_cols = list(set(ind_mkt.columns)-set(drop_cols))
 new_all_cols = []
@@ -183,19 +201,23 @@ for each in all_cols:
 
 # 计算每列非空行数
 df_agg = ind_mkt.agg(*[func.count(func.when(~func.isnull(c), c)).alias(c) for c in new_all_cols]).persist()
-# 转置为长数据    
+# 转置为长数据
+df_agg_col = df_agg.toPandas().T
+df_agg_col.columns = ["notNULL_Count"]
+df_agg_col_names = df_agg_col[df_agg_col.notNULL_Count >= 15000].index.tolist()
+
+'''
 from functools import reduce
 df_agg_col = reduce(
     lambda a, b: a.union(b),
     (df_agg.select(func.lit(c).alias("Column_Name"), func.col(c).alias("notNULL_Count")) 
         for c in df_agg.columns)
 ).persist()
-
 df_agg_col = df_agg_col.where(col('notNULL_Count') >= 15000)
-
 df_agg_col_names = df_agg_col.toPandas()['Column_Name'].values
+'''
 
-# %% 获得 ind5
+# %% 2. 获得 ind5
 ind2 = ind_mkt.select('PHA_ID', *df_agg_col_names, *[i for i in ind_mkt.columns if '心血管' in i ])
 ind3 = ind2.join(BT_PHA, ind2.PHA_ID==BT_PHA.PHA, how='left') \
             .drop('PHA')
@@ -216,7 +238,7 @@ def f2(x):
     y=x**(2)-0.001
     return(y)
 
-# %% 获得 modeldata 
+# %% 3.获得 modeldata 
 modeldata = ind5.join(rawdata_i, on='PHA_ID', how='left')
 Panel_ID_list = hosp_range.where(hosp_range.PANEL == 1).select('Panel_ID').toPandas()['Panel_ID'].values.tolist()
 
@@ -229,73 +251,83 @@ modeldata = modeldata.withColumn('v', func.when(col('Sales') > 0, f1(col('Sales'
 
 trn = modeldata.where(modeldata.PHA_ID.isin(Panel_ID_list))
 
-trn.repartition(1).write.format("parquet") \
-    .mode("overwrite").save('s3a://ph-max-auto/v0.0.1-2020-06-08/Test/Eisai/trn')
+#trn.repartition(1).write.format("parquet") \
+#    .mode("overwrite").save('s3a://ph-max-auto/v0.0.1-2020-06-08/Test/Eisai/trn')
 
-# %%  ===========  随机森林 ===================
-from pyspark.ml import Pipeline
-from pyspark.ml.regression import RandomForestRegressor
-from pyspark.ml.feature import VectorIndexer, StringIndexer
-from pyspark.ml.linalg import SparseVector, DenseVector
-from pyspark.ml.evaluation import RegressionEvaluator
-from pyspark.ml.linalg import Vectors, VectorUDT
-from pyspark.ml.feature import VectorAssembler
-
+# %%  ===========  随机森林 ============
 
 # 1. 数据准备
-data = trn
-not_features_cols = ["PHA_ID", "Province", "Prefecture", "Specialty_1", "Specialty_2", "Specialty_3", "DOI", "Sales", "flag_model"]
-features_str_cols = ['Hosp_level', 'Region', 'respailty', 'Re_Speialty', 'City_Tier_2010']
-
-# 使用StringIndexer，将features中的字符型变量转为分类数值变量
-indexers = [StringIndexer(inputCol=column, outputCol=column+"_index").fit(data) for column in features_str_cols]
-pipeline = Pipeline(stages=indexers)
-data = pipeline.fit(data).transform(data)
-
-# 使用 VectorAssembler ，将特征合并为features
-features_cols = list(set(data.columns) -set(not_features_cols)- set(features_str_cols) - set('v'))
-assembler = VectorAssembler( \
-     inputCols = features_cols, \
-     outputCol = "features")
-data = assembler.transform(data)
-data = data.withColumnRenamed('v', 'label')
-
-# 识别哪些是分类变量，Set maxCategories so features with > 4 distinct values are treated as continuous.
-featureIndexer = VectorIndexer(inputCol="features", outputCol="indexedFeatures", maxCategories=10).fit(data)
-data = featureIndexer.transform(data)
+def data_for_forest(data):
+    not_features_cols = ["PHA_ID", "Province", "Prefecture", "Specialty_1", "Specialty_2", "Specialty_3", "DOI", "Sales", "flag_model"]
+    features_str_cols = ['Hosp_level', 'Region', 'respailty', 'Re_Speialty', 'City_Tier_2010']
+    # 使用StringIndexer，将features中的字符型变量转为分类数值变量
+    indexers = [StringIndexer(inputCol=column, outputCol=column+"_index").fit(data) for column in features_str_cols]
+    pipeline = Pipeline(stages=indexers)
+    data = pipeline.fit(data).transform(data)
+    # 使用 VectorAssembler ，将特征合并为features
+    features_cols = list(set(data.columns) -set(not_features_cols)- set(features_str_cols) - set('v'))
+    assembler = VectorAssembler( \
+         inputCols = features_cols, \
+         outputCol = "features")
+    data = assembler.transform(data)
+    data = data.withColumnRenamed('v', 'label')
+    # 识别哪些是分类变量，Set maxCategories so features with > 4 distinct values are treated as continuous.
+    featureIndexer = VectorIndexer(inputCol="features", outputCol="indexedFeatures", maxCategories=10).fit(data)
+    data = featureIndexer.transform(data)
+    return data
+    
+data = data_for_forest(trn)
 
 # 2. 重要性
 rf = RandomForestRegressor(labelCol="label", featuresCol="indexedFeatures", numTrees=100, seed=10)
 model = rf.fit(data)
 dp = model.featureImportances
 dendp = DenseVector(dp)
-dp2 = pd.DataFrame(dendp.array)
-dp2['feature'] = features_cols
-dp2.columns=['importances','feature']  
-dp2.sort_values(by='0')
+df_importances = pd.DataFrame(dendp.array)
+df_importances['feature'] = features_cols
+df_importances.columns=['importances','feature']  
+df_importances = df_importances.sort_values(by='importances', ascending=False)
+df_importances = spark.createDataFrame(df_importances)
 
-# 2. 模型构建
-(df_training, df_test) = data.randomSplit([0.7, 0.3])
+# 输出结果
+df_importances = df_importances.repartition(1)
+df_importances.write.format("csv").option("header", "true") \
+        .mode("overwrite").save(df_importances_path)
+        
+# 3. 五次模型预测结果
 
-rf = RandomForestRegressor(labelCol="label", featuresCol="indexedFeatures", numTrees=100, seed=100)
-model = rf.fit(df_training)
+for i in range(1,6):
+    # 模型构建
+    (df_training, df_test) = data.randomSplit([0.7, 0.3])
+    
+    rf = RandomForestRegressor(labelCol="label", featuresCol="indexedFeatures", numTrees=100, seed=100)
+    model = rf.fit(df_training)
+    
+    # 结果预测
+    # pipeline = Pipeline(stages=[rf])
+    df_training_pred = model.transform(df_training)
+    df_training_pred = df_training_pred.withColumn('datatype', func.lit('train'))
+    df_test_pred = model.transform(df_test)
+    df_test_pred = df_test_pred.withColumn('datatype', func.lit('test'))
+    
+    df = df_training_pred.union(df_test_pred.select(df_training_pred.columns))
+    df = df.withColumn('num', func.lit(i))
+    
+    if i ==1:
+        df_all = df
+    else:
+        df_all = df_all.union(df)
 
-
-
-# 3. 结果预测
-# pipeline = Pipeline(stages=[rf])
-df_training_pred = model.transform(df_training)
-df_training_pred = df_training_pred.withColumn('datatype', func.lit('train'))
-df_test_pred = model.transform(df_test)
-df_test_pred = df_test_pred.withColumn('datatype', func.lit('test'))
-
+df_all = df_all.repartition(1)
+df_all.write.format("csv").option("header", "true") \
+        .mode("overwrite").save('')
+        
 # 4. 计算误差
-df_all = df_training_pred.union(df_test_pred.select(df_training_pred.columns))
-
 schema = StructType([
             StructField("Province", StringType(), True), 
             StructField("datatype", StringType(), True),
-            StructField("NMSE", StringType(), True)
+            StructField("NMSE", StringType(), True),
+            StructField("num", StringType(), True)
             ])
 
 @pandas_udf(schema, PandasUDFType.GROUPED_MAP)   
@@ -304,6 +336,7 @@ def nmse_func(pdf):
     import numpy as np
     Province = pdf['Province'][0]
     datatype = pdf['datatype'][0]
+    num = pdf['num'][0]
     pdf['tmp1'] = (pdf['y_prd'] - pdf['y_true']) **2
     tmp1_mean = pdf['tmp1'].mean()
     y_true_mean = pdf['y_true'].mean()
@@ -312,54 +345,39 @@ def nmse_func(pdf):
     if tmp2_mean == 0:
         NMSE = 'inf'
     NMSE = str(tmp1_mean/tmp2_mean)
-    return pd.DataFrame([[Province] + [datatype] + [NMSE]], columns=["Province", "datatype", "NMSE"])
+    return pd.DataFrame([[Province] + [datatype] + [NMSE] + [num]], columns=["Province", "datatype", "NMSE", "num"])
 
 
 df_all = df_all.withColumn('y_prd', f2(col('prediction'))) \
-        .withColumn('y_true', f2(col('label')))
-df_nmse = df_all.select('Province', 'y_true', 'y_prd', 'datatype') \
-                .groupBy('Province', 'datatype').apply(nmse_func)
-df_nmse = df_nmse.withColumn('NMSE', col('NMSE').cast(DoubleType()))
-df_nmse = df_nmse.pivot
+        .withColumn('y_true', f2(col('label'))).persist()
+df_nmse = df_all.select('Province', 'y_true', 'y_prd', 'datatype', 'num') \
+                .groupBy('Province', 'datatype', 'num').apply(nmse_func).persist()
+df_nmse = df_nmse.withColumn('NMSE', col('NMSE').cast(DoubleType())) \
+                .withColumn('type', func.concat(col('datatype'), col('num')))
+
+# 转置
+df_nmse = df_nmse.groupBy('Province').pivot('type').agg(func.sum('NMSE'))
+
+df_nmse = df_nmse.repartition(1)
+df_nmse.write.format("csv").option("header", "true") \
+        .mode("overwrite").save(df_nmse_path)
     
 
-'''
-df_training_pred.select("label","prediction", "features").show(5)
+# 5. 对数据预测
+result = data_for_forest(modeldata)  
+result = result.withColumn('DOI', func.lit(market))
+result = model.transform(result)
+result = result.withColumn('sales_from_model', f2(col('prediction'))) \
+        .withColumn('training_set', func.when(col('PHA_ID').isin(trn.select('PHA_ID').distinct().toPandas()['PHA_ID'].values.tolist()), 
+                                            func.lit(1)) \
+                                        .otherwise(func.lit(0)))
+result = result.withColumn('final_sales', func.when(col('flag_model')== 'TRUE', col('Sales')) \
+                                            .otherwise(col('sales_from_model')))
+result = result.where(col('PHA_ID').isin(all_hosp.toPandas()['Panel_ID'].values.tolist()))
 
-evaluator = RegressionEvaluator(
-    labelCol="label", predictionCol="prediction", metricName="rmse")	    
-
-rmse = evaluator.evaluate(df_test_pred)
-print('测试数据的均方根误差（rmse）:{}'.format(rmse))
-print("Root Mean Squared Error (RMSE) on test data = %g" % rmse)
-rfModel = model.stages[1]
-print(rfModel)
-'''
-# ===========================
-
-from pyspark.ml.feature import RFormula
-
-# features列中的所有分类变量都被转换为数值
-colnames = data2.columns
-colnames.remove('v')
-formula_list = 'v' + ' ~ ' + '+'.join(colnames)
-
-formula = RFormula(formula=formula_list, featuresCol="features", labelCol="label")
-
-t1 = formula.fit(data)
-train1 = t1.transform(Train1)
-test1 = t1.transform(Test1)
+result = result.repartition(1)
+result.write.format("parquet") \
+        .mode("overwrite").save(result_path)
 
 
-    
-
-
-model = RandomForestRegressor(numTrees=100, labelCol="indexed", seed=3)
-model1 = rf.fit(train_cv)
-predictions = model1.transform(test_cv)
-
-from pyspark.ml.evaluation import RegressionEvaluator
-evaluator = RegressionEvaluatormse = evaluator.evaluate(predictions,{evaluator.metricName:"mse" })
-import numpy as np
-np.sqrt(mse)
 
