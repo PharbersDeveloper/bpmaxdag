@@ -74,7 +74,6 @@ panel_result_path = max_path + '/' + project_name + '/' + outdir + '/panel_resul
 
 mkt_mapping = spark.read.parquet(mkt_mapping_path)
 universe = spark.read.parquet(universe_path)
-universe = universe.withColumnRenamed('')
 
 max_result = spark.read.parquet(max_result_path)
 max_result = max_result.where((col('Date') >= model_month_left) & (col('Date') <= model_month_right))

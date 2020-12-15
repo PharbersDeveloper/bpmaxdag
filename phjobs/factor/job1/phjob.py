@@ -77,6 +77,9 @@ if access_key is not None:
 max_path = 's3a://ph-max-auto/v0.0.1-2020-06-08/'
 project_name = 'Eisai'
 outdir = '202009'
+market_list = '固力康'
+
+market_list = market_list.replace(' ','').split(',')
 
 doctor_path = max_path + '/Common_files/factor_files/doctor.csv' 
 BT_PHA_path = max_path + '/Common_files/factor_files/BT_PHA.csv'
@@ -148,7 +151,7 @@ mole_mapping = mole_mapping.select('Molecule','标准通用名').distinct()
 mkt_mapping = spark.read.parquet(mkt_mapping_path)
 mkt_mapping = mkt_mapping.withColumnRenamed('mkt', 'Market')
 mole_mkt_mapping = mole_mapping.join(mkt_mapping, on='标准通用名', how='left')
-mole_mkt_mapping.where(mole_mkt_mapping.Market.isNull()).select('标准通用名').show()
+# mole_mkt_mapping.where(mole_mkt_mapping.Market.isNull()).select('标准通用名').show()
 
 # 7.rawdata 数据
 rawdata = spark.read.csv(raw_data_path, header='True')
@@ -160,224 +163,231 @@ rawdata_m = rawdata.join(mole_mkt_mapping, on='Molecule', how='left') \
                     
 # ======================== 每个市场进行 randomForest 分析 ================
 
+# market = '固力康'
 
-market = '固力康'
-# 输出
-df_importances_path = max_path + '/' + project_name + '/forest/' + market + '_importances.csv'
-df_nmse_path = max_path + '/' + project_name + '/forest/' + market + '_NMSE.csv'
-result_path = max_path + '/' + project_name + '/forest/' + market + '__2分之1_rf'
-# 输入
-if market in universe_choice_dict.keys():
-    universe_path = max_path + '/' + project_name + '/' + universe_choice_dict[market]
-    hosp_range =  spark.read.parquet(universe_path)
-else:
-    universe_path = max_path + '/' + project_name + '/universe_base'
-    hosp_range =  spark.read.parquet(universe_path)
+for market in market_list:
+    print("当前market为:" + str(market))
     
-all_hosp = hosp_range.where(hosp_range.BEDSIZE > 99 ).select('Panel_ID').distinct()
-
-hosp_range_sample = hosp_range.where((hosp_range.PANEL == 1) & (hosp_range.BEDSIZE > 99)).select('Panel_ID').distinct()
-
-rawdata_mkt = rawdata_m.where(rawdata_m.Market == market) \
-                        .withColumnRenamed('PHA', 'PHA_ID') \
-                        .withColumnRenamed('Market', 'DOI')
-
-# 得到因变量
-tmp=hosp_range.where(hosp_range.PANEL == 1).select('Panel_ID').distinct().toPandas()['Panel_ID'].values.tolist()
-rawdata_i = rawdata_mkt.where(col('PHA_ID').isin(tmp)) \
-                        .groupBy('PHA_ID', 'DOI').agg(func.sum('Sales').alias('Sales'))
-
-ind_mkt = ind.join(hosp_range.select('Panel_ID').distinct(), ind['PHA_ID']==hosp_range['Panel_ID'], how='inner')
-
-# %% 1. 计算 ind_mkt 每列非空的行数
-
-# 去掉无用的列名
-drop_cols = ["Panel_ID", "PHA_Hosp_name", "PHA_ID", "Bayer_ID", "If_Panel", "Segment", "Segment_Description", "If_County"]
-all_cols = list(set(ind_mkt.columns)-set(drop_cols))
-new_all_cols = []
-for each in all_cols:
-    if len(re.findall('机构|省|市|县|医院级别|医院等次|医院类型|性质|地址|邮编|年诊疗|总收入|门诊药品收入|住院药品收入|总支出', each)) == 0:
-        new_all_cols.append(each)
-
-# 计算每列非空行数
-df_agg = ind_mkt.agg(*[func.count(func.when(~func.isnull(c), c)).alias(c) for c in new_all_cols]).persist()
-# 转置为长数据
-df_agg_col = df_agg.toPandas().T
-df_agg_col.columns = ["notNULL_Count"]
-df_agg_col_names = df_agg_col[df_agg_col.notNULL_Count >= 15000].index.tolist()
-
-'''
-from functools import reduce
-df_agg_col = reduce(
-    lambda a, b: a.union(b),
-    (df_agg.select(func.lit(c).alias("Column_Name"), func.col(c).alias("notNULL_Count")) 
-        for c in df_agg.columns)
-).persist()
-df_agg_col = df_agg_col.where(col('notNULL_Count') >= 15000)
-df_agg_col_names = df_agg_col.toPandas()['Column_Name'].values
-'''
-
-# %% 2. 获得 ind5
-ind2 = ind_mkt.select('PHA_ID', *df_agg_col_names, *[i for i in ind_mkt.columns if '心血管' in i ])
-ind3 = ind2.join(BT_PHA, ind2.PHA_ID==BT_PHA.PHA, how='left') \
-            .drop('PHA')
-ind4 = ind3.join(doctor_g, ind3.BT==doctor_g.BT_Code, how='left') \
-            .drop('BT_Code')
-ind5 = ind4.select(*ind2.columns, *[i for i in ind4.columns if '_Dr_N_' in i ])
-
-num_cols = list(set(ind5.columns) -set(['PHA_ID', 'Hosp_level', 'Region', 'respailty', 'Province', 'Prefecture', 'City_Tier_2010', 'Specialty_1', 'Specialty_2', 'Re_Speialty', 'Specialty_3']))
-ind5 = ind5.fillna(0, subset=num_cols) 
-
-
-# %%
-def f1(x):
-    y=(x+0.001)**(1/2)
-    return(y)
+    # 输出
+    df_importances_path = max_path + '/' + project_name + '/forest/' + market + '_importances.csv'
+    df_nmse_path = max_path + '/' + project_name + '/forest/' + market + '_NMSE.csv'
+    result_path = max_path + '/' + project_name + '/forest/' + market + '_2分之1_rf'
+    # 输入
+    if market in universe_choice_dict.keys():
+        universe_path = max_path + '/' + project_name + '/' + universe_choice_dict[market]
+        hosp_range =  spark.read.parquet(universe_path)
+    else:
+        universe_path = max_path + '/' + project_name + '/universe_base'
+        hosp_range =  spark.read.parquet(universe_path)
+        
+    all_hosp = hosp_range.where(hosp_range.BEDSIZE > 99 ).select('Panel_ID').distinct()
     
-def f2(x):
-    y=x**(2)-0.001
-    return(y)
-
-# %% 3.获得 modeldata 
-modeldata = ind5.join(rawdata_i, on='PHA_ID', how='left')
-Panel_ID_list = hosp_range.where(hosp_range.PANEL == 1).select('Panel_ID').toPandas()['Panel_ID'].values.tolist()
-
-modeldata = modeldata.withColumn('flag_model', 
-                        func.when(modeldata.PHA_ID.isin(Panel_ID_list), func.lit('TRUE')) \
-                            .otherwise(func.lit('FALSE'))).persist()
-modeldata = modeldata.withColumn('Sales', func.when((col('Sales').isNull()) & (col('flag_model')=='TRUE'), func.lit(0)) \
-                                             .otherwise(col('Sales')))
-modeldata = modeldata.withColumn('v', func.when(col('Sales') > 0, f1(col('Sales'))).otherwise(col('Sales')))
-
-trn = modeldata.where(modeldata.PHA_ID.isin(Panel_ID_list))
-
-#trn.repartition(1).write.format("parquet") \
-#    .mode("overwrite").save('s3a://ph-max-auto/v0.0.1-2020-06-08/Test/Eisai/trn')
-
-# %%  ===========  随机森林 ============
-
-# 1. 数据准备
-def data_for_forest(data):
+    hosp_range_sample = hosp_range.where((hosp_range.PANEL == 1) & (hosp_range.BEDSIZE > 99)).select('Panel_ID').distinct()
+    
+    rawdata_mkt = rawdata_m.where(rawdata_m.Market == market) \
+                            .withColumnRenamed('PHA', 'PHA_ID') \
+                            .withColumnRenamed('Market', 'DOI')
+    
+    # 得到因变量
+    tmp=hosp_range.where(hosp_range.PANEL == 1).select('Panel_ID').distinct().toPandas()['Panel_ID'].values.tolist()
+    rawdata_i = rawdata_mkt.where(col('PHA_ID').isin(tmp)) \
+                            .groupBy('PHA_ID', 'DOI').agg(func.sum('Sales').alias('Sales'))
+    
+    ind_mkt = ind.join(hosp_range.select('Panel_ID').distinct(), ind['PHA_ID']==hosp_range['Panel_ID'], how='inner')
+    
+    # %% 1. 计算 ind_mkt 每列非空的行数
+    
+    # 去掉无用的列名
+    drop_cols = ["Panel_ID", "PHA_Hosp_name", "PHA_ID", "Bayer_ID", "If_Panel", "Segment", "Segment_Description", "If_County"]
+    all_cols = list(set(ind_mkt.columns)-set(drop_cols))
+    new_all_cols = []
+    for each in all_cols:
+        if len(re.findall('机构|省|市|县|医院级别|医院等次|医院类型|性质|地址|邮编|年诊疗|总收入|门诊药品收入|住院药品收入|总支出', each)) == 0:
+            new_all_cols.append(each)
+    
+    # 计算每列非空行数
+    df_agg = ind_mkt.agg(*[func.count(func.when(~func.isnull(c), c)).alias(c) for c in new_all_cols]).persist()
+    # 转置为长数据
+    df_agg_col = df_agg.toPandas().T
+    df_agg_col.columns = ["notNULL_Count"]
+    df_agg_col_names = df_agg_col[df_agg_col.notNULL_Count >= 15000].index.tolist()
+    
+    '''
+    from functools import reduce
+    df_agg_col = reduce(
+        lambda a, b: a.union(b),
+        (df_agg.select(func.lit(c).alias("Column_Name"), func.col(c).alias("notNULL_Count")) 
+            for c in df_agg.columns)
+    ).persist()
+    df_agg_col = df_agg_col.where(col('notNULL_Count') >= 15000)
+    df_agg_col_names = df_agg_col.toPandas()['Column_Name'].values
+    '''
+    
+    # %% 2. 获得 ind5
+    ind2 = ind_mkt.select('PHA_ID', *df_agg_col_names, *[i for i in ind_mkt.columns if '心血管' in i ])
+    ind3 = ind2.join(BT_PHA, ind2.PHA_ID==BT_PHA.PHA, how='left') \
+                .drop('PHA')
+    ind4 = ind3.join(doctor_g, ind3.BT==doctor_g.BT_Code, how='left') \
+                .drop('BT_Code')
+    ind5 = ind4.select(*ind2.columns, *[i for i in ind4.columns if '_Dr_N_' in i ])
+    
+    num_cols = list(set(ind5.columns) -set(['PHA_ID', 'Hosp_level', 'Region', 'respailty', 'Province', 'Prefecture', 'City_Tier_2010', 'Specialty_1', 'Specialty_2', 'Re_Speialty', 'Specialty_3']))
+    ind5 = ind5.fillna(0, subset=num_cols) 
+    
+    
+    # %%
+    def f1(x):
+        y=(x+0.001)**(1/2)
+        return(y)
+        
+    def f2(x):
+        y=x**(2)-0.001
+        return(y)
+    
+    # %% 3.获得 modeldata 
+    modeldata = ind5.join(rawdata_i, on='PHA_ID', how='left')
+    Panel_ID_list = hosp_range.where(hosp_range.PANEL == 1).select('Panel_ID').toPandas()['Panel_ID'].values.tolist()
+    
+    modeldata = modeldata.withColumn('flag_model', 
+                            func.when(modeldata.PHA_ID.isin(Panel_ID_list), func.lit('TRUE')) \
+                                .otherwise(func.lit('FALSE'))).persist()
+    modeldata = modeldata.withColumn('Sales', func.when((col('Sales').isNull()) & (col('flag_model')=='TRUE'), func.lit(0)) \
+                                                 .otherwise(col('Sales')))
+    modeldata = modeldata.withColumn('v', func.when(col('Sales') > 0, f1(col('Sales'))).otherwise(col('Sales')))
+    
+    trn = modeldata.where(modeldata.PHA_ID.isin(Panel_ID_list))
+    
+    #trn.repartition(1).write.format("parquet") \
+    #    .mode("overwrite").save('s3a://ph-max-auto/v0.0.1-2020-06-08/Test/Eisai/trn')
+    
+    # %%  ===========  随机森林 ============
+    
+    # 1. 数据准备
     not_features_cols = ["PHA_ID", "Province", "Prefecture", "Specialty_1", "Specialty_2", "Specialty_3", "DOI", "Sales", "flag_model"]
     features_str_cols = ['Hosp_level', 'Region', 'respailty', 'Re_Speialty', 'City_Tier_2010']
-    # 使用StringIndexer，将features中的字符型变量转为分类数值变量
-    indexers = [StringIndexer(inputCol=column, outputCol=column+"_index").fit(data) for column in features_str_cols]
-    pipeline = Pipeline(stages=indexers)
-    data = pipeline.fit(data).transform(data)
-    # 使用 VectorAssembler ，将特征合并为features
-    features_cols = list(set(data.columns) -set(not_features_cols)- set(features_str_cols) - set('v'))
-    assembler = VectorAssembler( \
-         inputCols = features_cols, \
-         outputCol = "features")
-    data = assembler.transform(data)
-    data = data.withColumnRenamed('v', 'label')
-    # 识别哪些是分类变量，Set maxCategories so features with > 4 distinct values are treated as continuous.
-    featureIndexer = VectorIndexer(inputCol="features", outputCol="indexedFeatures", maxCategories=10).fit(data)
-    data = featureIndexer.transform(data)
-    return data
+    features_cols = list(set(trn.columns) -set(not_features_cols)- set(features_str_cols) - set('v'))
     
-data = data_for_forest(trn)
-
-# 2. 重要性
-rf = RandomForestRegressor(labelCol="label", featuresCol="indexedFeatures", numTrees=100, seed=10)
-model = rf.fit(data)
-dp = model.featureImportances
-dendp = DenseVector(dp)
-df_importances = pd.DataFrame(dendp.array)
-df_importances['feature'] = features_cols
-df_importances.columns=['importances','feature']  
-df_importances = df_importances.sort_values(by='importances', ascending=False)
-df_importances = spark.createDataFrame(df_importances)
-
-# 输出结果
-df_importances = df_importances.repartition(1)
-df_importances.write.format("csv").option("header", "true") \
-        .mode("overwrite").save(df_importances_path)
+    def data_for_forest(data):
+        # 使用StringIndexer，将features中的字符型变量转为分类数值变量
+        indexers = [StringIndexer(inputCol=column, outputCol=column+"_index").fit(data) for column in features_str_cols]
+        pipeline = Pipeline(stages=indexers)
+        data = pipeline.fit(data).transform(data)
+        # 使用 VectorAssembler ，将特征合并为features
+        assembler = VectorAssembler( \
+             inputCols = features_cols, \
+             outputCol = "features")
+        data = assembler.transform(data)
+        data = data.withColumnRenamed('v', 'label')
+        # 识别哪些是分类变量，Set maxCategories so features with > 4 distinct values are treated as continuous.
+        featureIndexer = VectorIndexer(inputCol="features", outputCol="indexedFeatures", maxCategories=10).fit(data)
+        data = featureIndexer.transform(data)
+        return data
         
-# 3. 五次模型预测结果
-
-for i in range(1,6):
-    # 模型构建
-    (df_training, df_test) = data.randomSplit([0.7, 0.3])
+    data = data_for_forest(trn)
     
-    rf = RandomForestRegressor(labelCol="label", featuresCol="indexedFeatures", numTrees=100, seed=100)
-    model = rf.fit(df_training)
+    # 2. 重要性
+    print("importances")
     
-    # 结果预测
-    # pipeline = Pipeline(stages=[rf])
-    df_training_pred = model.transform(df_training)
-    df_training_pred = df_training_pred.withColumn('datatype', func.lit('train'))
-    df_test_pred = model.transform(df_test)
-    df_test_pred = df_test_pred.withColumn('datatype', func.lit('test'))
+    rf = RandomForestRegressor(labelCol="label", featuresCol="indexedFeatures", numTrees=100, seed=10)
+    model = rf.fit(data)
+    dp = model.featureImportances
+    dendp = DenseVector(dp)
+    df_importances = pd.DataFrame(dendp.array)
+    df_importances['feature'] = features_cols
+    df_importances.columns=['importances','feature']  
+    df_importances = df_importances.sort_values(by='importances', ascending=False)
+    df_importances = spark.createDataFrame(df_importances)
     
-    df = df_training_pred.union(df_test_pred.select(df_training_pred.columns))
-    df = df.withColumn('num', func.lit(i))
-    
-    if i ==1:
-        df_all = df
-    else:
-        df_all = df_all.union(df)
-
-df_all = df_all.repartition(1)
-df_all.write.format("csv").option("header", "true") \
-        .mode("overwrite").save('')
+    # 输出结果
+    df_importances = df_importances.repartition(1)
+    df_importances.write.format("csv").option("header", "true") \
+            .mode("overwrite").save(df_importances_path)
+            
+    # 3. 五次模型预测结果
+    print("nmse")
+    for i in range(1,6):
+        # 模型构建
+        (df_training, df_test) = data.randomSplit([0.7, 0.3])
         
-# 4. 计算误差
-schema = StructType([
-            StructField("Province", StringType(), True), 
-            StructField("datatype", StringType(), True),
-            StructField("NMSE", StringType(), True),
-            StructField("num", StringType(), True)
-            ])
-
-@pandas_udf(schema, PandasUDFType.GROUPED_MAP)   
-def nmse_func(pdf):
-    import pandas as pd
-    import numpy as np
-    Province = pdf['Province'][0]
-    datatype = pdf['datatype'][0]
-    num = pdf['num'][0]
-    pdf['tmp1'] = (pdf['y_prd'] - pdf['y_true']) **2
-    tmp1_mean = pdf['tmp1'].mean()
-    y_true_mean = pdf['y_true'].mean()
-    pdf['tmp2'] = (pdf['y_true'] - y_true_mean) **2
-    tmp2_mean = pdf['tmp2'].mean()
-    if tmp2_mean == 0:
-        NMSE = 'inf'
-    NMSE = str(tmp1_mean/tmp2_mean)
-    return pd.DataFrame([[Province] + [datatype] + [NMSE] + [num]], columns=["Province", "datatype", "NMSE", "num"])
-
-
-df_all = df_all.withColumn('y_prd', f2(col('prediction'))) \
-        .withColumn('y_true', f2(col('label'))).persist()
-df_nmse = df_all.select('Province', 'y_true', 'y_prd', 'datatype', 'num') \
-                .groupBy('Province', 'datatype', 'num').apply(nmse_func).persist()
-df_nmse = df_nmse.withColumn('NMSE', col('NMSE').cast(DoubleType())) \
-                .withColumn('type', func.concat(col('datatype'), col('num')))
-
-# 转置
-df_nmse = df_nmse.groupBy('Province').pivot('type').agg(func.sum('NMSE'))
-
-df_nmse = df_nmse.repartition(1)
-df_nmse.write.format("csv").option("header", "true") \
-        .mode("overwrite").save(df_nmse_path)
+        rf = RandomForestRegressor(labelCol="label", featuresCol="indexedFeatures", numTrees=100, seed=100)
+        model = rf.fit(df_training)
+        
+        # 结果预测
+        # pipeline = Pipeline(stages=[rf])
+        df_training_pred = model.transform(df_training)
+        df_training_pred = df_training_pred.withColumn('datatype', func.lit('train'))
+        df_test_pred = model.transform(df_test)
+        df_test_pred = df_test_pred.withColumn('datatype', func.lit('test'))
+        
+        df = df_training_pred.union(df_test_pred.select(df_training_pred.columns))
+        df = df.withColumn('num', func.lit(i))
+        
+        if i ==1:
+            df_all = df
+        else:
+            df_all = df_all.union(df)
     
-
-# 5. 对数据预测
-result = data_for_forest(modeldata)  
-result = result.withColumn('DOI', func.lit(market))
-result = model.transform(result)
-result = result.withColumn('sales_from_model', f2(col('prediction'))) \
-        .withColumn('training_set', func.when(col('PHA_ID').isin(trn.select('PHA_ID').distinct().toPandas()['PHA_ID'].values.tolist()), 
-                                            func.lit(1)) \
-                                        .otherwise(func.lit(0)))
-result = result.withColumn('final_sales', func.when(col('flag_model')== 'TRUE', col('Sales')) \
-                                            .otherwise(col('sales_from_model')))
-result = result.where(col('PHA_ID').isin(all_hosp.toPandas()['Panel_ID'].values.tolist()))
-
-result = result.repartition(1)
-result.write.format("parquet") \
-        .mode("overwrite").save(result_path)
-
-
-
+    #df_all = df_all.repartition(1)
+    #df_all.write.format("csv").option("header", "true") \
+    #        .mode("overwrite").save('')
+            
+    # 4. 计算误差
+    schema = StructType([
+                StructField("Province", StringType(), True), 
+                StructField("datatype", StringType(), True),
+                StructField("NMSE", StringType(), True),
+                StructField("num", StringType(), True)
+                ])
+    
+    @pandas_udf(schema, PandasUDFType.GROUPED_MAP)   
+    def nmse_func(pdf):
+        import pandas as pd
+        import numpy as np
+        Province = pdf['Province'][0]
+        datatype = pdf['datatype'][0]
+        num = pdf['num'][0]
+        pdf['tmp1'] = (pdf['y_prd'] - pdf['y_true']) **2
+        tmp1_mean = pdf['tmp1'].mean()
+        y_true_mean = pdf['y_true'].mean()
+        pdf['tmp2'] = (pdf['y_true'] - y_true_mean) **2
+        tmp2_mean = pdf['tmp2'].mean()
+        if tmp2_mean == 0:
+            NMSE = 'inf'
+        NMSE = str(tmp1_mean/tmp2_mean)
+        return pd.DataFrame([[Province] + [datatype] + [NMSE] + [str(num)]], columns=["Province", "datatype", "NMSE", "num"])
+    
+    
+    df_all = df_all.withColumn('y_prd', f2(col('prediction'))) \
+            .withColumn('y_true', f2(col('label'))).persist()
+    df_nmse = df_all.select('Province', 'y_true', 'y_prd', 'datatype', 'num') \
+                    .groupBy('Province', 'datatype', 'num').apply(nmse_func).persist()
+    df_nmse = df_nmse.withColumn('NMSE', col('NMSE').cast(DoubleType())) \
+                    .withColumn('type', func.concat(col('datatype'), col('num')))
+    
+    # 转置
+    df_nmse = df_nmse.groupBy('Province').pivot('type').agg(func.sum('NMSE'))
+    
+    df_nmse = df_nmse.repartition(1)
+    df_nmse.write.format("csv").option("header", "true") \
+            .mode("overwrite").save(df_nmse_path)
+        
+    
+    # 5. 对数据预测
+    print("result")
+    result = data_for_forest(modeldata)  
+    result = result.withColumn('DOI', func.lit(market))
+    result = model.transform(result)
+    result = result.withColumn('sales_from_model', f2(col('prediction'))) \
+            .withColumn('training_set', func.when(col('PHA_ID').isin(trn.select('PHA_ID').distinct().toPandas()['PHA_ID'].values.tolist()), 
+                                                func.lit(1)) \
+                                            .otherwise(func.lit(0)))
+    result = result.withColumn('final_sales', func.when(col('flag_model')== 'TRUE', col('Sales')) \
+                                                .otherwise(col('sales_from_model')))
+    result = result.where(col('PHA_ID').isin(all_hosp.toPandas()['Panel_ID'].values.tolist()))
+    
+    #result = result.repartition(1)
+    #result.write.format("parquet") \
+    #        .mode("overwrite").save(result_path)
+    
+    
+    
