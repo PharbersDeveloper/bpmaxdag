@@ -5,27 +5,21 @@ This is job template for Pharbers Max Job
 """
 
 from ph_logs.ph_logs import phs3logger
-import time
-import numpy
-import os
 from pyspark.sql import SparkSession
 from pyspark.sql.types import *
-from pyspark.sql.functions import pandas_udf
 from pyspark.sql.functions import regexp_replace, regexp_extract
 from pyspark.sql.functions import pandas_udf, PandasUDFType
-from pyspark.sql.functions import udf
+from pyspark.sql.functions import udf, col
 from pyspark.sql.functions import upper
 from pyspark.sql.functions import lit
 from pyspark.sql.functions import concat
 from pyspark.sql.functions import desc
 from pyspark.sql.functions import rank, row_number
 from pyspark.sql.functions import when
-from pyspark.sql.functions import col, udf
 from pyspark.sql.functions import array, array_contains, split
 from pyspark.sql.functions import broadcast
 from pyspark.sql.functions import monotonically_increasing_id
 from pyspark.sql.functions import explode
-from pyspark.sql.functions import pandas_udf, PandasUDFType
 from pyspark.sql import Window
 from pyspark.ml.linalg import Vectors, VectorUDT
 from pyspark.ml.classification import MultilayerPerceptronClassifier
@@ -34,10 +28,16 @@ from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.feature import StopWordsRemover
 from math import isnan
 from math import sqrt
+from nltk.metrics import jaccard_distance as jd
 import pandas as pd
 import pkuseg
-from nltk.metrics import jaccard_distance as jd
 import re
+import time
+import numpy
+import os
+
+
+G_REPARTITION_NUM = 1600
 
 def execute(**kwargs):
 	"""
@@ -73,7 +73,7 @@ def execute(**kwargs):
 	# 1. human interfere 与 数据准备
 	modify_pool_cleanning_prod(spark, raw_data_path, split_data_path)
 	df_cleanning = spark.read.parquet(split_data_path)
-	df_cleanning = df_cleanning.repartition(1600)
+	df_cleanning = df_cleanning.repartition(G_REPARTITION_NUM)
 	df_cleanning = df_cleanning.withColumn("MOLE_NAME_ORIGINAL", df_cleanning.MOLE_NAME) \
 								.withColumn("PRODUCT_NAME_ORIGINAL", df_cleanning.PRODUCT_NAME) \
 								.withColumn("DOSAGE_ORIGINAL", df_cleanning.DOSAGE) \
@@ -81,9 +81,8 @@ def execute(**kwargs):
 								.withColumn("PACK_QTY_ORIGINAL", df_cleanning.PACK_QTY) \
 								.withColumn("MANUFACTURER_NAME_ORIGINAL", df_cleanning.MANUFACTURER_NAME)
 								# 保留原字段内容
-	df_cleanning.show(2)
+
 	df_cleanning = df_cleanning.withColumn("PRODUCT_NAME", split(df_cleanning.PRODUCT_NAME_ORIGINAL, "-")[0])
-	df_cleanning.show(2)
 	df_cleanning = human_interfere(spark, df_cleanning, df_interfere)
 	# df_cleanning = dosage_standify(df_cleanning)  # 剂型列规范
 	df_cleanning = spec_standify(df_cleanning)  # 规格列规范
@@ -160,9 +159,10 @@ def execute(**kwargs):
 					.drop("PACK_ID_CHECK_NUM", "PACK_ID_STANDARD_NUM")
 
 	df_result.repartition(10).write.mode("overwrite").parquet(result_path)
-	logger.warn("第二轮完成，写入完成")
+	logger.info("第二轮完成，写入完成")
 
-	return {'result_path': result_path}
+	return { "result_path" : result_path }
+
 
 """
 更高的并发数
@@ -175,16 +175,17 @@ def modify_pool_cleanning_prod(spark, raw_data_path, split_data_path):
 	 df_cleanning = df_cleanning.repartition(1).withColumn("id", monotonically_increasing_id())
 
 	 #df_cleanning = df_cleanning.readStream.withColumn("id", monotonically_increasing_id())
-	 print("源数据条目： "+ str(df_cleanning.count()))
-	 print("源数据：")
-	 df_cleanning.show(3)
+	 logger.info("源数据条目： "+ str(df_cleanning.count()))
+	 logger.info("源数据：")
 
 	 # 为了算法更高的并发，在这里将文件拆分为16个，然后以16的并发数开始跑人工智能
 	 df_cleanning.write.mode("overwrite").parquet(split_data_path)
 	 # return df_cleanning
 
+
 """
 读取标准表WW
+TODO：这个要抽象到phcli中
 """
 def load_standard_prod(spark, standard_prod_path):
 	 df_standard = spark.read.parquet(standard_prod_path) \
@@ -211,8 +212,10 @@ def load_standard_prod(spark, standard_prod_path):
 
 	 return df_standard
 
+
 """
 读取人工干预表
+TODO: 这个也要抽象到phcli中
 """
 def load_interfere_mapping(spark, human_replace_packid_path):
 	 df_interfere = spark.read.parquet(human_replace_packid_path) \
@@ -225,6 +228,7 @@ def load_interfere_mapping(spark, human_replace_packid_path):
 						 .withColumnRenamed("PACK_ID", "PACK_ID_INTERFERE")
 	 return df_interfere
 
+
 """
 读取剂型替换表
 """
@@ -232,10 +236,15 @@ def load_dosage_mapping(spark, cpa_dosage_lst_path):
 	df_dosage_mapping = spark.read.parquet(cpa_dosage_lst_path)
 	return df_dosage_mapping
 
+
 def load_word_dict_encode(spark, word_dict_encode_path):
 	df_encode = spark.read.parquet(word_dict_encode_path)
 	return df_encode
 
+
+"""
+fill na 的过程也需要优化到phcli中
+"""
 def human_interfere(spark, df_cleanning, df_interfere):
 	 # 1. 人工干预优先，不太对后期改
 	 # 干预流程将数据直接替换，在走平常流程，不直接过滤，保证流程的统一性
@@ -265,11 +274,13 @@ def human_interfere(spark, df_cleanning, df_interfere):
 
 	 return df_cleanning
 
+
 @udf(returnType=StringType())
 def interfere_replace_udf(origin, interfere):
 	if interfere != "unknown":
 		origin = interfere
 	return origin
+
 
 """
 规格列规范
@@ -327,6 +338,7 @@ def efftiveness_with_jaccard_distance(mo, ms, do, ds):
 	df["DOSAGE_JD"] = df.apply(lambda x: jd(set(x["DOSAGE"]), set(x["DOSAGE_STANDARD"])), axis=1)
 	df["RESULT"] = df.apply(lambda x: [x["MOLE_JD"], x["DOSAGE_JD"]], axis=1)
 	return df["RESULT"]
+
 
 """
 	由于Edit Distance不是一个相似度算法，当你在计算出相似度之后还需要通过一定的辅助算法计算
@@ -388,7 +400,7 @@ def efftiveness_with_jaro_winkler_similarity(mo, ms, po, ps, do, ds, so, ss, qo,
 				)
 			)
 
-	# @udf(returnType=DoubleType())
+
 	def jaro_winkler_similarity(s1, s2, p=0.1, max_l=4):
 		if not 0 <= max_l * p <= 1:
 			print("The product  `max_l * p` might not fall between [0,1].Jaro-Winkler similarity might not be between 0 and 1.")
@@ -459,6 +471,7 @@ def efftiveness_with_jaro_winkler_similarity(mo, ms, po, ps, do, ds, so, ss, qo,
 										], axis=1)
 	return df["RESULT"]
 
+
 def second_round_with_col_recalculate(df_second_round, dosage_mapping, df_encode):
 	df_second_round = df_second_round.join(dosage_mapping, df_second_round.DOSAGE == dosage_mapping.CPA_DOSAGE, how="left").na.fill("")
 	df_second_round = df_second_round.withColumn("MASTER_DOSAGE", when(df_second_round.MASTER_DOSAGE.isNull(), df_second_round.JACCARD_DISTANCE). \
@@ -480,6 +493,7 @@ def second_round_with_col_recalculate(df_second_round, dosage_mapping, df_encode
 												df_second_round.PRODUCT_NAME_STANDARD, df_second_round.EFF_MOLE_DOSAGE))
 
 	return df_second_round
+
 
 @pandas_udf(StringType(), PandasUDFType.SCALAR)
 def transfer_unit_pandas_udf(value):
@@ -548,6 +562,7 @@ def transfer_unit_pandas_udf(value):
 	df["RESULT"] = df["SPEC"].apply(unit_transform)
 	return df["RESULT"]
 
+
 @pandas_udf(StringType(), PandasUDFType.SCALAR)
 def percent_pandas_udf(percent, valid, gross):
 	def percent_calculation(percent, valid, gross):
@@ -571,6 +586,7 @@ def percent_pandas_udf(percent, valid, gross):
 	df["RESULT"] = df.apply(lambda x: percent_calculation(x["percent"], x["valid"], x["gross"]), axis=1)
 	return df["RESULT"]
 
+
 @pandas_udf(DoubleType(), PandasUDFType.SCALAR)
 def dosage_replace(dosage_lst, dosage_standard, eff):
 
@@ -581,6 +597,7 @@ def dosage_replace(dosage_lst, dosage_standard, eff):
 											else x["EFFTIVENESS_DOSAGE"], axis=1)
 
 	return df["EFFTIVENESS"]
+
 
 @pandas_udf(DoubleType(), PandasUDFType.SCALAR)
 def pack_replace(eff_pack, spec_original, pack_qty, pack_standard):
@@ -595,6 +612,7 @@ def pack_replace(eff_pack, spec_original, pack_qty, pack_standard):
 											else x["EFFTIVENESS_PACK_QTY"], axis=1)
 
 	return df["EFFTIVENESS_PACK"]
+
 
 @pandas_udf(DoubleType(), PandasUDFType.SCALAR)
 def prod_name_replace(eff_mole_name, eff_mnf_name, eff_product_name, mole_name, prod_name_standard, eff_mole_dosage):
@@ -679,6 +697,7 @@ def prod_name_replace(eff_mole_name, eff_mnf_name, eff_product_name, mole_name, 
 
 	return df["EFFTIVENESS_PROD"]
 
+
 def mnf_encoding_index(df_cleanning, df_encode):
 	# 增加两列MANUFACTURER_NAME_CLEANNING_WORDS MANUFACTURER_NAME_STANDARD_WORDS - array(string)
 	df_cleanning = phcleanning_mnf_seg(df_cleanning, "MANUFACTURER_NAME_STANDARD", "MANUFACTURER_NAME_STANDARD_WORDS")
@@ -691,6 +710,7 @@ def mnf_encoding_index(df_cleanning, df_encode):
 	# 	.select("MANUFACTURER_NAME", "MANUFACTURER_NAME_CLEANNING_WORDS", "MANUFACTURER_NAME_STANDARD", "MANUFACTURER_NAME_STANDARD_WORDS", "EFFTIVENESS_MANUFACTURER").show(10)
 	return df_cleanning
 
+
 def mnf_encoding_cosine(df_cleanning):
 	df_cleanning = df_cleanning.withColumn("COSINE_SIMILARITY", \
 					mnf_index_word_cosine_similarity(df_cleanning.MANUFACTURER_NAME_CLEANNING_WORDS, df_cleanning.MANUFACTURER_NAME_STANDARD_WORDS))
@@ -698,6 +718,7 @@ def mnf_encoding_cosine(df_cleanning):
 	# 	.select("MANUFACTURER_NAME", "MANUFACTURER_NAME_CLEANNING_WORDS", "MANUFACTURER_NAME_STANDARD", \
 	# 			"MANUFACTURER_NAME_STANDARD_WORDS", "EFFTIVENESS_MANUFACTURER", "COSINE_SIMILARITY").show(100)
 	return df_cleanning
+
 
 def mole_dosage_calculaltion(df):
 
@@ -743,6 +764,7 @@ def mole_dosage_calculaltion(df):
 				)
 			)
 
+
 	@udf(returnType=DoubleType())
 	def jaro_winkler_similarity_mole_dosage_calculaltion(s1, s2, p=0.1, max_l=4):
 		if not 0 <= max_l * p <= 1:
@@ -768,6 +790,7 @@ def mole_dosage_calculaltion(df):
 		# Return the similarity value as described in docstring.
 		return jaro_sim + (l * p * (1 - jaro_sim))
 
+
 	# 给df 增加一列：EFF_MOLE_DOSAGE
 	df_dosage_explode = df.withColumn("MASTER_DOSAGES", explode("MASTER_DOSAGE"))
 	df_dosage_explode = df_dosage_explode.withColumn("MOLE_DOSAGE", concat(df_dosage_explode.MOLE_NAME, df_dosage_explode.MASTER_DOSAGES))
@@ -776,6 +799,7 @@ def mole_dosage_calculaltion(df):
 	df_dosage = df.join(df_dosage_explode, "id", how="left")
 
 	return df_dosage
+
 
 def phcleanning_mnf_seg(df_standard, inputCol, outputCol):
 	# 2. 英文的分词方法，tokenizer
@@ -797,9 +821,11 @@ def phcleanning_mnf_seg(df_standard, inputCol, outputCol):
 
 	return remover.transform(df_standard).drop("MANUFACTURER_NAME_WORDS")
 
+
 @pandas_udf(ArrayType(IntegerType()), PandasUDFType.GROUPED_AGG)
 def word_index_to_array(v):
 	return v.tolist()
+
 
 def words_to_reverse_index(df_cleanning, df_encode, inputCol, outputCol):
 	df_cleanning = df_cleanning.withColumn("tid", monotonically_increasing_id())
@@ -812,8 +838,10 @@ def words_to_reverse_index(df_cleanning, df_encode, inputCol, outputCol):
 	df_cleanning = df_cleanning.drop("tid", "INDEX_ENCODE", "MANUFACTURER_NAME_STANDARD_WORD_LIST")
 	return df_cleanning
 
+
 @pandas_udf(ArrayType(StringType()), PandasUDFType.SCALAR)
 def manifacture_name_pseg_cut(mnf):
+	
 	frame = {
 		"MANUFACTURER_NAME_STANDARD": mnf,
 	}
@@ -867,6 +895,7 @@ def manifacture_name_pseg_cut(mnf):
 	df["MANUFACTURER_NAME_STANDARD_WORDS"] = df["MANUFACTURER_NAME_STANDARD"].apply(lambda x: seg.cut(x))
 	return df["MANUFACTURER_NAME_STANDARD_WORDS"]
 
+
 @pandas_udf(DoubleType(), PandasUDFType.SCALAR)
 def mnf_index_word_cosine_similarity(o, v):
 	frame = {
@@ -893,6 +922,7 @@ def mnf_index_word_cosine_similarity(o, v):
 				else:
 					values.append(1)
 		return Vectors.sparse(8000, idx, values)
+
 		#                    (向量长度，索引数组，与索引数组对应的数值数组)
 	def cosine_distance(u, v):
 		u = u.toArray()
