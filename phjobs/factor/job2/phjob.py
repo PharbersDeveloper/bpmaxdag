@@ -59,9 +59,11 @@ project_name = 'Eisai'
 outdir = '202009'
 model_month_right = '201912'
 model_month_left = '201901'
+market_list = '固力康'
 
 model_month_right = int(model_month_right)
 model_month_left = int(model_month_left)
+market_list = market_list.replace(' ','').split(',')
 
 mkt_mapping_path = max_path + '/' + project_name + '/mkt_mapping'
 universe_path = max_path + '/' + project_name + '/universe_base'
@@ -80,47 +82,45 @@ max_result = max_result.where((col('Date') >= model_month_left) & (col('Date') <
 panel_result = spark.read.parquet(panel_result_path)
 panel_result = panel_result.where((col('Date') >= model_month_left) & (col('Date') <= model_month_right))
 
-# =====================
+# 每个市场算factor
 
 for market in market_list:
-
-market = '固力康'
-
-# 输入
-rf_out_path = max_path + '/' + project_name + '/forest/' + market + '__2分之1_rf'
-# 输出
-factor1_path = max_path + '/' + project_name + '/forest/' + market + '_factor_1'
-
-# 样本ID
-ID_list = universe.where(col('PANEL') == 1).select('Panel_ID').distinct().toPandas()['Panel_ID'].values.tolist()
-
-# panel 样本
-panel = panel_result.where(col('DOI') == market)
-panel1 = panel.where(col('HOSP_ID').isin(ID_list)) \
-            .drop('Province', 'City') \
-            .join(universe.select('Panel_ID', 'Province', 'City'), panel.HOSP_ID == universe.Panel_ID, how='inner')
-panel1 = panel1.groupBy('City').agg(func.sum('Sales').alias('panel_sales'))
-
-# rf 非样本
-rf_out = spark.read.parquet(rf_out_path)
-rf_out2 = rf_out.select('PHA_ID', 'final_sales') \
-                .join(universe.select('Panel_ID', 'Province', 'City'), rf_out.PHA_ID == universe.Panel_ID, how='left') \
-                .where(~col('PHA_ID').isin(ID_list))
-rf_out3 = rf_out2.groupBy('City').agg(func.sum('final_sales').alias('Sales_rf'))
-
-# max 非样本
-spotfire_out = max_result.where(col('DOI') == market)
-spotfire_out1 = spotfire_out.where(col('PANEL') != 1) \
-                        .groupBy('City').agg(func.sum('Predict_Sales').alias('Sales'))
-                        
-factor_city = spotfire_out1.join(rf_out3, on='City', how='left')
-factor_city = factor_city.withColumn('factor', col('Sales_rf')/col('Sales'))
-
-factor_city1 = universe.select('City').distinct() \
-                        .join(factor_city, on='City', how='left')
- 
-factor1_out = factor_city1.select('City', 'factor')
-
-factor1_out = factor1_out.repartition(1)
-factor1_out.write.format("parquet") \
-        .mode("overwrite").save(factor1_path)
+    #market = '固力康'
+    # 输入
+    rf_out_path = max_path + '/' + project_name + '/forest/' + market + '__2分之1_rf'
+    # 输出
+    factor1_path = max_path + '/' + project_name + '/forest/' + market + '_factor_1'
+    
+    # 样本ID
+    ID_list = universe.where(col('PANEL') == 1).select('Panel_ID').distinct().toPandas()['Panel_ID'].values.tolist()
+    
+    # panel 样本
+    panel = panel_result.where(col('DOI') == market)
+    panel1 = panel.where(col('HOSP_ID').isin(ID_list)) \
+                .drop('Province', 'City') \
+                .join(universe.select('Panel_ID', 'Province', 'City'), panel.HOSP_ID == universe.Panel_ID, how='inner')
+    panel1 = panel1.groupBy('City').agg(func.sum('Sales').alias('panel_sales'))
+    
+    # rf 非样本
+    rf_out = spark.read.parquet(rf_out_path)
+    rf_out2 = rf_out.select('PHA_ID', 'final_sales') \
+                    .join(universe.select('Panel_ID', 'Province', 'City'), rf_out.PHA_ID == universe.Panel_ID, how='left') \
+                    .where(~col('PHA_ID').isin(ID_list))
+    rf_out3 = rf_out2.groupBy('City').agg(func.sum('final_sales').alias('Sales_rf'))
+    
+    # max 非样本
+    spotfire_out = max_result.where(col('DOI') == market)
+    spotfire_out1 = spotfire_out.where(col('PANEL') != 1) \
+                            .groupBy('City').agg(func.sum('Predict_Sales').alias('Sales'))
+                            
+    factor_city = spotfire_out1.join(rf_out3, on='City', how='left')
+    factor_city = factor_city.withColumn('factor', col('Sales_rf')/col('Sales'))
+    
+    factor_city1 = universe.select('City').distinct() \
+                            .join(factor_city, on='City', how='left')
+     
+    factor1_out = factor_city1.select('City', 'factor')
+    
+    factor1_out = factor1_out.repartition(1)
+    factor1_out.write.format("parquet") \
+            .mode("overwrite").save(factor1_path)

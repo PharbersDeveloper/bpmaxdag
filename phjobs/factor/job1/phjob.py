@@ -94,7 +94,7 @@ universe_choice = 'Empty'
 # 市场的universe文件
 universe_choice_dict={}
 if universe_choice != "Empty":
-    for each in universe_choice.replace(", ",",").split(","):
+    for each in universe_choice.replace(" ","").split(","):
         market_name = each.split(":")[0]
         universe_name = each.split(":")[1]
         universe_choice_dict[market_name]=universe_name
