@@ -13,10 +13,16 @@ spec:
     code: phmain.py
     config: phconf.yaml
     args:
-      - key: a
-        value: 123
-      - key: b
-        value: 456
+      - key: max_path
+        value: 's3a://ph-max-auto/v0.0.1-2020-06-08/'
+      - key: project_name
+        value: 'Eisai'
+      - key: outdir
+        value: '202009'
+      - key: market_list
+        value: '固力康'
+      - key: universe_choice
+        value: 'Empty'
     outputs:
       - key: c
         value: abcde
