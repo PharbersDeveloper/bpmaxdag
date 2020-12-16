@@ -114,6 +114,7 @@ for market in market_list:
                             
     factor_city = spotfire_out1.join(rf_out3, on='City', how='left')
     factor_city = factor_city.withColumn('factor', col('Sales_rf')/col('Sales'))
+    factor_city = factor_city.withColumn('factor', func.when(col('factor').isNull(), func.lit(1)).otherwise(col('factor')))
     
     factor_city1 = universe.select('City').distinct() \
                             .join(factor_city, on='City', how='left')
