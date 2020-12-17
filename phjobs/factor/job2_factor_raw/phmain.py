@@ -19,7 +19,7 @@ from ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--outdir')
 @click.option('--model_month_right')
 @click.option('--model_month_left')
-@click.option('--market_list')
+@click.option('--all_models')
 @click.option('--max_file')
 @click.option('--c')
 @click.option('--d')

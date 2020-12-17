@@ -58,22 +58,25 @@ def execute(**kwargs):
     outdir = '202009'
     model_month_right = '201912'
     model_month_left = '201901'
-    market_list = '固力康'
+    all_models = '固力康'
     max_file = 'MAX_result_201701_202009_city_level'
     '''
     # 输入 
-    
+    if test != "False" and test != "True":
+        phlogger.error('wrong input: test, False or True') 
+        raise ValueError('wrong input: test, False or True')
+        
     max_path = kwargs["max_path"]
     project_name = kwargs["project_name"]
     max_file = kwargs["max_file"]
     outdir = kwargs["outdir"]
     model_month_right = kwargs["model_month_right"]
     model_month_left = kwargs["model_month_left"]
-    market_list = kwargs["market_list"]
+    all_models = kwargs["all_models"]
     
     model_month_right = int(model_month_right)
     model_month_left = int(model_month_left)
-    market_list = market_list.replace(' ','').split(',')
+    all_models = all_models.replace(' ','').split(',')
     
     max_result_path = max_path + '/' + project_name + '/' + outdir + '/MAX_result/' + max_file
     product_map_path = max_path + '/' + project_name + '/' + outdir + '/prod_mapping'
@@ -135,14 +138,17 @@ def execute(**kwargs):
     
     # 3. 对每个市场优化factor
     # market = '固力康'
-    for market in market_list:
+    for market in all_models:
         # 输入
         ims_info_path = max_path + '/' + project_name + '/ims_info/' +  market + '_ims_info'
         factor_path = max_path + '/' + project_name + '/forest/' + market + '_factor_1'
         # 输出
         ims_v1_otherall_path = max_path + '/' + project_name + '/forest/' + market + '_top3_product.csv'
         ims_panel_max_out_path = max_path + '/' + project_name + '/forest/' + market + '_factor_gap.csv'
-        factor_out_path = max_path + '/' + project_name + '/forest/factor/' + market + '_factor'
+        if test = True:
+            factor_out_path = max_path + '/' + project_name + '/forest/factor/' + market + '_factor'
+        else:
+            factor_out_path = max_path + '/' + project_name + '/factor/' + market + '_factor'
         
         # 数据执行
         ims_info = spark.read.parquet(ims_info_path)
@@ -334,6 +340,7 @@ def execute(**kwargs):
         factor3 = factor3.withColumn('factor', func.when(col('factor') > 4, func.lit(4)).otherwise(col('factor')))
         
         factor3 = factor3.repartition(1)
-        factor3.write.format("csv").option("header", "true") \
+        factor3.write.format("parquet") \
                 .mode("overwrite").save(factor_out_path)
                 
+    return {}

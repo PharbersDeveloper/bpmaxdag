@@ -63,10 +63,10 @@ def execute(**kwargs):
     max_path = kwargs["max_path"]
     project_name = kwargs["project_name"]
     outdir = kwargs["outdir"]
-    market_list = kwargs["market_list"]
+    all_models = kwargs["all_models"]
     universe_choice = kwargs["universe_choice"]
     
-    market_list = market_list.replace(' ','').split(',')
+    all_models = all_models.replace(' ','').split(',')
     # 市场的universe文件
     universe_choice_dict={}
     if universe_choice != "Empty":
@@ -140,13 +140,13 @@ def execute(**kwargs):
     rawdata = rawdata.withColumn('Date', col('Date').cast(IntegerType()))
     rawdata = rawdata.where((col('Date') > 201900) & (col('Date') < 202000))
     rawdata = rawdata.join(molecule_mkt_map, on='Molecule', how='left') \
-                        .join(hosp_mapping, on='ID', how='left')
+                        .join(hosp_mapping, on='ID', how='left').persist()
                         
     # 2. == 每个市场进行 randomForest 分析 ==
     
     # market = '固力康'
     
-    for market in market_list:
+    for market in all_models:
         print("当前market为:" + str(market))
         # 输入
         if market in universe_choice_dict.keys():
@@ -363,6 +363,6 @@ def execute(**kwargs):
                 .mode("overwrite").save(df_nmse_path)
             
     
-        
+    return {} 
         
         

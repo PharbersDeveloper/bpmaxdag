@@ -23,10 +23,12 @@ spec:
         value: '201912'
       - key: model_month_left
         value: '201901'
-      - key: market_list
+      - key: all_models
         value: '固力康'
       - key: max_file
         value: 'MAX_result_201701_202009_city_level'
+      - key: test
+        value: 'True'
     outputs:
       - key: c
         value: abcde

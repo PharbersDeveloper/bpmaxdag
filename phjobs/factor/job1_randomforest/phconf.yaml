@@ -19,7 +19,7 @@ spec:
         value: 'Eisai'
       - key: outdir
         value: '202009'
-      - key: market_list
+      - key: all_models
         value: '固力康'
       - key: universe_choice
         value: 'Empty'
