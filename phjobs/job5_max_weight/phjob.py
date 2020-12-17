@@ -79,6 +79,7 @@ all_models, universe_choice, if_others, out_path, out_dir, need_test):
 	# 医院权重文件	 
 	PHA_weight_path = max_path + "/" + project_name + '/PHA_weight'
 	PHA_weight = spark.read.parquet(PHA_weight_path)
+	PHA_weight = PHA_weight.select('Province', 'City', 'DOI', 'Weight')
 	PHA_weight = PHA_weight.withColumnRenamed('Province', 'Province_w') \
 							.withColumnRenamed('City', 'City_w')
 	
@@ -118,7 +119,8 @@ all_models, universe_choice, if_others, out_path, out_dir, need_test):
 		    original_panel_path = panel_box_path
 		else:
 		    original_panel_path = panel_path
-		
+		    
+		PHA_weight_market = PHA_weight.where(PHA_weight.DOI == market)
 		
 		# =========== 数据检查 =============
 		phlogger.info('数据检查-start')
@@ -257,7 +259,7 @@ all_models, universe_choice, if_others, out_path, out_dir, need_test):
 		panel_seg = panel_seg.join(panel_drugincome, on="Seg", how="left").cache() # TEST
 		
 		# *** PHA_city 权重计算
-		original_panel_weight = original_panel_tmp.join(PHA_weight, on=['PHA'], how='left')
+		original_panel_weight = original_panel_tmp.join(PHA_weight_market, on=['PHA'], how='left')
 		original_panel_weight = original_panel_weight.withColumn('Weight', func.when(original_panel_weight.Weight.isNull(), func.lit(1)) \
 																				.otherwise(original_panel_weight.Weight))
 		original_panel_weight = original_panel_weight.withColumn('Sales_w', original_panel_weight.Sales * original_panel_weight.Weight) \
