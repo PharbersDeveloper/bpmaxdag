@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: PhJob
 metadata:
-  name: job1
+  name: job1_randomforest
   description: "pharbers job description"
   labels:
-    name: job1
+    name: job1_randomforest
     runtime: python3
 spec:
   containers:

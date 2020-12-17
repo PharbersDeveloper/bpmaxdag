@@ -48,18 +48,6 @@ def execute(**kwargs):
         .config("spark.executor.memory", "1g") \
         .config('spark.sql.codegen.wholeStage', False) \
         .getOrCreate()
-       
-    os.environ["PYSPARK_PYTHON"] = "python3"
-    spark = SparkSession.builder \
-      .master("yarn") \
-      .appName("CPA&GYC match refactor") \
-      .config("spark.driver.memory", "1g") \
-      .config("spark.executor.cores", "2") \
-      .config("spark.executor.instances", "2") \
-      .config("spark.executor.memory", "2g") \
-      .config('spark.sql.codegen.wholeStage', False) \
-      .config("spark.sql.execution.arrow.pyspark.enabled", "true") \
-      .getOrCreate()
     
     access_key = os.getenv("AWS_ACCESS_KEY_ID")
     secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
@@ -170,7 +158,7 @@ def execute(**kwargs):
         # 输出
         df_importances_path = max_path + '/' + project_name + '/forest/' + market + '_importances.csv'
         df_nmse_path = max_path + '/' + project_name + '/forest/' + market + '_NMSE.csv'
-        result_path = max_path + '/' + project_name + '/forest/' + market + '_2分之1_rf'
+        result_path = max_path + '/' + project_name + '/forest/' + market + '_rf_result'
         
         # 2.1 数据处理    
         all_hospital = hospital_range.where(hospital_range.BEDSIZE > 99 ).select('Panel_ID').distinct()

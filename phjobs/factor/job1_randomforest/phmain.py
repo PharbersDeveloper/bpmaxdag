@@ -23,7 +23,7 @@ from ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--d')
 def debug_execute(**kwargs):
     try:
-        args = {'name': 'job1'}
+        args = {'name': 'job1_randomforest'}
 
         args.update(kwargs)
         result = exec_before(**args)
