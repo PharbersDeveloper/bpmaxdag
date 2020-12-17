@@ -79,7 +79,7 @@ all_models, universe_choice, if_others, out_path, out_dir, need_test):
 	# 医院权重文件	 
 	PHA_weight_path = max_path + "/" + project_name + '/PHA_weight'
 	PHA_weight = spark.read.parquet(PHA_weight_path)
-	PHA_weight = PHA_weight.select('Province', 'City', 'DOI', 'Weight')
+	PHA_weight = PHA_weight.select('Province', 'City', 'DOI', 'Weight', 'PHA')
 	PHA_weight = PHA_weight.withColumnRenamed('Province', 'Province_w') \
 							.withColumnRenamed('City', 'City_w')
 	
