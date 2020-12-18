@@ -11,7 +11,7 @@ from airflow.operators.python_operator import BranchPythonOperator
 from airflow.utils.trigger_rule import TriggerRule
 
 
-default_args = {
+default_args = { 
     "owner": "zyyin",
     "start_date": days_ago(1),
     "email": ['airflow@example.com'],
