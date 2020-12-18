@@ -62,10 +62,6 @@ def execute(**kwargs):
     max_file = 'MAX_result_201701_202009_city_level'
     '''
     # 输入 
-    if test != "False" and test != "True":
-        phlogger.error('wrong input: test, False or True') 
-        raise ValueError('wrong input: test, False or True')
-        
     max_path = kwargs["max_path"]
     project_name = kwargs["project_name"]
     max_file = kwargs["max_file"]
@@ -73,6 +69,12 @@ def execute(**kwargs):
     model_month_right = kwargs["model_month_right"]
     model_month_left = kwargs["model_month_left"]
     all_models = kwargs["all_models"]
+    test = kwargs["test"]
+    
+    if test != "False" and test != "True":
+        phlogger.error('wrong input: test, False or True') 
+        raise ValueError('wrong input: test, False or True')
+    
     
     model_month_right = int(model_month_right)
     model_month_left = int(model_month_left)
@@ -139,13 +141,14 @@ def execute(**kwargs):
     # 3. 对每个市场优化factor
     # market = '固力康'
     for market in all_models:
+        print(market)
         # 输入
         ims_info_path = max_path + '/' + project_name + '/ims_info/' +  market + '_ims_info'
         factor_path = max_path + '/' + project_name + '/forest/' + market + '_factor_1'
         # 输出
         ims_v1_otherall_path = max_path + '/' + project_name + '/forest/' + market + '_top3_product.csv'
         ims_panel_max_out_path = max_path + '/' + project_name + '/forest/' + market + '_factor_gap.csv'
-        if test = True:
+        if test == 'True':
             factor_out_path = max_path + '/' + project_name + '/forest/factor/' + market + '_factor'
         else:
             factor_out_path = max_path + '/' + project_name + '/factor/' + market + '_factor'
