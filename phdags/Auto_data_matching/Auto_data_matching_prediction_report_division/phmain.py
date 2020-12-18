@@ -14,19 +14,27 @@ from ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--owner')
 @click.option('--job_id')
 @click.option('--run_id')
+@click.option('--true_positive_result_path')
+@click.option('--true_negative_result_path')
+@click.option('--false_positive_result_path')
+@click.option('--false_negative_result_path')
+@click.option('--true_positive_result_path_csv')
+@click.option('--true_negative_result_path_csv')
+@click.option('--false_positive_result_path_csv')
+@click.option('--false_negative_result_path_csv')
 @click.option('--training_data_path')
-@click.option('--predictions_path')
 @click.option('--split_data_path')
 @click.option('--positive_result_path')
 @click.option('--negative_result_path')
 @click.option('--lost_data_path')
-@click.option('--positive_result_path_csv')
-@click.option('--negative_result_path_csv')
-@click.option('--lost_data_path_csv')
+@click.option('--final_report_path')
+@click.option('--mnf_check_path')
+@click.option('--spec_check_path')
+@click.option('--dosage_check_path')
 
 def debug_execute(**kwargs):
     try:
-        args = {'name': 'prediction_report'}
+        args = {'name': 'prediction_report_division'}
 
         args.update(kwargs)
         result = exec_before(**args)

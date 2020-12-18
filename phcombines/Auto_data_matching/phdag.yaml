@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: PhDag
+metadata:
+  name: Auto_data_matching
+  description: "pharbers job description"
+  labels:
+    name: Auto_data_matching
+    runtime: python3
+spec:
+  description: "A Max Auto Job Example"
+  start_date: 1 # if you don't understand, don't touch it
+  schedule_interval: "None" # if you don't understand, don't touch it
+  dag_timeout: 60 # minutes
+  email: ['airflow@example.com']
+  email_on_failure: False
+  email_on_retry: False
+  retries: 1
+  retry_delay: "minutes=5"
+  owner: zyyin
+  dag_id: Auto_data_matching
+  dag_tag: Auto_data_matching
+  jobs:
+    - name: Auto_data_matching.crossing
+      command: python3
+    - name: Auto_data_matching.prediction
+      command: python3
+    - name: Auto_data_matching.prediction_report
+      command: python3
+    - name: Auto_data_matching.prediction_report_division
+      command: python3
+    - name: Auto_data_matching.training
+      command: python3
+    - name: Auto_data_matching.training_validate
+      command: python3
+  linkage:
+    - "Auto_data_matching.crossing >> Auto_data_matching.training >> Auto_data_matching.training_validate"
+    - "Auto_data_matching.crossing >> Auto_data_matching.prediction >> Auto_data_matching.prediction_report >> Auto_data_matching.prediction_report_division"
+

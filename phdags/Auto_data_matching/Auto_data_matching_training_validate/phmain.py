@@ -14,19 +14,12 @@ from ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--owner')
 @click.option('--job_id')
 @click.option('--run_id')
-@click.option('--training_data_path')
-@click.option('--predictions_path')
-@click.option('--split_data_path')
-@click.option('--positive_result_path')
-@click.option('--negative_result_path')
-@click.option('--lost_data_path')
-@click.option('--positive_result_path_csv')
-@click.option('--negative_result_path_csv')
-@click.option('--lost_data_path_csv')
-
+@click.option('--model_path')
+@click.option('--validate_path')
+@click.option('--validate_output_path')
 def debug_execute(**kwargs):
     try:
-        args = {'name': 'prediction_report'}
+        args = {'name': 'training_validate'}
 
         args.update(kwargs)
         result = exec_before(**args)
