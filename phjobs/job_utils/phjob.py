@@ -20,6 +20,8 @@ from pyspark.sql.window import Window
 import pandas as pd
 import io
 import boto3
+from pyspark.sql.functions import pandas_udf, PandasUDFType
+from nltk.metrics import jaccard_distance as jd
 
 
 
@@ -383,22 +385,21 @@ def execute():
 		return final_spec
 
 
-
 	def s3excel2parquet():
 		access_key = os.getenv("AWS_ACCESS_KEY_ID")
 		secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
 		
 		SOURCE_BUCKET = 'ph-max-auto'
-		SOURCE_PATH = "2020-08-11/BPBatchDAG/mnf_name_mapping/mnf_name_mapping.xlsx"
+		SOURCE_PATH = "2020-08-11/BPBatchDAG/refactor/zyyin/spec_split_test_file/spec_split_test_file.xlsx"
 		TARGET_BUCKET = 'ph-max-auto'
-		TARGET_PATH = "2020-08-11/BPBatchDAG/mnf_name_mapping"
+		TARGET_PATH = "2020-08-11/BPBatchDAG/refactor/zyyin/spec_split_test_file"
 		
 		print("开始读取")
 		
 		s3_client = boto3.client('s3', aws_access_key_id=access_key, aws_secret_access_key=secret_key)
 		object_file = s3_client.get_object(Bucket=SOURCE_BUCKET, Key=SOURCE_PATH)
 		data = object_file['Body'].read()
-		pd_df = pd.read_excel(io.BytesIO(data), encoding='utf-8')
+		pd_df = pd.read_excel(io.BytesIO(data))
 		
 		os.environ["PYSPARK_PYTHON"] = "python3"
 		spark = SparkSession.builder \
@@ -420,6 +421,7 @@ def execute():
 		    spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
 		
 		sdf = spark.createDataFrame(pd_df.astype(str))
+		# .select("Group")
 		sdf.show(5)
 		
 		print("开始写入")
@@ -451,14 +453,13 @@ def execute():
 		# print(mole_replace_mine.filter(mole_replace_mine.PACK_ID_CHECK.isNull()).count())
 		mole_replace_mine.write.format("parquet").mode("overwrite").save("s3a://ph-max-auto/2020-08-11/BPBatchDAG/azsanofi_check/0.0.12/raw_data")
 
-
-	rematch_null_raw_data()
+	# rematch_null_raw_data()
 	# prod_check()
 	# ed_wrong_check()
 	# spec_reformat_test()  # 将错误匹配的剂型信息对比一下
 	# hr_check()
 	# azsanofi_split()
-	# s3excel2parquet()
+	s3excel2parquet()
 
 	# def spec_check():
 	# print(spec_reformat("10g:200万IU") == "10000.0MG 2000000.0U")
@@ -481,7 +482,8 @@ def execute():
 	# print(spec_reformat(" (250MG+8.77MG)") == "2.25G")
 	# print(spec_reformat("18ΜG"))
 	
-	
+
+
 	print("程序end: job_utils")
 	print("--"*80)
 	
