@@ -72,7 +72,7 @@ raw_data_path, if_union, test, auto_max):
     if project_name == 'Mylan':
         std_names = ["Date", "ID", "Raw_Hosp_Name", "Brand", "Form", "Specifications", "Pack_Number", "Manufacturer", 
         "Molecule", "Source", "Corp", "Route", "ORG_Measure", "min1", "Pack_ID"]
-
+    
     # 输出
     same_sheet_dup_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_check/same_sheet_dup.csv'
     across_sheet_dup_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_check/across_sheet_dup.csv'
@@ -98,7 +98,7 @@ raw_data_path, if_union, test, auto_max):
         raw_data = raw_data.withColumn('Corp', func.lit(''))
     if 'Route' not in raw_data.columns:
         raw_data = raw_data.withColumn('Route', func.lit(''))
-        
+    
     # 1. 同sheet去重(两行完全一样的)
     raw_data = raw_data.groupby(raw_data.columns).count()
     same_sheet_dup = raw_data.where(raw_data['count'] > 1)
@@ -189,52 +189,82 @@ raw_data_path, if_union, test, auto_max):
         across_sheet_dup.write.format("csv").option("header", "true") \
             .mode("overwrite").save(across_sheet_dup_path)
     
-    
-    # 3. 跨源去重，跨源去重优先保留CPA医院
-    if if_two_source == 'True':
-        # drop_dup_hospital
-        cpa_pha_mapping = spark.read.parquet(cpa_pha_mapping_path)
-        cpa_pha_mapping = cpa_pha_mapping.where(cpa_pha_mapping["推荐版本"] == 1).select('ID', 'PHA')
-        
-        cpa_pha_mapping_common = spark.read.parquet(cpa_pha_mapping_common_path)
-        cpa_pha_mapping_common = cpa_pha_mapping_common.where(cpa_pha_mapping_common["推荐版本"] == 1).select('ID', 'PHA')
-        
-        raw_data_dedup = raw_data_dedup.withColumn('ID', raw_data_dedup.ID.cast(IntegerType()))
-        
-        def drop_dup_hospital(df, cpa_pha_map):
-            column_names = df.columns
-            df = df.join(cpa_pha_map, on='ID', how='left')
-            df_filter = df.where(~df.PHA.isNull()).select('Date', 'PHA', 'ID').distinct() \
-                                    .groupby('Date', 'PHA').count()
-            
-            df = df.join(df_filter, on=['Date', 'PHA'], how='left')
-            
-            # 有重复的优先保留CPA（CPA的ID为6位，GYC的ID为7位）
-            df = df.where((df['count'] <=1) | ((df['count'] > 1) & (df.ID <= 999999)) | (df['count'].isNull()))
-            
-            # 检查去重结果
-            check = df.select('PHA','ID','Date').distinct() \
-                        .groupby('Date', 'PHA').count()
-            check_dup = check.where(check['count'] >1 ).where(~check.PHA.isNull())
-            if check_dup.count() > 0 :
-                print('有未去重的医院')
-                
-            df = df.select(column_names)
-            return df
-    
-        raw_data_dedup_std = drop_dup_hospital(raw_data_dedup, cpa_pha_mapping_common)                  
-        raw_data_dedup = drop_dup_hospital(raw_data_dedup, cpa_pha_mapping)    
-        
-    
     # ID 的长度统一
     def distinguish_cpa_gyc(col, gyc_hospital_id_length):
         # gyc_hospital_id_length是国药诚信医院编码长度，一般是7位数字，cpa医院编码一般是6位数字。医院编码长度可以用来区分cpa和gyc
         return (func.length(col) < gyc_hospital_id_length)
     def deal_ID_length(df):
+        # 不足6位补足
         df = df.withColumn("ID", df["ID"].cast(StringType()))
         df = df.withColumn("ID", func.regexp_replace("ID", "\\.0", ""))
         df = df.withColumn("ID", func.when(distinguish_cpa_gyc(df.ID, 7), func.lpad(df.ID, 6, "0")).otherwise(df.ID))
         return df
+      
+    # 3. 跨源去重，跨源去重优先保留CPA医院
+    if if_two_source == 'True':
+        # drop_dup_hospital
+        cpa_pha_mapping = spark.read.parquet(cpa_pha_mapping_path)
+        cpa_pha_mapping = cpa_pha_mapping.where(cpa_pha_mapping["推荐版本"] == 1).select('ID', 'PHA')
+        cpa_pha_mapping = deal_ID_length(cpa_pha_mapping)
+        
+        cpa_pha_mapping_common = spark.read.parquet(cpa_pha_mapping_common_path)
+        cpa_pha_mapping_common = cpa_pha_mapping_common.where(cpa_pha_mapping_common["推荐版本"] == 1).select('ID', 'PHA')
+        cpa_pha_mapping_common = deal_ID_length(cpa_pha_mapping_common)
+        
+        # raw_data_dedup = raw_data_dedup.withColumn('ID', raw_data_dedup.ID.cast(IntegerType()))
+        raw_data_dedup = deal_ID_length(raw_data_dedup)
+        
+        def drop_dup_hospital(df, cpa_pha_map):
+            column_names = df.columns
+            df = df.join(cpa_pha_map, on='ID', how='left')
+            
+            Source_window = Window.partitionBy("Date", "PHA").orderBy(func.col('Source'))
+            rank_window = Window.partitionBy("Date", "PHA").orderBy(func.col('Source').desc())
+            Source = df.select("Date", "PHA", 'Source').distinct() \
+                .select("Date", "PHA", func.collect_list(func.col('Source')).over(Source_window).alias('Source_list'),
+                func.rank().over(rank_window).alias('rank')).persist()
+            Source = Source.where(Source.rank == 1).drop('rank')
+            Source = Source.withColumn('count', func.size('Source_list'))
+            
+            df = df.join(Source, on=['Date', 'PHA'], how='left')
+            
+            # 无重复
+            df1 = df.where((df['count'] <=1) | (df['count'].isNull()))
+            # 有重复
+            df2 = df.where(df['count'] >1)
+            df2 = df2.withColumn('Source_choice', 
+                            func.when(func.array_contains('Source_list', 'CPA'), func.lit('CPA')) \
+                                .otherwise(func.when(func.array_contains('Source_list', 'GYC'), func.lit('GYC')) \
+                                                .otherwise(func.lit('DDD'))))
+            df2 = df2.where(df2['Source'] == df2['Source_choice'])
+            
+            # 合并
+            df_all = df1.union(df2.select(df1.columns))
+            
+            '''
+            df_filter = df.where(~df.PHA.isNull()).select('Date', 'PHA', 'ID').distinct() \
+                                    .groupby('Date', 'PHA').count()
+            
+            df = df.join(df_filter, on=['Date', 'PHA'], how='left')
+            
+            # 有重复的优先保留CPA（CPA的ID为6位，GYC的ID为7位）,其次是国药，最后是其他
+            df = df.where((df['count'] <=1) | ((df['count'] > 1) & (func.length('ID')==6)) | (df['count'].isNull()))
+            
+            '''
+            
+            # 检查去重结果
+            check = df_all.select('PHA','ID','Date').distinct() \
+                        .groupby('Date', 'PHA').count()
+            check_dup = check.where(check['count'] >1 ).where(~check.PHA.isNull())
+            if check_dup.count() > 0 :
+                print('有未去重的医院')
+                
+            df_all = df_all.select(column_names)
+            return df_all
+    
+        raw_data_dedup_std = drop_dup_hospital(raw_data_dedup, cpa_pha_mapping_common)                  
+        raw_data_dedup = drop_dup_hospital(raw_data_dedup, cpa_pha_mapping)    
+        
     
     # 4. 与历史数据合并
     if if_union == 'True':
@@ -289,5 +319,4 @@ raw_data_path, if_union, test, auto_max):
                 .mode("overwrite").save(all_raw_data_std_path)
         
         
-
     
