@@ -81,8 +81,8 @@ def execute(**kwargs):
     cpa_pha_mapping_path = max_path + '/' + project_name + '/cpa_pha_mapping'
     mkt_mapping_path = max_path + '/' + project_name + '/mkt_mapping'
     
-    #raw_data_path = max_path + '/' + project_name + '/' + outdir + '/raw_data'
-    raw_data_path = 's3a://ph-max-auto/v0.0.1-2020-06-08/Test/Eisai/raw_data.csv'
+    raw_data_path = max_path + '/' + project_name + '/' + outdir + '/raw_data'
+    #raw_data_path = 's3a://ph-max-auto/v0.0.1-2020-06-08/Test/Eisai/raw_data.csv'
     product_map_path = max_path + '/' + project_name + '/' + outdir + '/prod_mapping'
     
     
