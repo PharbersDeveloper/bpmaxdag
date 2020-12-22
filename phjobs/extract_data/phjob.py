@@ -40,16 +40,16 @@ project, doi, molecule_sep, data_type):
     if data_type != "max" and data_type != "raw":
         phlogger.error('wrong input: data_type, max or raw') 
         raise ValueError('wrong input: data_type, max or raw')
-        
-    if data_type == 'max':
-        extract_path = extract_path + '/max_standard'
-    elif data_type == 'raw':
-        extract_path = extract_path + '/rawdata_standard'
     
     if extract_file == "Empty":
         path_for_extract_path = extract_path + "/path_for_extract.csv"
     else:
         path_for_extract_path = extract_file
+        
+    if data_type == 'max':
+        extract_path = extract_path + '/max_standard'
+    elif data_type == 'raw':
+        extract_path = extract_path + '/rawdata_standard'
     
     if out_suffix == "Empty":
         raise ValueError('out_suffix: missing')
