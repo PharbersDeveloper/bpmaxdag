@@ -149,9 +149,9 @@ def execute(**kwargs):
         ims_v1_otherall_path = max_path + '/' + project_name + '/forest/' + market + '_top3_product.csv'
         ims_panel_max_out_path = max_path + '/' + project_name + '/forest/' + market + '_factor_gap.csv'
         if test == 'True':
-            factor_out_path = max_path + '/' + project_name + '/forest/factor/' + market + '_factor'
+            factor_out_path = max_path + '/' + project_name + '/forest/factor/factor_' + market
         else:
-            factor_out_path = max_path + '/' + project_name + '/factor/' + market + '_factor'
+            factor_out_path = max_path + '/' + project_name + '/factor/factor_' + market
         
         # 数据执行
         ims_info = spark.read.parquet(ims_info_path)
