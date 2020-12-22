@@ -136,7 +136,7 @@ def execute(**kwargs):
     # molecule_mkt_map.where(molecule_mkt_map.Market.isNull()).select('标准通用名').show()
     
     # 1.7 rawdata 数据
-    rawdata = spark.read.csv(raw_data_path, header='True')
+    rawdata = spark.read.parquet(raw_data_path)
     rawdata = rawdata.withColumn('Date', col('Date').cast(IntegerType()))
     rawdata = rawdata.where((col('Date') > 201900) & (col('Date') < 202000))
     rawdata = rawdata.join(molecule_mkt_map, on='Molecule', how='left') \
