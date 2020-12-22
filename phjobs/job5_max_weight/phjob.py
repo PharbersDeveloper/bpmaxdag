@@ -287,7 +287,8 @@ all_models, universe_choice, if_others, out_path, out_dir, need_test):
 		# 为这些非样本医院匹配上样本金额、产品、年月、所在segment的drugincome之和
 		# 优先有权重的结果
 		max_result = universe_factor_panel.join(panel_seg, on="Seg", how="left")
-		max_result = max_result.join(panel_seg_weight.select('Seg', 'Province', 'City', 'Sales_Panel_w', 'Units_Panel_w'), on=['Seg', 'Province', 'City'], how="left")
+		max_result = max_result.join(panel_seg_weight.select('Date', 'Prod_Name', 'Molecule', 'Seg', 'Province', 'City', 'Sales_Panel_w', 'Units_Panel_w').distinct(), 
+										on=['Date', 'Prod_Name', 'Molecule', 'Seg', 'Province', 'City'], how="left")
 		max_result = max_result.withColumn('Sales_Panel', func.when(max_result.Sales_Panel_w.isNull(), max_result.Sales_Panel) \
 																.otherwise(max_result.Sales_Panel_w)) \
 								.withColumn('Units_Panel', func.when(max_result.Units_Panel_w.isNull(), max_result.Units_Panel) \
