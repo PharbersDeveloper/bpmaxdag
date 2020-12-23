@@ -44,6 +44,7 @@ three, twelve, test):
         minimum_product_sep = ""
     minimum_product_columns = minimum_product_columns.replace(" ","").split(",")
     product_map_path = max_path + '/' + project_name + '/' + outdir + '/prod_mapping'
+    cpa_pha_mapping_path = max_path + '/' + project_name + '/cpa_pha_mapping'
     if test == 'True':
         raw_data_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_check/raw_data'
     else:
@@ -442,6 +443,24 @@ three, twelve, test):
     # row_min 与 mean_adj 的差值
     check_11 = check_11.withColumn("min_diff", min_diff(func.col('row_max'), func.col('row_min'), func.col('mean_adj')))
     check_11 = check_11.withColumn("min_diff", func.when(func.col('mean_adj').isNull(), func.lit(None)).otherwise(func.col('min_diff')))
+    
+    # 匹配PHA
+    # ID 的长度统一
+    def distinguish_cpa_gyc(i, gyc_hospital_id_length):
+        # gyc_hospital_id_length是国药诚信医院编码长度，一般是7位数字，cpa医院编码一般是6位数字。医院编码长度可以用来区分cpa和gyc
+        return (func.length(i) < gyc_hospital_id_length)
+    def deal_ID_length(df):
+        # 不足6位补足
+        df = df.withColumn("ID", df["ID"].cast(StringType()))
+        df = df.withColumn("ID", func.regexp_replace("ID", "\\.0", ""))
+        df = df.withColumn("ID", func.when(distinguish_cpa_gyc(df.ID, 7), func.lpad(df.ID, 6, "0")).otherwise(df.ID))
+        return df
+    cpa_pha_mapping = spark.read.parquet(cpa_pha_mapping_path)
+    cpa_pha_mapping = cpa_pha_mapping.where(cpa_pha_mapping["推荐版本"] == 1).select('ID', 'PHA').distinct()
+    cpa_pha_mapping = deal_ID_length(cpa_pha_mapping)
+    
+    check_11 = deal_ID_length(check_11)
+    check_11 = check_11.join(cpa_pha_mapping, on='ID', how='left')
     
     check_11 = check_11.repartition(1)
     check_11.write.format("csv").option("header", "true") \
