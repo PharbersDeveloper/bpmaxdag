@@ -28,6 +28,33 @@ def write2postgres(df,pgTable):
     .save()
     logging.info("write postgresql end")
 
+
+def prepare():
+    sparkClassPath = os.environ['PYSPARK_SUBMIT_ARGS'] = '--packages org.postgresql:postgresql:42.2.14 pyspark-shell'
+    os.environ["PYSPARK_PYTHON"] = "python3"
+    # 读取s3桶中的数据
+    spark = SparkSession.builder \
+        .master("yarn") \
+        .appName("sample data 2 postgresql") \
+        .config("spark.driver.memory", "1g") \
+        .config("spark.executor.cores", "2") \
+        .config("spark.executor.instances", "2") \
+        .config("spark.executor.memory", "2g") \
+        .config('spark.sql.codegen.wholeStage', False) \
+        .config("spark.driver.extraClassPath", sparkClassPath) \
+        .getOrCreate()
+
+    access_key = os.getenv("AWS_ACCESS_KEY_ID")
+    secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+    if access_key is not None:
+        spark._jsc.hadoopConfiguration().set("fs.s3a.access.key", access_key)
+        spark._jsc.hadoopConfiguration().set("fs.s3a.secret.key", secret_key)
+        spark._jsc.hadoopConfiguration().set("fs.s3a.impl","org.apache.hadoop.fs.s3a.S3AFileSystem")
+        spark._jsc.hadoopConfiguration().set("com.amazonaws.services.s3.enableV4", "true")
+        spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
+
+    return spark
+
 def execute(**kwargs):
     """
         please input your code below
@@ -37,7 +64,8 @@ def execute(**kwargs):
     logger.info("当前 owner 为 " + str(kwargs["owner"]))
     logger.info("当前 run_id 为 " + str(kwargs["run_id"]))
     logger.info("当前 job_id 为 " + str(kwargs["job_id"]))
-    spark = kwargs["spark"]()
+    spark = prepare()
+    # spark = kwargs["spark"]()
     # logger.info(kwargs["a"])
     # logger.info(kwargs["b"])
     # logger.info(kwargs["c"])
