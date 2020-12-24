@@ -13,6 +13,8 @@ import os
 from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col
 import time
 import re
+import pandas as pd
+import numpy as np
 
 '''
 def execute(**kwargs):
@@ -90,7 +92,7 @@ def deal_ID_length(df):
     df = df.withColumn("ID", func.when(func.length(df.ID) < 7, func.lpad(df.ID, 6, "0")).otherwise(df.ID))
     return df
     
-# prod_map 文件
+# 1. prod_map 文件
 product_map = spark.read.parquet(product_map_path)
 # a. 列名清洗统一
 if project_name == "Sanofi" or project_name == "AZ":
@@ -117,7 +119,7 @@ product_map = product_map.withColumnRenamed("pfc", "Pack_ID") \
                 .withColumn("min1", func.regexp_replace("min1", "&lt;", "<")) \
                 .withColumn("min1", func.regexp_replace("min1", "&gt;", ">"))
 
-# universe 文件                  
+# 2. universe 文件                  
 universe = spark.read.parquet(universe_path)
 universe = universe.select("Panel_ID", "Province", "City", "PANEL") \
                     .withColumnRenamed("Panel_ID", "PHA") \
@@ -125,31 +127,29 @@ universe = universe.select("Panel_ID", "Province", "City", "PANEL") \
                     .distinct()
 
 
-# mkt_mapping 文件
+# 3. mkt_mapping 文件
 mkt_mapping = spark.read.parquet(mkt_mapping_path)
 mkt_mapping = mkt_mapping.withColumnRenamed("标准通用名", "通用名")
 
-# cpa_pha_mapping 文件
+# 4. cpa_pha_mapping 文件
 cpa_pha_mapping = spark.read.parquet(cpa_pha_mapping_path)
 cpa_pha_mapping = cpa_pha_mapping.where(col("推荐版本") == 1).select('ID', 'PHA').distinct()
 cpa_pha_mapping = deal_ID_length(cpa_pha_mapping)
 
-# city_info_path
+# 5. city_info_path
 city_info = spark.read.parquet(city_info_path)
 city_info = city_info.withColumnRenamed('City', 'City_imp').distinct()
 
-# id_bedsize
+# 6. id_bedsize
 id_bedsize = spark.read.parquet(id_bedsize_path)
 id_bedsize = deal_ID_length(id_bedsize)
 
 
-# raw_data 文件
+# 7. raw_data 文件
 raw_data = spark.read.parquet(raw_data_path)
 raw_data = spark.read.csv('s3a://ph-max-auto/v0.0.1-2020-06-08/Test/Eisai/raw_data.csv', header=True)
 
-raw_data = raw_data.withColumn('Date', col('Date').cast(IntegerType()))
-raw_data = raw_data.withColumn('Date', col('Date').cast(StringType()))
-raw_data = raw_data.withColumn('Year', func.substring(col('Date'), 1, 4))
+raw_data = raw_data.withColumn('Year', func.substring(col('Date').cast(StringType()), 1, 4))
 raw_data = raw_data.withColumn('Year', col('Year').cast(IntegerType())) \
                         .withColumn('Date', col('Date').cast(IntegerType()))
 # a. 生成min1
@@ -181,15 +181,10 @@ else:
 raw_data2 = deal_ID_length(raw_data)
 raw_data2 = raw_data2.join(product_map, on='min1', how='left')
 raw_data2 = raw_data2.join(mkt_mapping, on='通用名', how='left')
-
-# %%
 raw_data2 = raw_data2.join(cpa_pha_mapping, on='ID', how='inner')
 raw_data2 = raw_data2.join(universe.select("PHA", "Province", "City").distinct(), on='PHA', how='inner')
 
-# %%测试用
-raw_data2 = raw_data2.drop('mkt').withColumnRenamed('卫材品牌', 'mkt')
-
-# ims 数据
+# 8. ims 数据
 ims_sales_path = max_path + "/Common_files/extract_data_files/cn_IMS_Sales_Fdata_202007.csv"
 ims_sales = spark.read.csv(ims_sales_path, header=True)
 
@@ -201,13 +196,14 @@ geo_dict['City'] = list(geo_name.values())
 geo_df = pd.DataFrame(geo_dict)
 geo_df = spark.createDataFrame(geo_df)  
 
-# 测试：Brand 要改成 标准商品名
+# 测试用：正式用 Brand 要改成 标准商品名
 year_list=['2018', '2019']
 ims_sales = ims_sales.withColumn('Year', func.substring(ims_sales.Period_Code, 0, 4)) \
                     .join(geo_df, on='Geography_id', how='inner') \
                     .join(raw_data2.select('Pack_ID', 'mkt', 'Brand').distinct(), on='Pack_ID', how='inner')
 ims_sales = ims_sales.where(col('Year').isin(year_list)) \
                     .select('City', 'mkt', 'Year', 'LC', 'Brand').distinct().persist()
+# 测试用over 
 
 # ============  每个市场 =============
 # 市场
@@ -292,8 +288,7 @@ tmp_bed =  tmp_city.join(id_bedsize.select('ID', 'Bedsize>99').distinct(), on='I
 # 不在大全的床位数小于1的，权重减1，等同于剔除
 tmp_bed = tmp_bed.withColumn('weight', func.when((col('Bedsize>99') == 0) & (col('Panel_ID').isNull()), \
                                             col('weight')-1).otherwise(col('weight')))
-tmp_bed = tmp_bed.withColumn('Date', col('Date').cast(StringType()))
-tmp_bed = tmp_bed.withColumn('Year', func.substring(col('Date'), 1, 4))
+tmp_bed = tmp_bed.withColumn('Year', func.substring(col('Date').cast(StringType()), 1, 4))
 tmp_bed = tmp_bed.withColumn('Year', col('Year').cast(IntegerType()))
 
 # %% MAX结果计算
@@ -321,6 +316,8 @@ weight_0 = weight_0.withColumn('City', city_change(col('City'))) \
     1. 处理IMS数据，计算增长率等
     2. 按 "城市 -> 类别 -> 产品" 的层级生成字典
 '''
+
+# 暂时用ims生成的
 if False:
     data_count = data
     #选择要进行计算增长率的分子
@@ -357,10 +354,198 @@ ims_sales_gr = ims_sales_gr.withColumn('gr', col('2019_Sales')/col('2018_Sales')
                            
 # 测试用
 ims_sales_gr = spark.read.csv('s3a://ph-max-auto/v0.0.1-2020-06-08/Test/Eisai/Share_total.csv', header=True)
-ims_sales_gr = ims_sales_gr.select('IMS_gr', 'IMS_share_2019', 'IMS_share_2018', 'Brand', 'City') \
+ims_sales_gr = ims_sales_gr.select('IMS_gr', 'IMS_share_2019', 'IMS_share_2018', 'Brand', 'City', 'DOI') \
+                            .withColumn('IMS_gr', col('IMS_gr').cast(DoubleType())) \
+                            .withColumn('IMS_share_2019', col('IMS_share_2019').cast(DoubleType())) \
+                            .withColumn('IMS_share_2018', col('IMS_share_2018').cast(DoubleType())) \
                             .withColumnRenamed('IMS_gr', 'gr') \
                             .withColumnRenamed('IMS_share_2019', 'share') \
                             .withColumnRenamed('IMS_share_2018', 'share_ly') \
                             .fillna(0)
+ims_sales_gr = ims_sales_gr.where(col('Brand') != 'total')
+ims_sales_gr = ims_sales_gr.where(col('DOI') == market)
 # 测试用 over
+
+
+# 可以在这里输出  ims_sales_gr 和 data ，拆分为两个 job 后面只用了这两个文件，市场名命名
+
+
+# ===== 城市 ===========================
+# 输入
+city_brand = "福厦泉:4"
+city_brand_dict={}
+for each in city_brand.replace(" ","").split(","):
+    city_name = each.split(":")[0]
+    brand_number = each.split(":")[1]
+    city_brand_dict[city_name]=brand_number
+
+city_list = list(city_brand_dict.keys())       
+#target_city = u'福厦泉'
+#brand_number = 4
+
+# DOI 要改成mkt
+'''
+target_share = ims_sales_gr.where(col('City') == target_city)
+target_share = target_share.withColumn('row_num', func.row_number() \
+                    .over(Window().orderBy(col('share').desc())))
+target_share = target_share.where(col('row_num').between(0, brand_number))
+target = target_share.select('Brand').distinct().toPandas()['Brand'].tolist()
+'''
+ims_sales_gr_city = ims_sales_gr.where(col('City').isin(city_list))
+# 
+schema= StructType([
+        StructField("City", StringType(), True),
+        StructField("dict", StringType(), True)
+        ])
+@pandas_udf(schema, PandasUDFType.GROUPED_MAP)
+def udf_target_brand(pdf):
+    return func_target_brand(pdf, city_brand_dict)
+def func_target_brand(pdf):
+    city_name = pdf['City'][0]
+    brand_number = city_brand_dict[city_name]
+    pdf = pdf.sort_values(by='share', ascending=False).reset_index()[0:brand_number]
+    dict_share = pdf.groupby(['City'])['Brand','gr','share','share_ly'].apply(lambda x : x.set_index('Brand').to_dict()).to_dict()
+    dict_share = json.dumps(dict_share)
+    return pd.DataFrame([[city_name] + [dict_share]], columns=['City', 'dict'])
+target_share = ims_sales_gr_city.groupBy('City').apply(udf_target_brand)
+# 转化为字典格式
+df_target_share = target_share.groupBy().agg(func.collect_list('dict').alias('dict_all')).select("dict_all").toPandas()
+df_target_share = df_target_share["dict_all"].values[0]
+length_dict = len(df_target_share)
+str_target_share = ""
+for index, each in enumerate(df_target_share):
+    if index == 0:
+        str_target_share += "{" + each[1:-1]
+    elif index == length_dict - 1:
+        str_target_share += "," + each[1:-1] + "}"
+    else:
+        str_target_share += "," + each[1:-1]
+dict_target_share  = json.loads(str_target_share)
+
+# ======= dict_target_share 已经存为字典，然后对 data 进行group ========
+
+
+# %% 观察放大结果
+data_city = data.where(col('Date').between(201800, 202000)) \
+                    .select('Date','PHA','Brand','Sales').distinct() \
+                    .join(weight_0, data.PHA == weight_0.Panel_ID, how='inner').persist()
+data_city = data.where(col('City') == target_city)
+
+#data_target = data.where(col('Date').between(201800, 202000)) \
+#                    .select('Date','PHA','Brand','Sales').distinct() \
+#                    .join(weight_0.where(col('City') == target_city), data.PHA == weight_0.Panel_ID, how='inner').persist()
+
+data_city.groupBy('City').apply()
+
+
+
+data_target = data_target.withColumn('MAX_weighted', col('weight')*col('Sales')) \
+                        .withColumn('Year', func.substring(col('Date').cast(StringType()), 1, 4)) \
+                        .withColumn('tmp', func.concat(col('Year'), func.lit('_'), col('Brand')))
+
+H = data_target.groupBy('City','Panel_ID','City_Sample','weight') \
+                        .pivot('tmp').agg(func.sum('Sales')).fillna(0).persist()
+
+# %% total and others
+H = H.withColumn('2018_total', sum(col(y) for y in  [i for i in H.columns if '2018_' in i])) \
+     .withColumn('2019_total', sum(col(y) for y in  [i for i in H.columns if '2019_' in i]))
+
+H = H.withColumn('2018_others', col('2018_total') - sum(col(y) for y in ['2018_' + i for i in target])) \
+     .withColumn('2019_others', col('2019_total') - sum(col(y) for y in ['2019_' + i for i in target]))
+     
+
+# %% 参数设置
+G = target_share.select('gr').toPandas()['gr'].tolist()
+S = target_share.select('share').toPandas()['share'].tolist()
+S_ly = target_share.select('share_ly').toPandas()['share_ly'].tolist()
+S_ly = np.array(S_ly)
+
+W_0 = np.array(H.select('weight').toPandas()['weight'].tolist()).reshape(-1,1)
+
+H_18 = H.select(['2018_' + i for i in target]).toPandas().values
+H_19 = H.select(['2019_' + i for i in target]).toPandas().values
+
+Ht_18 = H.select('2018_total').toPandas().values
+Ht_19 = H.select('2019_total').toPandas().values
+
+# learning rate和迭代次数请通过尝试自定义
+l = 100
+m = 10000
+
+# %% 辅助函数
+# 计算增长率或者份额
+def r(W, h_n, h_d):
+    return h_n.T.dot(W)/h_d.T.dot(W)
+
+# 计算和IMS的差距
+def delta_gr(W, h_n, h_d, g):
+  return (r(W, h_n, h_d) - g)
+
+# Loss-func求导
+'''
+loss function是差距（份额或增长）的平方
+'''
+def gradient(W, h_n, h_d, g):
+  CrossDiff = (h_d.sum() - W.reshape(-1)*h_d) * h_n - \
+              (h_n.sum() - W.reshape(-1)*h_n) * h_d    
+  dW = delta_gr(W, h_n, h_d, g) * np.power((h_d.T.dot(W)), -2) * CrossDiff
+  return dW.reshape(-1,1)
+
+# 梯度下降
+'''
+这是一个双任务优化求解，目标是寻找满足IMS Share and Growth的医院参数线性组合 ～ w
+可能的待优化方向：
+    1. 自适应学习率
+    2. 不同任务重要性，不同收敛速度，不同学习率
+    3. 避免落在局部最优
+    4. 初始值的选择
+'''
+
+def gradient_descent(W_0, S, G, S_ly, learning_rate, max_iteration, H_n=H_19, H_share=Ht_19, H_gr=H_18, H_ly=Ht_18):
+    X = np.array([]); Growth = np.array([]); Share = np.array([])
+    W = W_0.copy()
+    W_init = W_0.copy()
+    w_gd = np.array([0]*H_n.shape[1])
+    for i in range(max_iteration):
+        gradient_sum = np.zeros((len(H_n),1))
+        for k in range(H_n.shape[1]):
+            gd_share = gradient(W, H_n[:,k], H_share, S[k]) 
+            gd_growth = gradient(W, H_n[:,k], H_gr[:,k], G[k])
+            '''
+            方法一：份额和增长同样重要，Loss func简单加和
+            '''
+            # gradient_sum += gd_share + gd_growth
+            '''
+            方法二：注重两年份额的调优
+            '''
+            # if w_gd[k] > 0.05:
+            #     gradient_sum += gd_share
+            # else:
+            #     gradient_sum +=  gd_growth + gd_share
+            '''
+            方法三：手动增加Share或者Growth的权重，优化方向自定义
+            '''   
+            # 加权/降权
+            # yyw == 三种，默认第一个  单独gd_share，单独gd_growth，两者一起
+            if k in range(brand_number-1):
+                gradient_sum += gradient(W, H_n[:,k], H_gr[:,k], G[k]) + gradient(W, H_n[:,k], H_share, S[k])#1、gradient(W, H_n[:,k], H_gr[:,k], G[k]) + gradient(W, H_n[:,k], H_share, S[k])     2、gd_share
+            # 只优化Share
+            elif k in []: 
+                gradient_sum += gradient(W, H_n[:,k], H_share, S[k])
+            # 优化Share和增长
+            else:
+                gradient_sum += gd_share + gd_growth
+        gradient_sum[(W_init==0)|(W_init==1)] = 0
+        W -= learning_rate * gradient_sum
+        W[W<0] = 0
+        print ('iteration : ', i, '\n GR : ', r(W, H_n, H_gr),
+            '\n Share : ', r(W, H_n, H_share)) 
+        X = np.append(X, [i])
+        Growth = np.append(Growth, r(W, H_n, H_gr))
+        Share = np.append(Share, r(W, H_n, H_share))
+        share_ly_hat = W.T.dot(H_gr).reshape(-1)/W.T.dot(H_ly)
+        w_gd = abs(share_ly_hat/S_ly -1)
+    return W, X, Growth.reshape((i+1,-1)), Share.reshape((i+1,-1))
+
+W_result, X, Growth, Share= gradient_descent(W_0, S, G, S_ly, l, m)
 
