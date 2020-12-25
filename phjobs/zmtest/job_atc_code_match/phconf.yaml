@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: job_atc_code_match
+  description: "pharbers job description"
+  labels:
+    name: job_atc_code_match
+    runtime: python3
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: atc_input
+        value: s3a://ph-max-auto/2020-08-11/cube/metadata/atcCode1223_alfred.csv
+    outputs:
+      - key: atc_output
+        value: s3a://ph-max-auto/2020-08-11/cube/metadata/atcCode1223_zm_test.csv
+
+

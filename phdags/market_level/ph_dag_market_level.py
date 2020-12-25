@@ -21,18 +21,18 @@ default_args = {
 }
 
 dag = DAG(
-    dag_id="job_customer_mapping",
+    dag_id="market_level",
     default_args=default_args,
     schedule_interval=None,
-    description="customer mapping",
+    description="A Max Auto Job Example",
     dagrun_timeout=timedelta(minutes=60)
 )
 
 var_key_lst = Variable.get("%s__SPARK_CONF" % (dag.dag_id), deserialize_json=True, default_var={})
 
 
-############## == job_customer_mapping == ###################
-def job_customer_mapping_cmd(**context):
+############## == market_level == ###################
+def market_level_cmd(**context):
     ti = context['task_instance']
     owner = default_args['owner']
     run_id = context["dag_run"].run_id
@@ -40,7 +40,7 @@ def job_customer_mapping_cmd(**context):
     conf = context["dag_run"].conf
 
     params = var_key_lst.get("common", {})
-    params.update(var_key_lst.get("job_customer_mapping", {}))
+    params.update(var_key_lst.get("market_level", {}))
 
     write_hosts = 'echo "192.168.1.28    spark.master" >> /etc/hosts'
     print(write_hosts)
@@ -50,7 +50,7 @@ def job_customer_mapping_cmd(**context):
     print(install_phcli)
     print(subprocess.check_output(install_phcli, shell=True, stderr=subprocess.STDOUT))
 
-    exec_phcli_submit = 'phcli maxauto --runtime python3 --group job_customer_mapping --path job_customer_mapping --cmd submit ' \
+    exec_phcli_submit = 'LANG=C.UTF-8 phcli maxauto --runtime python3 --group market_level --path market_level --cmd submit ' \
                         '--owner "{}" --run_id "{}" --job_id "{}" --context "{}" "{}"'.format(str(owner), str(run_id), str(job_id), str(params), str(conf))
     print(exec_phcli_submit)
     print(subprocess.check_output(exec_phcli_submit, shell=True, stderr=subprocess.STDOUT))
@@ -58,13 +58,13 @@ def job_customer_mapping_cmd(**context):
     # key = ti.xcom_pull(task_ids='test', key='key').decode("UTF-8")
     # ti.xcom_push(key="key", value=key)
 
-job_customer_mapping = PythonOperator(
-    task_id='job_customer_mapping',
+market_level = PythonOperator(
+    task_id='market_level',
     provide_context=True,
-    python_callable=job_customer_mapping_cmd,
+    python_callable=market_level_cmd,
     dag=dag
 )
-############## == job_customer_mapping == ###################
+############## == market_level == ###################
 
 
-job_customer_mapping
+market_level
