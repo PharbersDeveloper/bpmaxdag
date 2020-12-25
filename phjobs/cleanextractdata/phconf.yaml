@@ -12,17 +12,19 @@ spec:
     code: phmain.py
     config: phconf.yaml
     args:
+      - key: start
+        value: 201800
+      - key: end
+        value: 202000
       - key: run_id
         value: default
       - key: job_id
         value: default
       - key: version
         value: 2020-08-31
-      - key: dimensions_path
-        value: s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/meta/dimensions
-      - key: lattices_result_path
-        value: s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/lattices-result
-      - key: final_result_path
+      - key: max_result_path
+        value: s3a://ph-stream/common/public/max_result/0.0.4
+      - key: cleancube_result_path
         value: default
     outputs:
       - key: a

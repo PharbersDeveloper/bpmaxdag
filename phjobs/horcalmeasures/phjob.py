@@ -6,184 +6,255 @@ This is job template for Pharbers Max Job
 from pyspark.sql import SparkSession
 from pyspark.sql.types import *
 from pyspark.sql import functions as func
-from phlogs.phlogs import phlogger
 from pyspark.sql.functions import col
 from pyspark.sql.functions import sum
 from pyspark.sql.functions import lit
 from pyspark.sql.functions import udf
 from pyspark.sql.functions import monotonically_increasing_id
-import pandas as pd  
+import pandas as pd
 from pyspark.sql.functions import pandas_udf, PandasUDFType
 from pyspark.sql.functions import array
 from pyspark.sql.functions import array_position
+from uuid import uuid4
+import logging
+import os
 
 
-def execute(a, b):
-	spark = SparkSession.builder \
+def execute(**kwargs):
+
+    logging.basicConfig(format='%(asctime)s %(filename)s %(funcName)s %(lineno)d %(message)s')
+    logger = logging.getLogger('driver_logger')
+    logger.setLevel(logging.INFO)
+    logger.info("Origin kwargs = {}.".format(str(kwargs)))
+
+    # input required
+    ver_measures_content_path = kwargs['ver_measures_content_path']
+    if ver_measures_content_path == u'default':
+        raise Exception("Invalid ver_measures_content_path!", ver_measures_content_path)
+
+	# output
+    hor_measures_content_path = kwargs['hor_measures_content_path']
+    if hor_measures_content_path == u'default':
+        jobName = "horcalmeasures"
+        version = kwargs['version']
+        if not version:
+            raise Exception("Invalid version!", version)
+        runId = kwargs['run_id']
+        if runId == u'default':
+            runId = str(uuid4())
+            logger.info("runId is " + runId)
+        jobId = kwargs['job_id']
+        if jobId == u'default':
+            jobId = str(uuid4())
+            logger.info("jobId is " + jobId)
+        destPath = "s3a://ph-max-auto/" + version +"/jobs/runId_" + runId + "/" + jobName +"/jobId_" + jobId
+        logger.info("DestPath is {}.".format(destPath))
+        hor_measures_content_path = destPath + "/content"
+    logger.info("hor_measures_content_path is {}.".format(hor_measures_content_path))
+
+    spark = SparkSession.builder \
         .master("yarn") \
         .appName("data cube cal hor measures") \
-        .config("spark.driver.memory", "1g") \
+        .config("spark.driver.memory", "4g") \
         .config("spark.executor.cores", "2") \
-        .config("spark.executor.instance", "4") \
-        .config("spark.executor.memory", "2g") \
+        .config("spark.executor.instance", "2") \
+        .config("spark.executor.memory", "4g") \
         .config('spark.sql.codegen.wholeStage', False) \
+        .config("spark.shuffle.memoryFraction", "0.4") \
         .getOrCreate()
-        
-    # access_key = os.getenv("AWS_ACCESS_KEY_ID")
-    # secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
-	access_key = "AKIAWPBDTVEAJ6CCFVCP"
-	secret_key = "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"
-	if access_key is not None:
-		spark._jsc.hadoopConfiguration().set("fs.s3a.access.key", access_key)
-		spark._jsc.hadoopConfiguration().set("fs.s3a.secret.key", secret_key)
-		spark._jsc.hadoopConfiguration().set("fs.s3a.impl","org.apache.hadoop.fs.s3a.S3AFileSystem")
-		spark._jsc.hadoopConfiguration().set("com.amazonaws.services.s3.enableV4", "true")
-		# spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
-		spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
 
-	phlogger.info("create calculate measures base on time dimension")
+    access_key = os.getenv("AWS_ACCESS_KEY_ID")
+    secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
 
-	def lattice2joincondi_acc(cur, dim):
-		par = []
-		for tmp in cur:
-			par.append(str(tmp))
+    if access_key is not None:
+        spark._jsc.hadoopConfiguration().set("fs.s3a.access.key", access_key)
+        spark._jsc.hadoopConfiguration().set("fs.s3a.secret.key", secret_key)
+        spark._jsc.hadoopConfiguration().set("fs.s3a.impl","org.apache.hadoop.fs.s3a.S3AFileSystem")
+        spark._jsc.hadoopConfiguration().set("com.amazonaws.services.s3.enableV4", "true")
+        # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
+        spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
 
-		time = ["YEAR", "QUARTER", "MONTH"]
-		geo = ["COUNTRY_NAME", "PROVINCE_NAME", "CITY_NAME"]
-		prod = ["COMPANY", "MKT", "MOLE_NAME", "PRODUCT_NAME"]
-		
-		tmp = list(set(cur).intersection(set(prod))) if dim is "prod" else list(set(cur).intersection(set(geo))) if dim is "geo" else list(set(cur).intersection(set(time)))
-		if len(tmp) is 0:
-			return []
-		else:
-			if dim is "prod":
-				return prod[0:prod.index(tmp[0]) + 1]
-			elif dim is "geo":
-				return geo[0:geo.index(tmp[0]) + 1]
-			elif dim is "time":
-				return time[0:time.index(tmp[0]) + 1]
-			else:
-				return []
-	
-	def lattice2joincondi(cur):
-		res = []
-		dims = ["prod", "geo", "time"]
-		for dim in dims:
-			res.extend(lattice2joincondi_acc(cur, dim))
-		return res
-	
-	df = spark.read.parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/final-result-ver-measures-3")
-	df.persist()
-	df.show()
-	
-	df_lattices = df.select("LATTLES").distinct().repartition(1).withColumn("LATTLES_ID", monotonically_increasing_id()).toPandas()
-	print df_lattices
-	
-	"""
-		lattices 的横向，只有时间维度，也就是x轴
-		换句话说，x轴一定是连续的 continuous 
-	"""
-	@pandas_udf(ArrayType(DoubleType()), PandasUDFType.GROUPED_AGG) 
-	def step_mapping_udf(v):
-		res = []
-		for tmp in v:
-			res.append(tmp[0])
-			res.append(tmp[1])
-		return res
-		
-	@udf(returnType=IntegerType())
-	def hor_time_step_udf(cat, v):
-		if cat is "MONTH":
-			if v % 100 == 1:
-				return ((v / 10000 - 1) * 100 + 4) * 100 + 12
-			else:
-				return v - 1
-		elif cat == "QUARTER":
-			if v % 100 == 1:
-				return (v / 100 - 1) * 100 + 4
-			else:
-				return v - 1
-		elif cat == "YEAR":
-			return v - 1
-		else:
-			return -1
-	
-	@udf(returnType=DoubleType())
-	def hor_time_value_udf(pv, mp):
-		if pv in mp:
-			return mp[mp.index(pv) + 1]
-		else:
-			return 0.0
-			
-	@udf(returnType=DoubleType())
-	def cal_ei_udf(ms, pms):
-		if pms != 0:
-			return ms / pms
-		else:
-			return 0.0
-	
-	@udf(returnType=DoubleType())
-	def cal_growth_udf(s, ps):
-		if ps != 0:
-			return (s - ps) / ps
-		else:
-			return 0.0
-	
-			
-	for idx, row in df_lattices.iterrows():
-		print idx
-		print row
-		df_c = df.where(col("LATTLES") == row["LATTLES"])
-		# df_c.show()
-		cur_l = row["LATTLES"].replace("%5B", "").replace("%5D", "").replace(" ", "").split(",")
-		condi = lattice2joincondi(cur_l)
-		
-		if "MONTH" in cur_l:
-			"""
-				月度lattices平移
-			"""
-			df_c = df_c.withColumn("SALES_MAPPING", array("MONTH", "SALES_VALUE")).withColumn("TIME_PROVIOUS_LEVEL", hor_time_step_udf(col("TIME_CUR_LEVEL"), col("MONTH")))
-			df_c = df_c.withColumn("SHARE_MAPPING", array("MONTH", "MARKET_SHARE")).withColumn("TIME_PROVIOUS_LEVEL", hor_time_step_udf(col("TIME_CUR_LEVEL"), col("MONTH")))
-			condi.remove("MONTH")
-			condi.remove("QUARTER")
-			condi.remove("YEAR")
-		elif "QUARTER" in cur_l:
-			"""
-				季度lattices平移
-			"""
-			df_c = df_c.withColumn("SALES_MAPPING", array("QUARTER", "SALES_VALUE")).withColumn("TIME_PROVIOUS_LEVEL", hor_time_step_udf(col("TIME_CUR_LEVEL"), col("QUARTER")))
-			df_c = df_c.withColumn("SHARE_MAPPING", array("QUARTER", "MARKET_SHARE")).withColumn("TIME_PROVIOUS_LEVEL", hor_time_step_udf(col("TIME_CUR_LEVEL"), col("QUARTER")))
-			condi.remove("QUARTER")
-			condi.remove("YEAR")
-		elif "YEAR" in cur_l:
-			"""
-				年度lattices平移
-			"""
-			df_c = df_c.withColumn("SALES_MAPPING", array("YEAR", "SALES_VALUE")).withColumn("TIME_PROVIOUS_LEVEL", hor_time_step_udf(col("TIME_CUR_LEVEL"), col("YEAR")))
-			df_c = df_c.withColumn("SHARE_MAPPING", array("YEAR", "MARKET_SHARE")).withColumn("TIME_PROVIOUS_LEVEL", hor_time_step_udf(col("TIME_CUR_LEVEL"), col("YEAR")))
-			condi.remove("YEAR")
-		else:
-			pass
-		
+    logger.info("create calculate measures base on time dimension")
 
-		columns = ["YEAR", "QUARTER", "MONTH", \
-			"COMPANY", "MKT", "MOLE_NAME", "PRODUCT_NAME", \
-			"COUNTRY_NAME", "PROVINCE_NAME", "CITY_NAME", \
-			"SALES_VALUE", "SALES_QTY", \
-			"PROD_CUR_LEVEL", "GEO_CUR_LEVEL", "TIME_CUR_LEVEL", \
-			"PROD_PARPENT_VALUE", "GEO_PARPENT_VALUE", "TIME_PARPENT_VALUE", "PROD_PP_VALUE", \
-			"LATTLES", \
-			"MARKET_SHARE", "MOLE_SHARE", "PROD_MOLE_SHARE", \
-			"TIME_PROVIOUS_VALUE", "TIME_PROVIOUS_SHARE_VALUE", \
-			"MARKET_SHARE_GROWTH", "SALES_GROWTH", "EI"]
+    def lattice2joincondi_acc(cur, dim):
+        par = []
+        for tmp in cur:
+            par.append(str(tmp))
 
-		df_map = df_c.groupBy(condi).agg(step_mapping_udf(df_c.SALES_MAPPING).alias("SALES_MAPPING"), step_mapping_udf(df_c.SHARE_MAPPING).alias("SHARE_MAPPING"))
-		df_c = df_c.drop("SALES_MAPPING", "SHARE_MAPPING").join(df_map, on=condi, how="left") \
-				.withColumn("TIME_PROVIOUS_VALUE", hor_time_value_udf(col("TIME_PROVIOUS_LEVEL"), col("SALES_MAPPING"))) \
-				.withColumn("TIME_PROVIOUS_SHARE_VALUE", hor_time_value_udf(col("TIME_PROVIOUS_LEVEL"), col("SHARE_MAPPING")))
-		df_c = df_c.withColumn("EI", cal_ei_udf(df_c.MARKET_SHARE, df_c.TIME_PROVIOUS_SHARE_VALUE)) \
-					.withColumn("SALES_GROWTH", cal_growth_udf(df_c.SALES_VALUE, df_c.TIME_PROVIOUS_VALUE)) \
-					.withColumn("MARKET_SHARE_GROWTH", cal_growth_udf(df_c.MARKET_SHARE, df_c.TIME_PROVIOUS_SHARE_VALUE))
-		
-		df_c.select(columns).repartition(1).write.mode("append").parquet("s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/final-result-ver-hor-measures")	# full cube
-	
+        time = ["YEAR", "QUARTER", "MONTH"]
+        geo = ["COUNTRY_NAME", "PROVINCE_NAME", "CITY_NAME"]
+        prod = ["COMPANY", "MKT", "MOLE_NAME", "PRODUCT_NAME"]
+
+        tmp = list(set(cur).intersection(set(prod))) if dim is "prod" else list(set(cur).intersection(set(geo))) if dim is "geo" else list(set(cur).intersection(set(time)))
+        if len(tmp) is 0:
+            return []
+        else:
+            if dim is "prod":
+                return prod[0:prod.index(tmp[0]) + 1]
+            elif dim is "geo":
+                return geo[0:geo.index(tmp[0]) + 1]
+            elif dim is "time":
+                return time[0:time.index(tmp[0]) + 1]
+            else:
+                return []
+
+    def lattice2joincondi(cur):
+        res = []
+        dims = ["prod", "geo", "time"]
+        for dim in dims:
+            res.extend(lattice2joincondi_acc(cur, dim))
+        return res
+
+    @udf(returnType=StringType())
+    def format_company(v):
+        if v == u"京新":
+            return "Jingxin"
+        elif v == u"奥鸿":
+            return "Aohong"
+        elif v == u"康哲":
+            return "Kangzhe"
+        elif v == u"汇宇":
+            return "Huiyu"
+        elif v == u"海坤":
+            return "Haikun"
+        else:
+            return v
+
+    df = spark.read.parquet(ver_measures_content_path)
+    df = df.withColumn("COMPANY", format_company(col("COMPANY")))
+    df.persist()
+    # df.select("COMPANY", "LATTLES").distinct().show()
+    # df.where(col("TIME_CUR_LEVEL") == "MONTH").select("YEAR", "QUARTER", "MONTH").distinct().show()
+
+    df_lattices = df.select("LATTLES").distinct().repartition(1).withColumn("LATTLES_ID", monotonically_increasing_id()).toPandas()
+    logger.info("df_lattices is {}.".format(df_lattices))
+
+    """
+        lattices 的横向，只有时间维度，也就是x轴
+        换句话说，x轴一定是连续的 continuous
+    """
+    @pandas_udf(ArrayType(DoubleType()), PandasUDFType.GROUPED_AGG)
+    def step_mapping_udf(v):
+        res = []
+        for tmp in v:
+            res.append(tmp[0])
+            res.append(tmp[1])
+        return res
+
+    @udf(returnType=IntegerType())
+    def hor_time_step_udf(cat, v):
+        if cat is "MONTH":
+            if v % 100 == 1:
+                return ((v / 10000 - 1) * 100 + 4) * 100 + 12
+            else:
+                return v - 1
+        elif cat == "QUARTER":
+            if v % 100 == 1:
+                return (v / 100 - 1) * 100 + 4
+            else:
+                return v - 1
+        elif cat == "YEAR":
+            return v - 1
+        else:
+            return -1
+
+    @udf(returnType=IntegerType())
+    def format_month_udf(v):
+        if v > 10000000:
+            return v / 10000 * 100 + (v % 100)
+        else:
+            return -1
+
+    @udf(returnType=DoubleType())
+    def hor_time_value_udf(pv, mp):
+        if pv in mp:
+            return mp[mp.index(pv) + 1]
+        else:
+            return 0.0
+
+    @udf(returnType=DoubleType())
+    def cal_ei_udf(ms, pms):
+        if pms != 0:
+            return ms / pms
+        else:
+            return 0.0
+
+    @udf(returnType=DoubleType())
+    def cal_growth_udf(s, ps):
+        if ps != 0:
+            return (s - ps) / ps
+        else:
+            return 0.0
+
+    @udf(returnType=StringType())
+    def format_lattices(v):
+        return "_".join(v.replace("%5B", "").replace("%5D", "").replace(" ", "").split(","))
+
+    for idx, row in df_lattices.iterrows():
+        logger.info("idx is {},\trow is {}.".format(idx, row))
+        df_c = df.where(col("LATTLES") == row["LATTLES"])
+        # df_c.show()
+        cur_l = row["LATTLES"].replace("%5B", "").replace("%5D", "").replace(" ", "").split(",")
+        condi = lattice2joincondi(cur_l)
+
+        if "MONTH" in cur_l:
+            """
+                月度lattices平移
+            """
+            df_c = df_c.withColumn("SALES_MAPPING", array("MONTH", "SALES_VALUE")).withColumn("TIME_PROVIOUS_LEVEL", hor_time_step_udf(col("TIME_CUR_LEVEL"), col("MONTH")))
+            df_c = df_c.withColumn("SHARE_MAPPING", array("MONTH", "MARKET_SHARE")).withColumn("TIME_PROVIOUS_LEVEL", hor_time_step_udf(col("TIME_CUR_LEVEL"), col("MONTH")))
+            df_c = df_c.withColumn("MKT_SALES_MAPPING", array("MONTH", "PROD_PP_VALUE")).withColumn("TIME_PROVIOUS_LEVEL", hor_time_step_udf(col("TIME_CUR_LEVEL"), col("MONTH")))
+            df_c = df_c.withColumn("MONTH", format_month_udf(col("MONTH")))
+            condi.remove("MONTH")
+            condi.remove("QUARTER")
+            condi.remove("YEAR")
+        elif "QUARTER" in cur_l:
+            """
+                季度lattices平移
+            """
+            df_c = df_c.withColumn("SALES_MAPPING", array("QUARTER", "SALES_VALUE")).withColumn("TIME_PROVIOUS_LEVEL", hor_time_step_udf(col("TIME_CUR_LEVEL"), col("QUARTER")))
+            df_c = df_c.withColumn("SHARE_MAPPING", array("QUARTER", "MARKET_SHARE")).withColumn("TIME_PROVIOUS_LEVEL", hor_time_step_udf(col("TIME_CUR_LEVEL"), col("QUARTER")))
+            df_c = df_c.withColumn("MKT_SALES_MAPPING", array("QUARTER", "PROD_PP_VALUE")).withColumn("TIME_PROVIOUS_LEVEL", hor_time_step_udf(col("TIME_CUR_LEVEL"), col("QUARTER")))
+            condi.remove("QUARTER")
+            condi.remove("YEAR")
+        elif "YEAR" in cur_l:
+            """
+                年度lattices平移
+            """
+            df_c = df_c.withColumn("SALES_MAPPING", array("YEAR", "SALES_VALUE")).withColumn("TIME_PROVIOUS_LEVEL", hor_time_step_udf(col("TIME_CUR_LEVEL"), col("YEAR")))
+            df_c = df_c.withColumn("SHARE_MAPPING", array("YEAR", "MARKET_SHARE")).withColumn("TIME_PROVIOUS_LEVEL", hor_time_step_udf(col("TIME_CUR_LEVEL"), col("YEAR")))
+            df_c = df_c.withColumn("MKT_SALES_MAPPING", array("YEAR", "PROD_PP_VALUE")).withColumn("TIME_PROVIOUS_LEVEL", hor_time_step_udf(col("TIME_CUR_LEVEL"), col("YEAR")))
+            condi.remove("YEAR")
+        else:
+            pass
+
+
+        columns = ["YEAR", "QUARTER", "MONTH", \
+            "COMPANY", "MKT", "MOLE_NAME", "PRODUCT_NAME", \
+            "COUNTRY_NAME", "PROVINCE_NAME", "CITY_NAME", \
+            "SALES_VALUE", "SALES_QTY", \
+            "PROD_CUR_LEVEL", "GEO_CUR_LEVEL", "TIME_CUR_LEVEL", \
+            "PROD_PARPENT_VALUE", "GEO_PARPENT_VALUE", "TIME_PARPENT_VALUE", "PROD_PP_VALUE", \
+            "LATTLES", \
+            "MARKET_SHARE", "MOLE_SHARE", "PROD_MOLE_SHARE", \
+            "TIME_PROVIOUS_VALUE", "TIME_PROVIOUS_SHARE_VALUE", \
+            "MARKET_SALES_GROWTH", "SALES_GROWTH", "EI"]
+
+        # df_c.where(col("TIME_CUR_LEVEL") == "MONTH").select("YEAR", "QUARTER", "MONTH").distinct().show()
+
+        df_map = df_c.groupBy(condi).agg(step_mapping_udf(df_c.SALES_MAPPING).alias("SALES_MAPPING"), step_mapping_udf(df_c.SHARE_MAPPING).alias("SHARE_MAPPING"), step_mapping_udf(df_c.MKT_SALES_MAPPING).alias("MKT_SALES_MAPPING"))
+        df_c = df_c.drop("SALES_MAPPING", "SHARE_MAPPING", "MKT_SALES_MAPPING").join(df_map, on=condi, how="left") \
+                .withColumn("TIME_PROVIOUS_VALUE", hor_time_value_udf(col("TIME_PROVIOUS_LEVEL"), col("SALES_MAPPING"))) \
+                .withColumn("TIME_PROVIOUS_SHARE_VALUE", hor_time_value_udf(col("TIME_PROVIOUS_LEVEL"), col("SHARE_MAPPING"))) \
+                .withColumn("TIME_PROVIOUS_MKT_SALES_VALUE", hor_time_value_udf(col("TIME_PROVIOUS_LEVEL"), col("MKT_SALES_MAPPING")))
+        df_c = df_c.withColumn("EI", cal_ei_udf(df_c.MARKET_SHARE, df_c.TIME_PROVIOUS_SHARE_VALUE)) \
+                    .withColumn("SALES_GROWTH", cal_growth_udf(df_c.SALES_VALUE, df_c.TIME_PROVIOUS_VALUE)) \
+                    .withColumn("MARKET_SALES_GROWTH", cal_growth_udf(df_c.PROD_PP_VALUE, df_c.TIME_PROVIOUS_MKT_SALES_VALUE))
+                    # .withColumn("MARKET_SHARE_GROWTH", cal_growth_udf(df_c.MARKET_SHARE, df_c.TIME_PROVIOUS_SHARE_VALUE))
+
+        # df_c.select("COMPANY").distinct().show()
+        df_c.select(columns).withColumn("LATTLES", format_lattices(col("LATTLES"))) \
+            .repartition(1).write \
+            .partitionBy("COMPANY") \
+            .mode("append").parquet(hor_measures_content_path)	# full cube
+    

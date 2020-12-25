@@ -18,11 +18,9 @@ spec:
         value: default
       - key: version
         value: 2020-08-31
-      - key: dimensions_path
-        value: s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/meta/dimensions
-      - key: lattices_result_path
-        value: s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/lattices-result
       - key: final_result_path
+        value: s3a://ph-max-auto/2020-08-11/cube/dest/8cd67399-3eeb-4f47-aaf9-9d2cc4258d90/result2/final-result-2
+      - key: ver_measures_content_path
         value: default
     outputs:
       - key: a

@@ -10,6 +10,7 @@ from pyspark.sql import functions as func
 from pyspark.sql.functions import col
 from pyspark.sql.functions import udf
 import logging
+import os
 import string
 import pandas as pd
 from time import sleep
@@ -63,10 +64,9 @@ def execute(**kwargs):
         .getOrCreate()
 
 
-    # access_key = os.getenv("AWS_ACCESS_KEY_ID")
-    # secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
-	access_key = "AKIAWPBDTVEAJ6CCFVCP"
-	secret_key = "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"
+    access_key = os.getenv("AWS_ACCESS_KEY_ID")
+    secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+
 	if access_key is not None:
 		spark._jsc.hadoopConfiguration().set("fs.s3a.access.key", access_key)
 		spark._jsc.hadoopConfiguration().set("fs.s3a.secret.key", secret_key)

@@ -1,14 +1,15 @@
 apiVersion: v1
 kind: PhJob
 metadata:
-  name: alfred
+  name: job_customer_mapping
   description: "pharbers job description"
   labels:
-    name: alfred
+    name: job_customer_mapping
+    runtime: python3
 spec:
   containers:
     repository: local
-    runtime: python2
+    runtime: python3
     code: phmain.py
     config: phconf.yaml
     args:
@@ -17,7 +18,10 @@ spec:
       - key: b
         value: 456
     outputs:
-      - key: a
+      - key: c
         value: abcde
-      - key: b
+      - key: d
         value: 6789
+
+
+

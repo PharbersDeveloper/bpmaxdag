@@ -14,8 +14,8 @@ from pyspark.sql.functions import udf
 from pyspark.sql.functions import col
 from pyspark.sql.streaming import *
 import logging
-import os
 import string
+import os
 from uuid import uuid4
 
 
@@ -31,9 +31,10 @@ def execute(**kwargs):
     if max_result_path == u'default':
         raise Exception("Invalid max_result_path!", max_result_path)
 
+    # output
     cleancube_result_path = kwargs['cleancube_result_path']
     if cleancube_result_path == u'default':
-        jobName = "cleancube"
+        jobName = "cleanextractdata"
         version = kwargs['version']
         if not version:
             raise Exception("Invalid version!", version)
@@ -45,10 +46,13 @@ def execute(**kwargs):
         if jobId == u'default':
             jobId = str(uuid4())
             logger.info("jobId is " + jobId)
-        destPath = "s3a://ph-max-auto/" + version +"/jobs/runId_" + runId + "/" + jobName +"/jobId_" + jobId
+        destPath = "s3a://ph-max-auto/" + version +"/cube/jobs/runId_" + runId + "/" + jobName +"/jobId_" + jobId
         logger.info("DestPath is {}.".format(destPath))
         cleancube_result_path = destPath + "/content"
     logger.info("cleancube_result_path is {}.".format(cleancube_result_path))
+
+    cleancube_result_metadata_path = "metadata".join(cleancube_result_path.rsplit('content', 1))
+    logger.info("cleancube_result_metadata_path is {}.".format(cleancube_result_metadata_path))
 
     start = kwargs['start']
     end = kwargs['end']
@@ -57,7 +61,7 @@ def execute(**kwargs):
     ed = int(end)
     spark = SparkSession.builder \
         .master("yarn") \
-        .appName("data cube clean job") \
+        .appName("data cube cleanextractdata job") \
         .config("spark.driver.memory", "1g") \
         .config("spark.executor.cores", "1") \
         .config("spark.executor.instance", "1") \
@@ -76,71 +80,41 @@ def execute(**kwargs):
         # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
         spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
 
-    logger.info("preparing data from hive")
+    logger.info("preparing data from extract_data")
 
-    """
-        |-- PHA: string (nullable = true)
-        |-- Province: string (nullable = true)
-        |-- City: string (nullable = true)
-        |-- Date: double (nullable = true)
-        |-- Molecule: string (nullable = true)
-        |-- Prod_Name: string (nullable = true)
-        |-- BEDSIZE: double (nullable = true)
-        |-- PANEL: double (nullable = true)
-        |-- Seg: double (nullable = true)
-        |-- Predict_Sales: double (nullable = true)
-        |-- Predict_Unit: double (nullable = true)
-        |-- version: string (nullable = true)
-        |-- company: string (nullable = true)
-    """
-
-    readingSchema = \
-        StructType([ \
-            StructField("PHA", StringType()), \
-            StructField("Province", StringType()), \
-            StructField("City", StringType()), \
-            StructField("Date", DoubleType()), \
-            StructField("Molecule", StringType()), \
-            StructField("Prod_Name", StringType()), \
-            StructField("BEDSIZE", DoubleType()), \
-            StructField("PANEL", DoubleType()), \
-            StructField("Seg", DoubleType()), \
-            StructField("Predict_Sales", DoubleType()), \
-            StructField("Predict_Unit", DoubleType()), \
-            StructField("version", StringType()), \
-            StructField("company", StringType()) \
-        ])
-
-    jid = str(uuid4())
-    reading = spark.read.schema(readingSchema).parquet(max_result_path)
-    min2prod_udf = udf(lambda x: string.split(x, "|")[0], StringType())
+    reading = spark.read.format('com.databricks.spark.csv').options(header='true', inferschema='true').load(max_result_path)
 
     # 1. 数据清洗
-    reading.filter((col("Date") < ed) & (col("Date") > sd)) \
-        .withColumnRenamed("Province", "PROVINCE_NAME") \
-        .withColumnRenamed("City", "CITY_NAME") \
-        .withColumnRenamed("company", "COMPANY") \
-        .withColumnRenamed("Prod_Name", "MIN") \
-        .withColumnRenamed("Province", "PROVINCE_NAME") \
-        .withColumnRenamed("City", "CITY_NAME") \
-        .withColumnRenamed("Molecule", "MOLE_NAME") \
-        .withColumnRenamed("company", "COMPANY") \
-        .withColumnRenamed("Prod_Name", "MIN") \
-        .withColumn("PRODUCT_NAME", min2prod_udf(col("MIN"))) \
+    df = reading.filter((col("Date") <= ed) & (col("Date") >= sd)) \
+        .withColumnRenamed("标准省份名称", "PROVINCE_NAME") \
+        .withColumnRenamed("标准城市名称", "CITY_NAME") \
+        .withColumnRenamed("标准通用名", "MOLE_NAME") \
+        .withColumnRenamed("project", "COMPANY") \
+        .withColumnRenamed("标准商品名", "PRODUCT_NAME") \
         .withColumn("YEAR", floor(col("Date") / 100)) \
         .withColumn("MONTH", floor(col("Date") - col("YEAR") * 100)) \
         .withColumn("QUARTER", floor((col("MONTH")- 1) / 3 + 1)) \
         .withColumn("MKT", col("COMPANY")) \
         .fillna(0.0) \
-        .withColumnRenamed("Predict_Sales", "SALES_VALUE") \
-        .withColumnRenamed("Predict_Unit", "SALES_QTY") \
+        .withColumnRenamed("Sales", "SALES_VALUE") \
+        .withColumnRenamed("Units", "SALES_QTY") \
         .withColumn("COUNTRY_NAME", lit("CHINA")) \
         .select("YEAR", "QUARTER", "MONTH", "COUNTRY_NAME", "PROVINCE_NAME", "CITY_NAME", "COMPANY", "MKT", "MOLE_NAME", "PRODUCT_NAME", "SALES_QTY", "SALES_VALUE") \
+        .withColumn("YEAR", col("YEAR").cast("integer")) \
+        .withColumn("QUARTER", col("QUARTER").cast("long")) \
+        .withColumn("MONTH", col("MONTH").cast("integer")) \
+        .withColumn("SALES_QTY", col("SALES_QTY").cast("double")) \
+        .withColumn("SALES_VALUE", col("SALES_VALUE").cast("double")) \
         .withColumn("apex", lit("alfred")) \
         .withColumn("dimension.name", lit("*")) \
-        .withColumn("dimension.value", lit("*")) \
-        .write \
-        .partitionBy("YEAR", "MONTH", "COMPANY") \
-        .format("parquet") \
+        .withColumn("dimension.value", lit("*"))
+
+    df.select("YEAR", "MONTH").distinct().repartition(1).write \
+        .mode("overwrite").parquet(cleancube_result_metadata_path)	# metadata
+
+    df.write.format("parquet") \
         .mode("overwrite") \
         .save(cleancube_result_path)
+
+    logger.info("cleanextractdata done.")
+    
