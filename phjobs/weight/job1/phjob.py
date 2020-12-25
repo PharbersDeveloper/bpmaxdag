@@ -15,6 +15,7 @@ import time
 import re
 import pandas as pd
 import numpy as np
+import json
 
 '''
 def execute(**kwargs):
@@ -141,17 +142,19 @@ city_info = spark.read.parquet(city_info_path)
 city_info = city_info.withColumnRenamed('City', 'City_imp').distinct()
 
 # 6. id_bedsize
-id_bedsize = spark.read.parquet(id_bedsize_path)
+schema= StructType([
+        StructField("ID", StringType(), True),
+        StructField("Bedsize", DoubleType(), True),
+        StructField("Bedsize>99", DoubleType(), True)
+        ])
+id_bedsize = spark.read.parquet(id_bedsize_path, schema=schema)
 id_bedsize = deal_ID_length(id_bedsize)
-
+id_bedsize = id_bedsize.join(cpa_pha_mapping, on='ID', how='inner')
 
 # 7. raw_data 文件
 raw_data = spark.read.parquet(raw_data_path)
 raw_data = spark.read.csv('s3a://ph-max-auto/v0.0.1-2020-06-08/Test/Eisai/raw_data.csv', header=True)
 
-raw_data = raw_data.withColumn('Year', func.substring(col('Date').cast(StringType()), 1, 4))
-raw_data = raw_data.withColumn('Year', col('Year').cast(IntegerType())) \
-                        .withColumn('Date', col('Date').cast(IntegerType()))
 # a. 生成min1
 if project_name != "Mylan":
     raw_data = raw_data.withColumn("Brand", func.when((raw_data.Brand.isNull()) | (raw_data.Brand == 'NA'), raw_data.Molecule).
@@ -177,6 +180,14 @@ else:
         raw_data = raw_data.drop('min1')
     raw_data = raw_data.withColumnRenamed('tmp', 'min1')
 
+# 字段类型修改
+raw_data = raw_data.withColumn('Year', func.substring(col('Date').cast(StringType()), 1, 4))
+raw_data = raw_data.withColumn('Year', col('Year').cast(IntegerType())) \
+                        .withColumn('Date', col('Date').cast(IntegerType())) \
+                        .withColumn('Sales', col('Sales').cast(DoubleType())) \
+                        .withColumn('Units', col('Sales').cast(DoubleType())) \
+                        .withColumn('Units_Box', col('Units_Box').cast(DoubleType()))
+                        
 # b.匹配信息: Pack_ID,通用名,标准商品名; mkt; PHA
 raw_data2 = deal_ID_length(raw_data)
 raw_data2 = raw_data2.join(product_map, on='min1', how='left')
@@ -391,8 +402,18 @@ target_share = target_share.withColumn('row_num', func.row_number() \
 target_share = target_share.where(col('row_num').between(0, brand_number))
 target = target_share.select('Brand').distinct().toPandas()['Brand'].tolist()
 '''
+# 利用ims_sales_gr，生成每个城市 top 产品的 'gr','share','share_ly' 字典
 ims_sales_gr_city = ims_sales_gr.where(col('City').isin(city_list))
-# 
+
+
+def func_target_brand(pdf, city_brand_dict):
+    city_name = pdf['City'][0]
+    brand_number = city_brand_dict[city_name]
+    pdf = pdf.sort_values(by='share', ascending=False).reset_index()[0:int(brand_number)]
+    dict_share = pdf.groupby(['City'])['Brand','gr','share','share_ly'].apply(lambda x : x.set_index('Brand').to_dict()).to_dict()
+    dict_share = json.dumps(dict_share)
+    return pd.DataFrame([[city_name] + [dict_share]], columns=['City', 'dict'])
+
 schema= StructType([
         StructField("City", StringType(), True),
         StructField("dict", StringType(), True)
@@ -400,16 +421,11 @@ schema= StructType([
 @pandas_udf(schema, PandasUDFType.GROUPED_MAP)
 def udf_target_brand(pdf):
     return func_target_brand(pdf, city_brand_dict)
-def func_target_brand(pdf):
-    city_name = pdf['City'][0]
-    brand_number = city_brand_dict[city_name]
-    pdf = pdf.sort_values(by='share', ascending=False).reset_index()[0:brand_number]
-    dict_share = pdf.groupby(['City'])['Brand','gr','share','share_ly'].apply(lambda x : x.set_index('Brand').to_dict()).to_dict()
-    dict_share = json.dumps(dict_share)
-    return pd.DataFrame([[city_name] + [dict_share]], columns=['City', 'dict'])
+
 target_share = ims_sales_gr_city.groupBy('City').apply(udf_target_brand)
+
 # 转化为字典格式
-df_target_share = target_share.groupBy().agg(func.collect_list('dict').alias('dict_all')).select("dict_all").toPandas()
+df_target_share = target_share.agg(func.collect_list('dict').alias('dict_all')).select("dict_all").toPandas()
 df_target_share = df_target_share["dict_all"].values[0]
 length_dict = len(df_target_share)
 str_target_share = ""
@@ -420,29 +436,98 @@ for index, each in enumerate(df_target_share):
         str_target_share += "," + each[1:-1] + "}"
     else:
         str_target_share += "," + each[1:-1]
+    
+    if length_dict == 1:
+        str_target_share += "}"
 dict_target_share  = json.loads(str_target_share)
 
 # ======= dict_target_share 已经存为字典，然后对 data 进行group ========
 
 
 # %% 观察放大结果
-data_city = data.where(col('Date').between(201800, 202000)) \
-                    .select('Date','PHA','Brand','Sales').distinct() \
-                    .join(weight_0, data.PHA == weight_0.Panel_ID, how='inner').persist()
-data_city = data.where(col('City') == target_city)
-
 #data_target = data.where(col('Date').between(201800, 202000)) \
 #                    .select('Date','PHA','Brand','Sales').distinct() \
 #                    .join(weight_0.where(col('City') == target_city), data.PHA == weight_0.Panel_ID, how='inner').persist()
 
+data_city = data.where(col('Date').between(201800, 202000)) \
+                    .select('Date','PHA','Brand','Sales').distinct() \
+                    .join(weight_0, data.PHA == weight_0.Panel_ID, how='inner').persist()
+data_city = data_city.where(col('City').isin(city_list))
+
+data_city = data_city.withColumn('MAX_weighted', col('weight')*col('Sales')) \
+                        .withColumn('Year', func.substring(col('Date').cast(StringType()), 1, 4)) \
+                        .withColumn('tmp', func.concat(col('Year'), func.lit('_'), col('Brand'))) \
+                        .join(id_bedsize.select('PHA','Bedsize>99').dropDuplicates('PHA'), on='PHA', how='left')
+                        
+# 梯度下降
+def func_target_brand(pdf, dict_target_share, l=100, m = 10000):
+    city_name = pdf['City'][0]
+    target = list(dict_target_share[city_name]['gr'].keys())
+    brand_number = len(target)
+    
+    H = pdf.pivot_table(index=['City','Panel_ID','City_Sample','weight'], columns=['tmp'], values='Sales',
+    fill_value=0, aggfunc='sum')
+    H = H.reset_index()
+    
+    H['2018_total'] = H.loc[:,H.columns.str.contains('2018')].sum(axis=1)
+    H['2019_total'] = H.loc[:,H.columns.str.contains('2019')].sum(axis=1)
+    
+    H['2018_others'] = H['2018_total'] - H.loc[:,['2018_'+col for col in target]].sum(axis=1)
+    H['2019_others'] = H['2019_total'] - H.loc[:,['2019_'+col for col in target]].sum(axis=1)
+    
+    H_18 = H.loc[:,['2018_'+col for col in target]].values
+    H_19 = H.loc[:,['2019_'+col for col in target]].values
+    
+    Ht_18 = H.loc[:,'2018_total'].values
+    Ht_19 = H.loc[:,'2019_total'].values
+    
+    G = list(dict_target_share[city_name]['gr'].values())
+    S = list(dict_target_share[city_name]['share'].values())
+    S_ly = np.array(list(dict_target_share[city_name]['share_ly'].values()))
+    W_0 = np.array(H['weight']).reshape(-1,1)
+    
+    # 梯度下降
+    W_result, X, Growth, Share= gradient_descent(W_0, S, G, S_ly, l, m, brand_number)
+    
+    # 首先标准化，使w优化前后的点积相等
+    W_norm = W_result * Ht_19.T.dot(W_0)[0]/Ht_19.T.dot(W_result)[0]
+    
+    H2 = H['Bedsize>99'].fillna(0)
+    H2['weight_factor'] = (W_norm-1)/(np.array(H2['weight']).reshape(-1,1)-1)
+    H2['weight_factor1'] = (W_norm)/(np.array(H2['weight']).reshape(-1,1))
+    H2.loc[(H2['Bedsize>99'] == 0), 'weight_factor'] = H2.loc[(H2['Bedsize>99'] == 0), 'weight_factor1']
+    H2['weight_factor'].fillna(0, inplace=True)
+    H2.loc[(H2['weight_factor'] < 0), 'weight_factor'] = 0
+    
+    # %% report
+    H2['W'] = W_norm
+
+    data_final = data_target[data_target.City == target_city].merge(H2[['Panel_ID','W']], 
+        how='left', on='Panel_ID')
+    
+    data_final['MAX_new'] = data_final['Sales'] * data_final['W']
+    
+    df_sum = data_final.groupby(['Brand','Year'])[['MAX_new']].agg('sum').reset_index(). \
+        pivot_table(index='Brand', columns=['Year'], values='MAX_new',
+        fill_value=0, aggfunc='sum')
+    df_sum['Share_2018'] = list(np.round(np.array(df_sum['2018']/df_sum['2018'].sum()),3))
+    df_sum['Share_2019'] = list(np.round(np.array(df_sum['2019']/df_sum['2019'].sum()),3))
+    df_sum['GR'] = list(np.round(np.array(df_sum['2019']/df_sum['2018']-1),3))
+    
+    return pd.DataFrame([[city_name] + [dict_share]], columns=['City', 'dict'])
+
+schema= StructType([
+        StructField("City", StringType(), True),
+        StructField("dict", StringType(), True)
+        ])
+@pandas_udf(schema, PandasUDFType.GROUPED_MAP)
+def udf_target_brand(pdf):
+    return func_target_brand(pdf, dict_target_share)
+
+
 data_city.groupBy('City').apply()
 
-
-
-data_target = data_target.withColumn('MAX_weighted', col('weight')*col('Sales')) \
-                        .withColumn('Year', func.substring(col('Date').cast(StringType()), 1, 4)) \
-                        .withColumn('tmp', func.concat(col('Year'), func.lit('_'), col('Brand')))
-
+'''
 H = data_target.groupBy('City','Panel_ID','City_Sample','weight') \
                         .pivot('tmp').agg(func.sum('Sales')).fillna(0).persist()
 
@@ -467,10 +552,9 @@ H_19 = H.select(['2019_' + i for i in target]).toPandas().values
 
 Ht_18 = H.select('2018_total').toPandas().values
 Ht_19 = H.select('2019_total').toPandas().values
-
+'''
 # learning rate和迭代次数请通过尝试自定义
-l = 100
-m = 10000
+
 
 # %% 辅助函数
 # 计算增长率或者份额
@@ -501,7 +585,7 @@ def gradient(W, h_n, h_d, g):
     4. 初始值的选择
 '''
 
-def gradient_descent(W_0, S, G, S_ly, learning_rate, max_iteration, H_n=H_19, H_share=Ht_19, H_gr=H_18, H_ly=Ht_18):
+def gradient_descent(W_0, S, G, S_ly, learning_rate, max_iteration, brand_number, H_n=H_19, H_share=Ht_19, H_gr=H_18, H_ly=Ht_18):
     X = np.array([]); Growth = np.array([]); Share = np.array([])
     W = W_0.copy()
     W_init = W_0.copy()
@@ -527,7 +611,7 @@ def gradient_descent(W_0, S, G, S_ly, learning_rate, max_iteration, H_n=H_19, H_
             '''   
             # 加权/降权
             # yyw == 三种，默认第一个  单独gd_share，单独gd_growth，两者一起
-            if k in range(brand_number-1):
+            if k in range(brand_number):
                 gradient_sum += gradient(W, H_n[:,k], H_gr[:,k], G[k]) + gradient(W, H_n[:,k], H_share, S[k])#1、gradient(W, H_n[:,k], H_gr[:,k], G[k]) + gradient(W, H_n[:,k], H_share, S[k])     2、gd_share
             # 只优化Share
             elif k in []: 
