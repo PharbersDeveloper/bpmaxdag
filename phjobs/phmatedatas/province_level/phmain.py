@@ -14,13 +14,12 @@ from ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--owner')
 @click.option('--run_id')
 @click.option('--job_id')
-@click.option('--a')
-@click.option('--b')
-@click.option('--c')
-@click.option('--d')
+@click.option('--input_report')
+@click.option('--input_csv')
+@click.option('--output_atccode')
 def debug_execute(**kwargs):
     try:
-        args = {'name': 'job_customer_mapping'}
+        args = {'name': 'job_atc_code_match'}
 
         args.update(kwargs)
         result = exec_before(**args)
@@ -29,7 +28,7 @@ def debug_execute(**kwargs):
         result = execute(**args)
 
         args.update(result)
-        result = exec_after(outputs=[], **args)
+        result = exec_after(outputs=[],**args)
 
         return result
     except Exception as e:
