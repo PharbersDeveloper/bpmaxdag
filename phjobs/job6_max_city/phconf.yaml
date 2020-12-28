@@ -46,8 +46,6 @@ spec:
         value: "min1"
       - key: if_two_source
         value: "False"
-      - key: cpa_gyc
-        value: "True"
       - key: hospital_level
         value: "False"
       - key: bedsize
