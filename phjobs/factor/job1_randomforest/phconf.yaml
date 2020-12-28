@@ -19,6 +19,10 @@ spec:
         value: 'Eisai'
       - key: outdir
         value: '202009'
+      - key: model_month_right
+        value: '201912'
+      - key: model_month_left
+        value: '201901'
       - key: all_models
         value: '固力康'
       - key: universe_choice

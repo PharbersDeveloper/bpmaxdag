@@ -65,7 +65,11 @@ def execute(**kwargs):
     outdir = kwargs["outdir"]
     all_models = kwargs["all_models"]
     universe_choice = kwargs["universe_choice"]
+    model_month_right = kwargs["model_month_right"]
+    model_month_left = kwargs["model_month_left"]
     
+    model_month_right = int(model_month_right)
+    model_month_left = int(model_month_left)
     all_models = all_models.replace(' ','').split(',')
     # 市场的universe文件
     universe_choice_dict={}
@@ -138,7 +142,7 @@ def execute(**kwargs):
     # 1.7 rawdata 数据
     rawdata = spark.read.parquet(raw_data_path)
     rawdata = rawdata.withColumn('Date', col('Date').cast(IntegerType()))
-    rawdata = rawdata.where((col('Date') > 201900) & (col('Date') < 202000))
+    rawdata = rawdata.where((col('Date') >= model_month_left) & (col('Date') <= model_month_right))
     rawdata = rawdata.join(molecule_mkt_map, on='Molecule', how='left') \
                         .join(hosp_mapping, on='ID', how='left').persist()
                         
@@ -261,7 +265,7 @@ def execute(**kwargs):
         
         # 2. 随机森林模型
         print("RandomForest：model")
-        rf = RandomForestRegressor(labelCol="label", featuresCol="indexedFeatures", numTrees=100, seed=10)
+        rf = RandomForestRegressor(labelCol="label", featuresCol="indexedFeatures", numTrees=500, seed=10)
         model = rf.fit(data)
         
         # 特征重要性
@@ -300,7 +304,7 @@ def execute(**kwargs):
         for i in range(1,6):
             # 模型构建
             (df_training, df_test) = data.randomSplit([0.7, 0.3])
-            rf = RandomForestRegressor(labelCol="label", featuresCol="indexedFeatures", numTrees=100, seed=100)
+            rf = RandomForestRegressor(labelCol="label", featuresCol="indexedFeatures", numTrees=500, seed=100)
             model = rf.fit(df_training)
             # 结果预测
             # pipeline = Pipeline(stages=[rf])
