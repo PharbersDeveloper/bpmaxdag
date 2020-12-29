@@ -148,10 +148,10 @@ bedsize, hospital_level):
         cpa_pha_mapping = spark.read.parquet(cpa_pha_mapping_path)
         cpa_pha_mapping = cpa_pha_mapping.where(cpa_pha_mapping["推荐版本"] == 1) \
             .select("ID", "PHA").distinct()
-            
-        raw_data = raw_data.join(cpa_pha_mapping, on="ID", how="left")
+        cpa_pha_mapping = deal_ID_length(cpa_pha_mapping)
         
-        raw_data = deal_ID_length(raw_data)
+        raw_data = deal_ID_length(raw_data)    
+        raw_data = raw_data.join(cpa_pha_mapping, on="ID", how="left")
         
         # job2: raw_data 处理，生成min1，用product_map 匹配获得min2（Prod_Name），同job2
         if project_name != "Mylan":
@@ -200,6 +200,7 @@ bedsize, hospital_level):
             .drop("S_Molecule") \
             .withColumnRenamed("通用名", "S_Molecule")
             
+    raw_data = deal_ID_length(raw_data)
             
     # 匹配市场名
     market_mapping = spark.read.parquet(market_mapping_path)
