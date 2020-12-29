@@ -102,6 +102,22 @@ def execute(**kwargs):
     df_lost.repartition(1).write.mode("overwrite").option("header", "true").csv(lost_data_path_csv)
     logger.warn("匹配第一步丢失条目写入完成")
     
+    # 6. 最终结果报告以csv形式写入s3
+    report = [("data_matching_report", ),]
+    report_schema = StructType([StructField('title',StringType(),True),])
+    df_report = spark.createDataFrame(report, schema=report_schema).na.fill("")
+    df_report.show()
+    df_report = df_report.withColumn("数据总数", lit(str(all_count)))
+    df_report = df_report.withColumn("进入匹配流程条目", lit(str(ph_total)))
+    df_report = df_report.withColumn("丢失条目", lit(str(df_lost.count())))
+    df_report = df_report.withColumn("机器判断正确条目", lit(str(positive_count)))
+    df_report = df_report.withColumn("其中正确条目", lit(str(true_positive_count)))
+    df_report = df_report.withColumn("匹配率", lit(str(matching_ratio)))
+    df_report = df_report.withColumn("正确率", lit(str(precision)))
+    df_report.show()
+    df_report.repartition(1).write.mode("overwrite").option("header", "true").csv(final_report_path)
+    logger.warn("final report csv文件写入完成")
+    
     return {}
 
 def similarity(df):
