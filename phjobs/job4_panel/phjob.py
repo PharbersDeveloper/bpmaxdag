@@ -248,7 +248,8 @@ paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_uni
                 panel_add_data = panel_add_data.where(panel_add_data.Molecule != u"奥希替尼")
 
         # 去除 city_list和 Province_list
-        if project_name != "Janssen" and project_name != "汇宇":
+        keep_47 = ["Janssen", "汇宇", "神州"]
+        if project_name not in keep_47:
             panel_add_data = panel_add_data \
                 .where(~panel_add_data.City.isin(city_list)) \
                 .where(~panel_add_data.Province.isin(Province_list))
