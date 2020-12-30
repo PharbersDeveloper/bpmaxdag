@@ -42,37 +42,37 @@ raw_data_path, if_union, test, auto_max):
         spark._jsc.hadoopConfiguration().set("com.amazonaws.services.s3.enableV4", "true")
         # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
         spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
-    
-    
-    # 输入
-    if if_two_source != "False" and if_two_source != "True":
-        phlogger.error('wrong input: if_two_source, False or True') 
-        raise ValueError('wrong input: if_two_source, False or True')
         
-    cut_time_left = int(cut_time_left)
-    cut_time_right = int(cut_time_right)
-    
-    molecule_adjust_path = max_path + "/Common_files/新老通用名转换.csv"
-    
-    if raw_data_path == 'Empty':
-        raw_data_path = max_path + '/' + project_name + '/' + outdir + '/raw_data.csv'
-    
-    if history_outdir == 'Empty':
-        history_outdir = str(int(outdir) - 1)
         
-    history_raw_data_path = max_path + '/' + project_name + '/' + history_outdir + '/raw_data'
-    if if_two_source == 'True':
-        history_raw_data_std_path = max_path + '/' + project_name + '/' + history_outdir + '/raw_data_std'
-        cpa_pha_mapping_path = max_path + '/' + project_name + '/cpa_pha_mapping'
-        cpa_pha_mapping_common_path = max_path + '/Common_files/cpa_pha_mapping'
-    
-    std_names = ["Date", "ID", "Raw_Hosp_Name", "Brand", "Form", "Specifications", "Pack_Number", "Manufacturer", 
-    "Molecule", "Source", "Corp", "Route", "ORG_Measure"]
-    
-    if project_name == 'Mylan':
+        # 输入
+        if if_two_source != "False" and if_two_source != "True":
+            phlogger.error('wrong input: if_two_source, False or True') 
+            raise ValueError('wrong input: if_two_source, False or True')
+            
+        cut_time_left = int(cut_time_left)
+        cut_time_right = int(cut_time_right)
+        
+        molecule_adjust_path = max_path + "/Common_files/新老通用名转换.csv"
+        
+        if raw_data_path == 'Empty':
+            raw_data_path = max_path + '/' + project_name + '/' + outdir + '/raw_data.csv'
+        
+        if history_outdir == 'Empty':
+            history_outdir = str(int(outdir) - 1)
+            
+        history_raw_data_path = max_path + '/' + project_name + '/' + history_outdir + '/raw_data'
+        if if_two_source == 'True':
+            history_raw_data_std_path = max_path + '/' + project_name + '/' + history_outdir + '/raw_data_std'
+            cpa_pha_mapping_path = max_path + '/' + project_name + '/cpa_pha_mapping'
+            cpa_pha_mapping_common_path = max_path + '/Common_files/cpa_pha_mapping'
+        
         std_names = ["Date", "ID", "Raw_Hosp_Name", "Brand", "Form", "Specifications", "Pack_Number", "Manufacturer", 
-        "Molecule", "Source", "Corp", "Route", "ORG_Measure", "min1", "Pack_ID"]
-    
+        "Molecule", "Source", "Corp", "Route", "ORG_Measure"]
+        
+        if project_name == 'Mylan':
+            std_names = ["Date", "ID", "Raw_Hosp_Name", "Brand", "Form", "Specifications", "Pack_Number", "Manufacturer", 
+            "Molecule", "Source", "Corp", "Route", "ORG_Measure", "min1", "Pack_ID"]
+        
     # 输出
     same_sheet_dup_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_check/same_sheet_dup.csv'
     across_sheet_dup_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_check/across_sheet_dup.csv'
@@ -137,11 +137,14 @@ raw_data_path, if_union, test, auto_max):
     # 2. 跨sheet去重
     # 2.1 path来自不同月份文件夹：'Date, S_Molecule' 优先最大月份文件夹来源的数据，生成去重后结果 raw_data_dedup_bymonth
     
-    # 获取path的日期文件夹名
+    # 获取path的日期文件夹名, 纯数字的为文件夹名，只要包含字符就不是月份名
     @udf(StringType())
     def path_split(path):
-        path_month = path.replace('//', '/').split('/')[-2]
-        return path_month
+        path_month = path.replace('//', '/').split('/')
+        for each in path_month:
+            if len(re.findall('\D+', each)) == 0:
+                month = each
+        return month
     
     dedup_check_bymonth = raw_data.select('Date', 'S_Molecule', 'Path', 'Sheet', 'Source').distinct() \
                                 .withColumn('month_dir', path_split(raw_data.Path))
@@ -277,6 +280,7 @@ raw_data_path, if_union, test, auto_max):
         history_raw_data = history_raw_data.withColumn('Corp', history_raw_data.Corp.cast(StringType()))
         history_raw_data = history_raw_data.withColumn('Date', history_raw_data.Date.cast(IntegerType()))
         history_raw_data = history_raw_data.where(history_raw_data.Date < cut_time_left)
+        history_raw_data = history_raw_data.drop("Brand_new", "all_info")
         
         raw_data_dedup = raw_data_dedup.withColumn('Date', raw_data_dedup.Date.cast(IntegerType()))
         new_raw_data = raw_data_dedup.where((raw_data_dedup.Date >= cut_time_left) & (raw_data_dedup.Date <= cut_time_right))
@@ -294,6 +298,7 @@ raw_data_path, if_union, test, auto_max):
                 history_raw_data_std = history_raw_data_std.withColumn('Corp', history_raw_data_std.Corp.cast(StringType()))
             history_raw_data_std = history_raw_data_std.withColumn('Date', history_raw_data_std.Date.cast(IntegerType()))
             history_raw_data_std = history_raw_data_std.where(history_raw_data_std.Date < cut_time_left)
+            history_raw_data_std = history_raw_data_std.drop("Brand_new", "all_info")
             
             raw_data_dedup_std = raw_data_dedup_std.withColumn('Date', raw_data_dedup_std.Date.cast(IntegerType()))
             new_raw_data_std = raw_data_dedup_std.where((raw_data_dedup_std.Date >= cut_time_left) & (raw_data_dedup_std.Date <= cut_time_right))

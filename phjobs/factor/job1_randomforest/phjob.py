@@ -67,7 +67,11 @@ def execute(**kwargs):
     universe_choice = kwargs["universe_choice"]
     model_month_right = kwargs["model_month_right"]
     model_month_left = kwargs["model_month_left"]
+    rf_ntree = kwargs["rf_ntree"]
+    rf_minnode = kwargs["rf_minnode"]
     
+    rf_minnode = int(rf_minnode)
+    rf_ntree = int(rf_ntree)
     model_month_right = int(model_month_right)
     model_month_left = int(model_month_left)
     all_models = all_models.replace(' ','').split(',')
@@ -265,7 +269,8 @@ def execute(**kwargs):
         
         # 2. 随机森林模型
         print("RandomForest：model")
-        rf = RandomForestRegressor(labelCol="label", featuresCol="indexedFeatures", numTrees=500, seed=10)
+        rf = RandomForestRegressor(labelCol="label", featuresCol="indexedFeatures", 
+                numTrees=rf_ntree, minInstancesPerNode=rf_minnode, maxDepth=8, seed=10)
         model = rf.fit(data)
         
         # 特征重要性
@@ -304,7 +309,8 @@ def execute(**kwargs):
         for i in range(1,6):
             # 模型构建
             (df_training, df_test) = data.randomSplit([0.7, 0.3])
-            rf = RandomForestRegressor(labelCol="label", featuresCol="indexedFeatures", numTrees=500, seed=100)
+            rf = RandomForestRegressor(labelCol="label", featuresCol="indexedFeatures", 
+                    numTrees=rf_ntree, minInstancesPerNode=rf_minnode, maxDepth=8, seed=100)
             model = rf.fit(df_training)
             # 结果预测
             # pipeline = Pipeline(stages=[rf])

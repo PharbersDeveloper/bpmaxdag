@@ -21,6 +21,8 @@ from ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--model_month_left')
 @click.option('--all_models')
 @click.option('--universe_choice')
+@click.option('--rf_ntree')
+@click.option('--rf_minnode')
 @click.option('--c')
 @click.option('--d')
 def debug_execute(**kwargs):

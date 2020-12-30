@@ -27,6 +27,10 @@ spec:
         value: '固力康'
       - key: universe_choice
         value: 'Empty'
+      - key: rf_ntree
+        value: '500'
+      - key: rf_minnode
+        value: '5'
     outputs:
       - key: c
         value: abcde
