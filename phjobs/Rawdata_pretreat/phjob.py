@@ -44,34 +44,34 @@ raw_data_path, if_union, test, auto_max):
         spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
         
         
-        # 输入
-        if if_two_source != "False" and if_two_source != "True":
-            phlogger.error('wrong input: if_two_source, False or True') 
-            raise ValueError('wrong input: if_two_source, False or True')
-            
-        cut_time_left = int(cut_time_left)
-        cut_time_right = int(cut_time_right)
+    # 输入
+    if if_two_source != "False" and if_two_source != "True":
+        phlogger.error('wrong input: if_two_source, False or True') 
+        raise ValueError('wrong input: if_two_source, False or True')
         
-        molecule_adjust_path = max_path + "/Common_files/新老通用名转换.csv"
+    cut_time_left = int(cut_time_left)
+    cut_time_right = int(cut_time_right)
+    
+    molecule_adjust_path = max_path + "/Common_files/新老通用名转换.csv"
+    
+    if raw_data_path == 'Empty':
+        raw_data_path = max_path + '/' + project_name + '/' + outdir + '/raw_data.csv'
+    
+    if history_outdir == 'Empty':
+        history_outdir = str(int(outdir) - 1)
         
-        if raw_data_path == 'Empty':
-            raw_data_path = max_path + '/' + project_name + '/' + outdir + '/raw_data.csv'
-        
-        if history_outdir == 'Empty':
-            history_outdir = str(int(outdir) - 1)
-            
-        history_raw_data_path = max_path + '/' + project_name + '/' + history_outdir + '/raw_data'
-        if if_two_source == 'True':
-            history_raw_data_std_path = max_path + '/' + project_name + '/' + history_outdir + '/raw_data_std'
-            cpa_pha_mapping_path = max_path + '/' + project_name + '/cpa_pha_mapping'
-            cpa_pha_mapping_common_path = max_path + '/Common_files/cpa_pha_mapping'
-        
+    history_raw_data_path = max_path + '/' + project_name + '/' + history_outdir + '/raw_data'
+    if if_two_source == 'True':
+        history_raw_data_std_path = max_path + '/' + project_name + '/' + history_outdir + '/raw_data_std'
+        cpa_pha_mapping_path = max_path + '/' + project_name + '/cpa_pha_mapping'
+        cpa_pha_mapping_common_path = max_path + '/Common_files/cpa_pha_mapping'
+    
+    std_names = ["Date", "ID", "Raw_Hosp_Name", "Brand", "Form", "Specifications", "Pack_Number", "Manufacturer", 
+    "Molecule", "Source", "Corp", "Route", "ORG_Measure"]
+    
+    if project_name == 'Mylan':
         std_names = ["Date", "ID", "Raw_Hosp_Name", "Brand", "Form", "Specifications", "Pack_Number", "Manufacturer", 
-        "Molecule", "Source", "Corp", "Route", "ORG_Measure"]
-        
-        if project_name == 'Mylan':
-            std_names = ["Date", "ID", "Raw_Hosp_Name", "Brand", "Form", "Specifications", "Pack_Number", "Manufacturer", 
-            "Molecule", "Source", "Corp", "Route", "ORG_Measure", "min1", "Pack_ID"]
+        "Molecule", "Source", "Corp", "Route", "ORG_Measure", "min1", "Pack_ID"]
         
     # 输出
     same_sheet_dup_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_check/same_sheet_dup.csv'
