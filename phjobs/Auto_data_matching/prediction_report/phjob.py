@@ -42,10 +42,10 @@ def execute(**kwargs):
     positive_result_path_csv = kwargs["positive_result_path_csv"] + "/" + job_id
     negative_result_path_csv = kwargs["negative_result_path_csv"] + "/" + job_id
     lost_data_path_csv = kwargs["lost_data_path_csv"] + "/" + job_id
+    final_report_path = kwargs["final_report_path"] + "/" + job_id
     
     # 1. load the data
     df_result = spark.read.parquet(training_data_path)  # 进入清洗流程的所有数据
-    df_validate = df_result
     df_all = spark.read.parquet(split_data_path)  # 带id的所有数据
     resultid = df_result.select("id").distinct()
     resultid_lst = resultid.toPandas()["id"].tolist()
@@ -69,10 +69,7 @@ def execute(**kwargs):
                 .withColumn("JACCARD_DISTANCE_DOSAGE", result.JACCARD_DISTANCE[1]) \
                 .drop("JACCARD_DISTANCE", "indexedFeatures").drop("rawPrediction", "probability")
     ph_total = result.groupBy("id").agg({"prediction": "first", "label": "first"}).count()
-    # logger.warn("丢失条目： " + str(df_lost.count()))
     
-    # df_report.show()
-
     # 5. 生成文件
     join_udf = udf(lambda x: ",".join(map(str,x)))
     result = similarity(result)
@@ -101,6 +98,29 @@ def execute(**kwargs):
     df_lost.write.mode("overwrite").parquet(lost_data_path)
     df_lost.repartition(1).write.mode("overwrite").option("header", "true").csv(lost_data_path_csv)
     logger.warn("匹配第一步丢失条目写入完成")
+    
+    # 6. 结果统计
+    all_count = df_all.count()  # 数据总数
+    ph_total = df_result.groupBy("id").agg({"label": "first"}).count()
+    positive_count = df_positive.count()  # 机器判断pre=1条目
+    negative_count = all_count - positive_count - df_lost.count()  # 机器判断pre=0条目
+    matching_ratio = positive_count / all_count  # 匹配率
+    
+    
+    # 7. 最终结果报告以csv形式写入s3
+    report = [("data_matching_report", ),]
+    report_schema = StructType([StructField('title',StringType(),True),])
+    df_report = spark.createDataFrame(report, schema=report_schema).na.fill("")
+    df_report.show()
+    df_report = df_report.withColumn("数据总数", lit(str(all_count)))
+    df_report = df_report.withColumn("进入匹配流程条目", lit(str(ph_total)))
+    df_report = df_report.withColumn("丢失条目", lit(str(df_lost.count())))
+    df_report = df_report.withColumn("机器匹配条目", lit(str(positive_count)))
+    df_report = df_report.withColumn("机器无法匹配条目", lit(str(negative_count)))
+    df_report = df_report.withColumn("匹配率", lit(str(matching_ratio)))
+    df_report.show()
+    df_report.repartition(1).write.mode("overwrite").option("header", "true").csv(final_report_path)
+    logger.warn("final report csv文件写入完成")
     
     return {}
 

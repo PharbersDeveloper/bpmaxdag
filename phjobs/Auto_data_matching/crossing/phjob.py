@@ -173,9 +173,9 @@ def execute(**kwargs):
 def modify_pool_cleanning_prod(spark, raw_data_path, split_data_path):
 	# TODO: 测试时limit50条，提交到airflow上要去掉limit
 	if raw_data_path.endswith(".csv"):
-		df_cleanning = spark.read.csv(path=raw_data_path, header=True).limit(50)
+		df_cleanning = spark.read.csv(path=raw_data_path, header=True)  #.limit(50)
 	else:
-		df_cleanning = spark.read.parquet(raw_data_path).limit(50)
+		df_cleanning = spark.read.parquet(raw_data_path)  #.limit(50)
 	 
 	 # 为了验证算法，保证id尽可能可读性，投入使用后需要删除
 	df_cleanning = df_cleanning.repartition(1).withColumn("id", monotonically_increasing_id())
@@ -803,7 +803,7 @@ def phcleanning_mnf_seg(df_standard, inputCol, outputCol):
 	# 4. 分词之后构建词库编码
 	# 4.1 stop word remover 去掉不需要的词
 	stopWords = ["省", "市", "股份", "有限", "总公司", "公司", "集团", "制药", "总厂", "厂", "药业", "责任", "医药", "(", ")", "（", "）", \
-				 "有限公司", "股份", "控股", "集团", "总公司", "公司", "有限", "有限责任", "大药厂", \
+				 "有限公司", "股份", "控股", "集团", "总公司", "公司", "有限", "有限责任", "大药厂", '经济特区', '事业所', '株式会社',\
 				 "药业", "医药", "制药", "制药厂", "控股集团", "医药集团", "控股集团", "集团股份", "药厂", "分公司", "-", ".", "-", "·", ":", ","]
 	remover = StopWordsRemover(stopWords=stopWords, inputCol="MANUFACTURER_NAME_WORDS", outputCol=outputCol)
 
@@ -873,7 +873,7 @@ def manifacture_name_pseg_cut(mnf):
 	'济民可信山禾', '先强', '中美华东', '新姿源', '中医药大学', '海神同洲', 'Fabrik Kreussler', '日中天', '明和', '伊赛特', \
 	'江中高邦', '柏赛罗', '复旦复华', '天山制药', '韩都', '三精加滨', '海欣', '哈三联', '诺维诺', '万泽', '哈药,总', '百正', \
 	'华生元', '华瑞联合', '赛百诺', '民生药业', '益民堂', '中国药科大学', 'Feel Tech', '太安堂', '新南方,青蒿', '弘和', '杏林白马', \
-	'利君方圆', '协和发酵麒麟', '元和']
+	'利君方圆', '协和发酵麒麟', '元和', '经济特区', '事业所', '株式会社']
 	seg = pkuseg.pkuseg(user_dict=lexicon)
 
 	df["MANUFACTURER_NAME_STANDARD_WORDS"] = df["MANUFACTURER_NAME_STANDARD"].apply(lambda x: seg.cut(x))
@@ -904,7 +904,7 @@ def mnf_index_word_cosine_similarity(o, v):
 					values.append(10)
 				else:
 					values.append(1)
-		return Vectors.sparse(8000, idx, values)
+		return Vectors.sparse(9000, idx, values)
 		#                    (向量长度，索引数组，与索引数组对应的数值数组)
 	def cosine_distance(u, v):
 		u = u.toArray()

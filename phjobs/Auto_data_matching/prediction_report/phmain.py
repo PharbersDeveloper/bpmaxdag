@@ -23,6 +23,7 @@ from ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--positive_result_path_csv')
 @click.option('--negative_result_path_csv')
 @click.option('--lost_data_path_csv')
+@click.option('--final_report_path')
 
 def debug_execute(**kwargs):
     try:

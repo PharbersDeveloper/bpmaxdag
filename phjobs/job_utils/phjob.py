@@ -454,16 +454,16 @@ def execute():
 		secret_key = "s6/0Od1uDwOLQEebfbd0VlpC3H0VLoBSzBrrwTjJ"
 		
 		SOURCE_BUCKET = 'ph-max-auto'
-		SOURCE_PATH = '2020-08-11/BPBatchDAG/pfizer1300/pfizer1300.xlsx'
+		SOURCE_PATH = '2020-08-11/BPBatchDAG/refactor/zyyin/eia/eisia_check.xlsx'
 		TARGET_BUCKET = 'ph-max-auto'
-		TARGET_PATH = '2020-08-11/BPBatchDAG/pfizer1300/pfizer1300'
+		TARGET_PATH = '2020-08-11/BPBatchDAG/refactor/zyyin/eia/raw_data_2'
 		
 		print("开始读取")
 		
 		s3_client = boto3.client('s3', aws_access_key_id=access_key, aws_secret_access_key=secret_key)
 		object_file = s3_client.get_object(Bucket=SOURCE_BUCKET, Key=SOURCE_PATH)
 		data = object_file['Body'].read()
-		pd_df = pd.read_excel(io.BytesIO(data), encoding='utf-8')
+		pd_df = pd.read_excel(io.BytesIO(data))
 		
 		os.environ["PYSPARK_PYTHON"] = "python3"
 		spark = SparkSession.builder \
@@ -496,7 +496,7 @@ def execute():
 	# spec_reformat_test()  # 将错误匹配的剂型信息对比一下
 	# hr_check()
 	# azsanofi_split()
-	# s3excel2parquet()
+	s3excel2parquet()
 	
 	# def spec_check():
 	# print(spec_reformat("10g:200万IU") == "10000.0MG 2000000.0U")
@@ -519,10 +519,10 @@ def execute():
 	# print(spec_reformat(" (250MG+8.77MG)") == "2.25G")
 	# print(spec_reformat("18ΜG"))
 	
-	mnf1 = spark.read.parquet("s3a://ph-stream/common/public/pfizer_check") 
-				# .select("IN_MANUFACTURER_NAME", "match_MANUFACTURER_NAME_CH", "", "ed_MNF_NAME_CH", "ed_MNF_NAME_EN", "ed_total")
-	mnf1.show()
-	print(mnf1.count())
+	# mnf1 = spark.read.parquet("s3a://ph-stream/common/public/pfizer_check") 
+	# 			# .select("IN_MANUFACTURER_NAME", "match_MANUFACTURER_NAME_CH", "", "ed_MNF_NAME_CH", "ed_MNF_NAME_EN", "ed_total")
+	# mnf1.show()
+	# print(mnf1.count())
 	
 	
 	
