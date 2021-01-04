@@ -207,6 +207,15 @@ def Auto_data_matching_prediction_report_cmd(**context):
         conf['lost_data_path'] = lost_data_path
     lost_data_path = conf["lost_data_path"] + "/" + str(job_id)
     ti.xcom_push(key="lost_data_path", value=lost_data_path)
+    
+    
+    final_report_path = ''
+    if 'final_report_path' not in conf:
+        final_report_path = project_path + '/airflow_runs/' + run_id_path + '/prediction_report/final_report_path'
+        conf['final_report_path'] = final_report_path
+    final_report_path = conf["final_report_path"] + "/" + str(job_id)
+    ti.xcom_push(key="final_report_path", value=final_report_path)
+    
 
     params = var_key_lst.get("common", {})
     params.update(var_key_lst.get("Auto_data_matching_prediction_report", {}))

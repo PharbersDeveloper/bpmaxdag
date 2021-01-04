@@ -32,3 +32,5 @@ spec:
         value: s3a://ph-max-auto/2020-08-11/data_matching/prediction_report/negative_result_path_csv
       - key: lost_data_path_csv
         value: s3a://ph-max-auto/2020-08-11/data_matching/prediction_report/lost_data_path_csv
+      - key: final_report_path
+        value: s3a://ph-max-auto/2020-08-11/data_matching/prediction_report/final_report_path
