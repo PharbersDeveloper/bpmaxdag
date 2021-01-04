@@ -110,7 +110,8 @@ def execute(**kwargs):
         # rf 非样本
         rf_out = spark.read.parquet(rf_out_path)
         rf_out = rf_out.select('PHA_ID', 'final_sales') \
-                        .join(universe.select('Panel_ID', 'Province', 'City'), rf_out.PHA_ID == universe.Panel_ID, how='left') \
+                        .join(universe.select('Panel_ID', 'Province', 'City').distinct(), 
+                                rf_out.PHA_ID == universe.Panel_ID, how='left') \
                         .where(~col('PHA_ID').isin(ID_list))
         rf_out = rf_out.groupBy('City').agg(func.sum('final_sales').alias('Sales_rf'))
         

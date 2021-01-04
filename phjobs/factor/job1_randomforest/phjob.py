@@ -238,7 +238,7 @@ def execute(**kwargs):
                                     .otherwise(func.lit('FALSE'))).persist()
         modeldata = modeldata.withColumn('Sales', func.when((col('Sales').isNull()) & (col('flag_model')=='TRUE'), func.lit(0)) \
                                                      .otherwise(col('Sales')))
-        modeldata = modeldata.withColumn('v', func.when(col('Sales') > 0, f1(col('Sales'))).otherwise(col('Sales')))
+        modeldata = modeldata.withColumn('v', func.when(col('Sales') > 0, f1(col('Sales'))).otherwise(func.lit(0)))
         
         trn = modeldata.where(modeldata.PHA_ID.isin(Panel_ID_list))
         
@@ -261,7 +261,7 @@ def execute(**kwargs):
             data = assembler.transform(data)
             data = data.withColumnRenamed('v', 'label')
             # 识别哪些是分类变量，Set maxCategories so features with > 4 distinct values are treated as continuous.
-            featureIndexer = VectorIndexer(inputCol="features", outputCol="indexedFeatures", maxCategories=10).fit(data)
+            featureIndexer = VectorIndexer(inputCol="features", outputCol="indexedFeatures", maxCategories=15).fit(data)
             data = featureIndexer.transform(data)
             return data
             
@@ -270,7 +270,8 @@ def execute(**kwargs):
         # 2. 随机森林模型
         print("RandomForest：model")
         rf = RandomForestRegressor(labelCol="label", featuresCol="indexedFeatures", 
-                numTrees=rf_ntree, minInstancesPerNode=rf_minnode, maxDepth=8, seed=10)
+                numTrees=500, minInstancesPerNode=5, maxDepth=8)
+        # numTrees=100, minInstancesPerNode=2, maxDepth=8
         model = rf.fit(data)
         
         # 特征重要性
@@ -305,12 +306,13 @@ def execute(**kwargs):
                 .mode("overwrite").save(result_path)
                 
         # 4. 评价模型（5次随机森林，计算nmse）
+        '''
         print("nmse：RandomForest")
         for i in range(1,6):
             # 模型构建
             (df_training, df_test) = data.randomSplit([0.7, 0.3])
             rf = RandomForestRegressor(labelCol="label", featuresCol="indexedFeatures", 
-                    numTrees=rf_ntree, minInstancesPerNode=rf_minnode, maxDepth=8, seed=100)
+                    numTrees=100, minInstancesPerNode=2, maxDepth=i)
             model = rf.fit(df_training)
             # 结果预测
             # pipeline = Pipeline(stages=[rf])
@@ -318,6 +320,11 @@ def execute(**kwargs):
             df_training_pred = df_training_pred.withColumn('datatype', func.lit('train'))
             df_test_pred = model.transform(df_test)
             df_test_pred = df_test_pred.withColumn('datatype', func.lit('test'))
+            df_test_pred.agg(func.sum('prediction'), func.sum('label')).show()
+            #rmse1 = evaluator.evaluate(df_training_pred)
+            #print(rmse1)
+            #rmse2 = evaluator.evaluate(df_test_pred)
+            #print(rmse2)
             
             df = df_training_pred.union(df_test_pred.select(df_training_pred.columns))
             df = df.withColumn('num', func.lit(i))
@@ -372,7 +379,7 @@ def execute(**kwargs):
         df_nmse.write.format("csv").option("header", "true") \
                 .mode("overwrite").save(df_nmse_path)
             
-    
+        '''
     return {} 
         
         
