@@ -11,6 +11,7 @@ from pyspark.sql import functions as func
 import os
 from pyspark.sql.functions import pandas_udf, PandasUDFType, udf
 import time
+import re
 
 def execute(max_path, project_name, outdir, history_outdir, if_two_source, cut_time_left, cut_time_right, 
 raw_data_path, if_union, test, auto_max):
@@ -141,6 +142,7 @@ raw_data_path, if_union, test, auto_max):
     @udf(StringType())
     def path_split(path):
         path_month = path.replace('//', '/').split('/')
+        month = ''
         for each in path_month:
             if len(re.findall('\D+', each)) == 0:
                 month = each
