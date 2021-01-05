@@ -22,7 +22,7 @@ default_args = {
 
 dag = DAG(
     dag_id="extract_data",
-    tags=['Extract Data', '提数'],
+    tags=["Extract Data", "提数"],
     default_args=default_args,
     schedule_interval=None,
     description="extract data",
@@ -42,8 +42,8 @@ def extract_data_extract_cmd(**context):
     ti = context['task_instance']
     owner = default_args['owner']
     run_id = context["dag_run"].run_id
-    job_id = ti.hostname.split("-")[-1]
-    conf = context["dag_run"].conf
+    job_id = ti.hostname
+    args = context["dag_run"].conf
 
     params = var_key_lst.get("common", {})
     params.update(var_key_lst.get("extract_data_extract", {}))
@@ -53,14 +53,14 @@ def extract_data_extract_cmd(**context):
     print(subprocess.check_output(write_hosts, shell=True,
                                   stderr=subprocess.STDOUT).decode("utf-8"))
 
-    install_phcli = 'pip3 install phcli==1.2.3'
+    install_phcli = 'pip3 install phcli==2.0.0-3'
     print(install_phcli)
     print(subprocess.check_output(install_phcli, shell=True,
                                   stderr=subprocess.STDOUT).decode("utf-8"))
 
-    exec_phcli_submit = 'LANG=C.UTF-8 phcli maxauto --runtime python3 --group extract_data --path extract_data_extract --cmd submit ' \
+    exec_phcli_submit = 'phcli maxauto online_run --group extract_data --name extract_data_extract ' \
         '--owner "{}" --run_id "{}" --job_id "{}" --context "{}" "{}"'.format(
-            str(owner), str(run_id), str(job_id), str(params), str(conf))
+            str(owner), str(run_id), str(job_id), str(params), str(args))
     print(exec_phcli_submit)
     print(subprocess.check_output(exec_phcli_submit,
                                   shell=True, stderr=subprocess.STDOUT).decode("utf-8"))
@@ -83,20 +83,20 @@ def extract_data_copy_cmd(**context):
     ti = context['task_instance']
     owner = default_args['owner']
     run_id = context["dag_run"].run_id
-    job_id = ti.hostname.split("-")[-1]
-    conf = context["dag_run"].conf
+    job_id = ti.hostname
+    args = context["dag_run"].conf
 
-    if "out_path" not in conf.keys():
-        conf["from"] = default_extract_data_from.format(
-            date, conf["out_suffix"])
+    if "out_path" not in args.keys():
+        args["from"] = default_extract_data_from.format(
+            date, args["out_suffix"])
     else:
-        conf["from"] = "{}/out_{}_{}".format(conf["out_put"],
-                                             date, conf["out_suffix"])
+        args["from"] = "{}/out_{}_{}".format(args["out_put"],
+                                             date, args["out_suffix"])
 
     default_copy_to_path = "s3a://ph-stream/public/asset/jobs/runId_" + \
         str(uuid.uuid4()) + "/extract_data/jobId_" + str(uuid.uuid4())
     ti.xcom_push(key="copyPath", value=default_copy_to_path)
-    conf["to"] = default_copy_to_path
+    args["to"] = default_copy_to_path
 
     params = var_key_lst.get("common", {})
     params.update(var_key_lst.get("extract_data_copy", {}))
@@ -106,14 +106,14 @@ def extract_data_copy_cmd(**context):
     print(subprocess.check_output(write_hosts, shell=True,
                                   stderr=subprocess.STDOUT).decode("utf-8"))
 
-    install_phcli = 'pip3 install phcli==1.2.3'
+    install_phcli = 'pip3 install phcli==2.0.0-3'
     print(install_phcli)
     print(subprocess.check_output(install_phcli, shell=True,
                                   stderr=subprocess.STDOUT).decode("utf-8"))
 
-    exec_phcli_submit = 'LANG=C.UTF-8 phcli maxauto --runtime python3 --group extract_data --path extract_data_copy --cmd submit ' \
+    exec_phcli_submit = 'phcli maxauto online_run --group extract_data --name extract_data_copy ' \
         '--owner "{}" --run_id "{}" --job_id "{}" --context "{}" "{}"'.format(
-            str(owner), str(run_id), str(job_id), str(params), str(conf))
+            str(owner), str(run_id), str(job_id), str(params), str(args))
     print(exec_phcli_submit)
     print(subprocess.check_output(exec_phcli_submit,
                                   shell=True, stderr=subprocess.STDOUT).decode("utf-8"))
@@ -136,11 +136,13 @@ def preset_write_asset_cmd(**context):
     ti = context['task_instance']
     owner = default_args['owner']
     run_id = context["dag_run"].run_id
-    job_id = ti.hostname.split("-")[-1]
-    conf = context["dag_run"].conf
+    job_id = ti.hostname
+    args = context["dag_run"].conf
+
     path = ti.xcom_pull(task_ids='extract_data_copy',
-                        key='copyPath') + "/" + conf["out_suffix"]
-    conf["to"] = path
+                        key='copyPath') + "/" + args["out_suffix"]
+
+    args["to"] = path
 
     params = var_key_lst.get("common", {})
     params.update(var_key_lst.get("preset_write_asset", {}))
@@ -150,14 +152,14 @@ def preset_write_asset_cmd(**context):
     print(subprocess.check_output(write_hosts, shell=True,
                                   stderr=subprocess.STDOUT).decode("utf-8"))
 
-    install_phcli = 'pip3 install phcli==1.2.3'
+    install_phcli = 'pip3 install phcli==2.0.0-3'
     print(install_phcli)
     print(subprocess.check_output(install_phcli, shell=True,
                                   stderr=subprocess.STDOUT).decode("utf-8"))
 
-    exec_phcli_submit = 'LANG=C.UTF-8 phcli maxauto --runtime python3 --group extract_data --path preset_write_asset --cmd submit ' \
-                        '--owner "{}" --run_id "{}" --job_id "{}" --context "{}" "{}"'.format(
-                            str(owner), str(run_id), str(job_id), str(params), str(conf))
+    exec_phcli_submit = 'phcli maxauto online_run --group extract_data --name preset_write_asset ' \
+        '--owner "{}" --run_id "{}" --job_id "{}" --context "{}" "{}"'.format(
+            str(owner), str(run_id), str(job_id), str(params), str(args))
     print(exec_phcli_submit)
     print(subprocess.check_output(exec_phcli_submit,
                                   shell=True, stderr=subprocess.STDOUT).decode("utf-8"))
@@ -180,20 +182,21 @@ def extract_data_email_cmd(**context):
     ti = context['task_instance']
     owner = default_args['owner']
     run_id = context["dag_run"].run_id
-    job_id = ti.hostname.split("-")[-1]
-    conf = context["dag_run"].conf
+    job_id = ti.hostname
+    args = context["dag_run"].conf
     task_id = context['task'].task_id
-    conf["subject"] = "提数结果"
+
+    args["subject"] = "提数结果"
     path = ti.xcom_pull(task_ids='extract_data_copy',
-                        key='copyPath') + "/" + conf["out_suffix"]
+                        key='copyPath')
     if task_id == "succeed":
-        conf["content"] = '''
+        args["content"] = '''
             链接每日00:00时后过期
             时间：{}
             S3路径：{}
         '''.format(date, path)
     else:
-        conf["content"] = "error"
+        args["content"] = "error"
 
     params = var_key_lst.get("common", {})
     params.update(var_key_lst.get("extract_data_email", {}))
@@ -203,14 +206,14 @@ def extract_data_email_cmd(**context):
     print(subprocess.check_output(write_hosts, shell=True,
                                   stderr=subprocess.STDOUT).decode("utf-8"))
 
-    install_phcli = 'pip3 install phcli==1.2.3'
+    install_phcli = 'pip3 install phcli==2.0.0-3'
     print(install_phcli)
     print(subprocess.check_output(install_phcli, shell=True,
                                   stderr=subprocess.STDOUT).decode("utf-8"))
 
-    exec_phcli_submit = 'LANG=C.UTF-8 phcli maxauto --runtime python3 --group extract_data --path extract_data_email --cmd submit ' \
+    exec_phcli_submit = 'phcli maxauto online_run --group extract_data --name extract_data_email ' \
         '--owner "{}" --run_id "{}" --job_id "{}" --context "{}" "{}"'.format(
-            str(owner), str(run_id), str(job_id), str(params), str(conf))
+            str(owner), str(run_id), str(job_id), str(params), str(args))
     print(exec_phcli_submit)
     print(subprocess.check_output(exec_phcli_submit,
                                   shell=True, stderr=subprocess.STDOUT).decode("utf-8"))

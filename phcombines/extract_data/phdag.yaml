@@ -5,7 +5,6 @@ metadata:
   description: "extract data"
   labels:
     name: extract_data
-    runtime: python3
 spec:
   description: "extract data"
   start_date: 1 # if you don't understand, don't touch it
@@ -16,17 +15,13 @@ spec:
   email_on_retry: False
   retries: 1
   retry_delay: "minutes=5"
-  owner: phcli_defalut
+  owner: pqian
   dag_id: extract_data
-  dag_tag: extract_data
+  dag_tag: ExtractData
   jobs:
     - name: extract_data.extract
-      command: python3
     - name: extract_data.copy
-      command: python3
     - name: preset.write_asset
-      command: python3
     - name: extract_data.email
-      command: python3
   linkage:
     - "extract_data.extract >> extract_data.copy >> preset.write_asset >> extract_data.email"

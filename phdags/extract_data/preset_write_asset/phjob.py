@@ -5,9 +5,9 @@ This is job template for Pharbers Max Job
 """
 import base64
 from datetime import datetime
-from ph_logs.ph_logs import phs3logger
-from ph_db.ph_pg import PhPg
-from ph_max_auto.ph_models.asset import Asset
+from phcli.ph_db.ph_pg import PhPg
+from phcli.ph_logs.ph_logs import phs3logger
+from phcli.ph_max_auto.ph_models.asset import Asset
 
 
 def execute(**kwargs):
@@ -20,51 +20,50 @@ def execute(**kwargs):
     job_id = kwargs.pop('job_id', None)
 
     logger = phs3logger(job_id)
-    spark = kwargs["spark"]()
 
     phjobs = {
-		"extract_data_extract": {
-			"input": {
-				"max_path": "s3a://ph-max-auto/v0.0.1-2020-06-08/",
-				"extract_path": "s3a://ph-stream/common/public/max_result/0.0.5/",
-				"out_path": "s3a://ph-stream/common/public/max_result/0.0.5/extract_data_out",
-				"extract_file": "Empty",
-				"time_left": "Empty",
-				"time_right": "Empty",
-				"molecule": "Empty",
-				"molecule_sep": "Empty",
-				"atc": "Empty",
-				"project": "Empty",
-				"doi": "Empty",
-				"out_suffix": "test",
-				"data_type": "max",
-			},
-			"output": {
-				"c": "abcde",
-				"d": "6789",
-			},
-		},
-		"extract_data_copy": {
-			"input": {
-				"from": "s3a://ph-stream/common/public/max_result/0.0.5/extract_data_out/out_2020_10_26_阿奇霉素/",
-				"to": "s3a://ph-stream/public/test",
-			},
-			"output": {
-				"status": "default",
-			},
-		},
-		"extract_data_email": {
-			"input": {
-				"email": "pqian@pharbers.com",
-				"subject": "PharbersData",
-				"content_type": "text/plain",
-				"content": "default",
-			},
-			"output": {
-				"status": "default",
-			},
-		},
-	}
+        "extract_data_extract": {
+            "input": {
+                "max_path": "s3a://ph-max-auto/v0.0.1-2020-06-08/",
+                "extract_path": "s3a://ph-stream/common/public/max_result/0.0.5/",
+                "out_path": "s3a://ph-stream/common/public/max_result/0.0.5/extract_data_out",
+                "extract_file": "Empty",
+                "time_left": "Empty",
+                "time_right": "Empty",
+                "molecule": "Empty",
+                "molecule_sep": "Empty",
+                "atc": "Empty",
+                "project": "Empty",
+                "doi": "Empty",
+                "out_suffix": "test",
+                "data_type": "max",
+            },
+            "output": {
+                "c": "abc",
+                "d": "def",
+            },
+        },
+        "extract_data_copy": {
+            "input": {
+                "from": "s3a://ph-stream/common/public/max_result/0.0.5/extract_data_out/out_2020_10_26_阿奇霉素/",
+                        "to": "s3a://ph-stream/public/test",
+            },
+            "output": {
+                "status": "default",
+            },
+        },
+        "extract_data_email": {
+            "input": {
+                "email": "pqian@pharbers.com",
+                "subject": "PharbersData",
+                "content_type": "text/plain",
+                                "content": "default",
+            },
+            "output": {
+                "status": "default",
+            },
+        },
+    }
 
     # merge phjobs 和 kwargs 中的参数信息
     for job_name, job in phjobs.items():
@@ -123,7 +122,8 @@ def execute(**kwargs):
         return {}
 
     pg = PhPg(
-        base64.b64decode('cGgtZGItbGFtYmRhLmNuZ2sxamV1cm1udi5yZHMuY24tbm9ydGh3ZXN0LTEuYW1hem9uYXdzLmNvbS5jbgo=').decode('utf8')[:-1],
+        base64.b64decode(
+            'cGgtZGItbGFtYmRhLmNuZ2sxamV1cm1udi5yZHMuY24tbm9ydGh3ZXN0LTEuYW1hem9uYXdzLmNvbS5jbgo=').decode('utf8')[:-1],
         base64.b64decode('NTQzMgo=').decode('utf8')[:-1],
         base64.b64decode('cGhhcmJlcnMK').decode('utf8')[:-1],
         base64.b64decode('QWJjZGUxOTYxMjUK').decode('utf8')[:-1],
@@ -139,7 +139,8 @@ def execute(**kwargs):
             if obj:
                 obj_id = obj[0].id
             else:
-                obj = pg.insert(Asset(name=dag_node_info_map[parent][0], owner=owner, source=parent))
+                obj = pg.insert(
+                    Asset(name=dag_node_info_map[parent][0], owner=owner, source=parent))
                 obj_id = obj.id
             parents_id.append(obj_id)
 
@@ -151,7 +152,8 @@ def execute(**kwargs):
             obj.modified = datetime.now()
             pg.update(obj)
         else:
-            pg.insert(Asset(name=dag_node_info_map[asset][0], owner=owner, source=asset))
+            pg.insert(
+                Asset(name=dag_node_info_map[asset][0], owner=owner, source=asset))
 
     pg.commit()
     return {}

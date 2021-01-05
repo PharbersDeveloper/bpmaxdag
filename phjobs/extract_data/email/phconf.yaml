@@ -6,10 +6,12 @@ metadata:
   labels:
     name: email
     runtime: python3
+    command: script
 spec:
   containers:
     repository: local
     runtime: python3
+    command: script
     code: phmain.py
     config: phconf.yaml
     args:

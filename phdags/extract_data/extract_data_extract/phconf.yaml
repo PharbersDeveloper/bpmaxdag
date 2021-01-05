@@ -6,10 +6,12 @@ metadata:
   labels:
     name: extract
     runtime: python3
+    command: submit
 spec:
   containers:
     repository: local
     runtime: python3
+    command: submit
     code: phmain.py
     config: phconf.yaml
     args:
@@ -41,6 +43,6 @@ spec:
         value: "max"
     outputs:
       - key: c
-        value: abcde
+        value: abc
       - key: d
-        value: 6789
+        value: def

@@ -5,15 +5,18 @@ This is job template for Pharbers Max Job
 """
 import boto3
 import uuid
-from ph_logs.ph_logs import phs3logger
+from phcli.ph_logs.ph_logs import phs3logger, LOG_DEBUG_LEVEL
 
 
 def execute(**kwargs):
     """
         please input your code below
-        get spark session: spark = kwargs["spark"]()
-    """
-    spark = kwargs["spark"]()
+        """
+    logger = phs3logger(kwargs["job_id"], LOG_DEBUG_LEVEL)
+    logger.info("当前 owner 为 " + str(kwargs["owner"]))
+    logger.info("当前 run_id 为 " + str(kwargs["run_id"]))
+    logger.info("当前 job_id 为 " + str(kwargs["job_id"]))
+
     emailConf = {
         "email": kwargs["email"],
         "subject": kwargs["subject"],

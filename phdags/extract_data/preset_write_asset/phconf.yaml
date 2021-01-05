@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: write_asset
+  description: "phcli preset job"
+  labels:
+    name: write_asset
+    runtime: python3
+    command: script
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    command: script
+    code: phmain.py
+    config: phconf.yaml

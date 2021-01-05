@@ -4,30 +4,25 @@
 This is job template for Pharbers Max Job
 """
 import boto3
-import traceback
-from ph_logs.ph_logs import phs3logger
+from phcli.ph_logs.ph_logs import phs3logger, LOG_DEBUG_LEVEL
 
 
 def execute(**kwargs):
     """
         please input your code below
-        get spark session: spark = kwargs["spark"]()
-    """
-    logger = phs3logger(kwargs["job_id"])
+        """
+    logger = phs3logger(kwargs["job_id"], LOG_DEBUG_LEVEL)
     logger.info("当前 owner 为 " + str(kwargs["owner"]))
     logger.info("当前 run_id 为 " + str(kwargs["run_id"]))
     logger.info("当前 job_id 为 " + str(kwargs["job_id"]))
-    spark = kwargs["spark"]()
+
     awsConf = {
         "aws_access_key_id": "AKIAWPBDTVEAI6LUCLPX",
         "aws_secret_access_key": "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"
     }
-    try:
-        clean(awsConf, kwargs["path"], logger)
-        return {"status": "success"}
-    except Exception as e:
-        logger.error(traceback.format_exc())
-        raise
+
+    clean(awsConf, kwargs["path"], logger)
+    return {}
 
 
 def clean(awsConf, path, logger):

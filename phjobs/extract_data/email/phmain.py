@@ -6,8 +6,8 @@ This is job template for Pharbers Max Job
 import click
 import traceback
 from phjob import execute
-from ph_logs.ph_logs import phs3logger
-from ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
+from phcli.ph_logs.ph_logs import phs3logger
+from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 
 
 @click.command()
@@ -21,12 +21,12 @@ from ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--status')
 def debug_execute(**kwargs):
     try:
-        args = {'name': 'email'}
+        args = {"name": "email"}
 
         args.update(kwargs)
         result = exec_before(**args)
 
-        args.update(result)
+        args.update(result if isinstance(result, dict) else {})
         result = execute(**args)
 
         return result
