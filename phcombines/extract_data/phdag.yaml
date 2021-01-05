@@ -24,7 +24,9 @@ spec:
       command: python3
     - name: extract_data.copy
       command: python3
+    - name: preset.write_asset
+      command: python3
     - name: extract_data.email
       command: python3
   linkage:
-    - "extract_data.extract >> extract_data.copy >> extract_data.email"
+    - "extract_data.extract >> extract_data.copy >> preset.write_asset >> extract_data.email"
