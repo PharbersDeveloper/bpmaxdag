@@ -34,8 +34,8 @@ project, doi, molecule_sep, data_type):
         spark._jsc.hadoopConfiguration().set("com.amazonaws.services.s3.enableV4", "true")
         # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
         spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
+            
         
-    
     # a. 输入
     if data_type != "max" and data_type != "raw":
         phlogger.error('wrong input: data_type, max or raw') 
@@ -205,9 +205,9 @@ project, doi, molecule_sep, data_type):
                             .persist()
     
     # 分子最大月份数, 月份最全-得分
-    months_max = report.groupby("标准通用名").agg(func.max("months_num").alias("max_month"))
+    months_max = report.groupby("标准通用名", "ATC").agg(func.max("months_num").alias("max_month"))
     
-    report = report.join(months_max, on="标准通用名", how="left")
+    report = report.join(months_max, on=["标准通用名", "ATC"], how="left")
     report = report.withColumn("drop_for_months", func.when(report.months_num == report.max_month, func.lit(0)).otherwise(func.lit(1)))
     
     # 对于raw_data 医院数量作为第二去重条件
@@ -283,8 +283,8 @@ project, doi, molecule_sep, data_type):
     report_a = spark.read.csv(report_a_path, header=True)
     
     # 根据 report_a 去重
-    max_filter_list = max_filter_list.join(report_a.where(report_a.flag == 1).select("标准通用名", "project").distinct(), 
-                                    on=["标准通用名", "project"], 
+    max_filter_list = max_filter_list.join(report_a.where(report_a.flag == 1).select("ATC", "标准通用名", "project").distinct(), 
+                                    on=["ATC", "标准通用名", "project"], 
                                     how="inner").persist()
     
     # 三. 原始数据提取
@@ -332,7 +332,7 @@ project, doi, molecule_sep, data_type):
         index += 1
     
     # max_filter_raw
-    max_filter_raw = spark.read.parquet(max_filter_raw_path)    
+    max_filter_raw = spark.read.parquet(max_filter_raw_path)
     
     # 4. 注释项目排名
     max_filter_out = max_filter_raw.join(project_rank, on="project", how="left").persist()
@@ -345,7 +345,7 @@ project, doi, molecule_sep, data_type):
         out_cols = ["project", "project_score", "ID", "Raw_Hosp_Name", "PHA", "PHA医院名称" ,"Date", "ATC", "标准通用名", 
                     "标准商品名", "标准剂型", "标准规格", "标准包装数量", "标准生产企业", "标准省份名称", "标准城市名称", 
                     "DOI", "PACK_ID", "Sales", "Units", "Units_Box"]
-    max_filter_out = max_filter_out.select(out_cols)
+    max_filter_out = max_filter_out.select(out_cols).distinct()
                     
     if data_type == 'max':
         # Sales，Units 处理
@@ -379,10 +379,10 @@ project, doi, molecule_sep, data_type):
         max_filter_out =  max_filter_out_1.union(max_filter_out_2)   
     
     # 根据 report_a 去重
-    out_extract_data = max_filter_out.join(report_a.where(report_a.flag == 1).select("标准通用名", "project").distinct(), 
-                                    on=["标准通用名", "project"], 
+    out_extract_data = max_filter_out.join(report_a.where(report_a.flag == 1).select("ATC", "标准通用名", "project").distinct(), 
+                                    on=["ATC", "标准通用名", "project"], 
                                     how="inner").persist()
-
+    
     # 输出提数结果
     if data_type == 'max':
         out_cols = ["project", "project_score", "Date", "ATC", "标准通用名", "标准商品名", "标准剂型", "标准规格", 
@@ -391,7 +391,7 @@ project, doi, molecule_sep, data_type):
         out_cols = ["project", "project_score", "ID", "Raw_Hosp_Name", "PHA", "PHA医院名称" ,"Date", "ATC", "标准通用名", "标准商品名", "标准剂型", "标准规格", 
                     "标准包装数量", "标准生产企业", "标准省份名称", "标准城市名称", "PACK_ID", "Sales", "Units", "Units_Box"]
                     
-    out_extract_data_final = out_extract_data.select(out_cols)
+    out_extract_data_final = out_extract_data.select(out_cols).distinct()
     out_extract_data_final = out_extract_data_final.repartition(1)
     out_extract_data_final.write.format("csv").option("header", "true") \
         .mode("overwrite").save(out_extract_data_path)
@@ -439,13 +439,14 @@ project, doi, molecule_sep, data_type):
                         
     report_c = extract_sales.join(molecule_sales, on=["标准通用名", "ATC"], how="left")
     report_c = report_c.withColumn("Sales_rate", report_c.Sales_ims_extract/report_c.Sales_ims_molecule) \
-                    .join(report_a.where(report_a.drop_for_score == 0).select("标准通用名", "ATC", "project", "months_num", "time_range"), 
+                    .join(report_a.where(report_a.flag == 1).select("标准通用名", "ATC", "project", "months_num", "time_range"), 
                             on=["标准通用名", "ATC", "project"], how="left") \
                     .drop("Sales_ims_extract", "Sales_ims_molecule").persist()
     # 列名顺序调整
-    report_c = report_c.select("project", "ATC", "标准通用名", "time_range", "months_num", "Sales_rate")
+    report_c = report_c.select("project", "ATC", "标准通用名", "time_range", "months_num", "Sales_rate") \
+                        .orderBy(["标准通用名"]) 
     
     report_c = report_c.repartition(1)
     report_c.write.format("csv").option("header", "true") \
         .mode("overwrite").save(report_c_path)
-    
+
