@@ -14,7 +14,7 @@ spec:
     config: phconf.yaml
     args:
       - key: raw_data_path
-        value: s3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/eia/raw_data
+        value: s3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/azsanofi/raw_data
       - key: standard_prod_path
         value: s3a://ph-stream/common/public/prod/0.0.20
       - key: human_replace_packid_path
