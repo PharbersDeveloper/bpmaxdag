@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: PhDag
+metadata:
+  name: extract
+  description: "extract data"
+  labels:
+    name: extract
+    runtime: python3
+spec:
+  description: "extract data"
+  start_date: 1 # if you don't understand, don't touch it
+  schedule_interval: "None" # if you don't understand, don't touch it
+  dag_timeout: 60 # minutes
+  email: ["pqian@pharbers.com"]
+  email_on_failure: False
+  email_on_retry: False
+  retries: 1
+  retry_delay: "minutes=5"
+  owner: phcli_defalut
+  dag_id: extract
+  dag_tag: extract
+  jobs:
+    - name: extract_data.extract
+      command: python3
+    - name: extract_data.copy
+      command: python3
+    - name: extract_data.email
+      command: python3
+  linkage:
+    - "extract_data.extract >> extract_data.copy >> extract_data.email"

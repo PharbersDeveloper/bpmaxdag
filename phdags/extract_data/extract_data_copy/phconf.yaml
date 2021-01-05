@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: copy
+  description: "Copy S3 File"
+  labels:
+    name: copy
+    runtime: python3
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: from
+        value: s3a://ph-stream/common/public/max_result/0.0.5/extract_data_out/out_2020_10_26_阿奇霉素/
+      - key: to
+        value: s3a://ph-stream/public/test
+    outputs:
+      - key: status
+        value: default

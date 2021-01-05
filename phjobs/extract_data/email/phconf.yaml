@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: email
+  description: "send sqs email"
+  labels:
+    name: email
+    runtime: python3
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: email
+        value: pqian@pharbers.com
+      - key: subject
+        value: PharbersData
+      - key: content_type
+        value: text/plain
+      - key: content
+        value: default
+    outputs:
+      - key: status
+        value: default
