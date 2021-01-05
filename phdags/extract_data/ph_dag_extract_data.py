@@ -138,6 +138,9 @@ def preset_write_asset_cmd(**context):
     run_id = context["dag_run"].run_id
     job_id = ti.hostname.split("-")[-1]
     conf = context["dag_run"].conf
+    path = ti.xcom_pull(task_ids='extract_data_copy',
+                        key='copyPath') + "/" + conf["out_suffix"]
+    conf["to"] = path
 
     params = var_key_lst.get("common", {})
     params.update(var_key_lst.get("preset_write_asset", {}))
