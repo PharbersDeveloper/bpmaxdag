@@ -188,7 +188,7 @@ def extract_data_email_cmd(**context):
                         key='copyPath') + "/" + conf["out_suffix"]
     if task_id == "succeed":
         conf["content"] = '''
-            链接24小时后过期
+            链接每日00:00时后过期
             时间：{}
             S3路径：{}
         '''.format(date, path)
