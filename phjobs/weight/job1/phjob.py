@@ -57,13 +57,18 @@ if access_key is not None:
  
 # 输入
 max_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/"
-project_name = "Eisai"
+#project_name = "Eisai"
+project_name = "Merck"
 ourdir = "202009"
-all_models = ""
 minimum_product_columns = "Brand, Form, Specifications, Pack_Number, Manufacturer"
 minimum_product_sep = "|"
+#market_city_brand = '{"固力康":{"福厦泉":4}}'
+market_city_brand = '{"思则凯":{"福厦泉":4}}'
+year_list=['2018', '2019']
 
+market_city_brand = json.loads(market_city_brand)
 minimum_product_columns = minimum_product_columns.replace(" ","").split(",")
+
 id_bedsize_path = max_path + '/' + '/Common_files/ID_Bedsize'
 universe_path = max_path + '/' + project_name + '/universe_base'
 city_info_path = max_path + '/' + project_name + '/province_city_mapping'
@@ -71,11 +76,15 @@ mkt_mapping_path = max_path + '/' + project_name + '/mkt_mapping'
 cpa_pha_mapping_path = max_path + '/' + project_name + '/cpa_pha_mapping'
 product_map_path = max_path + '/' + project_name + '/' + ourdir + '/prod_mapping'
 raw_data_path = max_path + '/' + project_name + '/' + ourdir + '/raw_data'
+ims_sales_path = max_path + "/Common_files/extract_data_files/cn_IMS_Sales_Fdata_202007.csv"
 
+# ==========  数据执行  ============
 
-# ===== 数据执行 =====
+# ====  一. 函数定义  ====
+
 @udf(StringType())
 def city_change(name):
+    # 城市名统一
     if name in ["福州市", "厦门市", "泉州市"]:
         newname = "福厦泉"
     elif name in ["珠海市", "东莞市", "中山市", "佛山市"]:
@@ -92,7 +101,9 @@ def deal_ID_length(df):
     df = df.withColumn("ID", func.regexp_replace("ID", "\\.0", ""))
     df = df.withColumn("ID", func.when(func.length(df.ID) < 7, func.lpad(df.ID, 6, "0")).otherwise(df.ID))
     return df
-    
+
+# ====  二. 数据准备  ====    
+
 # 1. prod_map 文件
 product_map = spark.read.parquet(product_map_path)
 # a. 列名清洗统一
@@ -130,16 +141,21 @@ universe = universe.select("Panel_ID", "Province", "City", "PANEL") \
 
 # 3. mkt_mapping 文件
 mkt_mapping = spark.read.parquet(mkt_mapping_path)
-mkt_mapping = mkt_mapping.withColumnRenamed("标准通用名", "通用名")
+mkt_mapping = mkt_mapping.select('mkt', '标准通用名').distinct() \
+                        .withColumnRenamed("标准通用名", "通用名")
 
 # 4. cpa_pha_mapping 文件
 cpa_pha_mapping = spark.read.parquet(cpa_pha_mapping_path)
-cpa_pha_mapping = cpa_pha_mapping.where(col("推荐版本") == 1).select('ID', 'PHA').distinct()
 cpa_pha_mapping = deal_ID_length(cpa_pha_mapping)
+cpa_pha_mapping = cpa_pha_mapping.where(col("推荐版本") == 1).select('ID', 'PHA').distinct()
+
 
 # 5. city_info_path
 city_info = spark.read.parquet(city_info_path)
-city_info = city_info.withColumnRenamed('City', 'City_imp').distinct()
+city_info = deal_ID_length(city_info)
+city_info = city_info.select('ID', 'Province', 'City') \
+                    .withColumnRenamed('City', 'City_add').distinct()
+
 
 # 6. id_bedsize
 schema= StructType([
@@ -153,8 +169,7 @@ id_bedsize = id_bedsize.join(cpa_pha_mapping, on='ID', how='inner')
 
 # 7. raw_data 文件
 raw_data = spark.read.parquet(raw_data_path)
-raw_data = spark.read.csv('s3a://ph-max-auto/v0.0.1-2020-06-08/Test/Eisai/raw_data.csv', header=True)
-
+raw_data = spark.read.csv('s3a://ph-max-auto/v0.0.1-2020-06-08/Test/Merck/raw_data.csv', header=True)
 # a. 生成min1
 if project_name != "Mylan":
     raw_data = raw_data.withColumn("Brand", func.when((raw_data.Brand.isNull()) | (raw_data.Brand == 'NA'), raw_data.Molecule).
@@ -180,15 +195,15 @@ else:
         raw_data = raw_data.drop('min1')
     raw_data = raw_data.withColumnRenamed('tmp', 'min1')
 
-# 字段类型修改
+# b.字段类型修改
 raw_data = raw_data.withColumn('Year', func.substring(col('Date').cast(StringType()), 1, 4))
-raw_data = raw_data.withColumn('Year', col('Year').cast(IntegerType())) \
+raw_data = raw_data.withColumn('Year', col('Year').cast(StringType())) \
                         .withColumn('Date', col('Date').cast(IntegerType())) \
                         .withColumn('Sales', col('Sales').cast(DoubleType())) \
                         .withColumn('Units', col('Sales').cast(DoubleType())) \
                         .withColumn('Units_Box', col('Units_Box').cast(DoubleType()))
                         
-# b.匹配信息: Pack_ID,通用名,标准商品名; mkt; PHA
+# c.匹配信息: Pack_ID,通用名,标准商品名; mkt; PHA
 raw_data2 = deal_ID_length(raw_data)
 raw_data2 = raw_data2.join(product_map, on='min1', how='left')
 raw_data2 = raw_data2.join(mkt_mapping, on='通用名', how='left')
@@ -196,7 +211,6 @@ raw_data2 = raw_data2.join(cpa_pha_mapping, on='ID', how='inner')
 raw_data2 = raw_data2.join(universe.select("PHA", "Province", "City").distinct(), on='PHA', how='inner')
 
 # 8. ims 数据
-ims_sales_path = max_path + "/Common_files/extract_data_files/cn_IMS_Sales_Fdata_202007.csv"
 ims_sales = spark.read.csv(ims_sales_path, header=True)
 
 geo_name = {'BJH':'北京市', 'BOI':'天津市', 'BOJ':'济南市', 'CGH':'常州市', 'CHT':'全国', 'FXQ':'福厦泉', 
@@ -207,461 +221,208 @@ geo_dict['City'] = list(geo_name.values())
 geo_df = pd.DataFrame(geo_dict)
 geo_df = spark.createDataFrame(geo_df)  
 
-# 测试用：正式用 Brand 要改成 标准商品名
-year_list=['2018', '2019']
 ims_sales = ims_sales.withColumn('Year', func.substring(ims_sales.Period_Code, 0, 4)) \
                     .join(geo_df, on='Geography_id', how='inner') \
-                    .join(raw_data2.select('Pack_ID', 'mkt', 'Brand').distinct(), on='Pack_ID', how='inner')
+                    .join(raw_data2.select('Pack_ID', 'mkt', '标准商品名').distinct(), on='Pack_ID', how='inner')
 ims_sales = ims_sales.where(col('Year').isin(year_list)) \
-                    .select('City', 'mkt', 'Year', 'LC', 'Brand').distinct().persist()
-# 测试用over 
+                    .select('City', 'mkt', 'Year', 'LC', '标准商品名').distinct().persist()
 
-# ============  每个市场 =============
-# 市场
-market = '固力康'
-factor_path = max_path + '/' + project_name + '/factor/factor_' + market
-universe_ot_path = max_path + '/' + project_name + '/universe/universe_ot_' + market
+# ====  三. 每个市场分析  ==== 
 
-# universe_ot 文件        
-universe_ot = spark.read.parquet(universe_ot_path)
+market_list = list(market_city_brand.keys())
 
-# factor 文件    
-factor = spark.read.parquet(factor_path)
-if "factor" not in factor.columns:
-    factor = factor.withColumnRenamed("factor_new", "factor")
-factor = factor.select('City', 'factor').distinct()
-
-# 
-data = raw_data2.where(col('mkt') == market)
-
-'''
-权重计算：
-    利用医药收入和城市Factor
-    从universe中去掉outliers以及其他Panel == 0的样本
-'''
-# 目的是实现 PANEL = 0 的样本回填
-pha_list = universe.where(col('PANEL') == 0).select('PHA').distinct().toPandas()['PHA'].tolist()
-# 要修改为PHA
-pha_list2 = data.where(col('Date') > 202000).select('ID').distinct().toPandas()['ID'].tolist()
-
-universe_ot_rm = universe_ot.where((col('PANEL') == 1) | (col('Panel_ID').isin(pha_list))) \
-                            .where( ~((col('PANEL') == 0) & (col('Panel_ID').isin(pha_list2)) ))
-universe_ot_rm = universe_ot_rm.fillna(0, subset=['Est_DrugIncome_RMB', 'BEDSIZE'])
-universe_ot_rm = universe_ot_rm.withColumn('Panel_income', col('Est_DrugIncome_RMB') * col('PANEL')) \
-                        .withColumn('Bedmark', func.when(col('BEDSIZE') >= 100, func.lit(1)).otherwise(func.lit(0)))
-universe_ot_rm = universe_ot_rm.withColumn('non_Panel_income', col('Est_DrugIncome_RMB') * (1-col('PANEL')) * col('Bedmark'))
-
-Seg_Panel_income = universe_ot_rm.groupBy('Seg').agg(func.sum('Panel_income').alias('Seg_Panel_income'))
-universe_ot_rm = universe_ot_rm.join(Seg_Panel_income, on='Seg', how='left')
-
-Seg_non_Panel_income = universe_ot_rm.groupBy('Seg', 'City') \
-                            .agg(func.sum('non_Panel_income').alias('Seg_non_Panel_income'))
-universe_ot_rm = universe_ot_rm.join(Seg_non_Panel_income, on=['Seg', 'City'], how='left').persist()
-
-# 按Segment+City拆分样本
-seg_city = universe_ot_rm.select('Seg','City','Seg_non_Panel_income','Seg_Panel_income').distinct()
-
-seg_pha = universe_ot_rm.where(col('PANEL') == 1).select('Seg','City','Panel_ID','BEDSIZE').distinct() \
-                        .withColumnRenamed('City', 'City_Sample')
-                        
-weight_table = seg_city.join(seg_pha, on='Seg', how='left') \
-                        .join(factor, on='City', how='left').persist()
-                        
-# 只给在城市内100床位以上的样本，添加 1 
-weight_table = weight_table.withColumn('tmp', func.when((col('City') == col('City_Sample')) & (col('BEDSIZE') > 99) , \
-                                                    func.lit(1)).otherwise(func.lit(0)))
-weight_table = weight_table.withColumn('weight', col('tmp') + \
-                                            col('factor') * col('Seg_non_Panel_income') / col('Seg_Panel_income'))
-# pandas当 Seg_non_Panel_income和Seg_Panel_income都为0结果是 null，只有 Seg_Panel_income 是 0 结果为 inf 
-# pyspark 都会是null, 用-999代表无穷大
-weight_table = weight_table.withColumn('weight', func.when((col('Seg_Panel_income') == 0) & (col('Seg_non_Panel_income') != 0), \
-                                                       func.lit(-999)).otherwise(col('weight')))
-weight_init = weight_table.select('Seg','City','Panel_ID','weight','City_Sample','BEDSIZE').distinct()
-
-# %% 权重与PANEL的连接
-# 置零之和 不等于 和的置零，因此要汇总到Date层面
-data_sub = data.groupBy('PHA','ID','Date').agg(func.sum('Sales').alias('Sales'))
-
-tmp_weight = weight_init.join(data_sub, weight_init.Panel_ID == data_sub.PHA, how='outer').persist()
-tmp_weight = tmp_weight.fillna({'weight':1, 'Sales':0})
-# 无穷大仍然为 null 
-tmp_weight = tmp_weight.withColumn('weight', func.when(col('weight') == -999, func.lit(None)).otherwise(col('weight')))
-
-# %% 匹配省份城市
-tmp_city = tmp_weight.join(city_info, on='ID', how='left')
-tmp_city = tmp_city.withColumn('City', func.when(col('City').isNull(), col('City_imp')).otherwise(col('City'))) \
-            .withColumn('City_Sample', func.when(col('City_Sample').isNull(), col('City_imp')) \
-                                            .otherwise(col('City_Sample')))
-
-# %% 床位数匹配以及权重修正
-tmp_bed =  tmp_city.join(id_bedsize.select('ID', 'Bedsize>99').distinct(), on='ID', how='left')
-
-# 不在大全的床位数小于1的，权重减1，等同于剔除
-tmp_bed = tmp_bed.withColumn('weight', func.when((col('Bedsize>99') == 0) & (col('Panel_ID').isNull()), \
-                                            col('weight')-1).otherwise(col('weight')))
-tmp_bed = tmp_bed.withColumn('Year', func.substring(col('Date').cast(StringType()), 1, 4))
-tmp_bed = tmp_bed.withColumn('Year', col('Year').cast(IntegerType()))
-
-# %% MAX结果计算
-tmp_bed = tmp_bed.withColumn('MAX_2019', col('Sales') * col('weight'))
-tmp_bed_seg = tmp_bed.groupBy('Seg','Date').agg(func.sum('MAX_2019').alias('MAX_2019')).persist()
-tmp_bed_seg = tmp_bed_seg.withColumn('Positive', func.when(col('MAX_2019') >= 0, func.lit(1)).otherwise(func.lit(0)))
-tmp_bed = tmp_bed.join(tmp_bed_seg.select('Seg','Positive').distinct(), on='Seg', how='left')
-tmp_bed = tmp_bed.fillna({'Positive':1})
-
-tmp_max_city = tmp_bed.where(col('Positive') == 1).where(~col('Year').isNull()) \
-                    .groupBy('City','Year').agg(func.sum('MAX_2019').alias('MAX_2019'), func.sum('Sales').alias('Sales')).persist()
-
-# %% 权重初始值
-weight_0 = tmp_bed.select('City','Panel_ID','Positive','City_Sample','Seg','weight').distinct()
-
-weight_0 = weight_0.withColumn('City', city_change(col('City'))) \
-                    .withColumn('City_Sample', city_change(col('City_Sample')))
-
-# %% 目标字典
-'''
-这个字典最好根据IMS数据自动生成
-    本例是贝达项目的宁波市调整
-
-若想自动优化各个城市，可以循环多重字典。字典生成需要：
-    1. 处理IMS数据，计算增长率等
-    2. 按 "城市 -> 类别 -> 产品" 的层级生成字典
-'''
-
-# 暂时用ims生成的
-if False:
-    data_count = data
-    #选择要进行计算增长率的分子
-    data_count = data_count.groupBy('Year','Brand','City').agg(func.sum('Sales').alias('Sales'))
-    data_count = data_count.groupBy('City','Brand').pivot('Year').agg(func.sum('Sales')).fillna(0).persist()
-    data_count = data_count.withColumn('gr', col('2019')/col('2018'))
-    all_sales = data_count.groupBy('City').agg(func.sum('2018').alias('2018_sales'), func.sum('2019').alias('2019_sales'))
+for market in market_list:
+    # 输入文件
+    # market = '固力康'
+    factor_path = max_path + '/' + project_name + '/factor/factor_' + market
+    universe_ot_path = max_path + '/' + project_name + '/universe/universe_ot_' + market
     
-    data_count = data_count.join(all_sales, on='City', how='inner')
-    gr_city = data_count.groupBy('City').agg(func.sum('2018_sales').alias('2018'), func.sum('2018_sales').alias('2019'))
-    gr_city = gr_city.withColumn('gr', col('2019')/col('2018')) \
-                    .withColumnRenamed('City', 'city')
+    # 输出文件
+    data_target_path = max_path + '/' + project_name + '/weight/' + market + '_data_target'
+    ims_gr_path = max_path + '/' + project_name + '/weight/' + market + '_ims_gr'
     
-    data_count = data_count.withColumn('share', col('2019')/col('2019_sales')) \
-                            .withColumn('share_ly', col('2018')/col('2018_sales'))
-    data_count = data_count.select('City','Brand','gr','share','share_ly').distinct() \
+    # 1. 数据准备
+    # universe_ot 文件        
+    universe_ot = spark.read.parquet(universe_ot_path)
+    universe_ot = universe_ot.withColumnRenamed('Panel_ID', 'PHA')
+    
+    # factor 文件    
+    factor = spark.read.parquet(factor_path)
+    if "factor" not in factor.columns:
+        factor = factor.withColumnRenamed("factor_new", "factor")
+    factor = factor.select('City', 'factor').distinct()
+    
+    # raw_data
+    data = raw_data2.where(col('mkt') == market)
+    
+    # 2. 权重计算
+    '''
+    权重计算：
+        利用医药收入和城市Factor
+        从universe中去掉outliers以及其他Panel == 0的样本
+    '''
+    # %% 目的是实现 PANEL = 0 的样本回填
+    pha_list = universe.where(col('PANEL') == 0).select('PHA').distinct().toPandas()['PHA'].tolist()
+    pha_list2 = data.where(col('Date') > 202000).select('PHA').distinct().toPandas()['PHA'].tolist()
+    
+    universe_ot_rm = universe_ot.where((col('PANEL') == 1) | (col('PHA').isin(pha_list))) \
+                            .where( ~((col('PANEL') == 0) & (col('PHA').isin(pha_list2)) )) \
+                            .fillna(0, subset=['Est_DrugIncome_RMB', 'BEDSIZE']) \
+                            .withColumn('Panel_income', col('Est_DrugIncome_RMB') * col('PANEL')) \
+                            .withColumn('Bedmark', func.when(col('BEDSIZE') >= 100, func.lit(1)).otherwise(func.lit(0)))
+    universe_ot_rm = universe_ot_rm.withColumn('non_Panel_income', col('Est_DrugIncome_RMB') * (1-col('PANEL')) * col('Bedmark'))
+    
+    Seg_Panel_income = universe_ot_rm.groupBy('Seg').agg(func.sum('Panel_income').alias('Seg_Panel_income'))
+    Seg_non_Panel_income = universe_ot_rm.groupBy('Seg', 'City') \
+                                .agg(func.sum('non_Panel_income').alias('Seg_non_Panel_income'))
+    universe_ot_rm = universe_ot_rm.join(Seg_Panel_income, on='Seg', how='left') \
+                                .join(Seg_non_Panel_income, on=['Seg', 'City'], how='left').persist()
+    
+    # %% 按Segment+City拆分样本
+    seg_city = universe_ot_rm.select('Seg','City','Seg_non_Panel_income','Seg_Panel_income').distinct()
+    
+    seg_pha = universe_ot_rm.where(col('PANEL') == 1).select('Seg','City','PHA','BEDSIZE').distinct() \
+                            .withColumnRenamed('City', 'City_Sample')
+                            
+    weight_table = seg_city.join(seg_pha, on='Seg', how='left') \
+                            .join(factor, on='City', how='left').persist()
+                            
+    # 只给在城市内100床位以上的样本，添加 1 
+    weight_table = weight_table.withColumn('tmp', func.when((col('City') == col('City_Sample')) & (col('BEDSIZE') > 99) , \
+                                                        func.lit(1)).otherwise(func.lit(0)))
+    weight_table = weight_table.withColumn('weight', col('tmp') + \
+                                                col('factor') * col('Seg_non_Panel_income') / col('Seg_Panel_income'))
+    
+    # pandas当 Seg_non_Panel_income和Seg_Panel_income都为0结果是 null，只有 Seg_Panel_income 是 0 结果为 inf 
+    # pyspark 都会是null, 用-999代表无穷大
+    weight_table = weight_table.withColumn('weight', func.when((col('Seg_Panel_income') == 0) & (col('Seg_non_Panel_income') != 0), \
+                                                           func.lit(-999)).otherwise(col('weight')))
+    weight_init = weight_table.select('Seg','City','PHA','weight','City_Sample','BEDSIZE').distinct()
+    
+    # %% 权重与PANEL的连接
+    # 置零之和 不等于 和的置零，因此要汇总到Date层面
+    data_sub = data.groupBy('PHA','ID','Date', 'Year').agg(func.sum('Sales').alias('Sales'))
+    
+    tmp_weight = weight_init.join(data_sub, on='PHA', how='outer').persist()
+    tmp_weight = tmp_weight.fillna({'weight':1, 'Sales':0})
+    # 无穷大仍然为 null 
+    tmp_weight = tmp_weight.withColumn('weight', func.when(col('weight') == -999, func.lit(None)).otherwise(col('weight')))
+    
+    # %% 匹配省份城市
+    tmp_city = tmp_weight.join(city_info, on='ID', how='left')
+    tmp_city = tmp_city.withColumn('City', func.when(col('City').isNull(), col('City_add')).otherwise(col('City'))) \
+                .withColumn('City_Sample', func.when(col('City_Sample').isNull(), col('City_add')) \
+                                                .otherwise(col('City_Sample')))
+    
+    # %% 床位数匹配以及权重修正
+    tmp_bed =  tmp_city.join(id_bedsize.select('ID', 'Bedsize>99').distinct(), on='ID', how='left')
+    
+    # 不在大全的床位数小于1的，权重减1，等同于剔除
+    tmp_bed = tmp_bed.withColumn('weight', func.when((col('Bedsize>99') == 0) & (col('PHA').isNull()), \
+                                                col('weight')-1).otherwise(col('weight')))
+    
+    # %% MAX结果计算
+    tmp_bed = tmp_bed.withColumn('MAX_2019', col('Sales') * col('weight'))
+    tmp_bed_seg = tmp_bed.groupBy('Seg','Date').agg(func.sum('MAX_2019').alias('MAX_2019')).persist()
+    tmp_bed_seg = tmp_bed_seg.withColumn('Positive', func.when(col('MAX_2019') >= 0, func.lit(1)).otherwise(func.lit(0)))
+    tmp_bed = tmp_bed.join(tmp_bed_seg.select('Seg','Positive').distinct(), on='Seg', how='left')
+    tmp_bed = tmp_bed.fillna({'Positive':1})
+    
+    tmp_max_city = tmp_bed.where(col('Positive') == 1).where(~col('Year').isNull()) \
+                        .groupBy('City','Year') \
+                        .agg(func.sum('MAX_2019').alias('MAX_2019'), func.sum('Sales').alias('Sales')).persist()
+    
+    # %% 权重初始值
+    weight_0 = tmp_bed.select('City','PHA','Positive','City_Sample','Seg','weight') \
+                        .withColumn('City', city_change(col('City'))) \
+                        .withColumn('City_Sample', city_change(col('City_Sample'))).distinct()
+    
+    
+    # 3. 需要优化的城市数据
+    # 城市列表
+    city_brand_dict = market_city_brand[market]
+    city_list = list(city_brand_dict.keys())
+    
+    # %% 观察放大结果
+    data_target = data.where(col('Year').isin(year_list)) \
+                        .select('Date','PHA','标准商品名','Sales', 'Year').distinct() \
+                        .join(weight_0, on='PHA', how='inner').persist()
+    data_target = data_target.where(col('City').isin(city_list))
+    
+    data_target = data_target.withColumn('MAX_weighted', col('weight')*col('Sales')) \
+                            .withColumn('tmp', func.concat(col('Year'), func.lit('_'), col('标准商品名'))) \
+                            .join(id_bedsize.select('PHA','Bedsize>99').dropDuplicates(['PHA']), on='PHA', how='left')
+    
+    # 输出
+    data_target = data_target.repartition(1)
+    data_target.write.format("parquet") \
+        .mode("overwrite").save(data_target_path)
+        
+    # 4. ims数据
+    '''
+    这个字典最好根据IMS数据自动生成
+        本例是贝达项目的宁波市调整
+    
+    若想自动优化各个城市，可以循环多重字典。字典生成需要：
+        1. 处理IMS数据，计算增长率等
+        2. 按 "城市 -> 类别 -> 产品" 的层级生成字典
+    '''
+    if False:
+        data_count = data
+        #选择要进行计算增长率的分子
+        data_count = data_count.groupBy('Year','标准商品名','City').agg(func.sum('Sales').alias('Sales'))
+        data_count = data_count.groupBy('City','标准商品名').pivot('Year').agg(func.sum('Sales')).fillna(0).persist()
+        data_count = data_count.withColumn('gr', col('2019')/col('2018'))
+        all_sales = data_count.groupBy('City').agg(func.sum('2018').alias('2018_sales'), func.sum('2019').alias('2019_sales'))
+        
+        data_count = data_count.join(all_sales, on='City', how='inner')
+        gr_city = data_count.groupBy('City').agg(func.sum('2018_sales').alias('2018'), func.sum('2018_sales').alias('2019'))
+        gr_city = gr_city.withColumn('gr', col('2019')/col('2018')) \
+                        .withColumnRenamed('City', 'city')
+        
+        data_count = data_count.withColumn('share', col('2019')/col('2019_sales')) \
+                                .withColumn('share_ly', col('2018')/col('2018_sales'))
+        data_count = data_count.select('City','标准商品名','gr','share','share_ly').distinct() \
+                                .fillna(0)
+
+    # ims 数据
+    ims_sales_mkt = ims_sales.where(col('mkt') == market)
+    ims_sales_brand = ims_sales_mkt.groupBy('mkt', 'City', '标准商品名', 'Year').agg(func.sum('LC').alias('Sales'))
+    ims_sales_city = ims_sales_mkt.groupBy('mkt', 'City', 'Year').agg(func.sum('LC').alias('Sales_city'))
+    
+    ims_sales_gr = ims_sales_brand.join(ims_sales_city, on=['mkt', 'City', 'Year'], how='left').persist()
+    ims_sales_gr = ims_sales_gr.groupBy('mkt', 'City', '标准商品名').pivot('Year') \
+                            .agg(func.sum('Sales').alias('Sales'), func.sum('Sales_city').alias('Sales_city')) \
                             .fillna(0)
-    #City|                Brand|                  gr|               share|            share_ly|
-    #+--------------------+---------------------+--------------------+--------------------+--------------------+
-    #|              苏州市|  阿法迪三-以色列梯瓦|   1.013510391125606| 0.12731186926315258| 0.12069570460450474|
-
-# ims 数据
-ims_sales_mkt = ims_sales.where(col('mkt') == market)
-ims_sales_brand = ims_sales_mkt.groupBy('mkt', 'City', 'Brand', 'Year').agg(func.sum('LC').alias('Sales'))
-ims_sales_city = ims_sales_mkt.groupBy('mkt', 'City', 'Year').agg(func.sum('LC').alias('Sales_city'))
-
-ims_sales_gr = ims_sales_brand.join(ims_sales_city, on=['mkt', 'City', 'Year'], how='left').persist()
-ims_sales_gr = ims_sales_gr.groupBy('mkt', 'City', 'Brand').pivot('Year') \
-                        .agg(func.sum('Sales').alias('Sales'), func.sum('Sales_city').alias('Sales_city')) \
-                        .fillna(0)
-ims_sales_gr = ims_sales_gr.withColumn('gr', col('2019_Sales')/col('2018_Sales')) \
-                           .withColumn('share', col('2019_Sales')/col('2019_Sales_city')) \
-                           .withColumn('share_ly', col('2018_Sales')/col('2018_Sales_city'))
-                           
-# 测试用
-ims_sales_gr = spark.read.csv('s3a://ph-max-auto/v0.0.1-2020-06-08/Test/Eisai/Share_total.csv', header=True)
-ims_sales_gr = ims_sales_gr.select('IMS_gr', 'IMS_share_2019', 'IMS_share_2018', 'Brand', 'City', 'DOI') \
-                            .withColumn('IMS_gr', col('IMS_gr').cast(DoubleType())) \
-                            .withColumn('IMS_share_2019', col('IMS_share_2019').cast(DoubleType())) \
-                            .withColumn('IMS_share_2018', col('IMS_share_2018').cast(DoubleType())) \
-                            .withColumnRenamed('IMS_gr', 'gr') \
-                            .withColumnRenamed('IMS_share_2019', 'share') \
-                            .withColumnRenamed('IMS_share_2018', 'share_ly') \
-                            .fillna(0)
-ims_sales_gr = ims_sales_gr.where(col('Brand') != 'total')
-ims_sales_gr = ims_sales_gr.where(col('DOI') == market)
-# 测试用 over
-
-
-# 可以在这里输出  ims_sales_gr 和 data ，拆分为两个 job 后面只用了这两个文件，市场名命名
-
-
-# ===== 城市 ===========================
-# 输入
-city_brand = "福厦泉:4"
-city_brand_dict={}
-for each in city_brand.replace(" ","").split(","):
-    city_name = each.split(":")[0]
-    brand_number = each.split(":")[1]
-    city_brand_dict[city_name]=brand_number
-
-city_list = list(city_brand_dict.keys())       
-#target_city = u'福厦泉'
-#brand_number = 4
-
-# DOI 要改成mkt
-'''
-target_share = ims_sales_gr.where(col('City') == target_city)
-target_share = target_share.withColumn('row_num', func.row_number() \
-                    .over(Window().orderBy(col('share').desc())))
-target_share = target_share.where(col('row_num').between(0, brand_number))
-target = target_share.select('Brand').distinct().toPandas()['Brand'].tolist()
-'''
-# 利用ims_sales_gr，生成每个城市 top 产品的 'gr','share','share_ly' 字典
-ims_sales_gr_city = ims_sales_gr.where(col('City').isin(city_list))
-
-
-def func_target_brand(pdf, city_brand_dict):
-    import json
-    city_name = pdf['City'][0]
-    brand_number = city_brand_dict[city_name]
-    pdf = pdf.sort_values(by='share', ascending=False).reset_index()[0:int(brand_number)]
-    dict_share = pdf.groupby(['City'])['Brand','gr','share','share_ly'].apply(lambda x : x.set_index('Brand').to_dict()).to_dict()
-    dict_share = json.dumps(dict_share)
-    return pd.DataFrame([[city_name] + [dict_share]], columns=['City', 'dict'])
-
-schema= StructType([
-        StructField("City", StringType(), True),
-        StructField("dict", StringType(), True)
-        ])
-@pandas_udf(schema, PandasUDFType.GROUPED_MAP)
-def udf_target_brand(pdf):
-    return func_target_brand(pdf, city_brand_dict)
-
-target_share = ims_sales_gr_city.groupBy('City').apply(udf_target_brand)
-
-# 转化为字典格式
-df_target_share = target_share.agg(func.collect_list('dict').alias('dict_all')).select("dict_all").toPandas()
-df_target_share = df_target_share["dict_all"].values[0]
-length_dict = len(df_target_share)
-str_target_share = ""
-for index, each in enumerate(df_target_share):
-    if index == 0:
-        str_target_share += "{" + each[1:-1]
-    elif index == length_dict - 1:
-        str_target_share += "," + each[1:-1] + "}"
-    else:
-        str_target_share += "," + each[1:-1]
-    
-    if length_dict == 1:
-        str_target_share += "}"
-dict_target_share  = json.loads(str_target_share)
-
-# ======= dict_target_share 已经存为字典，然后对 data 进行group ========
-
-
-# %% 观察放大结果
-#data_target = data.where(col('Date').between(201800, 202000)) \
-#                    .select('Date','PHA','Brand','Sales').distinct() \
-#                    .join(weight_0.where(col('City') == target_city), data.PHA == weight_0.Panel_ID, how='inner').persist()
-
-data_city = data.where(col('Date').between(201800, 202000)) \
-                    .select('Date','PHA','Brand','Sales').distinct() \
-                    .join(weight_0, data.PHA == weight_0.Panel_ID, how='inner').persist()
-data_city = data_city.where(col('City').isin(city_list))
-
-data_city = data_city.withColumn('MAX_weighted', col('weight')*col('Sales')) \
-                        .withColumn('Year', func.substring(col('Date').cast(StringType()), 1, 4)) \
-                        .withColumn('tmp', func.concat(col('Year'), func.lit('_'), col('Brand'))) \
-                        .join(id_bedsize.select('PHA','Bedsize>99').dropDuplicates(['PHA']), on='PHA', how='left')
+    ims_sales_gr = ims_sales_gr.withColumn('gr', col('2019_Sales')/col('2018_Sales')) \
+                               .withColumn('share', col('2019_Sales')/col('2019_Sales_city')) \
+                               .withColumn('share_ly', col('2018_Sales')/col('2018_Sales_city'))
+    ims_sales_gr = ims_sales_gr.select('mkt', 'City', '标准商品名', 'gr', 'share', 'share_ly') \
+                                .withColumnRenamed('mkt', 'DOI')
                         
-
-
-# %% 辅助函数
-# 计算增长率或者份额
-def r(W, h_n, h_d):
-    return h_n.T.dot(W)/h_d.T.dot(W)
-
-# 计算和IMS的差距
-def delta_gr(W, h_n, h_d, g):
-    return (r(W, h_n, h_d) - g)
-
-# Loss-func求导
-'''
-loss function是差距（份额或增长）的平方
-'''
-def gradient(W, h_n, h_d, g):
-    CrossDiff = (h_d.sum() - W.reshape(-1)*h_d) * h_n - \
-              (h_n.sum() - W.reshape(-1)*h_n) * h_d    
-    dW = delta_gr(W, h_n, h_d, g) * np.power((h_d.T.dot(W)), -2) * CrossDiff
-    return dW.reshape(-1,1)
-
-# 梯度下降
-# learning rate和迭代次数请通过尝试自定义
-'''
-这是一个双任务优化求解，目标是寻找满足IMS Share and Growth的医院参数线性组合 ～ w
-可能的待优化方向：
-    1. 自适应学习率
-    2. 不同任务重要性，不同收敛速度，不同学习率
-    3. 避免落在局部最优
-    4. 初始值的选择
-'''
-
-def gradient_descent(W_0, S, G, S_ly, learning_rate, max_iteration, brand_number, H_n, H_share, H_gr, H_ly):
-    X = np.array([]); Growth = np.array([]); Share = np.array([])
-    W = W_0.copy()
-    W_init = W_0.copy()
-    w_gd = np.array([0]*H_n.shape[1])
-    for i in range(max_iteration):
-        gradient_sum = np.zeros((len(H_n),1))
-        for k in range(H_n.shape[1]):
-            gd_share = gradient(W, H_n[:,k], H_share, S[k]) 
-            gd_growth = gradient(W, H_n[:,k], H_gr[:,k], G[k])
-            '''
-            方法一：份额和增长同样重要，Loss func简单加和
-            '''
-            # gradient_sum += gd_share + gd_growth
-            '''
-            方法二：注重两年份额的调优
-            '''
-            # if w_gd[k] > 0.05:
-            #     gradient_sum += gd_share
-            # else:
-            #     gradient_sum +=  gd_growth + gd_share
-            '''
-            方法三：手动增加Share或者Growth的权重，优化方向自定义
-            '''   
-            # 加权/降权
-            # yyw == 三种，默认第一个  单独gd_share，单独gd_growth，两者一起
-            if k in range(brand_number):
-                gradient_sum += gradient(W, H_n[:,k], H_gr[:,k], G[k]) + gradient(W, H_n[:,k], H_share, S[k])#1、gradient(W, H_n[:,k], H_gr[:,k], G[k]) + gradient(W, H_n[:,k], H_share, S[k])     2、gd_share
-            # 只优化Share
-            elif k in []: 
-                gradient_sum += gradient(W, H_n[:,k], H_share, S[k])
-            # 优化Share和增长
-            else:
-                gradient_sum += gd_share + gd_growth
-        gradient_sum[(W_init==0)|(W_init==1)] = 0
-        W -= learning_rate * gradient_sum
-        W[W<0] = 0
-        print ('iteration : ', i, '\n GR : ', r(W, H_n, H_gr),
-            '\n Share : ', r(W, H_n, H_share)) 
-        X = np.append(X, [i])
-        Growth = np.append(Growth, r(W, H_n, H_gr))
-        Share = np.append(Share, r(W, H_n, H_share))
-        share_ly_hat = W.T.dot(H_gr).reshape(-1)/W.T.dot(H_ly)
-        w_gd = abs(share_ly_hat/S_ly -1)
-    return W, X, Growth.reshape((i+1,-1)), Share.reshape((i+1,-1))
-
-# 执行算法    
-def func_target_brand(pdf, dict_target_share, l=100, m = 10000):
-    city_name = pdf['City'][0]
-    target = list(dict_target_share[city_name]['gr'].keys())
-    brand_number = len(target)
+                               
+    '''                           
+    # 测试用
+    ims_sales_gr = spark.read.csv('s3a://ph-max-auto/v0.0.1-2020-06-08/Test/Eisai/Share_total.csv', header=True)
+    ims_sales_gr = ims_sales_gr.select('IMS_gr', 'IMS_share_2019', 'IMS_share_2018', 'Brand', 'City', 'DOI') \
+                                .withColumn('IMS_gr', col('IMS_gr').cast(DoubleType())) \
+                                .withColumn('IMS_share_2019', col('IMS_share_2019').cast(DoubleType())) \
+                                .withColumn('IMS_share_2018', col('IMS_share_2018').cast(DoubleType())) \
+                                .withColumnRenamed('IMS_gr', 'gr') \
+                                .withColumnRenamed('IMS_share_2019', 'share') \
+                                .withColumnRenamed('IMS_share_2018', 'share_ly') \
+                                .fillna(0)
+    ims_sales_gr = ims_sales_gr.where(col('Brand') != 'total')
+    ims_sales_gr = ims_sales_gr.where(col('DOI') == market) \
+                                .withColumnRenamed('Brand', '标准商品名')
+    # 测试用 over
+    '''
     
-    H = pdf.pivot_table(index=['City','Panel_ID','City_Sample','weight', 'Bedsize>99'], columns=['tmp'], 
-                        values='Sales', fill_value=0, aggfunc='sum')
-    H = H.reset_index()
-    
-    H['2018_total'] = H.loc[:,H.columns.str.contains('2018')].sum(axis=1)
-    H['2019_total'] = H.loc[:,H.columns.str.contains('2019')].sum(axis=1)
-    
-    H['2018_others'] = H['2018_total'] - H.loc[:,['2018_'+col for col in target]].sum(axis=1)
-    H['2019_others'] = H['2019_total'] - H.loc[:,['2019_'+col for col in target]].sum(axis=1)
-    
-    H_18 = H.loc[:,['2018_'+col for col in target]].values
-    H_19 = H.loc[:,['2019_'+col for col in target]].values
-    
-    Ht_18 = H.loc[:,'2018_total'].values
-    Ht_19 = H.loc[:,'2019_total'].values
-    
-    G = list(dict_target_share[city_name]['gr'].values())
-    S = list(dict_target_share[city_name]['share'].values())
-    S_ly = np.array(list(dict_target_share[city_name]['share_ly'].values()))
-    W_0 = np.array(H['weight']).reshape(-1,1)
-    
-    # 梯度下降
-    # H_n=H_19, H_share=Ht_19, H_gr=H_18, H_ly=Ht_18
-    W_result, X, Growth, Share= gradient_descent(W_0, S, G, S_ly, l, m, brand_number, H_19, Ht_19, H_18, Ht_18)
-    
-    # 首先标准化，使w优化前后的点积相等
-    W_norm = W_result * Ht_19.T.dot(W_0)[0]/Ht_19.T.dot(W_result)[0]
-    
-    H2 = deepcopy(H)
-    H2['weight_factor'] = (W_norm-1)/(np.array(H2['weight']).reshape(-1,1)-1)
-    H2['weight_factor1'] = (W_norm)/(np.array(H2['weight']).reshape(-1,1))
-    H2.loc[(H2['Bedsize>99'] == 0), 'weight_factor'] = H2.loc[(H2['Bedsize>99'] == 0), 'weight_factor1']
-    H2['weight_factor'].fillna(0, inplace=True)
-    H2.loc[(H2['weight_factor'] < 0), 'weight_factor'] = 0
-    
-    # %% report
-    H2['W'] = W_norm
-    
-    # 整理H2便于输出
-    H2[H2.columns] = H2[H2.columns].astype("str")
-    def union_cols(key_str):
-        cols1 = H2.columns[H2.columns.str.contains(key_str)]
-        cols_name = ''
-        cols1_cmd = ''
-        for i, l in enumerate(cols1):
-            if i == 0:
-                cols1_cmd = 'H2["' + l + '"]'
-                cols_name = l
-            else:
-                cols1_cmd += '+";"+ H2["' + l + '"]'
-                cols_name += ";" + l
-        return cols_name, cols1_cmd
-    
-    H3 = deepcopy(H2)  
-    H3['2018_tmp'] = eval(union_cols('2018')[1])
-    H3['2018_tmp_colnames'] = union_cols('2018')[0]
-    H3['2019_tmp'] = eval(union_cols('2019')[1])
-    H3['2019_tmp_colnames'] = union_cols('2019')[0]
-    
-    H3 = H3[['City', 'Panel_ID', 'City_Sample', 'weight', 'Bedsize>99','weight_factor', 
-            'weight_factor1', 'W', '2018_tmp', '2018_tmp_colnames', '2019_tmp', '2019_tmp_colnames']]    
-    
-    return H3
+    ims_sales_gr = ims_sales_gr.repartition(1)
+    ims_sales_gr.write.format("parquet") \
+        .mode("overwrite").save(ims_gr_path)
 
-schema= StructType([
-        StructField("City", StringType(), True),
-        StructField("Panel_ID", StringType(), True),
-        StructField("City_Sample", StringType(), True),
-        StructField("weight", StringType(), True),
-        StructField("Bedsize>99", StringType(), True),
-        StructField("weight_factor", StringType(), True),
-        StructField("weight_factor1", StringType(), True),
-        StructField("W", StringType(), True),
-        StructField("2018_tmp", StringType(), True),
-        StructField("2018_tmp_colnames", StringType(), True),
-        StructField("2019_tmp", StringType(), True),
-        StructField("2019_tmp_colnames", StringType(), True)
-        ])
-@pandas_udf(schema, PandasUDFType.GROUPED_MAP)
-def udf_target_brand(pdf):
-    return func_target_brand(pdf, dict_target_share)
-
-out = data_city.groupBy('City').apply(udf_target_brand).persist()
-out = out.withColumn('weight', col('weight').cast(DoubleType())) \
-           .withColumn('weight_factor', col('weight_factor').cast(DoubleType())) \
-           .withColumn('weight_factor1', col('weight_factor1').cast(DoubleType())) \
-           .withColumn('W', col('W').cast(DoubleType())) 
-
-# 
-PHA_weight_out = out.select('City', 'Panel_ID', '')
-
-# 拆分列
-'''
-tmp_colnames_2019 = out.select('2019_tmp_colnames').distinct().toPandas()['2019_tmp_colnames'].values.tolist()[0]
-tmp_colnames_2018 = out.select('2018_tmp_colnames').distinct().toPandas()['2018_tmp_colnames'].values.tolist()[0]
-
-split_col = func.split(out['2019_tmp_colnames'], ';')
-for i in range(0, len(tmp_colnames_2019.split(';'))):
-    out = out.withColumn(tmp_colnames_2019.split(';')[i], split_col.getItem(i))
-
-split_col2 = func.split(out['2018_tmp_colnames'], ';')
-for i in range(0, len(tmp_colnames_2018.split(';'))):
-    out = out.withColumn(tmp_colnames_2018.split(';')[i], split_col2.getItem(i))
-'''    
-#
-data_final = data_city.join(out.select('Panel_ID','W'), on='Panel_ID', how='left')
-data_final = data_final.withColumn('MAX_new', col('Sales')*col('W'))
-
-df_sum = data_final.groupBy('Brand','Year').agg(func.sum('MAX_new').alias('MAX_new')).persist()
-df_sum = df_sum.groupBy('Brand').pivot('Year').agg(func.sum('MAX_new')).fillna(0).persist()
-
-str_sum_2018 = df_sum.agg(func.sum('2018')).toPandas()['2018'].values
-str_sum_2019 = df_sum.agg(func.sum('2019')).toPandas()['2018'].values
-df_sum = df_sum.withColum('Share_2018', func.bround(col('2018')/str_sum_2018, 3)) \
-               .withColum('Share_2019', func.bround(col('2019')/str_sum_2018, 3)) \
-               .withColum('GR', func.bround(col('2019')/col('2018')-1, 3))
-# df_sum 输出
-
+                        
 
 
 
