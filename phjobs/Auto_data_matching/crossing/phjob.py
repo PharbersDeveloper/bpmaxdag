@@ -138,7 +138,6 @@ def execute(**kwargs):
 	df_second_round = second_round_with_col_recalculate(df_second_round, df_dosage_mapping, df_encode, spark)
 	# spec拆列之后的匹配算法
 	df_second_round = spec_split_matching(df_second_round)
-	df_second_round.printSchema()
 	df_second_round = df_second_round.withColumn("EFFTIVENESS_SPEC", when((df_second_round.EFFTIVENESS_SPEC_FIRST > df_second_round.EFFTIVENESS_SPEC_SPLIT), \
 																		df_second_round.EFFTIVENESS_SPEC_FIRST) \
 																		.otherwise(df_second_round.EFFTIVENESS_SPEC_SPLIT))

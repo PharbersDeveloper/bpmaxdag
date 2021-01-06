@@ -20,7 +20,7 @@ spec:
       - key: human_replace_packid_path
         value: s3a://ph-max-auto/2020-08-11/BPBatchDAG/human_replace_packid
       - key: cpa_dosage_lst_path
-        value: s3a://ph-max-auto/2020-08-11/BPBatchDAG/cpa_dosage_mapping/cpa_dosage_lst
+        value: s3a://ph-max-auto/2020-08-11/BPBatchDAG/cpa_dosage_mapping/0.0.2
       - key: word_dict_encode_path
         value: s3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/word_dict/0.0.12
     outputs:
