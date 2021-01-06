@@ -174,9 +174,9 @@ def execute(**kwargs):
 def modify_pool_cleanning_prod(spark, raw_data_path, split_data_path):
 	# TODO: 测试时limit50条，提交到airflow上要去掉limit
 	if raw_data_path.endswith(".csv"):
-		df_cleanning = spark.read.csv(path=raw_data_path, header=True).limit(50)
+		df_cleanning = spark.read.csv(path=raw_data_path, header=True)   #.limit(50)
 	else:
-		df_cleanning = spark.read.parquet(raw_data_path).limit(50)
+		df_cleanning = spark.read.parquet(raw_data_path)   #.limit(50)
 	 
 	 # 为了验证算法，保证id尽可能可读性，投入使用后需要删除
 	df_cleanning = df_cleanning.repartition(1).withColumn("id", monotonically_increasing_id())

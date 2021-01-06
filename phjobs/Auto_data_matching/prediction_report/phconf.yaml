@@ -14,11 +14,11 @@ spec:
     config: phconf.yaml
     args:
       - key: training_data_path
-        value: s3a://ph-max-auto/2020-08-11/data_matching/crossing/result_path/1608263053
+        value: s3a://ph-max-auto/2020-08-11/data_matching/airflow_runs/1609843730/crossing/result_path/ad0bbdc1155f47a0949a4c
       - key: predictions_path
-        value: s3a://ph-max-auto/2020-08-11/data_matching/prediction/result_path/1608263446
+        value: s3a://ph-max-auto/2020-08-11/data_matching/airflow_runs/1609843730/prediction/result_path/0d85a90d71704bc6a8c2
       - key: split_data_path
-        value: s3a://ph-max-auto/2020-08-11/data_matching/crossing/split_data_path/1607064113
+        value: s3a://ph-max-auto/2020-08-11/data_matching/airflow_runs/1609843730/crossing/split_data_path/ad0bbdc1155f47a0949a4c
     outputs:
       - key: positive_result_path
         value: s3a://ph-max-auto/2020-08-11/data_matching/prediction_report/positive_result_path

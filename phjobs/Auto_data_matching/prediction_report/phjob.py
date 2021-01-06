@@ -17,6 +17,9 @@ from pyspark.ml.classification import DecisionTreeClassificationModel
 from pyspark.ml.evaluation import MulticlassClassificationEvaluator
 from pyspark.ml import PipelineModel
 from pyspark.ml.feature import VectorAssembler
+from pyspark.sql.functions import pandas_udf, PandasUDFType
+import numpy as np
+import pandas as pd
 
 def execute(**kwargs):
     """
@@ -42,7 +45,7 @@ def execute(**kwargs):
     positive_result_path_csv = kwargs["positive_result_path_csv"] + "/" + job_id
     negative_result_path_csv = kwargs["negative_result_path_csv"] + "/" + job_id
     lost_data_path_csv = kwargs["lost_data_path_csv"] + "/" + job_id
-    final_report_path = kwargs["final_report_path"] + "/" + job_id
+    final_report_path = kwargs["lost_data_path_csv"] + "/" + job_id
     
     # 1. load the data
     df_result = spark.read.parquet(training_data_path)  # 进入清洗流程的所有数据
@@ -62,9 +65,6 @@ def execute(**kwargs):
 
     # 4. Test with Pharbers defined methods
     result = predictions
-    result_similarity = similarity(result)
-    # result_similarity.write.mode("overwrite").parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/eia/0.0.2/for_analysis")
-    # print("用于分析的的条目写入完成")
     result = result.withColumn("JACCARD_DISTANCE_MOLE_NAME", result.JACCARD_DISTANCE[0]) \
                 .withColumn("JACCARD_DISTANCE_DOSAGE", result.JACCARD_DISTANCE[1]) \
                 .drop("JACCARD_DISTANCE", "indexedFeatures").drop("rawPrediction", "probability")
@@ -72,25 +72,47 @@ def execute(**kwargs):
     
     # 5. 生成文件
     join_udf = udf(lambda x: ",".join(map(str,x)))
+    
+    @pandas_udf(StringType(), PandasUDFType.SCALAR)
+    def join_pandas_udf(array_col):
+        frame = { "array_col": array_col }
+        
+        df = pd.DataFrame(frame)
+        
+        def array_to_str(arr):
+            if type(arr) != np.ndarray:
+                s = ""
+            else:
+                s = ",".join(map(str,arr))
+            return s
+        
+        df["RESULT"] = df["array_col"].apply(array_to_str)
+        return df["RESULT"]
+    
+    
     result = similarity(result)
+    result = result.na.fill("")
     df_positive = result.where((result.prediction == 1.0) & (result.RANK == 1))
-    df_positive.write.mode("overwrite").parquet(positive_result_path)   # TODO 记得打开
-    df_positive = df_positive.withColumn("MASTER_DOSAGE", join_udf(col("MASTER_DOSAGE"))) \
-                            .withColumn("MANUFACTURER_NAME_STANDARD_WORDS", join_udf(col("MANUFACTURER_NAME_STANDARD_WORDS"))) \
-                            .withColumn("MANUFACTURER_NAME_CLEANNING_WORDS", join_udf(col("MANUFACTURER_NAME_CLEANNING_WORDS"))) \
-                            .withColumn("MANUFACTURER_NAME_STANDARD_WORDS_SEG", join_udf(col("MANUFACTURER_NAME_STANDARD_WORDS_SEG"))) \
-                            .withColumn("MANUFACTURER_NAME_CLEANNING_WORDS_SEG", join_udf(col("MANUFACTURER_NAME_CLEANNING_WORDS_SEG"))) \
+    # df_positive.write.mode("overwrite").parquet(positive_result_path)   # TODO 记得打开
+    df_positive.select("MASTER_DOSAGE", "MANUFACTURER_NAME_STANDARD_WORDS", "MANUFACTURER_NAME_CLEANNING_WORDS", "MANUFACTURER_NAME_STANDARD_WORDS_SEG", "MANUFACTURER_NAME_CLEANNING_WORDS_SEG").show()
+    df_positive = df_positive.withColumn("MASTER_DOSAGE", join_pandas_udf(col("MASTER_DOSAGE"))) \
+                            .withColumn("MANUFACTURER_NAME_STANDARD_WORDS", join_pandas_udf(col("MANUFACTURER_NAME_STANDARD_WORDS"))) \
+                            .withColumn("MANUFACTURER_NAME_CLEANNING_WORDS", join_pandas_udf(col("MANUFACTURER_NAME_CLEANNING_WORDS"))) \
+                            .withColumn("MANUFACTURER_NAME_STANDARD_WORDS_SEG", join_pandas_udf(col("MANUFACTURER_NAME_STANDARD_WORDS_SEG"))) \
+                            .withColumn("MANUFACTURER_NAME_CLEANNING_WORDS_SEG", join_pandas_udf(col("MANUFACTURER_NAME_CLEANNING_WORDS_SEG"))) \
                             .withColumn("features", join_udf(col("features")))
+    df_positive.select("MASTER_DOSAGE", "MANUFACTURER_NAME_STANDARD_WORDS", "MANUFACTURER_NAME_CLEANNING_WORDS", "MANUFACTURER_NAME_STANDARD_WORDS_SEG", "MANUFACTURER_NAME_CLEANNING_WORDS_SEG").show()
+    
     df_positive.repartition(1).write.mode("overwrite").option("header", "true").csv(positive_result_path_csv)
     logger.warn("机器判断positive的条目写入完成")
     
     df_negative = result.where((result.prediction == 0.0) | ((result.prediction == 1.0) & (result.RANK != 1)))
-    df_negative.write.mode("overwrite").parquet(negative_result_path)
-    df_negative = df_negative.withColumn("MASTER_DOSAGE", join_udf(col("MASTER_DOSAGE"))) \
-                            .withColumn("MANUFACTURER_NAME_STANDARD_WORDS", join_udf(col("MANUFACTURER_NAME_STANDARD_WORDS"))) \
-                            .withColumn("MANUFACTURER_NAME_CLEANNING_WORDS", join_udf(col("MANUFACTURER_NAME_CLEANNING_WORDS"))) \
-                            .withColumn("MANUFACTURER_NAME_STANDARD_WORDS_SEG", join_udf(col("MANUFACTURER_NAME_STANDARD_WORDS_SEG"))) \
-                            .withColumn("MANUFACTURER_NAME_CLEANNING_WORDS_SEG", join_udf(col("MANUFACTURER_NAME_CLEANNING_WORDS_SEG"))) \
+    # df_negative.write.mode("overwrite").parquet(negative_result_path)
+    df_negative = df_negative.withColumn("MASTER_DOSAGE", join_pandas_udf(col("MASTER_DOSAGE"))) \
+                            .withColumn("MANUFACTURER_NAME_STANDARD_WORDS", join_pandas_udf(col("MANUFACTURER_NAME_STANDARD_WORDS"))) \
+                            .withColumn("MANUFACTURER_NAME_CLEANNING_WORDS", join_pandas_udf(col("MANUFACTURER_NAME_CLEANNING_WORDS"))) \
+                            .withColumn("MANUFACTURER_NAME_STANDARD_WORDS_SEG", join_pandas_udf(col("MANUFACTURER_NAME_STANDARD_WORDS_SEG"))) \
+                            .withColumn("MANUFACTURER_NAME_CLEANNING_WORDS_SEG", join_pandas_udf(col("MANUFACTURER_NAME_CLEANNING_WORDS_SEG"))) \
                             .withColumn("features", join_udf(col("features")))
     df_negative.repartition(1).write.mode("overwrite").option("header", "true").csv(negative_result_path_csv)
     logger.warn("机器判断negative的条目写入完成")

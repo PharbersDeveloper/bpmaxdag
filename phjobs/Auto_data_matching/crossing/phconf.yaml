@@ -14,7 +14,7 @@ spec:
     config: phconf.yaml
     args:
       - key: raw_data_path
-        value: s3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/azsanofi/raw_data
+        value: s3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/yiyuanchc/raw_data/2
       - key: standard_prod_path
         value: s3a://ph-stream/common/public/prod/0.0.20
       - key: human_replace_packid_path
@@ -22,7 +22,7 @@ spec:
       - key: cpa_dosage_lst_path
         value: s3a://ph-max-auto/2020-08-11/BPBatchDAG/cpa_dosage_mapping/cpa_dosage_lst
       - key: word_dict_encode_path
-        value: s3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/word_dict/0.0.4
+        value: s3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/word_dict/0.0.12
     outputs:
       - key: split_data_path
         value: s3a://ph-max-auto/2020-08-11/data_matching/crossing/split_data_path
