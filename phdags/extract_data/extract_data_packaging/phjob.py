@@ -40,7 +40,6 @@ def packaging(target, out_suffix, awsConf):
     for obj in bucket.objects.filter(Prefix=prefix):
         download_path = local_path.format(
             obj.key[obj.key.find(out_suffix):])
-        print(download_path)
         createFile(download_path)
         s3.meta.client.download_file('ph-stream', obj.key, download_path)
 
