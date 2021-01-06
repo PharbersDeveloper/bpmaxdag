@@ -16,9 +16,9 @@ spec:
     config: phconf.yaml
     args:
       - key: from
-        value: s3a://ph-stream/common/public/max_result/0.0.5/extract_data_out/out_2020_10_26_阿奇霉素/
+        value: s3a://ph-stream/common/public/max_result/0.0.5/extract_data_out/
       - key: to
-        value: s3a://ph-stream/public/test
+        value: default_to_path
     outputs:
-      - key: status
-        value: default
+      - key: extract_data_out
+        value: s3a://ph-stream/public/asset/

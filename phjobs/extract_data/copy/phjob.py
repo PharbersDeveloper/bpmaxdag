@@ -21,7 +21,7 @@ def execute(**kwargs):
         "aws_secret_access_key": "Efi6dTMqXkZQ6sOpmBZA1IO1iu3rQyWAbvKJy599"
     }
     copy(kwargs["from"], kwargs["to"], awsConf)
-    return {}
+    return {"extract_data_out": kwargs["to"]}
 
 
 def copy(target, to, awsConf):

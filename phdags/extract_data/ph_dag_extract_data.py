@@ -53,7 +53,7 @@ def extract_data_extract_cmd(**context):
     print(subprocess.check_output(write_hosts, shell=True,
                                   stderr=subprocess.STDOUT).decode("utf-8"))
 
-    install_phcli = 'pip3 install phcli==2.0.0-3'
+    install_phcli = 'pip3 install phcli==2.0.2'
     print(install_phcli)
     print(subprocess.check_output(install_phcli, shell=True,
                                   stderr=subprocess.STDOUT).decode("utf-8"))
@@ -106,7 +106,7 @@ def extract_data_copy_cmd(**context):
     print(subprocess.check_output(write_hosts, shell=True,
                                   stderr=subprocess.STDOUT).decode("utf-8"))
 
-    install_phcli = 'pip3 install phcli==2.0.0-3'
+    install_phcli = 'pip3 install phcli==2.0.2'
     print(install_phcli)
     print(subprocess.check_output(install_phcli, shell=True,
                                   stderr=subprocess.STDOUT).decode("utf-8"))
@@ -140,9 +140,9 @@ def preset_write_asset_cmd(**context):
     args = context["dag_run"].conf
 
     path = ti.xcom_pull(task_ids='extract_data_copy',
-                        key='copyPath') + "/" + args["out_suffix"]
+                        key='copyPath')
 
-    args["to"] = path
+    args["extract_data_out"] = path
 
     params = var_key_lst.get("common", {})
     params.update(var_key_lst.get("preset_write_asset", {}))
@@ -152,7 +152,7 @@ def preset_write_asset_cmd(**context):
     print(subprocess.check_output(write_hosts, shell=True,
                                   stderr=subprocess.STDOUT).decode("utf-8"))
 
-    install_phcli = 'pip3 install phcli==2.0.0-3'
+    install_phcli = 'pip3 install phcli==2.0.2'
     print(install_phcli)
     print(subprocess.check_output(install_phcli, shell=True,
                                   stderr=subprocess.STDOUT).decode("utf-8"))
@@ -206,7 +206,7 @@ def extract_data_email_cmd(**context):
     print(subprocess.check_output(write_hosts, shell=True,
                                   stderr=subprocess.STDOUT).decode("utf-8"))
 
-    install_phcli = 'pip3 install phcli==2.0.0-3'
+    install_phcli = 'pip3 install phcli==2.0.2'
     print(install_phcli)
     print(subprocess.check_output(install_phcli, shell=True,
                                   stderr=subprocess.STDOUT).decode("utf-8"))

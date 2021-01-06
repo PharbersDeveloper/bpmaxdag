@@ -45,11 +45,11 @@ def execute(**kwargs):
         },
         "extract_data_copy": {
             "input": {
-                "from": "s3a://ph-stream/common/public/max_result/0.0.5/extract_data_out/out_2020_10_26_阿奇霉素/",
-                        "to": "s3a://ph-stream/public/test",
+                "from": "s3a://ph-stream/common/public/max_result/0.0.5/extract_data_out/",
+                        "to": "default_to_path",
             },
             "output": {
-                "status": "default",
+                "extract_data_out": "s3a://ph-stream/public/asset/",
             },
         },
         "extract_data_email": {
@@ -57,7 +57,7 @@ def execute(**kwargs):
                 "email": "pqian@pharbers.com",
                 "subject": "PharbersData",
                 "content_type": "text/plain",
-                                "content": "default",
+                "content": "default",
             },
             "output": {
                 "status": "default",
@@ -107,7 +107,6 @@ def execute(**kwargs):
             subs = get_latest_lst_cr(dag_adj_lst.get(adj_name, []), depend_lst)
             result += subs
         return result
-
     # 取所有 asset output 的 parent
     asset_parents_lst = {}
     for cur_name, adj_lst in dag_adj_lst.items():

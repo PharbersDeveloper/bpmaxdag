@@ -23,5 +23,6 @@ spec:
     - name: extract_data.copy
     - name: preset.write_asset
     - name: extract_data.email
+    - name: extract_data.packaging
   linkage:
-    - "extract_data.extract >> extract_data.copy >> preset.write_asset >> extract_data.email"
+    - "extract_data.extract >> extract_data.copy >> extract_data.packaging >> preset.write_asset >> extract_data.email"

@@ -14,32 +14,13 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--owner')
 @click.option('--run_id')
 @click.option('--job_id')
-@click.option('--max_path')
-@click.option('--extract_path')
-@click.option('--out_path')
-@click.option('--extract_file')
-@click.option('--time_left')
-@click.option('--time_right')
-@click.option('--molecule')
-@click.option('--molecule_sep')
-@click.option('--atc')
-@click.option('--project')
-@click.option('--doi')
-@click.option('--out_suffix')
-@click.option('--data_type')
-@click.option('--c')
-@click.option('--d')
 @click.option('--from')
-@click.option('--to')
-@click.option('--extract_data_out')
-@click.option('--status')
-@click.option('--email')
-@click.option('--subject')
-@click.option('--content_type')
-@click.option('--content')
+@click.option('--out_suffix')
+@click.option('--c')
 def debug_execute(**kwargs):
     try:
-        args = {'name': 'write_asset'}
+        args = {"name": "packaging"}
+        outputs = ["c"]
 
         args.update(kwargs)
         result = exec_before(**args)
@@ -48,7 +29,7 @@ def debug_execute(**kwargs):
         result = execute(**args)
 
         args.update(result if isinstance(result, dict) else {})
-        result = exec_after(outputs=[], **args)
+        result = exec_after(outputs=outputs, **args)
 
         return result
     except Exception as e:
