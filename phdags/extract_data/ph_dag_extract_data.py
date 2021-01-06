@@ -155,9 +155,9 @@ def preset_write_asset_cmd(**context):
     print(subprocess.check_output(install_phcli, shell=True,
                                   stderr=subprocess.STDOUT).decode("utf-8"))
 
-    exec_phcli_submit = 'phcli maxauto online_run --group extract_data --name preset_write_asset '
-    '--owner "{}" --run_id "{}" --job_id "{}" --context "{}" "{}"'.format(
-        str(owner), str(run_id), str(job_id), str(params), str(args))
+    exec_phcli_submit = 'phcli maxauto online_run --group extract_data --name preset_write_asset ' \
+        '--owner "{}" --run_id "{}" --job_id "{}" --context "{}" "{}"'.format(
+            str(owner), str(run_id), str(job_id), str(params), str(args))
     print(exec_phcli_submit)
     print(subprocess.check_output(exec_phcli_submit,
                                   shell=True, stderr=subprocess.STDOUT).decode("utf-8"))
@@ -211,9 +211,9 @@ def extract_data_email_cmd(**context):
     print(subprocess.check_output(install_phcli, shell=True,
                                   stderr=subprocess.STDOUT).decode("utf-8"))
 
-    exec_phcli_submit = 'phcli maxauto online_run --group extract_data --name extract_data_email '
-    '--owner "{}" --run_id "{}" --job_id "{}" --context "{}" "{}"'.format(
-        str(owner), str(run_id), str(job_id), str(params), str(args))
+    exec_phcli_submit = 'phcli maxauto online_run --group extract_data --name extract_data_email ' \
+        '--owner "{}" --run_id "{}" --job_id "{}" --context "{}" "{}"'.format(
+            str(owner), str(run_id), str(job_id), str(params), str(args))
     print(exec_phcli_submit)
     print(subprocess.check_output(exec_phcli_submit,
                                   shell=True, stderr=subprocess.STDOUT).decode("utf-8"))
