@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: clean
+  description: "pharbers job description"
+  labels:
+    name: clean
+    runtime: python3
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: path
+        value: s3a://ph-stream/public/asset/jobs/
+    outputs:
+      - key: status
+        value: default

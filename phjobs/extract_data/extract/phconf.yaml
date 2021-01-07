@@ -1,0 +1,49 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: extract
+  description: "Auto Extract Data"
+  labels:
+    name: extract
+    runtime: python3
+    command: submit
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    command: submit
+    timeout: 60.0
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: max_path
+        value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
+      - key: extract_path
+        value: "s3a://ph-stream/common/public/max_result/0.0.5/"
+      - key: out_path
+        value: "s3a://ph-stream/common/public/max_result/0.0.5/extract_data_out"
+      - key: extract_file
+        value: "Empty"
+      - key: time_left
+        value: "Empty"
+      - key: time_right
+        value: "Empty"
+      - key: molecule
+        value: "Empty"
+      - key: molecule_sep
+        value: "Empty"
+      - key: atc
+        value: "Empty"
+      - key: project
+        value: "Empty"
+      - key: doi
+        value: "Empty"
+      - key: out_suffix
+        value: "test"
+      - key: data_type
+        value: "max"
+    outputs:
+      - key: c
+        value: abc
+      - key: d
+        value: def

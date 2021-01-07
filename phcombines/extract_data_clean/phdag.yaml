@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: PhDag
+metadata:
+  name: extract_data_clean
+  description: "每天凌晨清除提数的副本"
+  labels:
+    name: extract_data_clean
+    runtime: python3
+spec:
+  description: "每天凌晨清除提数的副本"
+  start_date: 1 # if you don't understand, don't touch it
+  schedule_interval: "@daily" # if you don't understand, don't touch it
+  dag_timeout: 60 # minutes
+  email: ["pqian@pharbers.com"]
+  email_on_failure: False
+  email_on_retry: False
+  retries: 1
+  retry_delay: "minutes=5"
+  owner: pqian
+  dag_id: extract_data_clean
+  dag_tag: extract_data_clean
+  jobs:
+    - name: extract_data.clean
+      command: python3
+  linkage:
+    - "extract_data.clean"
