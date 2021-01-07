@@ -12,6 +12,7 @@ spec:
     repository: local
     runtime: python3
     command: submit
+    timeout: 60.0
     code: phmain.py
     config: phconf.yaml
     args:

@@ -24,9 +24,9 @@ def execute(**kwargs):
     phjobs = {
         "extract_data_extract": {
             "input": {
-                "max_path": "s3a://ph-max-auto/v0.0.1-2020-06-08/",
-                "extract_path": "s3a://ph-stream/common/public/max_result/0.0.5/",
-                "out_path": "s3a://ph-stream/common/public/max_result/0.0.5/extract_data_out",
+                "max_path": "Empty",
+                "extract_path": "Empty",
+                "out_path": "Empty",
                 "extract_file": "Empty",
                 "time_left": "Empty",
                 "time_right": "Empty",
@@ -35,32 +35,32 @@ def execute(**kwargs):
                 "atc": "Empty",
                 "project": "Empty",
                 "doi": "Empty",
-                "out_suffix": "test",
-                "data_type": "max",
+                "out_suffix": "Empty",
+                "data_type": "Empty",
             },
             "output": {
-                "c": "abc",
-                "d": "def",
+                "c": "Empty",
+                "d": "Empty",
             },
         },
         "extract_data_copy": {
             "input": {
-                "from": "s3a://ph-stream/common/public/max_result/0.0.5/extract_data_out/",
-                        "to": "default_to_path",
+                "from": "Empty",
+                        "to": "Empty",
             },
             "output": {
-                "extract_data_out": "s3a://ph-stream/public/asset/",
+                "extract_data_out": "Empty",
             },
         },
         "extract_data_email": {
             "input": {
-                "email": "pqian@pharbers.com",
-                "subject": "PharbersData",
-                "content_type": "text/plain",
-                "content": "default",
+                "email": "Empty",
+                "subject": "Empty",
+                "content_type": "Empty",
+                "content": "Empty",
             },
             "output": {
-                "status": "default",
+                "status": "Empty",
             },
         },
     }
@@ -107,19 +107,28 @@ def execute(**kwargs):
             subs = get_latest_lst_cr(dag_adj_lst.get(adj_name, []), depend_lst)
             result += subs
         return result
+
     # 取所有 asset output 的 parent
     asset_parents_lst = {}
     for cur_name, adj_lst in dag_adj_lst.items():
         if 's3a://' not in cur_name or 'asset' not in cur_name:
             continue
         parents = list(get_latest_lst_cr(adj_lst, {cur_name}))
-        if parents:
-            asset_parents_lst[cur_name] = parents
+        asset_parents_lst[cur_name] = parents
 
     if not asset_parents_lst:
         logger.warning("没有需要写入的 asset")
         return {}
-
+    for item in list(kwargs.keys()):
+        if (kwargs[item] == None
+                or kwargs[item] == 'Empty'
+                or item == 'spark'
+                or item == 'name'
+                or item == 'extract_data_out'
+                or item == 'out_suffix'
+                or item == 'email'):
+            del kwargs[item]
+    name = datetime.now().strftime("%Y%m%d%H%M_") + '_'.join(kwargs.values())
     pg = PhPg(
         base64.b64decode(
             'cGgtZGItbGFtYmRhLmNuZ2sxamV1cm1udi5yZHMuY24tbm9ydGh3ZXN0LTEuYW1hem9uYXdzLmNvbS5jbgo=').decode('utf8')[:-1],
@@ -139,7 +148,8 @@ def execute(**kwargs):
                 obj_id = obj[0].id
             else:
                 obj = pg.insert(
-                    Asset(name=dag_node_info_map[parent][0], owner=owner, source=parent))
+                    # Asset(name=dag_node_info_map[parent][0], owner=owner, source=parent))
+                    Asset(name=name, owner=owner, source=parent))
                 obj_id = obj.id
             parents_id.append(obj_id)
 
@@ -147,12 +157,12 @@ def execute(**kwargs):
         if obj:
             obj = obj[0]
             obj.owner = owner
-            obj.parent = parents_id
             obj.modified = datetime.now()
             pg.update(obj)
         else:
             pg.insert(
-                Asset(name=dag_node_info_map[asset][0], owner=owner, source=asset))
+                # Asset(name=dag_node_info_map[asset][0], owner=owner, source=asset))
+                Asset(name=name, owner=owner, source=asset))
 
     pg.commit()
     return {}

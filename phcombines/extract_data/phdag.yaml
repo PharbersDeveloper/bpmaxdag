@@ -9,7 +9,6 @@ spec:
   description: "extract data"
   start_date: 1 # if you don't understand, don't touch it
   schedule_interval: "None" # if you don't understand, don't touch it
-  dag_timeout: 60 # minutes
   email: ["pqian@pharbers.com"]
   email_on_failure: False
   email_on_retry: False
@@ -18,6 +17,7 @@ spec:
   owner: pqian
   dag_id: extract_data
   dag_tag: ExtractData
+  dag_timeout: 60 # minutes
   jobs:
     - name: extract_data.extract
     - name: extract_data.copy

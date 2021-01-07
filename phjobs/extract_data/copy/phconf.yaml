@@ -12,13 +12,14 @@ spec:
     repository: local
     runtime: python3
     command: script
+    timeout: 60.0
     code: phmain.py
     config: phconf.yaml
     args:
       - key: from
-        value: s3a://ph-stream/common/public/max_result/0.0.5/extract_data_out/
+        value: default_to_path
       - key: to
         value: default_to_path
     outputs:
       - key: extract_data_out
-        value: s3a://ph-stream/public/asset/
+        value: default_to_path
