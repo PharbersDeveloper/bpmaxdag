@@ -379,8 +379,8 @@ project, doi, molecule_sep, data_type):
         max_filter_out =  max_filter_out_1.union(max_filter_out_2)   
     
     # 根据 report_a 去重
-    out_extract_data = max_filter_out.join(report_a.where(report_a.flag == 1).select("ATC", "标准通用名", "project").distinct(), 
-                                    on=["ATC", "标准通用名", "project"], 
+    out_extract_data = max_filter_out.join(report_a.where(report_a.flag == 1).select("标准通用名", "project").distinct(), 
+                                    on=["标准通用名", "project"], 
                                     how="inner").persist()
     
     # 输出提数结果
