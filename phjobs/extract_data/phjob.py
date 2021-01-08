@@ -101,8 +101,9 @@ project, doi, molecule_sep, data_type):
         outdir = "out_" + timenow + "_" + out_suffix
     out_extract_data_path = out_path + "/" + outdir + "/out_" + timenow + "_" + out_suffix + '.csv'
     report_a_path = out_path + "/" + outdir + "/report_a.csv"
-    report_b_path = out_path + "/" + outdir + "/report_b.csv"
+    report_b_path = out_path + "/" + outdir + "/report_ATC.csv"
     report_c_path = out_path + "/" + outdir + "/report_c.csv"
+    report_d_path = out_path + "/" + outdir + "/report_molecule.csv"
     
     out_tmp_path = out_path + "/" + outdir + "/out_tmp"
     max_filter_raw_path = out_path + "/" + outdir + "/max_filter_raw_tmp"
@@ -283,8 +284,13 @@ project, doi, molecule_sep, data_type):
     report_a = spark.read.csv(report_a_path, header=True)
     
     # 根据 report_a 去重
-    max_filter_list = max_filter_list.join(report_a.where(report_a.flag == 1).select("ATC", "标准通用名", "project").distinct(), 
+    if atc:
+        max_filter_list = max_filter_list.join(report_a.where(report_a.flag == 1).select("ATC", "标准通用名", "project").distinct(), 
                                     on=["ATC", "标准通用名", "project"], 
+                                    how="inner").persist()
+    else:
+        max_filter_list = max_filter_list.join(report_a.where(report_a.flag == 1).select("标准通用名", "project").distinct(), 
+                                    on=["标准通用名", "project"], 
                                     how="inner").persist()
     
     # 三. 原始数据提取
@@ -379,7 +385,12 @@ project, doi, molecule_sep, data_type):
         max_filter_out =  max_filter_out_1.union(max_filter_out_2)   
     
     # 根据 report_a 去重
-    out_extract_data = max_filter_out.join(report_a.where(report_a.flag == 1).select("标准通用名", "project").distinct(), 
+    if atc:
+        out_extract_data = max_filter_out.join(report_a.where(report_a.flag == 1).select("ATC", "标准通用名", "project").distinct(), 
+                                    on=["ATC", "标准通用名", "project"], 
+                                    how="inner").persist()
+    else:
+        out_extract_data = max_filter_out.join(report_a.where(report_a.flag == 1).select("标准通用名", "project").distinct(), 
                                     on=["标准通用名", "project"], 
                                     how="inner").persist()
     
@@ -402,29 +413,6 @@ project, doi, molecule_sep, data_type):
     #          .mode("overwrite").save(out_tmp_path)
     # out_extract_data = spark.read.parquet(out_tmp_path)
         
-    # report_b
-    if atc:
-        time_range_act = out_extract_data.select("ATC", "Date").distinct() \
-                            .groupby(["ATC"]).agg(func.min("Date").alias("min_time"), func.max("Date").alias("max_time"))
-        time_range_act = time_range_act.withColumn("time_range", func.concat(time_range_act.min_time, func.lit("_"), time_range_act.max_time))
-        
-        extract_sales = out_extract_data.select("PACK_ID", "ATC").distinct() \
-                            .join(ims_sales.select("PACK_ID", "Sales_ims").distinct(), on="PACK_ID", how="left") \
-                            .groupby("ATC").agg(func.sum("Sales_ims").alias("Sales_ims_extract")).persist()
-        atc_sales = ims_sales.select("PACK_ID", "ATC", "Sales_ims").distinct() \
-                        .where(ims_sales.ATC.isin(atc)) \
-                        .groupby("ATC").agg(func.sum("Sales_ims").alias("Sales_ims_atc")).persist()
-        report_b = extract_sales.join(atc_sales, on="ATC", how="left")
-        report_b = report_b.withColumn("Sales_rate", report_b.Sales_ims_extract/report_b.Sales_ims_atc) \
-                        .join(time_range_act.select("ATC", "time_range"), on="ATC", how="left") \
-                        .drop("Sales_ims_extract", "Sales_ims_atc")
-        # 列名顺序调整
-        report_b = report_b.select("ATC", "time_range", "Sales_rate")
-        
-        report_b = report_b.repartition(1)
-        report_b.write.format("csv").option("header", "true") \
-            .mode("overwrite").save(report_b_path)
-    
     # report_c
     extract_sales = out_extract_data.select("project", "PACK_ID", "ATC", "标准通用名").distinct() \
                             .join(ims_sales.select("PACK_ID", "Sales_ims").distinct(), on="PACK_ID", how="left") \
@@ -449,4 +437,49 @@ project, doi, molecule_sep, data_type):
     report_c = report_c.repartition(1)
     report_c.write.format("csv").option("header", "true") \
         .mode("overwrite").save(report_c_path)
-
+    
+    # report_atc
+    if atc:
+        time_range_act = out_extract_data.select("ATC", "Date").distinct() \
+                            .groupby(["ATC"]).agg(func.min("Date").alias("min_time"), func.max("Date").alias("max_time"))
+        time_range_act = time_range_act.withColumn("time_range", func.concat(time_range_act.min_time, func.lit("_"), time_range_act.max_time))
+        
+        extract_sales = out_extract_data.select("PACK_ID", "ATC").distinct() \
+                            .join(ims_sales.select("PACK_ID", "Sales_ims").distinct(), on="PACK_ID", how="left") \
+                            .groupby("ATC").agg(func.sum("Sales_ims").alias("Sales_ims_extract")).persist()
+        atc_sales = ims_sales.select("PACK_ID", "ATC", "Sales_ims").distinct() \
+                        .where(ims_sales.ATC.isin(atc)) \
+                        .groupby("ATC").agg(func.sum("Sales_ims").alias("Sales_ims_atc")).persist()
+        report_b = extract_sales.join(atc_sales, on="ATC", how="left")
+        report_b = report_b.withColumn("Sales_rate", report_b.Sales_ims_extract/report_b.Sales_ims_atc) \
+                        .join(time_range_act.select("ATC", "time_range"), on="ATC", how="left") \
+                        .drop("Sales_ims_extract", "Sales_ims_atc")
+        # 列名顺序调整
+        report_b = report_b.select("ATC", "time_range", "Sales_rate")
+        
+        report_b = report_b.repartition(1)
+        report_b.write.format("csv").option("header", "true") \
+            .mode("overwrite").save(report_b_path)
+    
+    # report_molecule        
+    if molecule:
+        time_range = out_extract_data.select("标准通用名", "Date").distinct() \
+                            .groupby(["标准通用名"]).agg(func.min("Date").alias("min_time"), func.max("Date").alias("max_time"))
+        time_range = time_range.withColumn("time_range", func.concat(time_range.min_time, func.lit("_"), time_range.max_time))
+        
+        extract_sales = out_extract_data.select("PACK_ID", "标准通用名").distinct() \
+                            .join(ims_sales.select("PACK_ID", "Sales_ims").distinct(), on="PACK_ID", how="left") \
+                            .groupby("标准通用名").agg(func.sum("Sales_ims").alias("Sales_ims_extract")).persist()
+        molecule_sales = ims_sales.select("PACK_ID", "MOLE_NAME_CH", "Sales_ims").distinct() \
+                        .where(ims_sales.MOLE_NAME_CH.isin(molecule)) \
+                        .groupby("MOLE_NAME_CH").agg(func.sum("Sales_ims").alias("Sales_ims_molecule")).persist()
+        report_d = extract_sales.join(molecule_sales, extract_sales['标准通用名']==molecule_sales['MOLE_NAME_CH'], how="left")
+        report_d = report_d.withColumn("Sales_rate", report_d.Sales_ims_extract/report_d.Sales_ims_molecule) \
+                        .join(time_range.select("标准通用名", "time_range"), on="标准通用名", how="left") \
+                        .drop("Sales_ims_extract", "Sales_ims_molecule", "MOLE_NAME_CH")
+        # 列名顺序调整
+        report_d = report_d.select("ATC", "time_range", "Sales_rate")
+        
+        report_d = report_d.repartition(1)
+        report_d.write.format("csv").option("header", "true") \
+            .mode("overwrite").save(report_d_path)
