@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: prediction_report
+  description: "pharbers job description"
+  labels:
+    name: prediction_report_division
+    runtime: python3
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: positive_result_path
+        value: s3a://ph-max-auto/2020-08-11/data_matching/prediction_report/positive_result_path/1609926092
+      - key: negative_result_path
+        value: s3a://ph-max-auto/2020-08-11/data_matching/prediction_report/negative_result_path/1609920278
+      - key: training_data_path  # i.e. crossing 的 result_path
+        value: s3a://ph-max-auto/2020-08-11/data_matching/airflow_runs/1609843730/crossing/result_path/ad0bbdc1155f47a0949a4c
+      - key: split_data_path
+        value: s3a://ph-max-auto/2020-08-11/data_matching/airflow_runs/1609843730/crossing/split_data_path/ad0bbdc1155f47a0949a4c
+    outputs:
+      - key: true_positive_result_path
+        value: s3a://ph-max-auto/2020-08-11/data_matching/prediction_report_division/true_positive_result_path
+      - key: true_negative_result_path
+        value: s3a://ph-max-auto/2020-08-11/data_matching/prediction_report_division/true_negative_result_path
+      - key: false_positive_result_path
+        value: s3a://ph-max-auto/2020-08-11/data_matching/prediction_report_division/false_positive_result_path
+      - key: false_negative_result_path
+        value: s3a://ph-max-auto/2020-08-11/data_matching/prediction_report_division/false_negative_result_path
+      - key: true_positive_result_path_csv
+        value: s3a://ph-max-auto/2020-08-11/data_matching/prediction_report_division/true_positive_result_path_csv
+      - key: true_negative_result_path_csv
+        value: s3a://ph-max-auto/2020-08-11/data_matching/prediction_report_division/true_negative_result_path_csv
+      - key: false_positive_result_path_csv
+        value: s3a://ph-max-auto/2020-08-11/data_matching/prediction_report_division/false_positive_result_path_csv
+      - key: false_negative_result_path_csv
+        value: s3a://ph-max-auto/2020-08-11/data_matching/prediction_report_division/false_negative_result_path_csv
+      - key: lost_data_path
+        value: s3a://ph-max-auto/2020-08-11/data_matching/prediction_report_division/lost_data_path
+      - key: final_report_path
+        value: s3a://ph-max-auto/2020-08-11/data_matching/prediction_report_division/final_report_path
+      - key: mnf_check_path
+        value: s3a://ph-max-auto/2020-08-11/data_matching/prediction_report_division/mnf_check_path
+      - key: spec_check_path
+        value: s3a://ph-max-auto/2020-08-11/data_matching/prediction_report_division/spec_check_path
+      - key: dosage_check_path
+        value: s3a://ph-max-auto/2020-08-11/data_matching/prediction_report_division/dosage_check_path
+
