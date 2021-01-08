@@ -13,10 +13,20 @@ spec:
     code: phmain.py
     config: phconf.yaml
     args:
-      - key: a
-        value: 123
-      - key: b
-        value: 456
+      - key: max_path
+        value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
+      - key: project_name
+        value: "Merck"
+      - key: market_city_brand
+        value: '{"思则凯":{"福厦泉":4}}'
+      - key: lmda
+        value: '0.001'
+      - key: learning_rate
+        value: '100'
+      - key: max_iteration
+        value: '10000'
+      - key: gradient_type
+        value: 'both'
     outputs:
       - key: c
         value: abcde
