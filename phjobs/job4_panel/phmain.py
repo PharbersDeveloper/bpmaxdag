@@ -26,10 +26,15 @@ import click
 @click.option('--out_path')
 @click.option('--out_dir')
 @click.option('--need_test')
+@click.option('--add_47')
 @click.option('--a')
 @click.option('--b')
-def debug_execute(owner, run_id, job_id, a, b, max_path, project_name, model_month_left, model_month_right, if_others, current_year, current_month, paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_union, out_path, out_dir, need_test):
-	execute(max_path, project_name, model_month_left, model_month_right, if_others, current_year, current_month, paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_union, out_path, out_dir, need_test)
+def debug_execute(owner, run_id, job_id, a, b, max_path, project_name, model_month_left, model_month_right, 
+if_others, current_year, current_month, paths_foradding, not_arrived_path, published_path, monthly_update, 
+panel_for_union, out_path, out_dir, need_test, add_47):
+	execute(max_path, project_name, model_month_left, model_month_right, 
+	if_others, current_year, current_month, paths_foradding, not_arrived_path, published_path, monthly_update, 
+	panel_for_union, out_path, out_dir, need_test, add_47)
 
 
 if __name__ == '__main__':

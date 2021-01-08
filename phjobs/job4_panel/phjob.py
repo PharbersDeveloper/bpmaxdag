@@ -14,7 +14,7 @@ from pyspark.sql import functions as func
 
 
 def execute(max_path, project_name, model_month_left, model_month_right, if_others, current_year, current_month, 
-paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_union, out_path, out_dir, need_test):
+paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_union, out_path, out_dir, need_test, add_47):
     os.environ["PYSPARK_PYTHON"] = "python3"
     spark = SparkSession.builder \
         .master("yarn") \
@@ -53,6 +53,10 @@ paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_uni
     else:
         panel_for_union_path = "Empty"
     
+    if add_47 != "False" and add_47 != "True":
+        phlogger.error('wrong input: add_47, False or True') 
+        raise ValueError('wrong input: add_47, False or True')
+        
     # 月更新相关输入
     if monthly_update != "False" and monthly_update != "True":
         phlogger.error('wrong input: monthly_update, False or True') 
@@ -248,8 +252,7 @@ paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_uni
                 panel_add_data = panel_add_data.where(panel_add_data.Molecule != u"奥希替尼")
 
         # 去除 city_list和 Province_list
-        keep_47 = ["Janssen", "汇宇", "神州"]
-        if project_name not in keep_47:
+        if add_47 == "False":
             panel_add_data = panel_add_data \
                 .where(~panel_add_data.City.isin(city_list)) \
                 .where(~panel_add_data.Province.isin(Province_list))
