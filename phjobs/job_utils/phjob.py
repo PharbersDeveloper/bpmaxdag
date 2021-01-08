@@ -454,9 +454,9 @@ def execute():
 		secret_key = "s6/0Od1uDwOLQEebfbd0VlpC3H0VLoBSzBrrwTjJ"
 		
 		SOURCE_BUCKET = 'ph-max-auto'
-		SOURCE_PATH = '2020-08-11/BPBatchDAG/refactor/zyyin/eia/eisia_check.xlsx'
+		SOURCE_PATH = '2020-08-11/BPBatchDAG/refactor/zyyin/yiyuanchc/yiyuan.xlsx'
 		TARGET_BUCKET = 'ph-max-auto'
-		TARGET_PATH = '2020-08-11/BPBatchDAG/refactor/zyyin/eia/raw_data_2'
+		TARGET_PATH = '2020-08-11/BPBatchDAG/refactor/zyyin/yiyuanchc/raw_data'
 		
 		print("开始读取")
 		
@@ -487,7 +487,11 @@ def execute():
 		sdf = spark.createDataFrame(pd_df.astype(str))
 		sdf.show()
 		save_path = "s3a://%s/%s" % (TARGET_BUCKET, TARGET_PATH)
-		sdf.write.format("parquet").mode("overwrite").save(save_path)
+		sdf.where(sdf.code == "1").write.mode("overwrite").parquet(save_path+"/1")
+		sdf.where(sdf.code == "2").write.mode("overwrite").parquet(save_path+"/2")
+		sdf.where(sdf.code == "3").write.mode("overwrite").parquet(save_path+"/3")
+		sdf.where(sdf.code == "4").write.mode("overwrite").parquet(save_path+"/4")
+		sdf.where(sdf.code == "5").write.mode("overwrite").parquet(save_path+"/5")
 		print("写入" + save_path + "完成")
 
 	# phizer_check()  # 检查有多少匹配错误的 包括hr和ed分别两种的数量

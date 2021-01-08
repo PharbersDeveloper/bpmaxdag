@@ -17,6 +17,9 @@ from pyspark.ml.classification import DecisionTreeClassificationModel
 from pyspark.ml.evaluation import MulticlassClassificationEvaluator
 from pyspark.ml import PipelineModel
 from pyspark.ml.feature import VectorAssembler
+from pyspark.sql.functions import pandas_udf, PandasUDFType
+import numpy as np
+import pandas as pd
 
 def execute(**kwargs):
     """
@@ -158,12 +161,29 @@ def similarity(df):
 	return df
 
 
+@pandas_udf(StringType(), PandasUDFType.SCALAR)
+def join_pandas_udf(array_col):
+    frame = { "array_col": array_col }
+    
+    df = pd.DataFrame(frame)
+    
+    def array_to_str(arr):
+        if type(arr) != np.ndarray:
+            s = ""
+        else:
+            s = ",".join(map(str,arr))
+        return s
+    
+    df["RESULT"] = df["array_col"].apply(array_to_str)
+    return df["RESULT"]
+        
+
 def join_and_write(df, csv_path):
     join_udf = udf(lambda x: ",".join(map(str,x)))
-    df = df.withColumn("MASTER_DOSAGE", join_udf(col("MASTER_DOSAGE"))) \
-                            .withColumn("MANUFACTURER_NAME_STANDARD_WORDS", join_udf(col("MANUFACTURER_NAME_STANDARD_WORDS"))) \
-                            .withColumn("MANUFACTURER_NAME_CLEANNING_WORDS", join_udf(col("MANUFACTURER_NAME_CLEANNING_WORDS"))) \
-                            .withColumn("MANUFACTURER_NAME_STANDARD_WORDS_SEG", join_udf(col("MANUFACTURER_NAME_STANDARD_WORDS_SEG"))) \
-                            .withColumn("MANUFACTURER_NAME_CLEANNING_WORDS_SEG", join_udf(col("MANUFACTURER_NAME_CLEANNING_WORDS_SEG"))) \
+    df = df.withColumn("MASTER_DOSAGE", join_pandas_udf(col("MASTER_DOSAGE"))) \
+                            .withColumn("MANUFACTURER_NAME_STANDARD_WORDS", join_pandas_udf(col("MANUFACTURER_NAME_STANDARD_WORDS"))) \
+                            .withColumn("MANUFACTURER_NAME_CLEANNING_WORDS", join_pandas_udf(col("MANUFACTURER_NAME_CLEANNING_WORDS"))) \
+                            .withColumn("MANUFACTURER_NAME_STANDARD_WORDS_SEG", join_pandas_udf(col("MANUFACTURER_NAME_STANDARD_WORDS_SEG"))) \
+                            .withColumn("MANUFACTURER_NAME_CLEANNING_WORDS_SEG", join_pandas_udf(col("MANUFACTURER_NAME_CLEANNING_WORDS_SEG"))) \
                             .withColumn("features", join_udf(col("features")))
     df.repartition(1).write.mode("overwrite").option("header", "true").csv(csv_path)
