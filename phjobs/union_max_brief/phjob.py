@@ -40,16 +40,16 @@ def execute(extract_path, extract_file, data_type):
     doi = []
     atc = []
     molecule = []
+
+    if extract_file == "Empty":
+        path_for_extract_path = extract_path + "/path_for_extract.csv"
+    else:
+        path_for_extract_path = extract_file
         
     if data_type == 'max':
         extract_path = extract_path + '/max_standard'
     elif data_type == 'raw':
         extract_path = extract_path + '/rawdata_standard'
-    
-    if extract_file == "Empty":
-        path_for_extract_path = extract_path + "/path_for_extract.csv"
-    else:
-        path_for_extract_path = extract_file
     
     project_rank_path =  "s3a://ph-max-auto/v0.0.1-2020-06-08/" + "/Common_files/extract_data_files/project_rank.csv"
     
@@ -118,9 +118,9 @@ def execute(extract_path, extract_file, data_type):
                             .persist()
     
     # 分子最大月份数, 月份最全-得分
-    months_max = report.groupby("标准通用名").agg(func.max("months_num").alias("max_month"))
+    months_max = report.groupby("标准通用名", "ATC").agg(func.max("months_num").alias("max_month"))
     
-    report = report.join(months_max, on="标准通用名", how="left")
+    report = report.join(months_max, on=["标准通用名", "ATC"], how="left")
     report = report.withColumn("drop_for_months", func.when(report.months_num == report.max_month, func.lit(0)).otherwise(func.lit(1)))
     
     # 对于raw_data 医院数量作为第二去重条件
@@ -188,7 +188,16 @@ def execute(extract_path, extract_file, data_type):
         report_a = report_a.orderBy(["标准通用名", "months_num", "project_score"], ascending=[0, 0, 1])               
     
     report_a = report_a.withColumn("flag", func.when(report_a.drop_for_score == 0, func.lit(1)).otherwise(func.lit(None)))
-    # 输出report_a            
+    # 输出report_a
+    report_a = report_a.withColumnRenamed('标准通用名', 'molecule') \
+                        .withColumn('time_left', func.split(func.col("time_range"), "_").getItem(0)) \
+                        .withColumn('time_right', func.split(func.col("time_range"), "_").getItem(1))
+    
     report_a = report_a.repartition(1)
     report_a.write.format("csv").option("header", "true") \
+        .mode("overwrite").save(report_a_path)
+    
+    report_a_path = extract_path + "/all_report_a"    
+    report_a = report_a.repartition(1)
+    report_a.write.format("parquet") \
         .mode("overwrite").save(report_a_path)
