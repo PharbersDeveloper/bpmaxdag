@@ -94,14 +94,12 @@ def execute(**kwargs):
     result = result.na.fill("")
     df_positive = result.where((result.prediction == 1.0) & (result.RANK == 1))
     df_positive.write.mode("overwrite").parquet(positive_result_path)   # TODO 记得打开
-    df_positive.select("MASTER_DOSAGE", "MANUFACTURER_NAME_STANDARD_WORDS", "MANUFACTURER_NAME_CLEANNING_WORDS", "MANUFACTURER_NAME_STANDARD_WORDS_SEG", "MANUFACTURER_NAME_CLEANNING_WORDS_SEG").show()
     df_positive = df_positive.withColumn("MASTER_DOSAGE", join_pandas_udf(col("MASTER_DOSAGE"))) \
                             .withColumn("MANUFACTURER_NAME_STANDARD_WORDS", join_pandas_udf(col("MANUFACTURER_NAME_STANDARD_WORDS"))) \
                             .withColumn("MANUFACTURER_NAME_CLEANNING_WORDS", join_pandas_udf(col("MANUFACTURER_NAME_CLEANNING_WORDS"))) \
                             .withColumn("MANUFACTURER_NAME_STANDARD_WORDS_SEG", join_pandas_udf(col("MANUFACTURER_NAME_STANDARD_WORDS_SEG"))) \
                             .withColumn("MANUFACTURER_NAME_CLEANNING_WORDS_SEG", join_pandas_udf(col("MANUFACTURER_NAME_CLEANNING_WORDS_SEG"))) \
                             .withColumn("features", join_udf(col("features")))
-    df_positive.select("MASTER_DOSAGE", "MANUFACTURER_NAME_STANDARD_WORDS", "MANUFACTURER_NAME_CLEANNING_WORDS", "MANUFACTURER_NAME_STANDARD_WORDS_SEG", "MANUFACTURER_NAME_CLEANNING_WORDS_SEG").show()
     
     df_positive.repartition(1).write.mode("overwrite").option("header", "true").csv(positive_result_path_csv)
     logger.warn("机器判断positive的条目写入完成")
