@@ -478,7 +478,7 @@ project, doi, molecule_sep, data_type):
                         .join(time_range.select("标准通用名", "time_range"), on="标准通用名", how="left") \
                         .drop("Sales_ims_extract", "Sales_ims_molecule", "MOLE_NAME_CH")
         # 列名顺序调整
-        report_d = report_d.select("ATC", "time_range", "Sales_rate")
+        report_d = report_d.select("标准通用名", "time_range", "Sales_rate")
         
         report_d = report_d.repartition(1)
         report_d.write.format("csv").option("header", "true") \
