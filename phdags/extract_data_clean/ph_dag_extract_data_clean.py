@@ -22,7 +22,7 @@ default_args = {
 
 dag = DAG(
     dag_id="extract_data_clean",
-    tags=['Extract Data', '提数', '每天凌晨清除提数副本'],
+    tags=['Extract Data', 'Clean'],
     default_args=default_args,
     schedule_interval="@daily",
     description="每天凌晨清除提数的副本",
@@ -44,7 +44,7 @@ def extract_data_clean_cmd(**context):
     params = var_key_lst.get("common", {})
     params.update(var_key_lst.get("extract_data_clean", {}))
 
-    write_hosts = 'echo "192.168.1.28    spark.master" >> /etc/hosts'
+    write_hosts = 'echo "192.168.18.7    spark.master" >> /etc/hosts'
     print(write_hosts)
     print(subprocess.check_output(write_hosts, shell=True,
                                   stderr=subprocess.STDOUT).decode("utf-8"))

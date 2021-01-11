@@ -149,7 +149,7 @@ def execute(**kwargs):
             else:
                 obj = pg.insert(
                     # Asset(name=dag_node_info_map[parent][0], owner=owner, source=parent))
-                    Asset(name=name, owner=owner, source=parent))
+                    Asset(name=name, owner=owner, source=parent, labels="{提数数据}"))
                 obj_id = obj.id
             parents_id.append(obj_id)
 
@@ -162,7 +162,7 @@ def execute(**kwargs):
         else:
             pg.insert(
                 # Asset(name=dag_node_info_map[asset][0], owner=owner, source=asset))
-                Asset(name=name, owner=owner, source=asset))
+                Asset(name=name, owner=owner, source=asset, labels="{提数数据}"))
 
     pg.commit()
     return {}
