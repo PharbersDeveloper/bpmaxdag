@@ -1,0 +1,34 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: alfred
+  description: "pharbers job description"
+  labels:
+    name: alfred
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: input_path
+        value: s3a://ph-stream/common/public/chc/0.0.6
+      - key: chc_prod_path
+        value: s3a://ph-platform/2020-08-10/datamart/original/dimensions/chc_prods/v20201001_20201019_1
+      - key: chc_hosp_path
+        value: s3a://ph-platform/2020-08-10/datamart/original/dimensions/chc_hosps/v20201001_20201019_1
+      - key: chc_date_path
+        value: s3a://ph-platform/2020-08-10/datamart/original/dimensions/chc_dates/v20201001_20201021_1
+      - key: chc_etc_path
+        value: s3a://ph-platform/2020-08-10/datamart/original/dimensions/chc_etc/v20201001_20201021_1
+      - key: output_path
+        value: s3a://ph-platform/2020-08-10/datamart/original/fact_tables/chc/v20201001_20201019_1
+    outputs:
+      - key: a
+        value: abcde
+      - key: b
+        value: 6789
+
+
+

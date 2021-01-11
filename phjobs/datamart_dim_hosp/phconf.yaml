@@ -15,9 +15,12 @@ spec:
       - key: input_path
         value: s3a://ph-stream/common/public/universe/0.0.1
       - key: output_path
-        value: s3a://ph-platform/2020-08-10/datamart/dimensions/hosps/v20201001_20201014_1
+        value: s3a://ph-platform/2020-08-10/datamart/standard/dimensions/hosps/v20200729_20201102_1
     outputs:
       - key: a
         value: abcde
       - key: b
         value: 6789
+
+
+
