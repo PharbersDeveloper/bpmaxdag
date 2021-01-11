@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: crossing
+  description: "pharbers job description"
+  labels:
+    name: crossing
+    runtime: python3
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: raw_data_path
+        value: s3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/yiyuanchc/raw_data/5
+      - key: standard_prod_path
+        value: s3a://ph-stream/common/public/prod/0.0.20
+      - key: human_replace_packid_path
+        value: s3a://ph-max-auto/2020-08-11/BPBatchDAG/human_replace_packid
+      - key: cpa_dosage_lst_path
+        value: s3a://ph-max-auto/2020-08-11/BPBatchDAG/cpa_dosage_mapping/0.0.2
+      - key: word_dict_encode_path
+        value: s3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/word_dict/0.0.12
+    outputs:
+      - key: split_data_path
+        value: s3a://ph-max-auto/2020-08-11/data_matching/crossing/split_data_path5
+      - key: interim_result_path
+        value: s3a://ph-max-auto/2020-08-11/data_matching/crossing/interim_result_path5
+      - key: result_path
+        value: s3a://ph-max-auto/2020-08-11/data_matching/crossing/result_path5
