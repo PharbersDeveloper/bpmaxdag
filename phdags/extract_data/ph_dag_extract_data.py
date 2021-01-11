@@ -48,11 +48,6 @@ def extract_data_extract_cmd(**context):
     params = var_key_lst.get("common", {})
     params.update(var_key_lst.get("extract_data_extract", {}))
 
-    write_hosts = 'echo "192.168.12.86    spark.master" >> /etc/hosts'
-    print(write_hosts)
-    print(subprocess.check_output(write_hosts, shell=True,
-                                  stderr=subprocess.STDOUT).decode("utf-8"))
-
     install_phcli = 'pip3 install phcli==2.0.5'
     print(install_phcli)
     print(subprocess.check_output(install_phcli, shell=True,
@@ -104,11 +99,6 @@ def extract_data_copy_cmd(**context):
     params = var_key_lst.get("common", {})
     params.update(var_key_lst.get("extract_data_copy", {}))
 
-    write_hosts = 'echo "192.168.12.86    spark.master" >> /etc/hosts'
-    print(write_hosts)
-    print(subprocess.check_output(write_hosts, shell=True,
-                                  stderr=subprocess.STDOUT).decode("utf-8"))
-
     install_phcli = 'pip3 install phcli==2.0.5'
     print(install_phcli)
     print(subprocess.check_output(install_phcli, shell=True,
@@ -152,11 +142,6 @@ def preset_write_asset_cmd(**context):
 
     params = var_key_lst.get("common", {})
     params.update(var_key_lst.get("preset_write_asset", {}))
-
-    write_hosts = 'echo "192.168.12.86    spark.master" >> /etc/hosts'
-    print(write_hosts)
-    print(subprocess.check_output(write_hosts, shell=True,
-                                  stderr=subprocess.STDOUT).decode("utf-8"))
 
     install_phcli = 'pip3 install phcli==2.0.5'
     print(install_phcli)
@@ -210,11 +195,6 @@ def extract_data_email_cmd(**context):
 
     params = var_key_lst.get("common", {})
     params.update(var_key_lst.get("extract_data_email", {}))
-
-    write_hosts = 'echo "192.168.12.86    spark.master" >> /etc/hosts'
-    print(write_hosts)
-    print(subprocess.check_output(write_hosts, shell=True,
-                                  stderr=subprocess.STDOUT).decode("utf-8"))
 
     install_phcli = 'pip3 install phcli==2.0.5'
     print(install_phcli)
@@ -271,11 +251,6 @@ def extract_data_packaging_cmd(**context):
 
     params = var_key_lst.get("common", {})
     params.update(var_key_lst.get("extract_data_packaging", {}))
-
-    write_hosts = 'echo "192.168.12.86    spark.master" >> /etc/hosts'
-    print(write_hosts)
-    print(subprocess.check_output(write_hosts, shell=True,
-                                  stderr=subprocess.STDOUT).decode("utf-8"))
 
     install_phcli = 'pip3 install phcli==2.0.5'
     print(install_phcli)
