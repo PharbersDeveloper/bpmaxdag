@@ -198,10 +198,15 @@ def extract_data_email_cmd(**context):
     if task_id == "succeed":
         args["content"] = '''
             提数时间：{}
-            AWS_S3路径：{}
-        '''.format(date, path)
+            提数状态：{}
+			请登入Pharbers数据平台进行下载。
+			网址：http://general.pharbers.com/
+        '''.format(date, task_id)
     else:
-        args["content"] = "error"
+        args["content"] = '''
+            提数时间：{}
+            提数状态：{}
+        '''.format(date, task_id)
 
     params = var_key_lst.get("common", {})
     params.update(var_key_lst.get("extract_data_email", {}))
