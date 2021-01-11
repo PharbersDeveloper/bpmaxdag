@@ -4,7 +4,7 @@
 This is job template for Pharbers Max Job
 """
 
-from ph_logs.ph_logs import phs3logger
+from phcli.ph_logs.ph_logs import phs3logger
 from pyspark.sql import SparkSession, Window
 from pyspark.sql.types import *
 from pyspark.sql.types import StringType, IntegerType, DoubleType
@@ -75,6 +75,10 @@ def execute(**kwargs):
     market_city_brand = kwargs["market_city_brand"]
     universe_choice = kwargs["universe_choice"]
     
+    logger.info(market_city_brand)
+    # logger.info(json.loads(market_city_brand.replace('\\', '')))
+    # market_city_brand = market_city_brand.replace('\\', '')
+
     year_list=['2018', '2019']
     universe_choice_dict={}
     if universe_choice != "Empty":

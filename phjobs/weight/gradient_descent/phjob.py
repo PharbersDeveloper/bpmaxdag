@@ -4,7 +4,7 @@
 This is job template for Pharbers Max Job
 """
 
-from ph_logs.ph_logs import phs3logger
+from phcli.ph_logs.ph_logs import phs3logger
 from pyspark.sql import SparkSession, Window
 from pyspark.sql.types import *
 from pyspark.sql.types import StringType, IntegerType, DoubleType
@@ -293,7 +293,7 @@ def execute(**kwargs):
         # 4.1 原始的weight结果
         df_weight_out = df_weight_out.repartition(1)
         df_weight_out.write.format("parquet") \
-            .mode("append").save(df_weight_path)
+            .mode("overwrite").save(df_weight_path)
             
         # 4.2 用于生产的weight结果
         df_weight_final = df_weight_out.withColumn('weight_factor', func.when(col('Bedsize>99')==0, col('weight_factor1')) \
