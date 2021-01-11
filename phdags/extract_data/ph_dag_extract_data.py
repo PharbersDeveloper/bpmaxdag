@@ -101,6 +101,7 @@ def extract_data_copy_cmd(**context):
         str(uuid.uuid4()) + "/extract_data/jobId_" + str(uuid.uuid4())
     ti.xcom_push(key="copyPath", value=default_copy_to_path)
     args["to"] = default_copy_to_path
+    args["extract_data_out"] = default_copy_to_path
 
     params = var_key_lst.get("common", {})
     params.update(var_key_lst.get("extract_data_copy", {}))
