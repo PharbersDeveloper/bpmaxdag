@@ -76,8 +76,8 @@ def execute(**kwargs):
     universe_choice = kwargs["universe_choice"]
     
     logger.info(market_city_brand)
-    # logger.info(json.loads(market_city_brand.replace('\\', '')))
-    # market_city_brand = market_city_brand.replace('\\', '')
+    logger.info(market_city_brand.replace('\\', ''))
+    market_city_brand = market_city_brand.replace('\\', '')
 
     year_list=['2018', '2019']
     universe_choice_dict={}

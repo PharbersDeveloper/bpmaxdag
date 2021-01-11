@@ -76,6 +76,10 @@ def execute(**kwargs):
     max_iteration = kwargs["max_iteration"]
     gradient_type = kwargs["gradient_type"]
     
+    logger.info(market_city_brand)
+    logger.info(market_city_brand.replace('\\', ''))
+    market_city_brand = market_city_brand.replace('\\', '')
+    
     lmda = float(lmda)
     learning_rate = int(learning_rate)
     max_iteration = int(max_iteration)

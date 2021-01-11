@@ -20,7 +20,7 @@ spec:
       - key: project_name
         value: "Merck"
       - key: market_city_brand
-        value: '{"思则凯":{"福厦泉":4}}'
+        value: '{"思则凯":{"福厦泉":4}\}'
       - key: lmda
         value: '0.001'
       - key: learning_rate
