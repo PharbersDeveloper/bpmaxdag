@@ -111,8 +111,8 @@ def extract_data_copy_cmd(**context):
         args["from"] = "{}/out_{}_{}".format(args["out_put"],
                                              date, args["out_suffix"].replace(" ", ""))
 
-    default_copy_to_path = "s3a://ph-stream/public/asset/jobs/runId_" + \
-        str(uuid.uuid4()) + "/extract_data/jobId_" + str(uuid.uuid4())
+    default_copy_to_path = "s3a://general.pharbers.com/public/extract_data/jobs/runId_" + \
+        str(uuid.uuid4()) + "/asset/jobId_" + str(uuid.uuid4())
     ti.xcom_push(key="copyPath", value=default_copy_to_path)
     args["to"] = default_copy_to_path
     args["extract_data_out"] = default_copy_to_path
