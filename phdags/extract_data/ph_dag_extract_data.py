@@ -199,8 +199,8 @@ def extract_data_email_cmd(**context):
         args["content"] = '''
             提数时间：{}
             提数状态：{}
-			请登入Pharbers数据平台进行下载。
-			网址：http://general.pharbers.com/
+            请登入Pharbers数据平台进行下载。
+            网址：http://general.pharbers.com/
         '''.format(date, task_id)
     else:
         args["content"] = '''
