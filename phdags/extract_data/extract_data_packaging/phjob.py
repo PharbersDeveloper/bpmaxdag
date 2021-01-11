@@ -28,26 +28,31 @@ def execute(**kwargs):
     return {}
 
 
+def get_bucket_name(path):
+    return path.replace("//", "/").split("/")[1]
+
+
 def packaging(target, out_suffix, awsConf):
     prefix = "/".join(target.replace("//", "").split("/")[1:])
     s3 = boto3.resource('s3',
                         aws_access_key_id=awsConf["aws_access_key_id"],
                         aws_secret_access_key=awsConf["aws_secret_access_key"],
                         region_name="cn-northwest-1")
-    bucket = s3.Bucket("ph-stream")
+    bucket = s3.Bucket(get_bucket_name(target))
     # test
     local_path = "/root/{}"
     for obj in bucket.objects.filter(Prefix=prefix):
         download_path = local_path.format(
             obj.key[obj.key.find(out_suffix):])
         createFile(download_path)
-        s3.meta.client.download_file('ph-stream', obj.key, download_path)
+        s3.meta.client.download_file(
+            get_bucket_name(target), obj.key, download_path)
 
     createZip(local_path.format(out_suffix),
               local_path.format(out_suffix + ".zip"))
 
     s3.Object(
-        'ph-stream', prefix + "/" + out_suffix + ".zip").upload_file(local_path.format(out_suffix + ".zip"))
+        get_bucket_name(target), prefix + "/" + out_suffix + ".zip").upload_file(local_path.format(out_suffix + ".zip"))
 
 
 def createFile(path):
