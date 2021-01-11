@@ -33,6 +33,12 @@ var_key_lst = Variable.get("%s__SPARK_CONF" % (
 default_extract_data_from = "s3a://ph-stream/common/public/max_result/0.0.5/extract_data_out/out_{}_{}"
 date = datetime.now().strftime("%Y_%m_%d")
 
+
+def replaceSpace(args):
+    for item in list(args.keys()):
+        args[item] = args[item].replace(" ", "")
+    return args
+
 ############## == extract_data_extract == ###################
 
 
@@ -41,7 +47,7 @@ def extract_data_extract_cmd(**context):
     owner = default_args['owner']
     run_id = context["dag_run"].run_id
     job_id = ti.hostname
-    args = context["dag_run"].conf
+    args = replaceSpace(context["dag_run"].conf)
     if "owner" in args.keys():
         owner = args["owner"]
 
@@ -79,17 +85,17 @@ def extract_data_copy_cmd(**context):
     owner = default_args['owner']
     run_id = context["dag_run"].run_id
     job_id = ti.hostname
-    args = context["dag_run"].conf
+    args = replaceSpace(context["dag_run"].conf)
 
     if "owner" in args.keys():
         owner = args["owner"]
 
     if "out_path" not in args.keys():
         args["from"] = default_extract_data_from.format(
-            date, args["out_suffix"])
+            date, args["out_suffix"].replace(" ", ""))
     else:
         args["from"] = "{}/out_{}_{}".format(args["out_put"],
-                                             date, args["out_suffix"])
+                                             date, args["out_suffix"].replace(" ", ""))
 
     default_copy_to_path = "s3a://ph-stream/public/asset/jobs/runId_" + \
         str(uuid.uuid4()) + "/extract_data/jobId_" + str(uuid.uuid4())
@@ -130,7 +136,7 @@ def preset_write_asset_cmd(**context):
     owner = default_args['owner']
     run_id = context["dag_run"].run_id
     job_id = ti.hostname
-    args = context["dag_run"].conf
+    args = replaceSpace(context["dag_run"].conf)
 
     if "owner" in args.keys():
         owner = args["owner"]
@@ -176,7 +182,7 @@ def extract_data_email_cmd(**context):
     owner = default_args['owner']
     run_id = context["dag_run"].run_id
     job_id = ti.hostname
-    args = context["dag_run"].conf
+    args = replaceSpace(context["dag_run"].conf)
     task_id = context['task'].task_id
 
     if "owner" in args.keys():
@@ -238,7 +244,7 @@ def extract_data_packaging_cmd(**context):
     owner = default_args['owner']
     run_id = context["dag_run"].run_id
     job_id = ti.hostname
-    args = context["dag_run"].conf
+    args = replaceSpace(context["dag_run"].conf)
 
     if "owner" in args.keys():
         owner = args["owner"]
