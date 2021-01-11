@@ -16,7 +16,7 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--job_id')
 @click.option('--from')
 @click.option('--to')
-@click.option('--status')
+@click.option('--extract_data_out')
 def debug_execute(**kwargs):
     try:
         args = {"name": "copy"}
