@@ -30,6 +30,24 @@ dag = DAG(
 var_key_lst = Variable.get("%s__SPARK_CONF" % (
     dag.dag_id), deserialize_json=True, default_var={})
 
+
+def process_cmd(cmd):
+    print("process: " + cmd)
+
+    p = subprocess.Popen(
+        cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    last_line = ''
+    while p.poll() is None:
+        line = p.stdout.readline().decode('utf-8').strip("\n")
+        if line:
+            last_line = line
+            print(last_line)
+    if p.returncode == 0:
+        print('Subprogram success')
+    else:
+        raise Exception(last_line)
+
+
 default_extract_data_from = "s3a://ph-stream/common/public/max_result/0.0.5/extract_data_out/out_{}_{}"
 date = datetime.now().strftime("%Y_%m_%d")
 
@@ -54,17 +72,13 @@ def extract_data_extract_cmd(**context):
     params = var_key_lst.get("common", {})
     params.update(var_key_lst.get("extract_data_extract", {}))
 
-    install_phcli = 'pip3 install phcli==2.0.5'
-    print(install_phcli)
-    print(subprocess.check_output(install_phcli, shell=True,
-                                  stderr=subprocess.STDOUT).decode("utf-8"))
+    install_phcli = 'pip3 install phcli==2.0.6'
+    process_cmd(install_phcli)
 
     exec_phcli_submit = 'phcli maxauto online_run --group extract_data --name extract_data_extract ' \
         '--owner "{}" --run_id "{}" --job_id "{}" --context "{}" "{}"'.format(
             str(owner), str(run_id), str(job_id), str(params), str(args))
-    print(exec_phcli_submit)
-    print(subprocess.check_output(exec_phcli_submit,
-                                  shell=True, stderr=subprocess.STDOUT).decode("utf-8"))
+    process_cmd(exec_phcli_submit)
 
     # key = ti.xcom_pull(task_ids='test', key='key').decode("UTF-8")
     # ti.xcom_push(key="key", value=key)
@@ -106,20 +120,13 @@ def extract_data_copy_cmd(**context):
     params = var_key_lst.get("common", {})
     params.update(var_key_lst.get("extract_data_copy", {}))
 
-    install_phcli = 'pip3 install phcli==2.0.5'
-    print(install_phcli)
-    print(subprocess.check_output(install_phcli, shell=True,
-                                  stderr=subprocess.STDOUT).decode("utf-8"))
+    install_phcli = 'pip3 install phcli==2.0.6'
+    process_cmd(install_phcli)
 
     exec_phcli_submit = 'phcli maxauto online_run --group extract_data --name extract_data_copy ' \
         '--owner "{}" --run_id "{}" --job_id "{}" --context "{}" "{}"'.format(
             str(owner), str(run_id), str(job_id), str(params), str(args))
-    print(exec_phcli_submit)
-    print(subprocess.check_output(exec_phcli_submit,
-                                  shell=True, stderr=subprocess.STDOUT).decode("utf-8"))
-
-    # key = ti.xcom_pull(task_ids='test', key='key').decode("UTF-8")
-    # ti.xcom_push(key="key", value=key)
+    process_cmd(exec_phcli_submit)
 
 
 extract_data_copy = PythonOperator(
@@ -150,17 +157,13 @@ def preset_write_asset_cmd(**context):
     params = var_key_lst.get("common", {})
     params.update(var_key_lst.get("preset_write_asset", {}))
 
-    install_phcli = 'pip3 install phcli==2.0.5'
-    print(install_phcli)
-    print(subprocess.check_output(install_phcli, shell=True,
-                                  stderr=subprocess.STDOUT).decode("utf-8"))
+    install_phcli = 'pip3 install phcli==2.0.6'
+    process_cmd(install_phcli)
 
     exec_phcli_submit = 'phcli maxauto online_run --group extract_data --name preset_write_asset ' \
         '--owner "{}" --run_id "{}" --job_id "{}" --context "{}" "{}"'.format(
             str(owner), str(run_id), str(job_id), str(params), str(args))
-    print(exec_phcli_submit)
-    print(subprocess.check_output(exec_phcli_submit,
-                                  shell=True, stderr=subprocess.STDOUT).decode("utf-8"))
+    process_cmd(exec_phcli_submit)
 
     # key = ti.xcom_pull(task_ids='test', key='key').decode("UTF-8")
     # ti.xcom_push(key="key", value=key)
@@ -203,17 +206,13 @@ def extract_data_email_cmd(**context):
     params = var_key_lst.get("common", {})
     params.update(var_key_lst.get("extract_data_email", {}))
 
-    install_phcli = 'pip3 install phcli==2.0.5'
-    print(install_phcli)
-    print(subprocess.check_output(install_phcli, shell=True,
-                                  stderr=subprocess.STDOUT).decode("utf-8"))
+    install_phcli = 'pip3 install phcli==2.0.6'
+    process_cmd(install_phcli)
 
     exec_phcli_submit = 'phcli maxauto online_run --group extract_data --name extract_data_email ' \
         '--owner "{}" --run_id "{}" --job_id "{}" --context "{}" "{}"'.format(
             str(owner), str(run_id), str(job_id), str(params), str(args))
-    print(exec_phcli_submit)
-    print(subprocess.check_output(exec_phcli_submit,
-                                  shell=True, stderr=subprocess.STDOUT).decode("utf-8"))
+    process_cmd(exec_phcli_submit)
 
     # key = ti.xcom_pull(task_ids='test', key='key').decode("UTF-8")
     # ti.xcom_push(key="key", value=key)
@@ -259,17 +258,13 @@ def extract_data_packaging_cmd(**context):
     params = var_key_lst.get("common", {})
     params.update(var_key_lst.get("extract_data_packaging", {}))
 
-    install_phcli = 'pip3 install phcli==2.0.5'
-    print(install_phcli)
-    print(subprocess.check_output(install_phcli, shell=True,
-                                  stderr=subprocess.STDOUT).decode("utf-8"))
+    install_phcli = 'pip3 install phcli==2.0.6'
+    process_cmd(install_phcli)
 
     exec_phcli_submit = 'phcli maxauto online_run --group extract_data --name extract_data_packaging ' \
                         '--owner "{}" --run_id "{}" --job_id "{}" --context "{}" "{}"'.format(
                             str(owner), str(run_id), str(job_id), str(params), str(args))
-    print(exec_phcli_submit)
-    print(subprocess.check_output(exec_phcli_submit,
-                                  shell=True, stderr=subprocess.STDOUT).decode("utf-8"))
+    process_cmd(exec_phcli_submit)
 
     # key = ti.xcom_pull(task_ids='test', key='key').decode("UTF-8")
     # ti.xcom_push(key="key", value=key)
