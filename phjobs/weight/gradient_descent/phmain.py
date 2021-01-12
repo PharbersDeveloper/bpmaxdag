@@ -21,6 +21,7 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--learning_rate')
 @click.option('--max_iteration')
 @click.option('--gradient_type')
+@click.option('--test')
 @click.option('--c')
 @click.option('--d')
 def debug_execute(**kwargs):

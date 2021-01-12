@@ -75,19 +75,35 @@ def execute(**kwargs):
     learning_rate = kwargs["learning_rate"]
     max_iteration = kwargs["max_iteration"]
     gradient_type = kwargs["gradient_type"]
+    test = kwargs["test"]
     
-    logger.info(market_city_brand)
-    logger.info(market_city_brand.replace('\\', ''))
-    market_city_brand = market_city_brand.replace('\\', '')
-    
+    if test != "False" and test != "True":
+        logger.info('wrong input: test, False or True') 
+        raise ValueError('wrong input: test, False or True')
+        
     lmda = float(lmda)
     learning_rate = int(learning_rate)
     max_iteration = int(max_iteration)
-    market_city_brand = json.loads(market_city_brand)
+    # market_city_brand = json.loads(market_city_brand)
     universe_path = max_path + '/' + project_name + '/universe_base'
+
+    market_city_brand_dict={}
+    for each in market_city_brand.replace(" ","").split(","):
+        market_name = each.split(":")[0]
+        if market_name not in market_city_brand_dict.keys():
+            market_city_brand_dict[market_name]={}
+        city_brand = each.split(":")[1]
+        for each in city_brand.replace(" ","").split("|"): 
+            city = each.split("_")[0]
+            brand = each.split("_")[1]
+            market_city_brand_dict[market_name][city]=brand
+    logger.info(market_city_brand_dict)
     
     # 输出
-    weight_path = max_path + '/' + project_name + '/weight/PHA_weight'
+    if test == "False":
+        weight_path = max_path + '/' + project_name + '/PHA_weight'
+    else:
+        weight_path = max_path + '/' + project_name + '/weight/PHA_weight'
     
     # ==========  数据执行  ============
     
@@ -245,7 +261,7 @@ def execute(**kwargs):
     # ====  三. 数据分析  ====
     
     # 每个市场 进行分析
-    market_list = list(market_city_brand.keys())
+    market_list = list(market_city_brand_dict.keys())
     index = 0
     for market in market_list:
         # 输入文件
@@ -259,7 +275,7 @@ def execute(**kwargs):
         df_weight_path = max_path + '/' + project_name + '/weight/' + market + '_weight_raw_out'
         
         # 1. 该市场所需要的分析的城市
-        city_brand_dict = market_city_brand[market]
+        city_brand_dict = market_city_brand_dict[market]
         city_list = list(city_brand_dict.keys())
         
         # 2. 利用ims_sales_gr，生成每个城市 top 产品的 'gr','share','share_ly' 字典

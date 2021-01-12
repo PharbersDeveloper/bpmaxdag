@@ -26,7 +26,7 @@ spec:
       - key: minimum_product_sep
         value: "|"
       - key: market_city_brand
-        value: '{"思则凯":{"福厦泉":4}\}'
+        value: "思则凯:福厦泉_4|北京市_5,雪诺同:福厦泉_4"
       - key: universe_choice
         value: "雪诺同:universe_生殖, 思则凯:universe_生殖"
     outputs:

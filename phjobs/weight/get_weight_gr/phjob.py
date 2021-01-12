@@ -76,8 +76,6 @@ def execute(**kwargs):
     universe_choice = kwargs["universe_choice"]
     
     logger.info(market_city_brand)
-    logger.info(market_city_brand.replace('\\', ''))
-    market_city_brand = market_city_brand.replace('\\', '')
 
     year_list=['2018', '2019']
     universe_choice_dict={}
@@ -87,8 +85,22 @@ def execute(**kwargs):
             universe_name = each.split(":")[1]
             universe_choice_dict[market_name]=universe_name
     	 
-    market_city_brand = json.loads(market_city_brand)
+    # market_city_brand_dict = json.loads(market_city_brand)
     minimum_product_columns = minimum_product_columns.replace(" ","").split(",")
+    if minimum_product_sep == "kong":
+        minimum_product_sep = ""
+        
+    market_city_brand_dict={}
+    for each in market_city_brand.replace(" ","").split(","):
+        market_name = each.split(":")[0]
+        if market_name not in market_city_brand_dict.keys():
+            market_city_brand_dict[market_name]={}
+        city_brand = each.split(":")[1]
+        for each in city_brand.replace(" ","").split("|"): 
+            city = each.split("_")[0]
+            brand = each.split("_")[1]
+            market_city_brand_dict[market_name][city]=brand
+    logger.info(market_city_brand_dict)
     
     id_bedsize_path = max_path + '/' + '/Common_files/ID_Bedsize'
     universe_path = max_path + '/' + project_name + '/universe_base'
@@ -231,6 +243,8 @@ def execute(**kwargs):
     raw_data2 = raw_data2.join(cpa_pha_mapping, on='ID', how='left')
     raw_data2 = raw_data2.join(universe.select("PHA", "Province", "City").distinct(), on='PHA', how='left')
     
+    raw_data2 = raw_data2.withColumn('标准商品名', func.when(col('标准商品名').isNull(), col('通用名')).otherwise(col('标准商品名')))
+    
     # 8. ims 数据
     ims_sales = spark.read.csv(ims_sales_path, header=True)
     
@@ -250,7 +264,7 @@ def execute(**kwargs):
     
     # ====  三. 每个市场分析  ==== 
     	   
-    market_list = list(market_city_brand.keys())
+    market_list = list(market_city_brand_dict.keys())
     
     for market in market_list:
         # 输入文件
@@ -369,7 +383,7 @@ def execute(**kwargs):
         
         # 3. 需要优化的城市数据
         # 城市列表
-        city_brand_dict = market_city_brand[market]
+        city_brand_dict = market_city_brand_dict[market]
         city_list = list(city_brand_dict.keys())
         
         # %% 观察放大结果
