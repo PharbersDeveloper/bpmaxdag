@@ -4,7 +4,7 @@ This is job template for Pharbers Max Job
 """
 
 import pandas as pd
-from ph_logs.ph_logs import phlogger
+from phcli.ph_logs.ph_logs import phs3logger
 import os
 from pyspark.sql import SparkSession
 from pyspark.sql.types import *
@@ -19,6 +19,7 @@ import math
 import json
 
 def execute(max_path, project_name, out_path, out_dir, model_month_right, model_month_left, current_year, current_month, first_month):
+    logger = phs3logger()
     os.environ["PYSPARK_PYTHON"] = "python3"
     spark = SparkSession.builder \
         .master("yarn") \
@@ -199,7 +200,7 @@ def execute(max_path, project_name, out_path, out_dir, model_month_right, model_
         else:
             dict_near_hosp_non_vbp_sku += "," + each[1:-1]
     near_hosp_non_vbp_sku  = json.loads(dict_near_hosp_non_vbp_sku)
-    phlogger.info("near_hosp_non_vbp_sku")
+    logger.info("near_hosp_non_vbp_sku")
     
     # data_mnc
     df_near_hosp_mnc_sku = spark.read.parquet(df_near_hosp_mnc_sku_path)
@@ -219,7 +220,7 @@ def execute(max_path, project_name, out_path, out_dir, model_month_right, model_
             dict_near_hosp_mnc_sku += "," + each[1:-1]
     near_hosp_mnc_sku  = json.loads(dict_near_hosp_mnc_sku)
     
-    phlogger.info("near_hosp_mnc_sku")
+    logger.info("near_hosp_mnc_sku")
     
     '''
     PART 3
@@ -317,7 +318,7 @@ def execute(max_path, project_name, out_path, out_dir, model_month_right, model_
         .mode("overwrite").save(result_ma_path)
     result_ma = spark.read.parquet(result_ma_path)
     
-    phlogger.info("result_ma")
+    logger.info("result_ma")
     
     # =========== NHospImpute =========== 
     # %% nn
@@ -390,7 +391,7 @@ def execute(max_path, project_name, out_path, out_dir, model_month_right, model_
         .mode("overwrite").save(result_non_vbp_path)
     result_non_vbp = spark.read.parquet(result_non_vbp_path)
     
-    phlogger.info("result_non_vbp")
+    logger.info("result_non_vbp")
     
     # %% MNC
     data_mnc = data_mnc.withColumn("pfc", data_mnc.pfc.cast(StringType()))
@@ -422,4 +423,4 @@ def execute(max_path, project_name, out_path, out_dir, model_month_right, model_
     result_vbp.write.format("parquet") \
         .mode("overwrite").save(result_vbp_path)
     
-    phlogger.info("result_vbp")
+    logger.info("result_vbp")

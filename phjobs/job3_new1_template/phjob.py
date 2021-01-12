@@ -3,7 +3,7 @@
 This is job template for Pharbers Max Job
 """
 import pandas as pd
-from ph_logs.ph_logs import phlogger
+from phcli.ph_logs.ph_logs import phs3logger
 import os
 from pyspark.sql import SparkSession
 from pyspark.sql.types import *
@@ -17,6 +17,7 @@ from scipy.spatial import distance
 import math
 
 def execute(max_path, project_name, out_path, out_dir, current_year, current_month):
+    logger = phs3logger()
     os.environ["PYSPARK_PYTHON"] = "python3"
     spark = SparkSession.builder \
         .master("yarn") \

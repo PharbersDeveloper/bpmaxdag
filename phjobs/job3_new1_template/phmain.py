@@ -17,6 +17,6 @@ import click
 @click.option('--a')
 @click.option('--b')
 def debug_execute(owner, run_id, job_id, a, b, max_path, project_name, out_path, out_dir, current_year, current_month):
-	execute(max_path, project_name, out_path, out_dir, current_year, current_month)
+    execute(max_path, project_name, out_path, out_dir, current_year, current_month)
 if __name__ == '__main__':
     debug_execute()
