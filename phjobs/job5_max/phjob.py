@@ -3,7 +3,7 @@
 
 This is job template for Pharbers Max Job
 """
-from ph_logs.ph_logs import phlogger
+from phcli.ph_logs.ph_logs import phs3logger
 from pyspark.sql import SparkSession
 from pyspark.sql.types import *
 from pyspark.sql.types import StringType, IntegerType, DoubleType

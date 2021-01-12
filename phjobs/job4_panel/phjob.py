@@ -3,7 +3,7 @@
 
 This is job template for Pharbers Max Job
 """
-from ph_logs.ph_logs import phlogger
+from phcli.ph_logs.ph_logs import phs3logger
 import os
 import pandas as pd
 
@@ -15,6 +15,7 @@ from pyspark.sql import functions as func
 
 def execute(max_path, project_name, model_month_left, model_month_right, if_others, current_year, current_month, 
 paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_union, out_path, out_dir, need_test, add_47):
+    logger = phs3logger()
     os.environ["PYSPARK_PYTHON"] = "python3"
     spark = SparkSession.builder \
         .master("yarn") \
@@ -36,7 +37,7 @@ paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_uni
         # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
         spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
 
-    phlogger.info('job4_panel')
+    logger.info('job4_panel')
     
     if if_others == "True":
         out_dir = out_dir + "/others_box/"
@@ -54,12 +55,12 @@ paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_uni
         panel_for_union_path = "Empty"
     
     if add_47 != "False" and add_47 != "True":
-        phlogger.error('wrong input: add_47, False or True') 
+        logger.error('wrong input: add_47, False or True') 
         raise ValueError('wrong input: add_47, False or True')
         
     # 月更新相关输入
     if monthly_update != "False" and monthly_update != "True":
-        phlogger.error('wrong input: monthly_update, False or True') 
+        logger.error('wrong input: monthly_update, False or True') 
         raise ValueError('wrong input: monthly_update, False or True')
     if monthly_update == "False":
         Notarrive_unpublished_paths = paths_foradding.replace(", ",",").split(",")
@@ -84,7 +85,7 @@ paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_uni
         panel_path = out_path_dir + "/panel_result"
 
     # =========== 数据检查 =============
-    phlogger.info('数据检查-start')
+    logger.info('数据检查-start')
 
     # 存储文件的缺失列
     misscols_dict = {}
@@ -129,14 +130,14 @@ paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_uni
             misscols_dict_final[eachfile] = misscols_dict[eachfile]
     # 如果有缺失列，则报错，停止运行
     if misscols_dict_final:
-        phlogger.error('miss columns: %s' % (misscols_dict_final))
+        logger.error('miss columns: %s' % (misscols_dict_final))
         raise ValueError('miss columns: %s' % (misscols_dict_final))
 
-    phlogger.info('数据检查-Pass')
+    logger.info('数据检查-Pass')
 
     # =========== 数据执行 =============
 
-    phlogger.info('数据执行-start')
+    logger.info('数据执行-start')
 
     # read_universe
     universe = spark.read.parquet(universe_path)
@@ -308,14 +309,14 @@ paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_uni
     panel_filtered.write.format("parquet") \
         .mode("overwrite").save(panel_path)
 
-    phlogger.info("输出 panel_filtered 结果：" + panel_path)
+    logger.info("输出 panel_filtered 结果：" + panel_path)
 
-    phlogger.info('数据执行-Finish')
+    logger.info('数据执行-Finish')
 
     # =========== 数据验证 =============
     # 与原R流程运行的结果比较正确性: Sanofi与Sankyo测试通过
     if int(need_test) > 0:
-        phlogger.info('数据验证-start')
+        logger.info('数据验证-start')
 
         my_out = spark.read.parquet(panel_path)
         
@@ -339,19 +340,19 @@ paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_uni
         for colname, coltype in R_out.dtypes:
             # 列是否缺失
             if colname not in my_out.columns:
-                phlogger.warning ("miss columns:", colname)
+                logger.warning ("miss columns:", colname)
             else:
                 # 数据类型检查
                 if my_out.select(colname).dtypes[0][1] != coltype:
-                    phlogger.warning("different type columns: " + colname + ", " + my_out.select(colname).dtypes[0][1] + ", " + "right type: " + coltype)
+                    logger.warning("different type columns: " + colname + ", " + my_out.select(colname).dtypes[0][1] + ", " + "right type: " + coltype)
                 # 数值列的值检查
                 if coltype == "double" or coltype == "int":
                     sum_my_out = my_out.groupBy().sum(colname).toPandas().iloc[0, 0]
                     sum_R = R_out.groupBy().sum(colname).toPandas().iloc[0, 0]
-                    # phlogger.info(colname, sum_raw_data, sum_R)
+                    # logger.info(colname, sum_raw_data, sum_R)
                     if (sum_my_out - sum_R) != 0:
-                        phlogger.warning("different value(sum) columns: " + colname + ", " + str(sum_my_out) + ", " + "right value: " + str(sum_R))
+                        logger.warning("different value(sum) columns: " + colname + ", " + str(sum_my_out) + ", " + "right value: " + str(sum_R))
 
-        phlogger.info('数据验证-Finish')
+        logger.info('数据验证-Finish')
 
 

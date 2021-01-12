@@ -3,7 +3,7 @@
 This is job template for Pharbers Max Job
 """
 
-from ph_logs.ph_logs import phlogger
+from phcli.ph_logs.ph_logs import phs3logger
 from pyspark.sql import SparkSession
 from pyspark.sql.types import *
 from pyspark.sql.types import StringType, IntegerType, DoubleType
@@ -12,6 +12,7 @@ import os
 from pyspark.sql.functions import pandas_udf, PandasUDFType
 
 def execute(max_path, extract_path, project_name, max_path_list, out_dir):
+    logger = phs3logger()
     os.environ["PYSPARK_PYTHON"] = "python3"
     spark = SparkSession.builder \
         .master("yarn") \
@@ -84,7 +85,7 @@ def execute(max_path, extract_path, project_name, max_path_list, out_dir):
             misscols_dict_final[eachfile] = misscols_dict[eachfile]
     # 如果有缺失列，则报错，停止运行
     if misscols_dict_final:
-        phlogger.error('miss columns: %s' % (misscols_dict_final))
+        logger.error('miss columns: %s' % (misscols_dict_final))
         raise ValueError('miss columns: %s' % (misscols_dict_final))
     
     # ========== 数据 mapping =========

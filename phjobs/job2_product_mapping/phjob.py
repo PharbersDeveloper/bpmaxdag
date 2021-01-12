@@ -3,7 +3,7 @@
 
 This is job template for Pharbers Max Job
 """
-from ph_logs.ph_logs import phlogger
+from phcli.ph_logs.ph_logs import phs3logger
 import os
 from pyspark.sql import SparkSession
 from pyspark.sql.types import *
@@ -11,6 +11,7 @@ from pyspark.sql.types import StringType, IntegerType
 from pyspark.sql import functions as func
 
 def execute(max_path, project_name, minimum_product_columns, minimum_product_sep, minimum_product_newname, need_cleaning_cols, if_others, out_path, out_dir, need_test):
+    logger = phs3logger()
     os.environ["PYSPARK_PYTHON"] = "python3"
     spark = SparkSession.builder \
         .master("yarn") \
@@ -32,7 +33,7 @@ def execute(max_path, project_name, minimum_product_columns, minimum_product_sep
         # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
         spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
 
-    phlogger.info('job2_product_mapping')
+    logger.info('job2_product_mapping')
     
     # 注意：
     # Mylan不做Brand判断，写死了
@@ -55,7 +56,7 @@ def execute(max_path, project_name, minimum_product_columns, minimum_product_sep
     need_cleaning_path = out_path_dir + "/need_cleaning"
 
     # =========== 数据检查 =============
-    phlogger.info('数据检查-start')
+    logger.info('数据检查-start')
 
     # 存储文件的缺失列
     misscols_dict = {}
@@ -84,13 +85,13 @@ def execute(max_path, project_name, minimum_product_columns, minimum_product_sep
             misscols_dict_final[eachfile] = misscols_dict[eachfile]
     # 如果有缺失列，则报错，停止运行
     if misscols_dict_final:
-        phlogger.error('miss columns: %s' % (misscols_dict_final))
+        logger.error('miss columns: %s' % (misscols_dict_final))
         raise ValueError('miss columns: %s' % (misscols_dict_final))
 
-    phlogger.info('数据检查-Pass')
+    logger.info('数据检查-Pass')
 
     # =========== 数据执行 =============
-    phlogger.info('数据执行-start')
+    logger.info('数据执行-start')
 
     # raw_data_job1_out_path = "/user/ywyuan/max/Sankyo/raw_data_job1_out"
     raw_data = spark.read.parquet(hospital_mapping_out_path)
@@ -144,13 +145,13 @@ def execute(max_path, project_name, minimum_product_columns, minimum_product_sep
     need_cleaning = raw_data.join(product_map_for_needclean, on="min1", how="left_anti") \
         .select(need_cleaning_cols) \
         .distinct()
-    phlogger.info('待清洗行数: ' + str(need_cleaning.count()))
+    logger.info('待清洗行数: ' + str(need_cleaning.count()))
 
     if need_cleaning.count() > 0:
         need_cleaning = need_cleaning.repartition(2)
         need_cleaning.write.format("parquet") \
             .mode("overwrite").save(need_cleaning_path)
-        phlogger.info("已输出待清洗文件至:  " + need_cleaning_path)
+        logger.info("已输出待清洗文件至:  " + need_cleaning_path)
 
     raw_data = raw_data.join(product_map_for_rawdata, on="min1", how="left") \
         .drop("S_Molecule") \
@@ -160,14 +161,14 @@ def execute(max_path, project_name, minimum_product_columns, minimum_product_sep
     product_mapping_out.write.format("parquet") \
         .mode("overwrite").save(product_mapping_out_path)
 
-    phlogger.info("输出 product_mapping 结果：" + product_mapping_out_path)
+    logger.info("输出 product_mapping 结果：" + product_mapping_out_path)
 
-    phlogger.info('数据执行-Finish')
+    logger.info('数据执行-Finish')
 
     # =========== 数据验证 =============
     # 与原R流程运行的结果比较正确性
     if int(need_test) > 0:
-        phlogger.info('数据验证-start')
+        logger.info('数据验证-start')
 
         my_out = raw_data
 
@@ -183,21 +184,21 @@ def execute(max_path, project_name, minimum_product_columns, minimum_product_sep
         for colname, coltype in R_out.dtypes:
             # 列是否缺失
             if colname not in my_out.columns:
-                phlogger.warning ("miss columns:", colname)
+                logger.warning ("miss columns:", colname)
             else:
                 # 数据类型检查
                 if my_out.select(colname).dtypes[0][1] != coltype:
-                    phlogger.warning("different type columns: " + colname + ", " + my_out.select(colname).dtypes[0][1] + ", " + "right type: " + coltype)
+                    logger.warning("different type columns: " + colname + ", " + my_out.select(colname).dtypes[0][1] + ", " + "right type: " + coltype)
 
                 # 数值列的值检查
                 if coltype == "double" or coltype == "int":
                     sum_my_out = my_out.groupBy().sum(colname).toPandas().iloc[0, 0]
                     sum_R = R_out.groupBy().sum(colname).toPandas().iloc[0, 0]
-                    # phlogger.info(colname, sum_raw_data, sum_R)
+                    # logger.info(colname, sum_raw_data, sum_R)
                     if (sum_my_out - sum_R) != 0:
-                        phlogger.warning("different value(sum) columns: " + colname + ", " + str(sum_my_out) + ", " + "right value: " + str(sum_R))
+                        logger.warning("different value(sum) columns: " + colname + ", " + str(sum_my_out) + ", " + "right value: " + str(sum_R))
 
-        phlogger.info('数据验证-Finish')
+        logger.info('数据验证-Finish')
 
     # =========== return =============
     return raw_data

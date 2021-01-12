@@ -3,7 +3,7 @@
 
 This is job template for Pharbers Max Job
 """
-from ph_logs.ph_logs import phlogger
+from phcli.ph_logs.ph_logs import phs3logger
 import os
 from pyspark.sql import SparkSession
 from pyspark.sql.types import *
@@ -12,6 +12,8 @@ from pyspark.sql import functions as func
 
 
 def execute(max_path, project_name, cpa_gyc, if_others, out_path, out_dir, auto_max, need_test):
+    logger = phs3logger()
+    
     os.environ["PYSPARK_PYTHON"] = "python3"    
     if auto_max == "False":
         raise ValueError('auto_max: False 非自动化')
@@ -38,11 +40,11 @@ def execute(max_path, project_name, cpa_gyc, if_others, out_path, out_dir, auto_
         # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
         spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
 
-    phlogger.info('job1_hospital_mapping')
+    logger.info('job1_hospital_mapping')
 
     # 输入
     if if_others != "False" and if_others != "True":
-        phlogger.error('wrong input: if_others, False or True') 
+        logger.error('wrong input: if_others, False or True') 
         raise ValueError('wrong input: if_others, False or True')
         
     universe_path = max_path + "/" + project_name + "/universe_base"
@@ -58,7 +60,7 @@ def execute(max_path, project_name, cpa_gyc, if_others, out_path, out_dir, auto_
     hospital_mapping_out_path = out_path + "/" + project_name + "/" + out_dir  + "/hospital_mapping_out"
 
     # =========== 数据检查 =============
-    phlogger.info('数据检查-start')
+    logger.info('数据检查-start')
 
     # 存储文件的缺失列
     misscols_dict = {}
@@ -122,13 +124,13 @@ def execute(max_path, project_name, cpa_gyc, if_others, out_path, out_dir, auto_
             misscols_dict_final[eachfile] = misscols_dict[eachfile]
     # 如果有缺失列，则报错，停止运行
     if misscols_dict_final:
-        phlogger.error('miss columns: %s' % (misscols_dict_final))
+        logger.error('miss columns: %s' % (misscols_dict_final))
         raise ValueError('miss columns: %s' % (misscols_dict_final))
 
-    phlogger.info('数据检查-Pass')
+    logger.info('数据检查-Pass')
 
     # =========== 数据执行 =============
-    phlogger.info('数据执行-start')
+    logger.info('数据执行-start')
 
     # 1. 首次补数
 
@@ -227,14 +229,14 @@ def execute(max_path, project_name, cpa_gyc, if_others, out_path, out_dir, auto_
     hospital_mapping_out.write.format("parquet") \
         .mode("overwrite").save(hospital_mapping_out_path)
 
-    phlogger.info("输出 hospital_mapping 结果：" + hospital_mapping_out_path)
+    logger.info("输出 hospital_mapping 结果：" + hospital_mapping_out_path)
 
-    phlogger.info('数据执行-Finish')
+    logger.info('数据执行-Finish')
 
     # =========== 数据验证 =============
 
     if int(need_test) > 0:
-        phlogger.info('数据验证-start')
+        logger.info('数据验证-start')
 
         my_out = raw_data
 
@@ -251,21 +253,21 @@ def execute(max_path, project_name, cpa_gyc, if_others, out_path, out_dir, auto_
         for colname, coltype in R_out.dtypes:
             # 列是否缺失
             if colname not in my_out.columns:
-                phlogger.warning ("miss columns:", colname)
+                logger.warning ("miss columns:", colname)
             else:
                 # 数据类型检查
                 if my_out.select(colname).dtypes[0][1] != coltype:
-                    phlogger.warning("different type columns: " + colname + ", " + my_out.select(colname).dtypes[0][1] + ", " + "right type: " + coltype)
+                    logger.warning("different type columns: " + colname + ", " + my_out.select(colname).dtypes[0][1] + ", " + "right type: " + coltype)
 
                 # 数值列的值检查
                 if coltype == "double" or coltype == "int":
                     sum_my_out = my_out.groupBy().sum(colname).toPandas().iloc[0, 0]
                     sum_R = R_out.groupBy().sum(colname).toPandas().iloc[0, 0]
-                    # phlogger.info(colname, sum_raw_data, sum_R)
+                    # logger.info(colname, sum_raw_data, sum_R)
                     if (sum_my_out - sum_R) != 0:
-                        phlogger.warning("different value(sum) columns: " + colname + ", " + str(sum_my_out) + ", " + "right value: " + str(sum_R))
+                        logger.warning("different value(sum) columns: " + colname + ", " + str(sum_my_out) + ", " + "right value: " + str(sum_R))
 
-        phlogger.info('数据验证-Finish')
+        logger.info('数据验证-Finish')
 
     # =========== return =============
     return raw_data

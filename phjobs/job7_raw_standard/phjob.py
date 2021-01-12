@@ -3,7 +3,7 @@
 This is job template for Pharbers Max Job
 """
 
-from ph_logs.ph_logs import phlogger
+from phcli.ph_logs.ph_logs import phs3logger
 from pyspark.sql import SparkSession
 from pyspark.sql.types import *
 from pyspark.sql.types import StringType, IntegerType, DoubleType
@@ -12,6 +12,7 @@ import os
 from pyspark.sql.functions import pandas_udf, PandasUDFType
 
 def execute(max_path, extract_path, project_name, if_two_source, out_dir, minimum_product_sep, minimum_product_columns):
+    logger = phs3logger()
     os.environ["PYSPARK_PYTHON"] = "python3"
     spark = SparkSession.builder \
         .master("yarn") \
