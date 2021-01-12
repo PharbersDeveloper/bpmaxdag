@@ -10,21 +10,23 @@ spec:
   containers:
     repository: local
     runtime: python3
+    command: "submit"
+    timeout: 720.0
     code: phmain.py
     config: phconf.yaml
     args:
       - key: max_path
         value: 's3a://ph-max-auto/v0.0.1-2020-06-08/'
       - key: project_name
-        value: 'Eisai'
+        value: 'Empty'
       - key: outdir
-        value: '202009'
+        value: 'Empty'
       - key: model_month_right
-        value: '201912'
+        value: 'Empty'
       - key: model_month_left
-        value: '201901'
+        value: 'Empty'
       - key: all_models
-        value: '固力康'
+        value: 'Empty'
       - key: universe_choice
         value: 'Empty'
       - key: rf_ntree

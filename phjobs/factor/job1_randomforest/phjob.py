@@ -4,7 +4,7 @@
 This is job template for Pharbers Max Job
 """
 
-from ph_logs.ph_logs import phs3logger
+from phcli.ph_logs.ph_logs import phs3logger
 from pyspark.sql import SparkSession, Window
 from pyspark.sql.types import *
 from pyspark.sql.types import StringType, IntegerType, DoubleType
@@ -155,7 +155,7 @@ def execute(**kwargs):
     # market = '固力康'
     
     for market in all_models:
-        print("当前market为:" + str(market))
+        logger.info("当前market为:" + str(market))
         # 输入
         if market in universe_choice_dict.keys():
             universe_path = max_path + '/' + project_name + '/' + universe_choice_dict[market]
@@ -244,7 +244,7 @@ def execute(**kwargs):
         
         # 2.5 ===  随机森林 ===
         # 1. 数据准备
-        print("RandomForest：data prepare")
+        logger.info("RandomForest：data prepare")
         not_features_cols = ["PHA_ID", "Province", "Prefecture", "Specialty_1", "Specialty_2", "Specialty_3", "DOI", "Sales", "flag_model"]
         features_str_cols = ['Hosp_level', 'Region', 'respailty', 'Re_Speialty', 'City_Tier_2010']
         features_cols = list(set(trn.columns) -set(not_features_cols)- set(features_str_cols) - set('v'))
@@ -268,13 +268,14 @@ def execute(**kwargs):
         data = data_for_forest(trn)
         
         # 2. 随机森林模型
-        print("RandomForest：model")
+        logger.info("RandomForest：model")
         rf = RandomForestRegressor(labelCol="label", featuresCol="indexedFeatures", 
                 numTrees=500, minInstancesPerNode=5, maxDepth=8)
         # numTrees=100, minInstancesPerNode=2, maxDepth=8
         model = rf.fit(data)
         
         # 特征重要性
+        logger.info("RandomForest：importances")
         dp = model.featureImportances
         dendp = DenseVector(dp)
         df_importances = pd.DataFrame(dendp.array)
@@ -289,7 +290,7 @@ def execute(**kwargs):
     
         
         # 3. 对 modeldata预测
-        print("RandomForest：predict result")
+        logger.info("RandomForest：predict result")
         result = data_for_forest(modeldata)  
         result = result.withColumn('DOI', func.lit(market))
         result = model.transform(result)
@@ -304,6 +305,8 @@ def execute(**kwargs):
         result = result.repartition(1)
         result.write.format("parquet") \
                 .mode("overwrite").save(result_path)
+        
+        logger.info("RandomForest：finish")
                 
         # 4. 评价模型（5次随机森林，计算nmse）
         '''

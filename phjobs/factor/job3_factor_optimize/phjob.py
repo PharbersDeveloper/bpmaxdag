@@ -4,8 +4,7 @@
 This is job template for Pharbers Max Job
 """
 
-from ph_logs.ph_logs import phs3logger
-from ph_logs.ph_logs import phs3logger
+from phcli.ph_logs.ph_logs import phs3logger
 from pyspark.sql import SparkSession, Window
 from pyspark.sql.types import *
 from pyspark.sql.types import StringType, IntegerType, DoubleType
@@ -84,7 +83,7 @@ def execute(**kwargs):
     product_map_path = max_path + '/' + project_name + '/' + outdir + '/prod_mapping'
     
     # =========== 数据执行 ============
-    
+    logger.info("job3_factor_optimize")
     # 1. max 文件处理
     max_result = spark.read.parquet(max_result_path)
     max_result = max_result.where((col('Date') >= model_month_left) & (col('Date') <= model_month_right))
@@ -141,7 +140,7 @@ def execute(**kwargs):
     # 3. 对每个市场优化factor
     # market = '固力康'
     for market in all_models:
-        print(market)
+        logger.info("当前market为:" + str(market))
         # 输入
         ims_info_path = max_path + '/' + project_name + '/ims_info/' +  market + '_ims_info'
         factor_path = max_path + '/' + project_name + '/forest/' + market + '_factor_1'
@@ -269,6 +268,7 @@ def execute(**kwargs):
             ims_panel_max = ims_panel_max.withColumn('panel_Sales_3', func.lit(0))
             
         # 3.4 优化 
+        logger.info("cvxpy优化")
         schema = deepcopy(ims_panel_max.schema)
         schema.add("factor", DoubleType())
         @pandas_udf(schema, PandasUDFType.GROUPED_MAP)
@@ -345,5 +345,6 @@ def execute(**kwargs):
         factor3 = factor3.repartition(1)
         factor3.write.format("parquet") \
                 .mode("overwrite").save(factor_out_path)
+        logger.info("finish:" + str(market))
                 
     return {}

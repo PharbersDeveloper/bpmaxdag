@@ -4,7 +4,7 @@
 This is job template for Pharbers Max Job
 """
 
-from ph_logs.ph_logs import phs3logger
+from phcli.ph_logs.ph_logs import phs3logger
 from pyspark.sql import SparkSession, Window
 from pyspark.sql.types import *
 from pyspark.sql.types import StringType, IntegerType, DoubleType
@@ -77,7 +77,7 @@ def execute(**kwargs):
     #panel_result_path = max_path + '/' + project_name + '/' + outdir + '/panel_result'
     
     # =========== 数据执行 ============
-    
+    logger.info("job2_factor_raw")
     mkt_mapping = spark.read.parquet(mkt_mapping_path)
     universe = spark.read.parquet(universe_path)
     
@@ -89,6 +89,7 @@ def execute(**kwargs):
     
     # 每个市场算 factor
     for market in all_models:
+        logger.info("当前market为:" + str(market))
         #market = '固力康'
         # 输入
         rf_out_path = max_path + '/' + project_name + '/forest/' + market + '_rf_result'
@@ -135,5 +136,5 @@ def execute(**kwargs):
         factor_out = factor_out.repartition(1)
         factor_out.write.format("parquet") \
                 .mode("overwrite").save(factor1_path)
-    
+        logger.info("finish:" + str(market))
     return {}
