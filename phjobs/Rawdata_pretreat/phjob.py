@@ -3,7 +3,7 @@
 This is job template for Pharbers Max Job
 """
 
-from ph_logs.ph_logs import phlogger
+from phcli.ph_logs.ph_logs import phs3logger
 from pyspark.sql import SparkSession, Window
 from pyspark.sql.types import *
 from pyspark.sql.types import StringType, IntegerType, DoubleType
@@ -83,14 +83,15 @@ raw_data_path, if_union, test, auto_max):
         phlogger.error('wrong input: test, False or True') 
         raise ValueError('wrong input: test, False or True')
     
-    if test == 'True':
+    if test == 'False':
+        all_raw_data_path = max_path + '/' + project_name + '/' + outdir + '/raw_data'
+        if if_two_source == 'True':
+            all_raw_data_std_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_std'        
+    else:
         all_raw_data_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_check/raw_data'
         if if_two_source == 'True':
             all_raw_data_std_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_check/raw_data_std'
-    else:
-        all_raw_data_path = max_path + '/' + project_name + '/' + outdir + '/raw_data'
-        if if_two_source == 'True':
-            all_raw_data_std_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_std'
+
     
     
     # =============  数据执行 ==============
