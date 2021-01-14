@@ -253,6 +253,7 @@ def load_interfere_mapping(spark, human_replace_packid_path):
 						 .withColumnRenamed("PACK_ID", "PACK_ID_INTERFERE")
 	 return df_interfere
 
+
 """
 读取剂型替换表
 """
@@ -276,9 +277,9 @@ def human_interfere(spark, df_cleanning, df_interfere):
 							"MOLE_NAME_INTERFERE": "unknown",
 							"PRODUCT_NAME_INTERFERE": "unknown",
 							"SPEC_INTERFERE": "unknown",
-									  "DOSAGE_INTERFERE": "unknown",
-									  "PACK_QTY_INTERFERE": "unknown",
-									  "MANUFACTURER_NAME_INTERFERE": "unknown"})
+							"DOSAGE_INTERFERE": "unknown",
+							"PACK_QTY_INTERFERE": "unknown",
+							"MANUFACTURER_NAME_INTERFERE": "unknown"})
 
 	 df_cleanning = df_cleanning.withColumn("MOLE_NAME", interfere_replace_udf(df_cleanning.MOLE_NAME, df_cleanning.MOLE_NAME_INTERFERE)) \
 					.withColumn("PRODUCT_NAME", interfere_replace_udf(df_cleanning.PRODUCT_NAME, df_cleanning.PRODUCT_NAME_INTERFERE)) \
@@ -293,11 +294,13 @@ def human_interfere(spark, df_cleanning, df_interfere):
 
 	 return df_cleanning
 
+
 @udf(returnType=StringType())
 def interfere_replace_udf(origin, interfere):
 	if interfere != "unknown":
 		origin = interfere
 	return origin
+
 
 """
 规格列规范
@@ -355,6 +358,7 @@ def efftiveness_with_jaccard_distance(mo, ms, po, ps):
 	df["PACK_JD"] = df.apply(lambda x: jd(set(x["PACK_QTY"].replace(".0", "")), set(x["PACK_QTY_STANDARD"].replace(".0", ""))), axis=1)
 	df["RESULT"] = df.apply(lambda x: [x["MOLE_JD"], x["PACK_JD"]], axis=1)
 	return df["RESULT"]
+
 
 """
 	由于Edit Distance不是一个相似度算法，当你在计算出相似度之后还需要通过一定的辅助算法计算
@@ -487,6 +491,7 @@ def efftiveness_with_jaro_winkler_similarity(mo, ms, po, ps, do, ds, so, ss, qo,
 										], axis=1)
 	return df["RESULT"]
 
+
 def second_round_with_col_recalculate(df_second_round, dosage_mapping, df_encode, spark):
 	df_second_round = df_second_round.join(dosage_mapping, df_second_round.DOSAGE == dosage_mapping.CPA_DOSAGE, how="left").na.fill("")
 	df_second_round = df_second_round.withColumn("MASTER_DOSAGE", when(df_second_round.MASTER_DOSAGE.isNull(), df_second_round.JACCARD_DISTANCE). \
@@ -505,6 +510,7 @@ def second_round_with_col_recalculate(df_second_round, dosage_mapping, df_encode
 												df_second_round.PRODUCT_NAME_STANDARD, df_second_round.EFF_MOLE_DOSAGE))
 												
 	return df_second_round
+
 
 @pandas_udf(StringType(), PandasUDFType.SCALAR)
 def transfer_unit_pandas_udf(value):
@@ -594,6 +600,7 @@ def transfer_unit_pandas_udf(value):
 	df["RESULT"] = df["SPEC"].apply(unit_transform)
 	return df["RESULT"]
 
+
 @pandas_udf(StringType(), PandasUDFType.SCALAR)
 def percent_pandas_udf(percent, valid, gross):
 	def percent_calculation(percent, valid, gross):
@@ -623,6 +630,7 @@ def percent_pandas_udf(percent, valid, gross):
 	df["RESULT"] = df.apply(lambda x: percent_calculation(x["percent"], x["valid"], x["gross"]), axis=1)
 	return df["RESULT"]
 
+
 @pandas_udf(DoubleType(), PandasUDFType.SCALAR)
 def dosage_replace(dosage_lst, dosage_standard, eff):
 
@@ -633,6 +641,7 @@ def dosage_replace(dosage_lst, dosage_standard, eff):
 											else x["EFFTIVENESS_DOSAGE"], axis=1)
 
 	return df["EFFTIVENESS"]
+
 
 @pandas_udf(DoubleType(), PandasUDFType.SCALAR)
 def pack_replace(eff_pack, spec_original, pack_qty, pack_standard):
@@ -647,6 +656,7 @@ def pack_replace(eff_pack, spec_original, pack_qty, pack_standard):
 											else x["EFFTIVENESS_PACK_QTY"], axis=1)
 
 	return df["EFFTIVENESS_PACK"]
+
 
 @pandas_udf(DoubleType(), PandasUDFType.SCALAR)
 def prod_name_replace(eff_mole_name, eff_mnf_name, eff_product_name, mole_name, prod_name_standard, eff_mole_dosage):
@@ -731,6 +741,7 @@ def prod_name_replace(eff_mole_name, eff_mnf_name, eff_product_name, mole_name, 
 
 	return df["EFFTIVENESS_PROD"]
 
+
 def mnf_encoding_index(df_cleanning, df_encode, spark):
 	# 增加两列MANUFACTURER_NAME_CLEANNING_WORDS MANUFACTURER_NAME_STANDARD_WORDS - array(string)
 	# 读取df_lexicon
@@ -750,10 +761,12 @@ def mnf_encoding_index(df_cleanning, df_encode, spark):
 	
 	return df_cleanning
 
+
 def mnf_encoding_cosine(df_cleanning):
 	df_cleanning = df_cleanning.withColumn("COSINE_SIMILARITY", \
 					mnf_index_word_cosine_similarity(df_cleanning.MANUFACTURER_NAME_CLEANNING_WORDS, df_cleanning.MANUFACTURER_NAME_STANDARD_WORDS))
 	return df_cleanning
+
 
 def mole_dosage_calculaltion(df):
 	
@@ -833,6 +846,7 @@ def mole_dosage_calculaltion(df):
 	
 	return df_dosage
 
+
 def phcleanning_mnf_seg(df_standard, inputCol, outputCol):
 	# 2. 英文的分词方法，tokenizer
 	# 英文先不管
@@ -854,9 +868,11 @@ def phcleanning_mnf_seg(df_standard, inputCol, outputCol):
 
 	return remover.transform(df_standard).drop("MANUFACTURER_NAME_WORDS")
 
+
 @pandas_udf(ArrayType(IntegerType()), PandasUDFType.GROUPED_AGG)
 def word_index_to_array(v):
 	return v.tolist()
+
 
 def words_to_reverse_index(df_cleanning, df_encode, inputCol, outputCol):
 	df_cleanning = df_cleanning.withColumn("tid", monotonically_increasing_id())
