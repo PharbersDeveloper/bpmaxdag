@@ -52,6 +52,8 @@ spec:
         value: "False"
       - key: bedsize
         value: "True" 
+      - key: ID_Bedsize_path
+        value: "Empty"
     outputs:
       - key: a
         value: abcde
