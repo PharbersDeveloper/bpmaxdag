@@ -95,12 +95,15 @@ raw_data_path, if_union, test, auto_max):
     
     
     # =============  数据执行 ==============
-    raw_data = spark.read.csv(raw_data_path, header=True)
+    raw_data = spark.read.csv(raw_data_path, header=True)    
     if 'Corp' not in raw_data.columns:
         raw_data = raw_data.withColumn('Corp', func.lit(''))
     if 'Route' not in raw_data.columns:
         raw_data = raw_data.withColumn('Route', func.lit(''))
-    
+    for colname, coltype in raw_data.dtypes:
+        if coltype == "boolean":
+            raw_data = raw_data.withColumn(colname, raw_data[colname].cast(StringType()))
+        
     # 1. 同sheet去重(两行完全一样的)
     raw_data = raw_data.groupby(raw_data.columns).count()
     same_sheet_dup = raw_data.where(raw_data['count'] > 1)
@@ -279,8 +282,10 @@ raw_data_path, if_union, test, auto_max):
             history_raw_data = history_raw_data.withColumn('Corp', func.lit(''))
         if 'Route' not in history_raw_data.columns:
             history_raw_data = history_raw_data.withColumn('Route', func.lit(''))
+        for colname, coltype in history_raw_data.dtypes:
+            if coltype == "boolean":
+                history_raw_data = history_raw_data.withColumn(colname, history_raw_data[colname].cast(StringType()))
             
-        history_raw_data = history_raw_data.withColumn('Corp', history_raw_data.Corp.cast(StringType()))
         history_raw_data = history_raw_data.withColumn('Date', history_raw_data.Date.cast(IntegerType()))
         history_raw_data = history_raw_data.where(history_raw_data.Date < cut_time_left)
         history_raw_data = history_raw_data.drop("Brand_new", "all_info")
@@ -297,8 +302,13 @@ raw_data_path, if_union, test, auto_max):
             
         if if_two_source == 'True':
             history_raw_data_std = spark.read.parquet(history_raw_data_std_path)
-            if 'Corp' in history_raw_data_std.columns:
-                history_raw_data_std = history_raw_data_std.withColumn('Corp', history_raw_data_std.Corp.cast(StringType()))
+            if 'Corp' not in history_raw_data_std.columns:
+                history_raw_data_std = history_raw_data_std.withColumn('Corp', func.lit(''))
+            if 'Route' not in history_raw_data_std.columns:
+                history_raw_data_std = history_raw_data_std.withColumn('Route', func.lit(''))
+            for colname, coltype in history_raw_data_std.dtypes:
+                if coltype == "boolean":
+                    history_raw_data_std = history_raw_data_std.withColumn(colname, history_raw_data_std[colname].cast(StringType()))
             history_raw_data_std = history_raw_data_std.withColumn('Date', history_raw_data_std.Date.cast(IntegerType()))
             history_raw_data_std = history_raw_data_std.where(history_raw_data_std.Date < cut_time_left)
             history_raw_data_std = history_raw_data_std.drop("Brand_new", "all_info")
