@@ -56,7 +56,7 @@ raw_data_path, if_union, test, auto_max):
     molecule_adjust_path = max_path + "/Common_files/新老通用名转换.csv"
     
     if raw_data_path == 'Empty':
-        raw_data_path = max_path + '/' + project_name + '/' + outdir + '/raw_data.csv'
+        raw_data_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_upload.csv'
     
     if history_outdir == 'Empty':
         history_outdir = str(int(outdir) - 1)
