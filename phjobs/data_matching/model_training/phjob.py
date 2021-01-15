@@ -43,73 +43,74 @@ def execute(**kwargs):
 	result_path_prefix = get_result_path(kwargs, run_id, job_id)
 	model_path = result_path_prefix + kwargs["model_result"]
 	validate_path = result_path_prefix + kwargs["model_validate"]
+	tm = time.strftime("%Y-%m-%d_%H:%M:%S", time.localtime())
+	final_path = get_final_result_path(kwargs, run_id, kwargs["final_model"], tm)
+	input_model_path = kwargs["input_model_path"]
+
+	if input_model_path == "unknown":
+		# 0. load the cleanning data
+		# features
+		assembler = VectorAssembler( \
+						inputCols=["EFFTIVENESS_MOLE_NAME", "EFFTIVENESS_PRODUCT_NAME", "EFFTIVENESS_DOSAGE", "EFFTIVENESS_SPEC", \
+									"EFFTIVENESS_PACK_QTY", "EFFTIVENESS_MANUFACTURER"], \
+						outputCol="features")
+		training_data = assembler.transform(training_data)
+		
+		
+		df_cleanning = training_data.select("id").distinct()
+		# Split the data into training and test sets (30% held out for testing)
+		(df_training, df_test) = df_cleanning.randomSplit([0.7, 0.3])
 	
-	# 0. load the cleanning data
-	# features
-	assembler = VectorAssembler( \
-					inputCols=["EFFTIVENESS_MOLE_NAME", "EFFTIVENESS_PRODUCT_NAME", "EFFTIVENESS_DOSAGE", "EFFTIVENESS_SPEC", \
-								"EFFTIVENESS_PACK_QTY", "EFFTIVENESS_MANUFACTURER"], \
-					outputCol="features")
-	training_data = assembler.transform(training_data)
+		# 1. load the training data
+		# 准备训练集合
+		df_result = training_data
+		df_result = df_result.select("id", "label", "features")
+		labelIndexer = StringIndexer(inputCol="label", outputCol="indexedLabel").fit(df_result)
+		featureIndexer = VectorIndexer(inputCol="features", outputCol="indexedFeatures", maxCategories=6).fit(df_result)
 	
+		# 1.1 构建训练集合
+		df_training = df_training.join(df_result, how="left", on="id")
+		# df_training.show()
 	
-	df_cleanning = training_data.select("id").distinct()
-	# Split the data into training and test sets (30% held out for testing)
-	(df_training, df_test) = df_cleanning.randomSplit([0.7, 0.3])
-
-	# 1. load the training data
-	# 准备训练集合
-	df_result = training_data
-	df_result = df_result.select("id", "label", "features")
-	labelIndexer = StringIndexer(inputCol="label", outputCol="indexedLabel").fit(df_result)
-	featureIndexer = VectorIndexer(inputCol="features", outputCol="indexedFeatures", maxCategories=6).fit(df_result)
-
-	# 1.1 构建训练集合
-	df_training = df_training.join(df_result, how="left", on="id")
-	# df_training.show()
-
-	# 1.2 构建测试集合
-	df_test = df_test.join(df_result, how="left", on="id")
-	# df_test.write.mode("overwrite").parquet(validate_path)
-	# df_test.show()
-
-	# Train a DecisionTree model.
-	dt = DecisionTreeClassifier(labelCol="indexedLabel", featuresCol="indexedFeatures")
-
-	# Chain indexers and tree in a Pipeline
-	pipeline = Pipeline(stages=[labelIndexer, featureIndexer, dt])
-
-	# Train model.  This also runs the indexers.
-	model = pipeline.fit(df_training)
-
-	# model.write().overwrite().save("s3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/alfred/dt")
-	model.write().overwrite().save(model_path)
+		# 1.2 构建测试集合
+		df_test = df_test.join(df_result, how="left", on="id")
+		# df_test.write.mode("overwrite").parquet(validate_path)
+		# df_test.show()
 	
-	# validata the model
-	# Make predictions.
-	df_predictions = model.transform(df_test)
-
-	# Select example rows to display.
-	df_predictions.show(10)
-	df_predictions.select("prediction", "indexedLabel", "features").show(5)
-
-	# save predictions
-	# df_predictions.write.mode("overwrite").parquet(model_validata)
-
-	# Select (prediction, true label) and compute test error
-	evaluator = MulticlassClassificationEvaluator(
-		labelCol="indexedLabel", predictionCol="prediction", metricName="accuracy")
-	accuracy = evaluator.evaluate(df_predictions)
-	logger.info("Test Error = %g " % (1.0 - accuracy))
-
-	# treeModel = model.stages[2]
-	# summary only
-	# logger.warn(treeModel)
-
-	# Create pandas data frame and convert it to a spark data frame 
-	pandas_df = pd.DataFrame({"MODEL":["Decision Tree"], "ACCURACY": [accuracy]})
-	spark_df = spark.createDataFrame(pandas_df)
-	spark_df.repartition(1).write.mode("overwrite").parquet(validate_path)
+		# Train a DecisionTree model.
+		dt = DecisionTreeClassifier(labelCol="indexedLabel", featuresCol="indexedFeatures")
+	
+		# Chain indexers and tree in a Pipeline
+		pipeline = Pipeline(stages=[labelIndexer, featureIndexer, dt])
+	
+		# Train model.  This also runs the indexers.
+		model = pipeline.fit(df_training)
+		model.write().overwrite().save(model_path)
+		model.write().overwrite().save(final_path)
+		
+		# validata the model
+		# Make predictions.
+		df_predictions = model.transform(df_test)
+	
+		# save predictions
+		# df_predictions.write.mode("overwrite").parquet(model_validata)
+	
+		# Select (prediction, true label) and compute test error
+		evaluator = MulticlassClassificationEvaluator(
+			labelCol="indexedLabel", predictionCol="prediction", metricName="accuracy")
+		accuracy = evaluator.evaluate(df_predictions)
+		logger.warn("Test Error = %g " % (1.0 - accuracy))
+	
+		# Create pandas data frame and convert it to a spark data frame 
+		pandas_df = pd.DataFrame({"MODEL":["Decision Tree"], "ACCURACY": [accuracy]})
+		spark_df = spark.createDataFrame(pandas_df)
+		spark_df.repartition(1).write.mode("overwrite").parquet(validate_path)
+	
+	else:
+		# load 
+		model = PipelineModel.load(model_path)
+		model.write().overwrite().save(model_path)
+		model.write().overwrite().save(final_path)
 	
 	return {}
 
@@ -141,7 +142,12 @@ def get_result_path(kwargs, run_id, job_id):
 def get_depends_file_path(kwargs, job_name, job_key):
 	run_id = get_run_id(kwargs)
 	return get_result_path(kwargs, run_id, job_name) + job_key
-	
+
+
+def get_final_result_path(kwargs, run_id, final_key, tm):
+	path_prefix = kwargs["final_prefix"]
+	return path_prefix + "/" + final_key + "/" + tm
+
 
 def get_depends_path(kwargs):
 	depends_lst = eval(kwargs["depend_job_names_keys"])
