@@ -21,12 +21,10 @@ spec:
         value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs
       - key: path_cleaning_data
         value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/CHC/1
-      - key: g_partitions_num
-        value: 1600
       - key: path_human_interfere
         value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/HUMAN_INTERFERE
     outputs:
-      - key: cleaning_result_key
-        value: result
-      - key: cleaning_origin_key
-        value: origin
+      - key: cleaning_result
+        value: cleaning_result
+      - key: cleaning_origin
+        value: cleaning_origin

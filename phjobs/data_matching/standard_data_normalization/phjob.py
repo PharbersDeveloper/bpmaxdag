@@ -22,34 +22,28 @@ def execute(**kwargs):
 	"""
 	logger = phs3logger(kwargs["job_id"])
 	spark = kwargs["spark"]()
-
+	
 	logger.info(kwargs)
-
+	
 	# input
-	raw_data_path = kwargs["path_cleaning_data"]
-	interfere_path = kwargs["path_human_interfere"]
-
+	path_master_prod = kwargs["path_master_prod"]
+	
 	# output
 	job_id = get_job_id(kwargs)
 	run_id = get_run_id(kwargs)
 	result_path_prefix = get_result_path(kwargs, run_id, job_id)
-	result_path = result_path_prefix + kwargs["cleaning_result"]
-	origin_path = result_path_prefix + kwargs["cleaning_origin"]
-
-	# 1. human interfere 与 数据准备
-	df_cleanning = modify_pool_cleanning_prod(spark, raw_data_path)
-	df_cleanning.persist()
-	df_cleanning.write.mode("overwrite").parquet(origin_path)
-	# df_cleanning = df_cleanning.repartition(int(kwargs["g_partitions_num"]))
-	df_cleanning = df_cleanning.withColumn("PRODUCT_NAME", split(df_cleanning.PRODUCT_NAME, "-")[0])
-
-	df_interfere = load_interfere_mapping(spark, interfere_path)
-	df_cleanning = human_interfere(spark, df_cleanning, df_interfere)
-
-	# df_cleanning = dosage_standify(df_cleanning)  # 剂型列规范
-	df_cleanning = spec_standify(df_cleanning)  # 规格列规范
-	df_cleanning.write.mode("overwrite").parquet(result_path)
-
+	result_path = result_path_prefix + kwargs["standard_result"]
+	origin_path = result_path_prefix + kwargs["standard_origin"]
+	
+	df_standard = load_standard_prod(spark, path_master_prod)
+	df_standard.write.mode("overwrite").parquet(origin_path)
+	df_standard = df_standard.withColumn("SPEC_STANDARD_ORIGINAL", df_standard.SPEC_STANDARD) # 保留原字段内容
+	df_standard = df_standard.withColumn("SPEC", df_standard.SPEC_STANDARD)
+	df_standard = spec_standify(df_standard)
+	df_standard = df_standard.withColumn("SPEC_STANDARD", df_standard.SPEC).drop("SPEC")
+	
+	df_standard.write.mode("overwrite").parquet(result_path)
+	
 	return {}
 
 
@@ -78,24 +72,42 @@ def get_result_path(kwargs, run_id, job_id):
 
 
 """
-更高的并发数
+读取标准表WW
 """
-def modify_pool_cleanning_prod(spark, raw_data_path):
-	if raw_data_path.endswith(".csv"):
-		return spark.read.csv(path=raw_data_path, header=True).withColumn("id", pudf_id_generator(col("MOLE_NAME")))
-	else:
-		return spark.read.parquet(raw_data_path).withColumn("id", pudf_id_generator(col("MOLE_NAME")))
-	
+def load_standard_prod(spark, standard_prod_path):
+	 df_standard = spark.read.parquet(standard_prod_path) \
+					.select("PACK_ID",
+							"MOLE_NAME_CH", "MOLE_NAME_EN",
+							"PROD_DESC", "PROD_NAME_CH",
+							"CORP_NAME_EN", "CORP_NAME_CH", "MNF_NAME_EN", "MNF_NAME_CH",
+							"PCK_DESC", "DOSAGE", "SPEC", "PACK", 
+							"SPEC_valid_digit", "SPEC_valid_unit", 
+							"SPEC_gross_digit", "SPEC_gross_unit")
+					# .drop("version")
 
-@pandas_udf(StringType(), PandasUDFType.SCALAR)
-def pudf_id_generator(oid):
-	frame = {
-		"_ID": oid
-	}
-	df = pd.DataFrame(frame)
-	df["RESULT"] = df["_ID"].apply(lambda x: str(uuid.uuid4()))
-	return df["RESULT"]
+	 df_standard = df_standard.withColumnRenamed("PACK_ID", "PACK_ID_STANDARD") \
+					.withColumnRenamed("MOLE_NAME_CH", "MOLE_NAME_STANDARD") \
+					.withColumnRenamed("PROD_NAME_CH", "PRODUCT_NAME_STANDARD") \
+					.withColumnRenamed("CORP_NAME_CH", "CORP_NAME_STANDARD") \
+					.withColumnRenamed("MNF_NAME_CH", "MANUFACTURER_NAME_STANDARD") \
+					.withColumnRenamed("MNF_NAME_EN", "MANUFACTURER_NAME_EN_STANDARD") \
+					.withColumnRenamed("DOSAGE", "DOSAGE_STANDARD") \
+					.withColumnRenamed("SPEC", "SPEC_STANDARD") \
+					.withColumnRenamed("PACK", "PACK_QTY_STANDARD") \
+					.withColumnRenamed("SPEC_valid_digit", "SPEC_valid_digit_STANDARD") \
+					.withColumnRenamed("SPEC_valid_unit", "SPEC_valid_unit_STANDARD") \
+					.withColumnRenamed("SPEC_gross_digit", "SPEC_gross_digit_STANDARD") \
+					.withColumnRenamed("SPEC_gross_unit", "SPEC_gross_unit_STANDARD")
 
+	 df_standard = df_standard.select("PACK_ID_STANDARD", "MOLE_NAME_STANDARD",
+										"PRODUCT_NAME_STANDARD", "CORP_NAME_STANDARD",
+										"MANUFACTURER_NAME_STANDARD", "MANUFACTURER_NAME_EN_STANDARD",
+										"DOSAGE_STANDARD", "SPEC_STANDARD", "PACK_QTY_STANDARD", 
+										"SPEC_valid_digit_STANDARD", "SPEC_valid_unit_STANDARD", 
+										"SPEC_gross_digit_STANDARD", "SPEC_gross_unit_STANDARD")
+
+	 return df_standard
+	 
 
 """
 规格列规范
@@ -253,56 +265,4 @@ def percent_pandas_udf(percent, valid, gross):
 	df = pd.DataFrame(frame)
 	df["RESULT"] = df.apply(lambda x: percent_calculation(x["percent"], x["valid"], x["gross"]), axis=1)
 	return df["RESULT"]
-	
-
-"""
-读取人工干预表
-"""
-def load_interfere_mapping(spark, human_replace_packid_path):
-	 df_interfere = spark.read.parquet(human_replace_packid_path) \
-						 .withColumnRenamed("match_MOLE_NAME_CH", "MOLE_NAME_INTERFERE") \
-						 .withColumnRenamed("match_PRODUCT_NAME", "PRODUCT_NAME_INTERFERE")  \
-						 .withColumnRenamed("match_SPEC", "SPEC_INTERFERE") \
-						 .withColumnRenamed("match_DOSAGE", "DOSAGE_INTERFERE") \
-						 .withColumnRenamed("match_PACK_QTY", "PACK_QTY_INTERFERE") \
-						 .withColumnRenamed("match_MANUFACTURER_NAME_CH", "MANUFACTURER_NAME_INTERFERE") \
-						 .withColumnRenamed("PACK_ID", "PACK_ID_INTERFERE")
-	 return df_interfere
-
-	
-	
-def human_interfere(spark, df_cleanning, df_interfere):
-	 # 1. 人工干预优先，不太对后期改
-	 # 干预流程将数据直接替换，在走平常流程，不直接过滤，保证流程的统一性
-	 df_cleanning = df_cleanning.withColumn("min", concat(df_cleanning["MOLE_NAME"], df_cleanning["PRODUCT_NAME"], df_cleanning["SPEC"], \
-										df_cleanning["DOSAGE"], df_cleanning["PACK_QTY"], df_cleanning["MANUFACTURER_NAME"]))
-
-	 # 2. join 干预表，替换原有的原始数据列
-	 df_cleanning = df_cleanning.join(df_interfere, on="min",  how="left") \
-					.na.fill({
-							"MOLE_NAME_INTERFERE": "unknown",
-							"PRODUCT_NAME_INTERFERE": "unknown",
-							"SPEC_INTERFERE": "unknown",
-							"DOSAGE_INTERFERE": "unknown",
-							"PACK_QTY_INTERFERE": "unknown",
-							"MANUFACTURER_NAME_INTERFERE": "unknown"})
-
-	 df_cleanning = df_cleanning.withColumn("MOLE_NAME", interfere_replace_udf(df_cleanning.MOLE_NAME, df_cleanning.MOLE_NAME_INTERFERE)) \
-					.withColumn("PRODUCT_NAME", interfere_replace_udf(df_cleanning.PRODUCT_NAME, df_cleanning.PRODUCT_NAME_INTERFERE)) \
-					.withColumn("SPEC", interfere_replace_udf(df_cleanning.SPEC, df_cleanning.SPEC_INTERFERE)) \
-					.withColumn("DOSAGE", interfere_replace_udf(df_cleanning.DOSAGE, df_cleanning.DOSAGE_INTERFERE)) \
-					.withColumn("PACK_QTY", interfere_replace_udf(df_cleanning.PACK_QTY, df_cleanning.PACK_QTY_INTERFERE)) \
-					.withColumn("MANUFACTURER_NAME", interfere_replace_udf(df_cleanning.MANUFACTURER_NAME, df_cleanning.MANUFACTURER_NAME_INTERFERE))
-
-	 df_cleanning = df_cleanning.select("id", "PACK_ID_CHECK", "MOLE_NAME", "PRODUCT_NAME", "DOSAGE", "SPEC", "PACK_QTY", "MANUFACTURER_NAME")
-	 # df_cleanning.persist()
-
-	 return df_cleanning
-	 
-
-@udf(returnType=StringType())
-def interfere_replace_udf(origin, interfere):
-	if interfere != "unknown":
-		origin = interfere
-	return origin
 ################-----------------------------------------------------################

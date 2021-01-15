@@ -16,14 +16,13 @@ from ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--job_id')
 @click.option('--job_name')
 @click.option('--path_prefix')
-@click.option('--path_cleaning_data')
+@click.option('--depend_job_names_keys')
 @click.option('--g_partitions_num')
-@click.option('--path_human_interfere')
-@click.option('--cleaning_result')
-@click.option('--cleaning_origin')
+@click.option('--cross_result')
+@click.option('--cross_drop')
 def debug_execute(**kwargs):
     try:
-        args = {'name': 'cleaning_data_normalization'}
+        args = {'name': 'cross_join_cutting'}
 
         args.update(kwargs)
         result = exec_before(**args)

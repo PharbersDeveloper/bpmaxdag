@@ -16,14 +16,12 @@ from ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--job_id')
 @click.option('--job_name')
 @click.option('--path_prefix')
-@click.option('--path_cleaning_data')
-@click.option('--g_partitions_num')
-@click.option('--path_human_interfere')
-@click.option('--cleaning_result')
-@click.option('--cleaning_origin')
+@click.option('--path_master_prod')
+@click.option('--standard_result')
+@click.option('--standard_origin')
 def debug_execute(**kwargs):
     try:
-        args = {'name': 'cleaning_data_normalization'}
+        args = {'name': 'standard_data_normalization'}
 
         args.update(kwargs)
         result = exec_before(**args)
