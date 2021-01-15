@@ -20,7 +20,6 @@ def execute(**kwargs):
 	"""
 	logger = phs3logger(kwargs["job_id"])
 	spark = kwargs["spark"]()
-	# spark = prepare()
 	
 	logger.info(kwargs)
 	
