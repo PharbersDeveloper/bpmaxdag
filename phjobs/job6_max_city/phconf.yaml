@@ -52,7 +52,7 @@ spec:
         value: "False"
       - key: bedsize
         value: "True" 
-      - key: ID_Bedsize_path
+      - key: id_bedsize_path
         value: "Empty"
     outputs:
       - key: a
