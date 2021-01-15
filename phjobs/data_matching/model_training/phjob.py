@@ -146,7 +146,7 @@ def get_depends_file_path(kwargs, job_name, job_key):
 
 def get_final_result_path(kwargs, run_id, final_key, tm):
 	path_prefix = kwargs["final_prefix"]
-	return path_prefix + "/" + final_key + "/" + tm
+	return path_prefix + "/" + tm + "/" + final_key
 
 
 def get_depends_path(kwargs):
