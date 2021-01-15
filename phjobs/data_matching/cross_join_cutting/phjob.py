@@ -27,7 +27,12 @@ def execute(**kwargs):
 	#input
 	depends = get_depends_path(kwargs)
 
-	df_cleanning = spark.read.parquet(depends["cleaning"]).limit(100)
+	g_cleaning_limit = int(kwargs["g_cleaning_limit"])
+	if g_cleaning_limit > 0:
+		df_cleanning = spark.read.parquet(depends["cleaning"]).limit(g_cleaning_limit)
+	else:
+		df_cleanning = spark.read.parquet(depends["cleaning"])
+		
 	df_standard = spark.read.parquet(depends["standard"])
 	
 	# output 	
@@ -52,11 +57,14 @@ def execute(**kwargs):
 
 	df_result.persist()
 	# 4. cutting for reduce the calculation
-	df_drop_data = df_result.where((df_result.JACCARD_DISTANCE[0] >= 0.6) & (df_result.JACCARD_DISTANCE[1] >= 0.5))
-	df_drop_data.repartition(16).write.mode("overwrite").parquet(drop_path)	
+	g_mole_name_shared = float(kwargs["g_mole_name_shared"])
+	g_pack_qty_shared = float(kwargs["g_pack_qty_shared"])
+	g_repatition_shared = int(kwargs["g_repatition_shared"])
+	df_drop_data = df_result.where((df_result.JACCARD_DISTANCE[0] >= g_mole_name_shared) & (df_result.JACCARD_DISTANCE[1] >= g_pack_qty_shared))
+	df_drop_data.repartition(g_repatition_shared).write.mode("overwrite").parquet(drop_path)	
 	
-	df_result = df_result.where((df_result.JACCARD_DISTANCE[0] < 0.6) & (df_result.JACCARD_DISTANCE[1] < 0.5))  # 目前取了分子名和pack来判断
-	df_result.repartition(16).write.mode("overwrite").parquet(result_path)
+	df_result = df_result.where((df_result.JACCARD_DISTANCE[0] < g_mole_name_shared) & (df_result.JACCARD_DISTANCE[1] < g_pack_qty_shared))  # 目前取了分子名和pack来判断
+	df_result.repartition(g_repatition_shared).write.mode("overwrite").parquet(result_path)
 	
 	return {}
 

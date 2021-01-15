@@ -16,13 +16,11 @@ from ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--job_id')
 @click.option('--job_name')
 @click.option('--path_prefix')
-@click.option('--path_cleaning_data')
-@click.option('--path_human_interfere')
-@click.option('--cleaning_result')
-@click.option('--cleaning_origin')
+@click.option('--depend_job_names_keys')
+@click.option('--effective_result')
 def debug_execute(**kwargs):
     try:
-        args = {'name': 'cleaning_data_normalization'}
+        args = {'name': 'effectiveness_with_jws'}
 
         args.update(kwargs)
         result = exec_before(**args)

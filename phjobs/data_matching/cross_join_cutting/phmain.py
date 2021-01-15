@@ -18,6 +18,10 @@ from ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--path_prefix')
 @click.option('--depend_job_names_keys')
 @click.option('--g_partitions_num')
+@click.option('--g_mole_name_shared')
+@click.option('--g_pack_qty_shared')
+@click.option('--g_repatition_shared')
+@click.option('--g_cleaning_limit')
 @click.option('--cross_result')
 @click.option('--cross_drop')
 def debug_execute(**kwargs):

@@ -23,6 +23,14 @@ spec:
           - standard_data_normalization#standard_result#standard
       - key: g_partitions_num
         value: 1600
+      - key: g_mole_name_shared
+        value: 0.6
+      - key: g_pack_qty_shared
+        value: 0.5
+      - key: g_repatition_shared
+        value: 16
+      - key: g_cleaning_limit
+        value: 100
     outputs:
       - key: cross_result
         value: cross_result

@@ -40,11 +40,13 @@ def execute(**kwargs):
 	df_cleanning = modify_pool_cleanning_prod(spark, raw_data_path)
 	df_cleanning.persist()
 	df_cleanning.write.mode("overwrite").parquet(origin_path)
-	# df_cleanning = df_cleanning.repartition(int(kwargs["g_partitions_num"]))
-	df_cleanning = df_cleanning.withColumn("PRODUCT_NAME", split(df_cleanning.PRODUCT_NAME, "-")[0])
-
+	
 	df_interfere = load_interfere_mapping(spark, interfere_path)
 	df_cleanning = human_interfere(spark, df_cleanning, df_interfere)
+	
+	# TODO: 以后去掉
+	df_cleanning = df_cleanning.withColumn("SPEC_ORIGINAL", df_cleanning.SPEC)
+	df_cleanning = df_cleanning.withColumn("PRODUCT_NAME", split(df_cleanning.PRODUCT_NAME, "-")[0])
 
 	# df_cleanning = dosage_standify(df_cleanning)  # 剂型列规范
 	df_cleanning = spec_standify(df_cleanning)  # 规格列规范
