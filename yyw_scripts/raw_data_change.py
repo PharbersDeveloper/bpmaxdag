@@ -34,20 +34,20 @@ if access_key is not None:
 '''    
     
 # 需要修改的参数
-project_name = '神州'
+project_name = 'Bayer'
 outdir = '202010'
-if_two_source = 'True'
+if_two_source = 'False'
 # 在c9上新建一个文件，将‘问题医院记录表’本项目要修改的条目复制粘贴（带着标题），保存的时候后缀写.csv即可
-change_file_path = '/workspace/YYW_max_project/raw_data_change.csv'
+change_file_path = '/home/ywyuan/BP_Max_AutoJob/yyw_scripts//raw_data_change.csv'
 
 max_path = 's3a://ph-max-auto/v0.0.1-2020-06-08/'
 
 
 # =========  数据处理  =============
-
 # 1. 需要修改的条目文件处理
 change_file = pd.read_csv(change_file_path, sep='\t', header=0, dtype="object")
 change_file[['Date']] = change_file[['Date']].astype(int)
+change_file['Hospital_ID'] = change_file['Hospital_ID'].str.rjust(6,'0')
 change_file = change_file.fillna({"Form":"NA","Specifications":"NA","Pack_Number":"NA","Manufacturer":"NA"})
 
 # 产品层面
