@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: effectiveness_adjust
+  description: "pharbers job description"
+  labels:
+    name: effectiveness_adjust
+    runtime: python3
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: job_name
+        value: effectiveness_adjust
+      - key: path_prefix
+        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs
+      - key: dosage_mapping_path
+        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DOSAGE_MAPPING/CPA
+      - key: word_dict_encode_path
+        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/WORD_DIC/0.0.12
+      - key: depend_job_names_keys
+        value: 
+          - effectiveness_with_jws#effective_result#input
+      - key: lexicon_path
+        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/LEXICON/0.0.2
+    outputs:
+      - key: effective_result
+        value: effective_result

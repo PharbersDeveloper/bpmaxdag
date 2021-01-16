@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: cleaning_data_normalization
+  description: "pharbers job description"
+  labels:
+    name: cleaning_data_normalization
+    runtime: python3
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    code: phmain.py
+    command: submit
+    timeout: 600
+    config: phconf.yaml
+    args:
+      - key: job_name
+        value: cleaning_data_normalization
+      - key: path_prefix
+        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs
+      - key: path_cleaning_data
+        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/CHC/1
+      - key: path_human_interfere
+        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/HUMAN_INTERFERE
+    outputs:
+      - key: cleaning_result
+        value: cleaning_result
+      - key: cleaning_origin
+        value: cleaning_origin
