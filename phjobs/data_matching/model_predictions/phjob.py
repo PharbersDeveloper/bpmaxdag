@@ -55,41 +55,22 @@ def execute(**kwargs):
 	df_result = assembler.transform(df_result)
 	
 	df_predictions = model.transform(df_result)
-	print(df_predictions.count())
-	print(df_predictions.select("id").distinct().count())
-	print(df_predictions.where((df_predictions.label == 1)).count())
-	print(df_predictions.where((df_predictions.prediction == 1)).count())
-	print(df_predictions.where((df_predictions.prediction == 1) & (df_predictions.label == 1)).count())
+
 	# df_predictions.write.mode("overwrite").parquet(prediction_path)
 
 	# df_predictions = df_predictions.withColumn("JACCARD_DISTANCE_MOLE_NAME", df_predictions.JACCARD_DISTANCE[0]) \
 	# 			.withColumn("JACCARD_DISTANCE_DOSAGE", df_predictions.JACCARD_DISTANCE[1]) \
 	# 			.drop("JACCARD_DISTANCE", "indexedFeatures").drop("rawPrediction", "probability")
-	df_predictions = df_predictions.drop("indexedFeatures", "rawPrediction", "probability")
-	
 	# 5. 生成文件
-	join_udf = udf(lambda x: ",".join(map(str,x)))
-	
-	@pandas_udf(StringType(), PandasUDFType.SCALAR)
-	def join_pandas_udf(array_col):
-		frame = { "array_col": array_col }
-		
-		df = pd.DataFrame(frame)
-		
-		def array_to_str(arr):
-			if type(arr) != np.ndarray:
-				s = ""
-			else:
-				s = ",".join(map(str,arr))
-			return s
-		
-		df["RESULT"] = df["array_col"].apply(array_to_str)
-		return df["RESULT"]
-	
-	
+	df_predictions = df_predictions.drop("indexedFeatures", "rawPrediction", "probability")
 	df_predictions = similarity(df_predictions)
 	df_predictions = df_predictions.na.fill("").drop("features")
-	df_predictions.persist()						
+	df_predictions.persist()
+	print(df_predictions.count())
+	print(df_predictions.select("id").distinct().count())
+	print(df_predictions.where((df_predictions.label == 1)).count())
+	print(df_predictions.where((df_predictions.prediction == 1) & (df_predictions.RANK == 1)).count())
+	print(df_predictions.where((df_predictions.prediction == 1) & (df_predictions.label == 1) & (df_predictions.RANK == 1)).count())
 	df_predictions.write.mode("overwrite").parquet(prediction_path)
 	df_predictions.repartition(1).write.mode("overwrite").option("header", "true").csv(final_predictions)
 	
@@ -115,7 +96,8 @@ def execute(**kwargs):
 	# 						.withColumn("features", join_udf(col("features")))
 	df_negative.repartition(1).write.mode("overwrite").option("header", "true").csv(final_negative_path)
 	logger.warn("机器判断negative的条目写入完成")
-	
+
+	df_lost = df_lost.select("id").distinct()
 	# df_lost.write.mode("overwrite").parquet(final_lost_path)
 	# df_lost.drop("JACCARD_DISTANCE").repartition(1).write.mode("overwrite").option("header", "true").csv(final_lost_path)
 	# logger.warn("匹配第一步丢失条目写入完成")
@@ -199,4 +181,23 @@ def similarity(df):
 	df = df.withColumn("RANK", row_number().over(windowSpec))
 	df = df.where((df.RANK <= 5) | (df.label == 1.0))
 	return df
+	
+
+join_udf = udf(lambda x: ",".join(map(str,x)))
+	
+@pandas_udf(StringType(), PandasUDFType.SCALAR)
+def join_pandas_udf(array_col):
+	frame = { "array_col": array_col }
+	
+	df = pd.DataFrame(frame)
+	
+	def array_to_str(arr):
+		if type(arr) != np.ndarray:
+			s = ""
+		else:
+			s = ",".join(map(str,arr))
+		return s
+	
+	df["RESULT"] = df["array_col"].apply(array_to_str)
+	return df["RESULT"]
 ################-----------------------------------------------------################

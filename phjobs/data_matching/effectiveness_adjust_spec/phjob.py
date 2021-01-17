@@ -58,6 +58,7 @@ def execute(**kwargs):
 								# .withColumnRenamed("EFFTIVENESS_MANUFACTURER", "EFFTIVENESS_MANUFACTURER_FIRST") \
 								
 	df_second_round.persist()
+	# df_second_round.where((df_second_round.id == "199ce468-ea60-4182-b98c-a0504e40be0e") & (df_second_round.sid == "0cdc220d-0bd3-4660-bc5b-9733cd4e53e3")).show(100, truncate=False)
 	# df_second_round.printSchema()
 	df_second_round.repartition(g_repartition_shared).write.mode("overwrite").parquet(mid_path)
 
@@ -215,6 +216,7 @@ def spec_split_matching(df):
 	df = df.na.fill("")
 	df.show()
 	
+	
 	# 把百分号补充到有效成分列中
 	# df = df.withColumn("SPEC_percent", lit(""))
 	# df = df.withColumn("SPEC_gross", when(((df.SPEC_gross == "") & (df.SPEC_valid != "")), df.SPEC_valid).otherwise(df.SPEC_gross))
@@ -243,8 +245,10 @@ def spec_split_matching(df):
 	df = df.withColumn("SPEC_total_ORIGINAL",  spec_total_cleanning_pandas_udf(df.SPEC_valid_digit, df.SPEC_valid_unit, df.SPEC_gross_digit, df.SPEC_gross_unit))
 	
 	df = df.na.fill("")
-	df.select("SPEC_valid_digit", "SPEC_valid_total_ORIGINAL", "SPEC_valid_digit_STANDARD", "SPEC_valid_total_STANDARD").show()
+	# df.select("SPEC_valid_digit", "SPEC_valid_total_ORIGINAL", "SPEC_valid_digit_STANDARD", "SPEC_valid_total_STANDARD").show()
 	# df.show()
+	
+	# df = df.where((df.id == "199ce468-ea60-4182-b98c-a0504e40be0e") & (df.sid == "0cdc220d-0bd3-4660-bc5b-9733cd4e53e3"))
 	
 	# 开始计算effectiveness的逻辑
 	df = df.withColumn("EFFTIVENESS_SPEC_SPLIT", lit(0))
@@ -254,21 +258,23 @@ def spec_split_matching(df):
 						& (df.SPEC_gross_digit_STANDARD == df.SPEC_gross_digit) & (df.SPEC_gross_unit_STANDARD == df.SPEC_gross_unit)), \
 						lit(1))\
 						.otherwise(df.EFFTIVENESS_SPEC_SPLIT))
+	# df.select("SPEC_valid_digit", "SPEC_valid_total_ORIGINAL", "SPEC_valid_digit_STANDARD", "SPEC_valid_total_STANDARD", "EFFTIVENESS_SPEC_SPLIT").show()
 	# df = df.where(df.EFFTIVENESS_SPEC_SPLIT == 0)
 	
 	# 2. 如果original/standard【只有valid/只有gross】，且仅有的部分是可以对应的，则eff为1
 	df = df.withColumn("EFFTIVENESS_SPEC_SPLIT", when( \
 						((df.SPEC_valid_digit == "") & (df.SPEC_valid_unit == "") \
-						& ((df.SPEC_gross_digit_STANDARD == df.SPEC_gross_digit) & (df.SPEC_gross_unit_STANDARD == df.SPEC_gross_unit)) \
-						| ((df.SPEC_valid_digit_STANDARD == df.SPEC_gross_digit) & (df.SPEC_valid_unit_STANDARD == df.SPEC_gross_unit))), \
+						& (((df.SPEC_gross_digit_STANDARD == df.SPEC_gross_digit) & (df.SPEC_gross_unit_STANDARD == df.SPEC_gross_unit)) \
+						| ((df.SPEC_valid_digit_STANDARD == df.SPEC_gross_digit) & (df.SPEC_valid_unit_STANDARD == df.SPEC_gross_unit)))), \
 						lit(1))\
 						.otherwise(df.EFFTIVENESS_SPEC_SPLIT))
 	df = df.withColumn("EFFTIVENESS_SPEC_SPLIT", when( \
 						((df.SPEC_gross_digit == "") & (df.SPEC_gross_unit == "") \
-						& ((df.SPEC_valid_digit_STANDARD == df.SPEC_valid_digit) & (df.SPEC_valid_unit_STANDARD == df.SPEC_valid_unit)) \
-						| ((df.SPEC_gross_digit_STANDARD == df.SPEC_valid_digit) & (df.SPEC_gross_unit_STANDARD == df.SPEC_valid_unit))), \
+						& (((df.SPEC_valid_digit_STANDARD == df.SPEC_valid_digit) & (df.SPEC_valid_unit_STANDARD == df.SPEC_valid_unit)) \
+						| ((df.SPEC_gross_digit_STANDARD == df.SPEC_valid_digit) & (df.SPEC_gross_unit_STANDARD == df.SPEC_valid_unit)))), \
 						lit(1))\
 						.otherwise(df.EFFTIVENESS_SPEC_SPLIT))
+	# df.select("SPEC_valid_digit", "SPEC_valid_total_ORIGINAL", "SPEC_valid_digit_STANDARD", "SPEC_valid_total_STANDARD", "EFFTIVENESS_SPEC_SPLIT").show()
 						
 	# 3.如果【总量两列】 = 【有效成分两列】& 【有效成分两列】= 【总量两列】，则eff为1
 	df = df.withColumn("EFFTIVENESS_SPEC_SPLIT", when( \
@@ -276,6 +282,7 @@ def spec_split_matching(df):
 						& (df.SPEC_gross_digit_STANDARD == df.SPEC_valid_digit) & (df.SPEC_gross_unit_STANDARD == df.SPEC_valid_unit)), \
 						lit(1))\
 						.otherwise(df.EFFTIVENESS_SPEC_SPLIT))
+	# df.select("SPEC_valid_digit", "SPEC_valid_total_ORIGINAL", "SPEC_valid_digit_STANDARD", "SPEC_valid_total_STANDARD", "EFFTIVENESS_SPEC_SPLIT").show()
 						
 	# 4. 如果【源数据valid == 标准数据valid之和】，则eff为1
 	df = df.withColumn("EFFTIVENESS_SPEC_SPLIT", when( \
@@ -286,18 +293,20 @@ def spec_split_matching(df):
 	# df = df.where(df.SPEC == "CO 1.003 GM")
 	# 5. 一些骚操作（目前是针对azsanofi的）：
 	# 如果 【源数据有效成分 == 标准有效成分的取整值/四舍五入值】，则eff为0.99
-	df = df.withColumn("EFFTIVENESS_SPEC_SPLIT", when(df.EFFTIVENESS_SPEC_SPLIT == 1, df.EFFTIVENESS_SPEC_SPLIT) \
+	df = df.withColumn("EFFTIVENESS_SPEC_SPLIT", when((df.EFFTIVENESS_SPEC_SPLIT == 1) | (df.SPEC_valid_total_ORIGINAL <= 0.0) | (df.SPEC_valid_total_STANDARD <= 0.0), df.EFFTIVENESS_SPEC_SPLIT) \
 												.otherwise(spec_eff_int_or_carry(df.SPEC_valid_digit_STANDARD, df.SPEC_valid_total_ORIGINAL, df.SPEC_valid_unit_STANDARD, \
 																	df.SPEC_valid_unit, df.SPEC_valid_total_STANDARD, df.EFFTIVENESS_SPEC_SPLIT)))
 	# df = df.withColumn("EFFTIVENESS_SPEC_SPLIT", when(df.SPEC.contains("162.5"), lit(0.999999)). \
 	# 											otherwise(df.EFFTIVENESS_SPEC_SPLIT ))
+	# df.select("SPEC_valid_digit", "SPEC_valid_total_ORIGINAL", "SPEC_valid_digit_STANDARD", "SPEC_valid_total_STANDARD", "EFFTIVENESS_SPEC_SPLIT").show()
 	
 	# 6. 如果【标准总量/标准有效成分 == 源数据总+有效】，则eff为1
 	df = df.withColumn("EFFTIVENESS_SPEC_SPLIT", when( \
-						(((df.SPEC_total_ORIGINAL == df.SPEC_gross_digit_STANDARD) & (df.SPEC_gross_unit == df.SPEC_gross_unit_STANDARD)) \
+						(((df.SPEC_total_ORIGINAL == df.SPEC_gross_digit_STANDARD) & (df.SPEC_gross_unit == df.SPEC_gross_unit_STANDARD) & (df.SPEC_total_ORIGINAL > 0.0)) \
 						| ((df.SPEC_total_ORIGINAL == df.SPEC_valid_digit_STANDARD) & (df.SPEC_valid_unit == df.SPEC_valid_unit_STANDARD))), \
 						lit(1)) \
 						.otherwise(df.EFFTIVENESS_SPEC_SPLIT))
+	# df.select("SPEC_valid_digit", "SPEC_valid_total_ORIGINAL", "SPEC_valid_digit_STANDARD", "SPEC_valid_total_STANDARD", "EFFTIVENESS_SPEC_SPLIT").show()
 	# df.show()
 	# df.select("SPEC", "SPEC_STANDARD", "EFFTIVENESS_SPEC_SPLIT").show(25)
 	

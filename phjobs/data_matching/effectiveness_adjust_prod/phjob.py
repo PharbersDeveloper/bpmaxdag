@@ -32,6 +32,7 @@ def execute(**kwargs):
 	result_path = result_path_prefix + kwargs["prod_adjust_result"]
 	
 	df_result = df_mnf_adjusted.union(df_spec_adjusted)
+	# df_result.where((df_result.id == "0335dc73-cb9a-445f-ad23-91c11eda5b34") & (df_result.sid == "f71f5cec-0db2-4073-9102-ffc9d1495876")).show(100, truncate=False)
 	df_result = df_result.groupBy("sid") \
 					.agg(
 						max(df_result.EFFTIVENESS_MOLE_NAME).alias("EFFTIVENESS_MOLE_NAME"),

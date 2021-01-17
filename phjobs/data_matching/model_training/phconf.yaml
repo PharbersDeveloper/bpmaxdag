@@ -20,7 +20,7 @@ spec:
       - key: final_prefix
         value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/results
       - key: input_model_path
-        value: unknown
+        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/results/2021-01-17_22-54-55/Models
       - key: depend_job_names_keys
         value: 
           - labeling_with_crossed_data#label_result#input
