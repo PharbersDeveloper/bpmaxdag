@@ -41,8 +41,8 @@ def execute(**kwargs):
 	prediction_path = result_path_prefix + kwargs["prediction_result"]
 	positive_result_path = result_path_prefix + kwargs["positive_result"]
 	negative_result_path = result_path_prefix + kwargs["negative_result"]
-	tm = time.strftime("%Y-%m-%d_%H:%M:%S", time.localtime())
-	final_path = get_final_result_path(kwargs, run_id, kwargs["final_predictions"], tm)
+	tm = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
+	final_predictions = get_final_result_path(kwargs, run_id, kwargs["final_predictions"], tm)
 	final_positive_path = get_final_result_path(kwargs, run_id, kwargs["final_positive"], tm)
 	final_negative_path = get_final_result_path(kwargs, run_id, kwargs["final_negative"], tm)
 	final_lost_path = get_final_result_path(kwargs, run_id, kwargs["final_lost"], tm)
@@ -55,11 +55,17 @@ def execute(**kwargs):
 	df_result = assembler.transform(df_result)
 	
 	df_predictions = model.transform(df_result)
-	df_predictions.write.mode("overwrite").parquet(prediction_path)
+	print(df_predictions.count())
+	print(df_predictions.select("id").distinct().count())
+	print(df_predictions.where((df_predictions.label == 1)).count())
+	print(df_predictions.where((df_predictions.prediction == 1)).count())
+	print(df_predictions.where((df_predictions.prediction == 1) & (df_predictions.label == 1)).count())
+	# df_predictions.write.mode("overwrite").parquet(prediction_path)
 
-	df_predictions = df_predictions.withColumn("JACCARD_DISTANCE_MOLE_NAME", df_predictions.JACCARD_DISTANCE[0]) \
-				.withColumn("JACCARD_DISTANCE_DOSAGE", df_predictions.JACCARD_DISTANCE[1]) \
-				.drop("JACCARD_DISTANCE", "indexedFeatures").drop("rawPrediction", "probability")
+	# df_predictions = df_predictions.withColumn("JACCARD_DISTANCE_MOLE_NAME", df_predictions.JACCARD_DISTANCE[0]) \
+	# 			.withColumn("JACCARD_DISTANCE_DOSAGE", df_predictions.JACCARD_DISTANCE[1]) \
+	# 			.drop("JACCARD_DISTANCE", "indexedFeatures").drop("rawPrediction", "probability")
+	df_predictions = df_predictions.drop("indexedFeatures", "rawPrediction", "probability")
 	
 	# 5. 生成文件
 	join_udf = udf(lambda x: ",".join(map(str,x)))
@@ -82,37 +88,37 @@ def execute(**kwargs):
 	
 	
 	df_predictions = similarity(df_predictions)
-	df_predictions = df_predictions.na.fill("")
-	df_predictions.persist()
-	df_predictions.write.mode("overwrite").parquet(predictions_path)
-	df_predictions.repartition(1).write.mode("overwrite").csv(final_predictions)
+	df_predictions = df_predictions.na.fill("").drop("features")
+	df_predictions.persist()						
+	df_predictions.write.mode("overwrite").parquet(prediction_path)
+	df_predictions.repartition(1).write.mode("overwrite").option("header", "true").csv(final_predictions)
 	
 	df_positive = df_predictions.where((df_predictions.prediction == 1.0) & (df_predictions.RANK == 1))
 	df_positive.write.mode("overwrite").parquet(positive_result_path)   # TODO 记得打开
 	
-	df_positive = df_positive.withColumn("MASTER_DOSAGE", join_pandas_udf(col("MASTER_DOSAGE"))) \
-							.withColumn("MANUFACTURER_NAME_STANDARD_WORDS", join_pandas_udf(col("MANUFACTURER_NAME_STANDARD_WORDS"))) \
-							.withColumn("MANUFACTURER_NAME_CLEANNING_WORDS", join_pandas_udf(col("MANUFACTURER_NAME_CLEANNING_WORDS"))) \
-							.withColumn("MANUFACTURER_NAME_STANDARD_WORDS_SEG", join_pandas_udf(col("MANUFACTURER_NAME_STANDARD_WORDS_SEG"))) \
-							.withColumn("MANUFACTURER_NAME_CLEANNING_WORDS_SEG", join_pandas_udf(col("MANUFACTURER_NAME_CLEANNING_WORDS_SEG"))) \
-							.withColumn("features", join_udf(col("features")))
+	# df_positive = df_positive.withColumn("MASTER_DOSAGE", join_pandas_udf(col("MASTER_DOSAGE"))) \
+	# 						.withColumn("MANUFACTURER_NAME_STANDARD_WORDS", join_pandas_udf(col("MANUFACTURER_NAME_STANDARD_WORDS"))) \
+	# 						.withColumn("MANUFACTURER_NAME_CLEANNING_WORDS", join_pandas_udf(col("MANUFACTURER_NAME_CLEANNING_WORDS"))) \
+	# 						.withColumn("MANUFACTURER_NAME_STANDARD_WORDS_SEG", join_pandas_udf(col("MANUFACTURER_NAME_STANDARD_WORDS_SEG"))) \
+	# 						.withColumn("MANUFACTURER_NAME_CLEANNING_WORDS_SEG", join_pandas_udf(col("MANUFACTURER_NAME_CLEANNING_WORDS_SEG"))) \
+	# 						.withColumn("features", join_udf(col("features")))
 	df_positive.repartition(1).write.mode("overwrite").option("header", "true").csv(final_positive_path)
 	logger.warn("机器判断positive的条目写入完成")
 	
 	df_negative = df_predictions.where((df_predictions.prediction == 0.0) | ((df_predictions.prediction == 1.0) & (df_predictions.RANK != 1)))
 	df_negative.write.mode("overwrite").parquet(negative_result_path)
-	df_negative = df_negative.withColumn("MASTER_DOSAGE", join_pandas_udf(col("MASTER_DOSAGE"))) \
-							.withColumn("MANUFACTURER_NAME_STANDARD_WORDS", join_pandas_udf(col("MANUFACTURER_NAME_STANDARD_WORDS"))) \
-							.withColumn("MANUFACTURER_NAME_CLEANNING_WORDS", join_pandas_udf(col("MANUFACTURER_NAME_CLEANNING_WORDS"))) \
-							.withColumn("MANUFACTURER_NAME_STANDARD_WORDS_SEG", join_pandas_udf(col("MANUFACTURER_NAME_STANDARD_WORDS_SEG"))) \
-							.withColumn("MANUFACTURER_NAME_CLEANNING_WORDS_SEG", join_pandas_udf(col("MANUFACTURER_NAME_CLEANNING_WORDS_SEG"))) \
-							.withColumn("features", join_udf(col("features")))
+	# df_negative = df_negative.withColumn("MASTER_DOSAGE", join_pandas_udf(col("MASTER_DOSAGE"))) \
+	# 						.withColumn("MANUFACTURER_NAME_STANDARD_WORDS", join_pandas_udf(col("MANUFACTURER_NAME_STANDARD_WORDS"))) \
+	# 						.withColumn("MANUFACTURER_NAME_CLEANNING_WORDS", join_pandas_udf(col("MANUFACTURER_NAME_CLEANNING_WORDS"))) \
+	# 						.withColumn("MANUFACTURER_NAME_STANDARD_WORDS_SEG", join_pandas_udf(col("MANUFACTURER_NAME_STANDARD_WORDS_SEG"))) \
+	# 						.withColumn("MANUFACTURER_NAME_CLEANNING_WORDS_SEG", join_pandas_udf(col("MANUFACTURER_NAME_CLEANNING_WORDS_SEG"))) \
+	# 						.withColumn("features", join_udf(col("features")))
 	df_negative.repartition(1).write.mode("overwrite").option("header", "true").csv(final_negative_path)
 	logger.warn("机器判断negative的条目写入完成")
 	
 	# df_lost.write.mode("overwrite").parquet(final_lost_path)
-	df_lost.drop("JACCARD_DISTANCE").repartition(1).write.mode("overwrite").option("header", "true").csv(final_lost_path)
-	logger.warn("匹配第一步丢失条目写入完成")
+	# df_lost.drop("JACCARD_DISTANCE").repartition(1).write.mode("overwrite").option("header", "true").csv(final_lost_path)
+	# logger.warn("匹配第一步丢失条目写入完成")
 	
 	# 6. 结果统计
 	all_count = df_predictions.count() + df_lost.count() # 数据总数

@@ -24,6 +24,10 @@ spec:
       - key: depend_job_names_keys
         value: 
           - effectiveness_with_jws#effective_result#input
+      - key: g_repartition_shared
+        value: 10
     outputs:
       - key: mnf_adjust_result
         value: mnf_adjust_result
+      - key: mnf_adjust_mid
+        value: mnf_adjust_mid

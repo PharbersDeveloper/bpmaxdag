@@ -27,6 +27,8 @@ def execute(**kwargs):
 	depends = get_depends_path(kwargs)
 	df_result = spark.read.parquet(depends["input"])
 	
+	print(df_result.count())
+	
 	# output 	
 	job_id = get_job_id(kwargs)
 	run_id = get_run_id(kwargs)

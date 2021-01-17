@@ -58,6 +58,7 @@ def execute(**kwargs):
 								# .withColumnRenamed("EFFTIVENESS_MANUFACTURER", "EFFTIVENESS_MANUFACTURER_FIRST") \
 								
 	df_second_round.persist()
+	# df_second_round.printSchema()
 	df_second_round.repartition(g_repartition_shared).write.mode("overwrite").parquet(mid_path)
 
 	cols = ["sid", "id","PACK_ID_CHECK",  "PACK_ID_STANDARD","DOSAGE","MOLE_NAME","PRODUCT_NAME","SPEC","PACK_QTY","MANUFACTURER_NAME","SPEC_ORIGINAL",
@@ -113,14 +114,11 @@ def get_depends_path(kwargs):
 
 
 def second_round_with_col_recalculate(df_second_round, dosage_mapping, spark):
-	# df_second_round.show()
-	# df_second_round.printSchema()
-	# dosage_mapping.show()
 	df_second_round = df_second_round.join(dosage_mapping, "DOSAGE", how="left").na.fill("")
-	# df_second_round = df_second_round.withColumn("MASTER_DOSAGE", when(df_second_round.MASTER_DOSAGE.isNull(), df_second_round.JACCARD_DISTANCE). \
-						# otherwise(df_second_round.MASTER_DOSAGE))
+	df_second_round = df_second_round.withColumn("MASTER_DOSAGE", when(df_second_round.MASTER_DOSAGE.isNull(), df_second_round.JACCARD_DISTANCE). \
+							otherwise(df_second_round.MASTER_DOSAGE))
 	df_second_round = df_second_round.withColumn("EFFTIVENESS_DOSAGE_SE", dosage_replace(df_second_round.MASTER_DOSAGE, \
-														df_second_round.DOSAGE_STANDARD, df_second_round.EFFTIVENESS_DOSAGE)) 
+							df_second_round.DOSAGE_STANDARD, df_second_round.EFFTIVENESS_DOSAGE)) 
 	df_second_round = mole_dosage_calculaltion(df_second_round)   # 加一列EFF_MOLE_DOSAGE，doubletype
 	df_second_round = df_second_round.withColumn("EFFTIVENESS_PRODUCT_NAME_SE", \
 							prod_name_replace(df_second_round.EFFTIVENESS_MOLE_NAME, 

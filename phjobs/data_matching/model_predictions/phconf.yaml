@@ -4,7 +4,7 @@ metadata:
   name: model_preditions
   description: "pharbers job description"
   labels:
-    name: model_preditions
+    name: model_predictions
     runtime: python3
 spec:
   containers:
@@ -14,7 +14,7 @@ spec:
     config: phconf.yaml
     args:
       - key: job_name
-        value: cleaning_data_model_preditions
+        value: cleaning_data_model_predictions
       - key: path_prefix
         value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs
       - key: final_prefix
@@ -23,7 +23,7 @@ spec:
         value: 1
       - key: depend_job_names_keys
         value: 
-          - cleaning_data_model_traning#model_result#model
+          - cleaning_data_model_training#model_result#model
           - labeling_with_crossed_data#label_result#data
           - cross_join_cutting#cross_drop#lost
     outputs:

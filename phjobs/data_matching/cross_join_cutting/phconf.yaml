@@ -30,7 +30,7 @@ spec:
       - key: g_repatition_shared
         value: 16
       - key: g_cleaning_limit
-        value: 100
+        value: -1
     outputs:
       - key: cross_result
         value: cross_result

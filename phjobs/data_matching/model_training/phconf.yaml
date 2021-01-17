@@ -4,7 +4,7 @@ metadata:
   name: training2
   description: "pharbers job description"
   labels:
-    name: model_traning
+    name: model_training
     runtime: python3
 spec:
   containers:
@@ -14,7 +14,7 @@ spec:
     config: phconf.yaml
     args:
       - key: job_name
-        value: cleaning_data_model_traning
+        value: cleaning_data_model_training
       - key: path_prefix
         value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs
       - key: final_prefix

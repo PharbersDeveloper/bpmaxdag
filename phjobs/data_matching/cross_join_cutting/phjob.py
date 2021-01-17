@@ -34,6 +34,7 @@ def execute(**kwargs):
 		df_cleanning = spark.read.parquet(depends["cleaning"])
 		
 	df_standard = spark.read.parquet(depends["standard"])
+	print(df_cleanning.count())
 	
 	# output
 	job_id = get_job_id(kwargs)
