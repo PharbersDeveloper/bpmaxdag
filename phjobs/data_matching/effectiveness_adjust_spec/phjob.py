@@ -31,15 +31,15 @@ def execute(**kwargs):
 	# input	
 	depends = get_depends_path(kwargs)
 	df_second_round = spark.read.parquet(depends["input"])
-
-	dosage_mapping_path = kwargs["dosage_mapping_path"]
-	df_dosage_mapping = load_dosage_mapping(spark, dosage_mapping_path)
+	df_dosage_mapping = spark.read.parquet(kwargs["dosage_mapping_path"])
+	g_repartition_shared = int(kwargs["g_repartition_shared"])
 	
 	# output 	
 	job_id = get_job_id(kwargs)
 	run_id = get_run_id(kwargs)
 	result_path_prefix = get_result_path(kwargs, run_id, job_id)
 	result_path = result_path_prefix + kwargs["spec_adjust_result"]
+	mid_path = result_path_prefix + kwargs["spec_adjust_mid"]
 
 	# 6. 第二轮更改优化eff的计算方法
 	df_second_round = df_second_round.withColumnRenamed("EFFTIVENESS_SPEC", "EFFTIVENESS_SPEC_FIRST")
@@ -52,13 +52,20 @@ def execute(**kwargs):
 																		.otherwise(df_second_round.EFFTIVENESS_SPEC_SPLIT))
 	df_second_round = df_second_round.withColumnRenamed("EFFTIVENESS_PRODUCT_NAME", "EFFTIVENESS_PRODUCT_NAME_FIRST") \
 								.withColumnRenamed("EFFTIVENESS_DOSAGE", "EFFTIVENESS_DOSAGE_FIRST") \
-								.withColumnRenamed("EFFTIVENESS_MANUFACTURER", "EFFTIVENESS_MANUFACTURER_FIRST") \
 								.withColumnRenamed("EFFTIVENESS_DOSAGE_SE", "EFFTIVENESS_DOSAGE") \
 								.withColumnRenamed("EFFTIVENESS_MANUFACTURER_SE", "EFFTIVENESS_MANUFACTURER") \
 								.withColumnRenamed("EFFTIVENESS_PRODUCT_NAME_SE", "EFFTIVENESS_PRODUCT_NAME")
+								# .withColumnRenamed("EFFTIVENESS_MANUFACTURER", "EFFTIVENESS_MANUFACTURER_FIRST") \
 								
-	df_second_round.show()
-	df_second_round.write.mode("overwrite").parquet(result_path)
+	df_second_round.persist()
+	df_second_round.repartition(g_repartition_shared).write.mode("overwrite").parquet(mid_path)
+
+	cols = ["sid", "id","PACK_ID_CHECK",  "PACK_ID_STANDARD","DOSAGE","MOLE_NAME","PRODUCT_NAME","SPEC","PACK_QTY","MANUFACTURER_NAME","SPEC_ORIGINAL",
+			"MOLE_NAME_STANDARD","PRODUCT_NAME_STANDARD","CORP_NAME_STANDARD","MANUFACTURER_NAME_STANDARD","MANUFACTURER_NAME_EN_STANDARD","DOSAGE_STANDARD","SPEC_STANDARD","PACK_QTY_STANDARD",
+			"SPEC_valid_digit_STANDARD","SPEC_valid_unit_STANDARD","SPEC_gross_digit_STANDARD","SPEC_gross_unit_STANDARD","SPEC_STANDARD_ORIGINAL",
+			"EFFTIVENESS_MOLE_NAME","EFFTIVENESS_PRODUCT_NAME","EFFTIVENESS_DOSAGE","EFFTIVENESS_PACK_QTY","EFFTIVENESS_MANUFACTURER","EFFTIVENESS_SPEC"]
+	df_second_round = df_second_round.select(cols)
+	df_second_round.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
 	
 
 	return {}
@@ -104,23 +111,14 @@ def get_depends_path(kwargs):
 		result[depends_name] = get_depends_file_path(kwargs, depends_job, depends_key)
 	return result
 
-"""
-读取剂型替换表
-"""
-def load_dosage_mapping(spark, cpa_dosage_lst_path):
-	df_dosage_mapping = spark.read.parquet(cpa_dosage_lst_path)
-	return df_dosage_mapping
-	
-	
+
 def second_round_with_col_recalculate(df_second_round, dosage_mapping, spark):
-	df_second_round.show()
-	df_second_round.printSchema()
-	dosage_mapping.show()
-	df_second_round = df_second_round.join(dosage_mapping, df_second_round.DOSAGE == dosage_mapping.CPA_DOSAGE, how="left").na.fill("")
-	# df_second_round = df_second_round.join(dosage_mapping, df_second_round.DOSAGE == dosage_mapping.CHC_DOSAGE, how="left").na.fill("")
-	df_second_round = df_second_round.withColumn("MASTER_DOSAGE", when(df_second_round.MASTER_DOSAGE.isNull(), df_second_round.JACCARD_DISTANCE). \
-	# df_second_round = df_second_round.withColumn("MASTER_DOSAGE", when(df_second_round.MASTER_DOSAGE.isNull(), array(df_second_round.DOSAGE_STANDARD)). \
-						otherwise(df_second_round.MASTER_DOSAGE))
+	# df_second_round.show()
+	# df_second_round.printSchema()
+	# dosage_mapping.show()
+	df_second_round = df_second_round.join(dosage_mapping, "DOSAGE", how="left").na.fill("")
+	# df_second_round = df_second_round.withColumn("MASTER_DOSAGE", when(df_second_round.MASTER_DOSAGE.isNull(), df_second_round.JACCARD_DISTANCE). \
+						# otherwise(df_second_round.MASTER_DOSAGE))
 	df_second_round = df_second_round.withColumn("EFFTIVENESS_DOSAGE_SE", dosage_replace(df_second_round.MASTER_DOSAGE, \
 														df_second_round.DOSAGE_STANDARD, df_second_round.EFFTIVENESS_DOSAGE)) 
 	df_second_round = mole_dosage_calculaltion(df_second_round)   # 加一列EFF_MOLE_DOSAGE，doubletype
@@ -129,7 +127,6 @@ def second_round_with_col_recalculate(df_second_round, dosage_mapping, spark):
 											df_second_round.EFFTIVENESS_PRODUCT_NAME, df_second_round.MOLE_NAME, \
 											df_second_round.PRODUCT_NAME_STANDARD, df_second_round.EFF_MOLE_DOSAGE))
 
-												
 	return df_second_round
 
 
