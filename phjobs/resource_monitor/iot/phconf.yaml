@@ -20,10 +20,6 @@ spec:
         value: test/1
       - key: message
         value: Test
-    outputs:
-      - key: c
-        value: "abc"
-
 
 
 

@@ -18,20 +18,15 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--subject')
 @click.option('--content_type')
 @click.option('--content')
-@click.option('--c')
 def debug_execute(**kwargs):
     try:
         args = {"name": "email"}
-        outputs = ["c"]
 
         args.update(kwargs)
         result = exec_before(**args)
 
         args.update(result if isinstance(result, dict) else {})
         result = execute(**args)
-
-        args.update(result if isinstance(result, dict) else {})
-        result = exec_after(outputs=outputs, **args)
 
         return result
     except Exception as e:

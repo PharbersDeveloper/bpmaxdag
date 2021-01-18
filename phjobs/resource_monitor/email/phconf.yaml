@@ -24,9 +24,6 @@ spec:
         value: text/plain
       - key: content
         value: default
-    outputs:
-      - key: c
-        value: "abc"
 
 
 
