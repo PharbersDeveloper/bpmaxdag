@@ -16,7 +16,7 @@ from pyspark.sql.functions import when
 from pyspark.sql import Window
 from pyspark.ml.linalg import Vectors, VectorUDT
 from pyspark.ml.classification import MultilayerPerceptronClassifier
-from pyspark.ml import Pipeline
+from pyspark.ml import Pipeline, PipelineModel
 from pyspark.ml.classification import DecisionTreeClassifier
 from pyspark.ml.feature import StringIndexer, VectorIndexer
 from pyspark.ml.evaluation import MulticlassClassificationEvaluator
