@@ -27,6 +27,8 @@ def execute(**kwargs):
 	depends = get_depends_path(kwargs)
 	df_result = spark.read.parquet(depends["input"])
 	
+	print(df_result.count())
+	
 	# output 	
 	job_id = get_job_id(kwargs)
 	run_id = get_run_id(kwargs)
@@ -55,6 +57,7 @@ def execute(**kwargs):
 					.withColumn("EFFTIVENESS_MANUFACTURER", df_result.EFFTIVENESS[5]) \
 					.drop("EFFTIVENESS")
 
+	df_result = df_result.withColumn("sid", pudf_id_generator(df_result.id))
 	df_result.write.mode("overwrite").parquet(result_path)
 	logger.info("第一轮完成，写入完成")
 	
@@ -100,6 +103,16 @@ def get_depends_path(kwargs):
 		depends_name = tmp_lst[2]
 		result[depends_name] = get_depends_file_path(kwargs, depends_job, depends_key)
 	return result
+	
+	
+@pandas_udf(StringType(), PandasUDFType.SCALAR)
+def pudf_id_generator(oid):
+	frame = {
+		"_ID": oid
+	}
+	df = pd.DataFrame(frame)
+	df["RESULT"] = df["_ID"].apply(lambda x: str(uuid.uuid4()))
+	return df["RESULT"]
 	
 	
 """

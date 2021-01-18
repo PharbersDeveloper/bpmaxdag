@@ -12,10 +12,11 @@ from pyspark.sql import SparkSession
 from pyspark.sql.types import *
 from pyspark.sql.functions import desc
 from pyspark.sql.functions import rank
+from pyspark.sql.functions import when
 from pyspark.sql import Window
 from pyspark.ml.linalg import Vectors, VectorUDT
 from pyspark.ml.classification import MultilayerPerceptronClassifier
-from pyspark.ml import Pipeline
+from pyspark.ml import Pipeline, PipelineModel
 from pyspark.ml.classification import DecisionTreeClassifier
 from pyspark.ml.feature import StringIndexer, VectorIndexer
 from pyspark.ml.evaluation import MulticlassClassificationEvaluator
@@ -36,6 +37,7 @@ def execute(**kwargs):
 	#input
 	depends = get_depends_path(kwargs)
 	training_data = spark.read.parquet(depends["input"])
+	# raw_data = spark.read.parquet(depends["raw"])
 	
 	# output
 	job_id = get_job_id(kwargs)
@@ -43,13 +45,15 @@ def execute(**kwargs):
 	result_path_prefix = get_result_path(kwargs, run_id, job_id)
 	model_path = result_path_prefix + kwargs["model_result"]
 	validate_path = result_path_prefix + kwargs["model_validate"]
-	tm = time.strftime("%Y-%m-%d_%H:%M:%S", time.localtime())
+	tm = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
 	final_path = get_final_result_path(kwargs, run_id, kwargs["final_model"], tm)
 	input_model_path = kwargs["input_model_path"]
 
 	if input_model_path == "unknown":
 		# 0. load the cleanning data
 		# features
+		# training_data = training_data.withColumn("EFFTIVENESS_DOSAGE", when(training_data.EFFTIVENESS_DOSAGE > 0.995, 0.995).otherwise(training_data.EFFTIVENESS_DOSAGE))
+		print(training_data.count())
 		assembler = VectorAssembler( \
 						inputCols=["EFFTIVENESS_MOLE_NAME", "EFFTIVENESS_PRODUCT_NAME", "EFFTIVENESS_DOSAGE", "EFFTIVENESS_SPEC", \
 									"EFFTIVENESS_PACK_QTY", "EFFTIVENESS_MANUFACTURER"], \
@@ -60,11 +64,16 @@ def execute(**kwargs):
 		df_cleanning = training_data.select("id").distinct()
 		# Split the data into training and test sets (30% held out for testing)
 		(df_training, df_test) = df_cleanning.randomSplit([0.7, 0.3])
+		# (df_training, df_test) = raw_data.randomSplit([0.7, 0.3])
+		print(df_training.count())
+		df_training.show(100, truncate=False)
 	
 		# 1. load the training data
 		# 准备训练集合
 		df_result = training_data
 		df_result = df_result.select("id", "label", "features")
+		print(df_result.where(df_result.label > 0).count())
+		df_result.where(df_result.label > 0).show(100, truncate=False)
 		labelIndexer = StringIndexer(inputCol="label", outputCol="indexedLabel").fit(df_result)
 		featureIndexer = VectorIndexer(inputCol="features", outputCol="indexedFeatures", maxCategories=6).fit(df_result)
 	
@@ -111,6 +120,10 @@ def execute(**kwargs):
 		model = PipelineModel.load(model_path)
 		model.write().overwrite().save(model_path)
 		model.write().overwrite().save(final_path)
+
+	treeModel = model.stages[2]
+	# summary only
+	print(treeModel.toDebugString)
 	
 	return {}
 

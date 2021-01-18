@@ -34,6 +34,7 @@ def execute(**kwargs):
 		df_cleanning = spark.read.parquet(depends["cleaning"])
 		
 	df_standard = spark.read.parquet(depends["standard"])
+	print(df_cleanning.count())
 	
 	# output
 	job_id = get_job_id(kwargs)
@@ -60,8 +61,9 @@ def execute(**kwargs):
 	g_mole_name_shared = float(kwargs["g_mole_name_shared"])
 	g_pack_qty_shared = float(kwargs["g_pack_qty_shared"])
 	g_repatition_shared = int(kwargs["g_repatition_shared"])
-	df_drop_data = df_result.where((df_result.JACCARD_DISTANCE[0] >= g_mole_name_shared) & (df_result.JACCARD_DISTANCE[1] >= g_pack_qty_shared))
-	df_drop_data.repartition(g_repatition_shared).write.mode("overwrite").parquet(drop_path)	
+	# 需要换一个做法
+	# df_drop_data = df_result.where((df_result.JACCARD_DISTANCE[0] >= g_mole_name_shared) & (df_result.JACCARD_DISTANCE[1] >= g_pack_qty_shared))
+	# df_drop_data.repartition(g_repatition_shared).write.mode("overwrite").parquet(drop_path)	
 	
 	df_result = df_result.where((df_result.JACCARD_DISTANCE[0] < g_mole_name_shared) & (df_result.JACCARD_DISTANCE[1] < g_pack_qty_shared))  # 目前取了分子名和pack来判断
 	df_result.repartition(g_repatition_shared).write.mode("overwrite").parquet(result_path)

@@ -34,6 +34,7 @@ def execute(**kwargs):
 	# input	
 	depends = get_depends_path(kwargs)
 	df_second_round = spark.read.parquet(depends["input"])
+	g_repartition_shared = int(kwargs["g_repartition_shared"])
 
 	word_dict_encode_path = kwargs["word_dict_encode_path"]
 	df_encode = load_word_dict_encode(spark, word_dict_encode_path)
@@ -46,25 +47,25 @@ def execute(**kwargs):
 	run_id = get_run_id(kwargs)
 	result_path_prefix = get_result_path(kwargs, run_id, job_id)
 	result_path = result_path_prefix + kwargs["mnf_adjust_result"]
+	mid_path= result_path_prefix + kwargs["mnf_adjust_mid"]
    
-	# 6. 第二轮更改优化eff的计算方法
-	df_second_round = df_second_round.withColumnRenamed("EFFTIVENESS_SPEC", "EFFTIVENESS_SPEC_FIRST")
-	# df_second_round = second_round_with_col_recalculate(df_second_round, df_dosage_mapping, df_encode, spark)
 	df_second_round = second_round_with_col_recalculate(df_second_round, df_encode, spark)
-	# spec拆列之后的匹配算法
-	# df_second_round = spec_split_matching(df_second_round)
-	# df_second_round = df_second_round.withColumn("EFFTIVENESS_SPEC", when((df_second_round.EFFTIVENESS_SPEC_FIRST > df_second_round.EFFTIVENESS_SPEC_SPLIT), \
-																		# df_second_round.EFFTIVENESS_SPEC_FIRST) \
-																		# .otherwise(df_second_round.EFFTIVENESS_SPEC_SPLIT))
 	df_second_round = df_second_round.withColumnRenamed("EFFTIVENESS_PRODUCT_NAME", "EFFTIVENESS_PRODUCT_NAME_FIRST") \
-								.withColumnRenamed("EFFTIVENESS_DOSAGE", "EFFTIVENESS_DOSAGE_FIRST") \
 								.withColumnRenamed("EFFTIVENESS_MANUFACTURER", "EFFTIVENESS_MANUFACTURER_FIRST") \
 								.withColumnRenamed("EFFTIVENESS_DOSAGE_SE", "EFFTIVENESS_DOSAGE") \
 								.withColumnRenamed("EFFTIVENESS_MANUFACTURER_SE", "EFFTIVENESS_MANUFACTURER") \
 								.withColumnRenamed("EFFTIVENESS_PRODUCT_NAME_SE", "EFFTIVENESS_PRODUCT_NAME")
-								
-	df_second_round.show()
-	df_second_round.write.mode("overwrite").parquet(result_path)
+								# .withColumnRenamed("EFFTIVENESS_DOSAGE", "EFFTIVENESS_DOSAGE_FIRST") \
+	df_second_round.persist()	
+	# df_second_round.printSchema()
+	df_second_round.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
+	
+	cols = ["sid", "id","PACK_ID_CHECK",  "PACK_ID_STANDARD","DOSAGE","MOLE_NAME","PRODUCT_NAME","SPEC","PACK_QTY","MANUFACTURER_NAME","SPEC_ORIGINAL",
+			"MOLE_NAME_STANDARD","PRODUCT_NAME_STANDARD","CORP_NAME_STANDARD","MANUFACTURER_NAME_STANDARD","MANUFACTURER_NAME_EN_STANDARD","DOSAGE_STANDARD","SPEC_STANDARD","PACK_QTY_STANDARD",
+			"SPEC_valid_digit_STANDARD","SPEC_valid_unit_STANDARD","SPEC_gross_digit_STANDARD","SPEC_gross_unit_STANDARD","SPEC_STANDARD_ORIGINAL",
+			"EFFTIVENESS_MOLE_NAME","EFFTIVENESS_PRODUCT_NAME","EFFTIVENESS_DOSAGE","EFFTIVENESS_PACK_QTY","EFFTIVENESS_MANUFACTURER","EFFTIVENESS_SPEC"]
+	df_second_round = df_second_round.select(cols)
+	df_second_round.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
 	
    
 	return {}

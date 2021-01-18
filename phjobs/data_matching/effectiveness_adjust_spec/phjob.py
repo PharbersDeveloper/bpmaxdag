@@ -31,15 +31,15 @@ def execute(**kwargs):
 	# input	
 	depends = get_depends_path(kwargs)
 	df_second_round = spark.read.parquet(depends["input"])
-
-	dosage_mapping_path = kwargs["dosage_mapping_path"]
-	df_dosage_mapping = load_dosage_mapping(spark, dosage_mapping_path)
+	df_dosage_mapping = spark.read.parquet(kwargs["dosage_mapping_path"])
+	g_repartition_shared = int(kwargs["g_repartition_shared"])
 	
 	# output 	
 	job_id = get_job_id(kwargs)
 	run_id = get_run_id(kwargs)
 	result_path_prefix = get_result_path(kwargs, run_id, job_id)
 	result_path = result_path_prefix + kwargs["spec_adjust_result"]
+	mid_path = result_path_prefix + kwargs["spec_adjust_mid"]
 
 	# 6. 第二轮更改优化eff的计算方法
 	df_second_round = df_second_round.withColumnRenamed("EFFTIVENESS_SPEC", "EFFTIVENESS_SPEC_FIRST")
@@ -52,13 +52,22 @@ def execute(**kwargs):
 																		.otherwise(df_second_round.EFFTIVENESS_SPEC_SPLIT))
 	df_second_round = df_second_round.withColumnRenamed("EFFTIVENESS_PRODUCT_NAME", "EFFTIVENESS_PRODUCT_NAME_FIRST") \
 								.withColumnRenamed("EFFTIVENESS_DOSAGE", "EFFTIVENESS_DOSAGE_FIRST") \
-								.withColumnRenamed("EFFTIVENESS_MANUFACTURER", "EFFTIVENESS_MANUFACTURER_FIRST") \
 								.withColumnRenamed("EFFTIVENESS_DOSAGE_SE", "EFFTIVENESS_DOSAGE") \
 								.withColumnRenamed("EFFTIVENESS_MANUFACTURER_SE", "EFFTIVENESS_MANUFACTURER") \
 								.withColumnRenamed("EFFTIVENESS_PRODUCT_NAME_SE", "EFFTIVENESS_PRODUCT_NAME")
+								# .withColumnRenamed("EFFTIVENESS_MANUFACTURER", "EFFTIVENESS_MANUFACTURER_FIRST") \
 								
-	df_second_round.show()
-	df_second_round.write.mode("overwrite").parquet(result_path)
+	df_second_round.persist()
+	# df_second_round.where((df_second_round.id == "199ce468-ea60-4182-b98c-a0504e40be0e") & (df_second_round.sid == "0cdc220d-0bd3-4660-bc5b-9733cd4e53e3")).show(100, truncate=False)
+	# df_second_round.printSchema()
+	df_second_round.repartition(g_repartition_shared).write.mode("overwrite").parquet(mid_path)
+
+	cols = ["sid", "id","PACK_ID_CHECK",  "PACK_ID_STANDARD","DOSAGE","MOLE_NAME","PRODUCT_NAME","SPEC","PACK_QTY","MANUFACTURER_NAME","SPEC_ORIGINAL",
+			"MOLE_NAME_STANDARD","PRODUCT_NAME_STANDARD","CORP_NAME_STANDARD","MANUFACTURER_NAME_STANDARD","MANUFACTURER_NAME_EN_STANDARD","DOSAGE_STANDARD","SPEC_STANDARD","PACK_QTY_STANDARD",
+			"SPEC_valid_digit_STANDARD","SPEC_valid_unit_STANDARD","SPEC_gross_digit_STANDARD","SPEC_gross_unit_STANDARD","SPEC_STANDARD_ORIGINAL",
+			"EFFTIVENESS_MOLE_NAME","EFFTIVENESS_PRODUCT_NAME","EFFTIVENESS_DOSAGE","EFFTIVENESS_PACK_QTY","EFFTIVENESS_MANUFACTURER","EFFTIVENESS_SPEC"]
+	df_second_round = df_second_round.select(cols)
+	df_second_round.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
 	
 
 	return {}
@@ -104,32 +113,19 @@ def get_depends_path(kwargs):
 		result[depends_name] = get_depends_file_path(kwargs, depends_job, depends_key)
 	return result
 
-"""
-读取剂型替换表
-"""
-def load_dosage_mapping(spark, cpa_dosage_lst_path):
-	df_dosage_mapping = spark.read.parquet(cpa_dosage_lst_path)
-	return df_dosage_mapping
-	
-	
+
 def second_round_with_col_recalculate(df_second_round, dosage_mapping, spark):
-	df_second_round.show()
-	df_second_round.printSchema()
-	dosage_mapping.show()
-	df_second_round = df_second_round.join(dosage_mapping, df_second_round.DOSAGE == dosage_mapping.CPA_DOSAGE, how="left").na.fill("")
-	# df_second_round = df_second_round.join(dosage_mapping, df_second_round.DOSAGE == dosage_mapping.CHC_DOSAGE, how="left").na.fill("")
+	df_second_round = df_second_round.join(dosage_mapping, "DOSAGE", how="left").na.fill("")
 	df_second_round = df_second_round.withColumn("MASTER_DOSAGE", when(df_second_round.MASTER_DOSAGE.isNull(), df_second_round.JACCARD_DISTANCE). \
-	# df_second_round = df_second_round.withColumn("MASTER_DOSAGE", when(df_second_round.MASTER_DOSAGE.isNull(), array(df_second_round.DOSAGE_STANDARD)). \
-						otherwise(df_second_round.MASTER_DOSAGE))
+							otherwise(df_second_round.MASTER_DOSAGE))
 	df_second_round = df_second_round.withColumn("EFFTIVENESS_DOSAGE_SE", dosage_replace(df_second_round.MASTER_DOSAGE, \
-														df_second_round.DOSAGE_STANDARD, df_second_round.EFFTIVENESS_DOSAGE)) 
+							df_second_round.DOSAGE_STANDARD, df_second_round.EFFTIVENESS_DOSAGE)) 
 	df_second_round = mole_dosage_calculaltion(df_second_round)   # 加一列EFF_MOLE_DOSAGE，doubletype
 	df_second_round = df_second_round.withColumn("EFFTIVENESS_PRODUCT_NAME_SE", \
 							prod_name_replace(df_second_round.EFFTIVENESS_MOLE_NAME, 
 											df_second_round.EFFTIVENESS_PRODUCT_NAME, df_second_round.MOLE_NAME, \
 											df_second_round.PRODUCT_NAME_STANDARD, df_second_round.EFF_MOLE_DOSAGE))
 
-												
 	return df_second_round
 
 
@@ -220,6 +216,7 @@ def spec_split_matching(df):
 	df = df.na.fill("")
 	df.show()
 	
+	
 	# 把百分号补充到有效成分列中
 	# df = df.withColumn("SPEC_percent", lit(""))
 	# df = df.withColumn("SPEC_gross", when(((df.SPEC_gross == "") & (df.SPEC_valid != "")), df.SPEC_valid).otherwise(df.SPEC_gross))
@@ -248,8 +245,10 @@ def spec_split_matching(df):
 	df = df.withColumn("SPEC_total_ORIGINAL",  spec_total_cleanning_pandas_udf(df.SPEC_valid_digit, df.SPEC_valid_unit, df.SPEC_gross_digit, df.SPEC_gross_unit))
 	
 	df = df.na.fill("")
-	df.select("SPEC_valid_digit", "SPEC_valid_total_ORIGINAL", "SPEC_valid_digit_STANDARD", "SPEC_valid_total_STANDARD").show()
+	# df.select("SPEC_valid_digit", "SPEC_valid_total_ORIGINAL", "SPEC_valid_digit_STANDARD", "SPEC_valid_total_STANDARD").show()
 	# df.show()
+	
+	# df = df.where((df.id == "199ce468-ea60-4182-b98c-a0504e40be0e") & (df.sid == "0cdc220d-0bd3-4660-bc5b-9733cd4e53e3"))
 	
 	# 开始计算effectiveness的逻辑
 	df = df.withColumn("EFFTIVENESS_SPEC_SPLIT", lit(0))
@@ -259,21 +258,23 @@ def spec_split_matching(df):
 						& (df.SPEC_gross_digit_STANDARD == df.SPEC_gross_digit) & (df.SPEC_gross_unit_STANDARD == df.SPEC_gross_unit)), \
 						lit(1))\
 						.otherwise(df.EFFTIVENESS_SPEC_SPLIT))
+	# df.select("SPEC_valid_digit", "SPEC_valid_total_ORIGINAL", "SPEC_valid_digit_STANDARD", "SPEC_valid_total_STANDARD", "EFFTIVENESS_SPEC_SPLIT").show()
 	# df = df.where(df.EFFTIVENESS_SPEC_SPLIT == 0)
 	
 	# 2. 如果original/standard【只有valid/只有gross】，且仅有的部分是可以对应的，则eff为1
 	df = df.withColumn("EFFTIVENESS_SPEC_SPLIT", when( \
 						((df.SPEC_valid_digit == "") & (df.SPEC_valid_unit == "") \
-						& ((df.SPEC_gross_digit_STANDARD == df.SPEC_gross_digit) & (df.SPEC_gross_unit_STANDARD == df.SPEC_gross_unit)) \
-						| ((df.SPEC_valid_digit_STANDARD == df.SPEC_gross_digit) & (df.SPEC_valid_unit_STANDARD == df.SPEC_gross_unit))), \
+						& (((df.SPEC_gross_digit_STANDARD == df.SPEC_gross_digit) & (df.SPEC_gross_unit_STANDARD == df.SPEC_gross_unit)) \
+						| ((df.SPEC_valid_digit_STANDARD == df.SPEC_gross_digit) & (df.SPEC_valid_unit_STANDARD == df.SPEC_gross_unit)))), \
 						lit(1))\
 						.otherwise(df.EFFTIVENESS_SPEC_SPLIT))
 	df = df.withColumn("EFFTIVENESS_SPEC_SPLIT", when( \
 						((df.SPEC_gross_digit == "") & (df.SPEC_gross_unit == "") \
-						& ((df.SPEC_valid_digit_STANDARD == df.SPEC_valid_digit) & (df.SPEC_valid_unit_STANDARD == df.SPEC_valid_unit)) \
-						| ((df.SPEC_gross_digit_STANDARD == df.SPEC_valid_digit) & (df.SPEC_gross_unit_STANDARD == df.SPEC_valid_unit))), \
+						& (((df.SPEC_valid_digit_STANDARD == df.SPEC_valid_digit) & (df.SPEC_valid_unit_STANDARD == df.SPEC_valid_unit)) \
+						| ((df.SPEC_gross_digit_STANDARD == df.SPEC_valid_digit) & (df.SPEC_gross_unit_STANDARD == df.SPEC_valid_unit)))), \
 						lit(1))\
 						.otherwise(df.EFFTIVENESS_SPEC_SPLIT))
+	# df.select("SPEC_valid_digit", "SPEC_valid_total_ORIGINAL", "SPEC_valid_digit_STANDARD", "SPEC_valid_total_STANDARD", "EFFTIVENESS_SPEC_SPLIT").show()
 						
 	# 3.如果【总量两列】 = 【有效成分两列】& 【有效成分两列】= 【总量两列】，则eff为1
 	df = df.withColumn("EFFTIVENESS_SPEC_SPLIT", when( \
@@ -281,6 +282,7 @@ def spec_split_matching(df):
 						& (df.SPEC_gross_digit_STANDARD == df.SPEC_valid_digit) & (df.SPEC_gross_unit_STANDARD == df.SPEC_valid_unit)), \
 						lit(1))\
 						.otherwise(df.EFFTIVENESS_SPEC_SPLIT))
+	# df.select("SPEC_valid_digit", "SPEC_valid_total_ORIGINAL", "SPEC_valid_digit_STANDARD", "SPEC_valid_total_STANDARD", "EFFTIVENESS_SPEC_SPLIT").show()
 						
 	# 4. 如果【源数据valid == 标准数据valid之和】，则eff为1
 	df = df.withColumn("EFFTIVENESS_SPEC_SPLIT", when( \
@@ -291,18 +293,20 @@ def spec_split_matching(df):
 	# df = df.where(df.SPEC == "CO 1.003 GM")
 	# 5. 一些骚操作（目前是针对azsanofi的）：
 	# 如果 【源数据有效成分 == 标准有效成分的取整值/四舍五入值】，则eff为0.99
-	df = df.withColumn("EFFTIVENESS_SPEC_SPLIT", when(df.EFFTIVENESS_SPEC_SPLIT == 1, df.EFFTIVENESS_SPEC_SPLIT) \
+	df = df.withColumn("EFFTIVENESS_SPEC_SPLIT", when((df.EFFTIVENESS_SPEC_SPLIT == 1) | (df.SPEC_valid_total_ORIGINAL <= 0.0) | (df.SPEC_valid_total_STANDARD <= 0.0), df.EFFTIVENESS_SPEC_SPLIT) \
 												.otherwise(spec_eff_int_or_carry(df.SPEC_valid_digit_STANDARD, df.SPEC_valid_total_ORIGINAL, df.SPEC_valid_unit_STANDARD, \
 																	df.SPEC_valid_unit, df.SPEC_valid_total_STANDARD, df.EFFTIVENESS_SPEC_SPLIT)))
 	# df = df.withColumn("EFFTIVENESS_SPEC_SPLIT", when(df.SPEC.contains("162.5"), lit(0.999999)). \
 	# 											otherwise(df.EFFTIVENESS_SPEC_SPLIT ))
+	# df.select("SPEC_valid_digit", "SPEC_valid_total_ORIGINAL", "SPEC_valid_digit_STANDARD", "SPEC_valid_total_STANDARD", "EFFTIVENESS_SPEC_SPLIT").show()
 	
 	# 6. 如果【标准总量/标准有效成分 == 源数据总+有效】，则eff为1
 	df = df.withColumn("EFFTIVENESS_SPEC_SPLIT", when( \
-						(((df.SPEC_total_ORIGINAL == df.SPEC_gross_digit_STANDARD) & (df.SPEC_gross_unit == df.SPEC_gross_unit_STANDARD)) \
+						(((df.SPEC_total_ORIGINAL == df.SPEC_gross_digit_STANDARD) & (df.SPEC_gross_unit == df.SPEC_gross_unit_STANDARD) & (df.SPEC_total_ORIGINAL > 0.0)) \
 						| ((df.SPEC_total_ORIGINAL == df.SPEC_valid_digit_STANDARD) & (df.SPEC_valid_unit == df.SPEC_valid_unit_STANDARD))), \
 						lit(1)) \
 						.otherwise(df.EFFTIVENESS_SPEC_SPLIT))
+	# df.select("SPEC_valid_digit", "SPEC_valid_total_ORIGINAL", "SPEC_valid_digit_STANDARD", "SPEC_valid_total_STANDARD", "EFFTIVENESS_SPEC_SPLIT").show()
 	# df.show()
 	# df.select("SPEC", "SPEC_STANDARD", "EFFTIVENESS_SPEC_SPLIT").show(25)
 	
