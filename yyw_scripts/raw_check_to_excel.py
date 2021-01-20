@@ -1,4 +1,4 @@
-from ph_logs.ph_logs import phlogger
+#from ph_logs.ph_logs import phlogger
 from pyspark.sql import SparkSession, Window
 from pyspark.sql.types import *
 from pyspark.sql.types import StringType, IntegerType, DoubleType
@@ -33,9 +33,9 @@ if access_key is not None:
 '''
 合并s3上的raw_data_check/.csv 为excel
 '''
-project_name = 'Astellas'
-outdir = '202009'
-outdir_local = "/workspace/my_scripts/"
+project_name = '贝达'
+outdir = '202011'
+outdir_local = "/home/ywyuan/tmp_file"
 
 max_path = 's3a://ph-max-auto/v0.0.1-2020-06-08/'
 raw_data_check_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_check/'
@@ -91,7 +91,7 @@ check_10[check_10.columns[1:]]=check_10[check_10.columns[1:]].astype(float)
 
 check_11 = spark.read.csv(check_11_path, header=True)
 check_11 = check_11.toPandas()
-check_11[check_11.columns[1:]]=check_11[check_11.columns[1:]].astype(float)
+check_11[check_11.columns[1:-1]]=check_11[check_11.columns[1:-1]].astype(float)
 
 
 with pd.ExcelWriter(outdir_local + "/" + project_name + "_raw_data_check.xlsx") as xlsx:

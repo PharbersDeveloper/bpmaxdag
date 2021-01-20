@@ -1,4 +1,4 @@
-from ph_logs.ph_logs import phlogger
+
 from pyspark.sql import SparkSession, Window
 from pyspark.sql.types import *
 from pyspark.sql.types import StringType, IntegerType, DoubleType
@@ -34,9 +34,9 @@ if access_key is not None:
 '''    
     
 # 需要修改的参数
-project_name = 'Bayer'
-outdir = '202010'
-if_two_source = 'False'
+project_name = '贝达'
+outdir = '202011'
+if_two_source = 'True'
 # 在c9上新建一个文件，将‘问题医院记录表’本项目要修改的条目复制粘贴（带着标题），保存的时候后缀写.csv即可
 change_file_path = '/home/ywyuan/BP_Max_AutoJob/yyw_scripts//raw_data_change.csv'
 
