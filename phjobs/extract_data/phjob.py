@@ -309,7 +309,7 @@ project, doi, molecule_sep, data_type):
     max_filter_path = max_filter_path.withColumn("path_month", func.concat(max_filter_path.path, func.lit("/Date_copy="), max_filter_path.Date))
     max_filter_path_month = max_filter_path.select("path_month").distinct().toPandas()["path_month"].tolist()
     
-    # 3. 根据 max_filter_path_month 汇总max结果
+    # 3. 根据 max_filter_path_month 汇总max结果        
     index = 0
     for eachpath in max_filter_path_month:
         df = spark.read.parquet(eachpath)
@@ -324,7 +324,8 @@ project, doi, molecule_sep, data_type):
             df = df.where(df.ATC.isin(atc))
         if molecule:
             df = df.where(df['标准通用名'].isin(molecule))
-        # 汇总    
+        
+        # 汇总
         if index ==0:
             # max_filter_raw = df
             df = df.repartition(1)
@@ -346,7 +347,7 @@ project, doi, molecule_sep, data_type):
     # 5. 原始提数结果
     if data_type == 'max':
         out_cols = ["project", "project_score", "Date", "ATC", "标准通用名", "标准商品名", "标准剂型", "标准规格", 
-                "标准包装数量", "标准生产企业", "标准省份名称", "标准城市名称", "DOI", "PACK_ID", "Predict_Sales", "Predict_Unit"]
+                "标准包装数量", "标准生产企业", "标准省份名称", "标准城市名称", "DOI", "PACK_ID", "Predict_Sales", "Predict_Unit", "PANEL"]
     elif data_type == 'raw':
         out_cols = ["project", "project_score", "ID", "Raw_Hosp_Name", "PHA", "PHA医院名称" ,"Date", "ATC", "标准通用名", 
                     "标准商品名", "标准剂型", "标准规格", "标准包装数量", "标准生产企业", "标准省份名称", "标准城市名称", 
@@ -397,10 +398,9 @@ project, doi, molecule_sep, data_type):
     # 输出提数结果
     if data_type == 'max':
         out_cols = ["project", "project_score", "Date", "ATC", "标准通用名", "标准商品名", "标准剂型", "标准规格", 
-                    "标准包装数量", "标准生产企业", "标准省份名称", "标准城市名称", "PACK_ID", "Sales", "Units"]
+                    "标准包装数量", "标准生产企业", "标准省份名称", "标准城市名称", "PACK_ID", "Sales", "Units", "PANEL"]
     elif data_type == 'raw':
-        out_cols = ["project", "project_score", "ID", "Raw_Hosp_Name", "PHA", "PHA医院名称" ,"Date", "ATC", "标准通用名", "标准商品名", "标准剂型", "标准规格", 
-                    "标准包装数量", "标准生产企业", "标准省份名称", "标准城市名称", "PACK_ID", "Sales", "Units", "Units_Box"]
+        out_cols = ["project", "project_score", "ID", "Raw_Hosp_Name", "PHA", "PHA医院名称" ,"Date", "ATC", "标准通用名", "标准商品名", "标准剂型", "标准规格", "标准包装数量", "标准生产企业", "标准省份名称", "标准城市名称", "PACK_ID", "Sales", "Units", "Units_Box"]
                     
     out_extract_data_final = out_extract_data.select(out_cols).distinct()
     out_extract_data_final = out_extract_data_final.repartition(1)
