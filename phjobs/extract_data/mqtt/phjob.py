@@ -3,16 +3,13 @@
 
 This is job template for Pharbers Max Job
 """
-
 import abc
 import boto3
-import base64
 from awscrt import io
 from awscrt import mqtt
 from awsiot import mqtt_connection_builder
 import uuid
 from phcli.ph_logs.ph_logs import phs3logger, LOG_DEBUG_LEVEL
-
 
 
 class IOT(metaclass=abc.ABCMeta):
@@ -94,12 +91,14 @@ class MQTT(IOT):
     def publish(self, topic, message):
         self.__connection.publish(topic=topic, payload=message, qos=mqtt.QoS.AT_LEAST_ONCE)
 
+
 def getObject(bk_name, key):
     s3 = boto3.client("s3",
                       aws_access_key_id="AKIAWPBDTVEAPUSJJMWN",
                       aws_secret_access_key="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",
                       region_name="cn-northwest-1")
     return s3.get_object(Bucket=bk_name, Key=key)["Body"].read().decode("utf-8")
+
 
 
 def execute(**kwargs):
@@ -111,9 +110,8 @@ def execute(**kwargs):
     logger.info("当前 run_id 为 " + str(kwargs["run_id"]))
     logger.info("当前 job_id 为 " + str(kwargs["job_id"]))
 
-    message = base64.b64decode(kwargs["message"])
     logger.info(kwargs["topic"])
-    logger.info(message)
+    logger.info(kwargs["message"])
 
     event_loop_group = io.EventLoopGroup(1)
     host_resolver = io.DefaultHostResolver(event_loop_group)
@@ -128,7 +126,7 @@ def execute(**kwargs):
     mqtt.set_client_bootstrap(client_bootstrap)
     mqtt.build()
     mqtt.open()
-    mqtt.publish(kwargs["topic"], message.decode('utf-8'))
+    mqtt.publish(kwargs["topic"], kwargs["message"])
     mqtt.close()
-
+ 
     return {}

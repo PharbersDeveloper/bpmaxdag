@@ -6,6 +6,7 @@ This is job template for Pharbers Max Job
 
 import abc
 import boto3
+import base64
 from awscrt import io
 from awscrt import mqtt
 from awsiot import mqtt_connection_builder
@@ -110,8 +111,9 @@ def execute(**kwargs):
     logger.info("当前 run_id 为 " + str(kwargs["run_id"]))
     logger.info("当前 job_id 为 " + str(kwargs["job_id"]))
 
+    message = base64.b64decode(kwargs["message"])
     logger.info(kwargs["topic"])
-    logger.info(kwargs["message"])
+    logger.info(message)
 
     event_loop_group = io.EventLoopGroup(1)
     host_resolver = io.DefaultHostResolver(event_loop_group)
@@ -126,7 +128,7 @@ def execute(**kwargs):
     mqtt.set_client_bootstrap(client_bootstrap)
     mqtt.build()
     mqtt.open()
-    mqtt.publish(kwargs["topic"], kwargs["message"])
+    mqtt.publish(kwargs["topic"], message.decode('utf-8'))
     mqtt.close()
 
     return {}

@@ -32,7 +32,7 @@ dag = DAG(
 var_key_lst = Variable.get("%s__SPARK_CONF" % (dag.dag_id), deserialize_json=True, default_var={})
 
 # trigger message
-# { "email":"pqian@pharbers.com", "subject": "监控", "content_type": "text/plain", "content": "测试", "topic": "test/1", "message": "哈哈哈哈哈"}
+# {"email":"pqian@pharbers.com","subject":"监控","content_type":"text/plain","content":"测试","topic":"test/2","message":"eyJkYXRhIjp7ImlkIjoieWV2NG9oN254Q1p6VTVBOSIsInR5cGUiOiJtcXR0IiwiYXR0cmlidXRlcyI6eyJkYXRlIjoxNjExMjIyMTQzMTIwLCJ0eXBlIjoiZXh0cmFjdCBkYXRhIiwiZmxhZyI6ZmFsc2UsIm1lc3NhZ2UiOiLmj5DmlbDnu5PmnZ/vvIzor7fliLDmlbDmja7otYTkuqfkuK3mn6XnnIvlubbkuIvovb0ifX19"}
 
 # subprocess Ponen CMD
 def process_cmd(cmd):
