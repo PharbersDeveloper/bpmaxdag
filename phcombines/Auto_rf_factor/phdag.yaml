@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: PhDag
+metadata:
+  name: Auto_rf_factor
+  description: "pharbers job description"
+  labels:
+    name: Auto_rf_factor
+spec:
+  description: "A Max Auto Job Example"
+  start_date: 1 # if you don't understand, don't touch it
+  schedule_interval: "None" # if you don't understand, don't touch it
+  email: ['airflow@example.com']
+  email_on_failure: False
+  email_on_retry: False
+  retries: 1
+  retry_delay: "minutes=5"
+  owner: ywyuan
+  dag_id: Auto_rf_factor
+  dag_tag: Max
+  dag_timeout:  # minutes
+  jobs:
+    - name: factor.job1_randomforest
+    - name: factor.job2_factor_raw
+    - name: factor.job3_factor_optimize
+  linkage:
+    - "factor.job1_randomforest >> factor.job2_factor_raw >> factor.job3_factor_optimize"
+

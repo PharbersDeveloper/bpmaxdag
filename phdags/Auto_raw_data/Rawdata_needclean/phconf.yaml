@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: alfred
+  description: "pharbers job description"
+  labels:
+    name: alfred
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    command: "submit"
+    timeout: 720.0
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: max_path
+        value: 's3a://ph-max-auto/v0.0.1-2020-06-08/'
+      - key: project_name
+        value: 'Empty'
+      - key: outdir
+        value: 'Empty'
+      - key: minimum_product_sep
+        value: '|'
+      - key: minimum_product_columns
+        value: "Brand, Form, Specifications, Pack_Number, Manufacturer"
+      - key: test
+        value: 'False'
+    outputs:
+      - key: a
+        value: abcde
+      - key: b
+        value: 6789

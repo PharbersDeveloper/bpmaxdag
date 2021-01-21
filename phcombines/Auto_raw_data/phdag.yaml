@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: PhDag
+metadata:
+  name: Auto_raw_data
+  description: "pharbers job description"
+  labels:
+    name: Auto_raw_data
+spec:
+  description: "A Max Auto Job Example"
+  start_date: 1 # if you don't understand, don't touch it
+  schedule_interval: "None" # if you don't understand, don't touch it
+  email: ['airflow@example.com']
+  email_on_failure: False
+  email_on_retry: False
+  retries: 0
+  retry_delay: "minutes=5"
+  owner: ywyuan
+  dag_id: Auto_raw_data
+  dag_tag: Max
+  dag_timeout:  # minutes
+  jobs:
+    - name: Rawdata_pretreat
+    - name: Rawdata_needclean
+    - name: Rawdata_check
+  linkage:
+    - "Rawdata_pretreat >> Rawdata_needclean >> Rawdata_check"
+
