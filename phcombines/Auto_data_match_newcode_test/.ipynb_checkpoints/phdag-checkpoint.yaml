@@ -1,0 +1,34 @@
+apiVersion: v1
+kind: PhDag
+metadata:
+  name: Auto_data_match_newcode_test
+  description: "pharbers job description"
+  labels:
+    name: Auto_data_match_newcode_test
+spec:
+  description: "A Max Auto Job Example"
+  start_date: 1 # if you don't understand, don't touch it
+  schedule_interval: "None" # if you don't understand, don't touch it
+  email: ['airflow@example.com']
+  email_on_failure: False
+  email_on_retry: False
+  retries: 1
+  retry_delay: "minutes=5"
+  owner: mzhang
+  dag_id: Auto_data_match_newcode_test
+  dag_tag: Auto_data_match_newcode_test
+  dag_timeout: 1200 # minutes
+  jobs:
+    - name: data_matching.cleaning_data_normalization
+    - name: data_matching.standard_data_normalization
+    - name: data_matching.cross_join_cutting
+    - name: data_matching.effectiveness_with_jws
+    - name: data_matching.effectiveness_adjust_spec
+    - name: data_matching.effectiveness_adjust_mnf
+    - name: data_matching.effectiveness_adjust_prod
+    - name: data_matching.model_training
+    - name: data_matching.model_predictions
+    - name: data_matching.labeling_with_crossed_data
+  linkage:
+    - " [data_matching.cleaning_data_normalization,data_matching.standard_data_normalization] >> data_matching.cross_join_cutting >> data_matching.effectiveness_with_jws >> [data_matching.effectiveness_adjust_spec,data_matching.effectiveness_adjust_mnf] >> data_matching.effectiveness_adjust_prod >> data_matching.labeling_with_crossed_data >> data_matching.model_training >> data_matching.model_predictions "
+
