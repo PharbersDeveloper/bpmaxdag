@@ -50,6 +50,11 @@ check_9_2_path = raw_data_check_path + '/check_9_2_所有产品每个月份额.c
 check_9_3_path = raw_data_check_path + '/check_9_3_所有产品每个月排名.csv'
 check_10_path = raw_data_check_path + '/check_10_在售产品医院个数.csv'
 check_11_path = raw_data_check_path + '/check_11_全部医院历史贡献率等级.csv'
+check_12_path = raw_data_check_path + '/check_12_金额_医院分子贡献率等级.csv'
+check_13_path = raw_data_check_path + '/check_13_数量_医院贡献率等级.csv'
+check_14_path = raw_data_check_path + '/check_14_数量_医院分子贡献率等级.csv'
+check_15_path = raw_data_check_path + '/check_15_最近12期每家医院每个月每个产品的价格与倍数.csv'
+check_16_path = raw_data_check_path + '/check_16_各医院各产品价格与所在地区对比.csv'
 
 check_result = spark.read.csv(check_result_path, header=True)
 check_result = check_result.toPandas()
@@ -93,6 +98,25 @@ check_11 = spark.read.csv(check_11_path, header=True)
 check_11 = check_11.toPandas()
 check_11[check_11.columns[1:-1]]=check_11[check_11.columns[1:-1]].astype(float)
 
+check_12 = spark.read.csv(check_12_path, header=True)
+check_12 = check_12.toPandas()
+check_12[check_12.columns[2:-1]]=check_12[check_12.columns[2:-1]].astype(float)
+
+check_13 = spark.read.csv(check_13_path, header=True)
+check_13 = check_13.toPandas()
+check_13[check_13.columns[1:-1]]=check_13[check_13.columns[1:-1]].astype(float)
+
+check_14 = spark.read.csv(check_14_path, header=True)
+check_14 = check_14.toPandas()
+check_14[check_14.columns[2:-1]]=check_14[check_14.columns[2:-1]].astype(float)
+
+check_15 = spark.read.csv(check_15_path, header=True)
+check_15 = check_15.toPandas()
+check_15[check_15.columns[2:]]=check_15[check_15.columns[2:]].astype(float)
+
+check_16 = spark.read.csv(check_16_path, header=True)
+check_16 = check_16.toPandas()
+check_16[check_16.columns[4:]]=check_16[check_16.columns[4:]].astype(float)
 
 with pd.ExcelWriter(outdir_local + "/" + project_name + "_raw_data_check.xlsx") as xlsx:
     check_result.to_excel(xlsx, sheet_name="check_result", index=False)
@@ -105,6 +129,11 @@ with pd.ExcelWriter(outdir_local + "/" + project_name + "_raw_data_check.xlsx") 
     check_9_2.to_excel(xlsx, sheet_name="所有产品每个月份额", index=False)
     check_9_3.to_excel(xlsx, sheet_name="所有产品每个月排名", index=False)
     check_10.to_excel(xlsx, sheet_name="在售产品医院个数", index=False)
-    check_11.to_excel(xlsx, sheet_name="全部医院历史贡献率等级", index=False)
+    check_11.to_excel(xlsx, sheet_name="金额_医院贡献率等级", index=False)
+    check_12.to_excel(xlsx, sheet_name="金额_医院分子贡献率等级", index=False)
+    check_13.to_excel(xlsx, sheet_name="数量_医院贡献率等级", index=False)
+    check_14.to_excel(xlsx, sheet_name="数量_医院分子贡献率等级", index=False)
+    check_15.to_excel(xlsx, sheet_name="价格_最近12期每家医院每个月每个产品的价格与倍数", index=False)
+    check_16.to_excel(xlsx, sheet_name="价格_各医院各产品价格与所在地区对比", index=False)
     
     
