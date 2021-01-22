@@ -39,11 +39,10 @@ def execute(**kwargs):
 
 	# 1. human interfere 与 数据准备
 	df_cleanning = modify_pool_cleanning_prod(spark, raw_data_path)
-# 	df_cleanning.persist()
+	df_cleanning.persist()
 	df_cleanning.write.mode("overwrite").parquet(origin_path)
     #从spec中抽取pack_id
-	df_cleanning = get_pack(df_cleanning)
-    
+	df_cleanning_id = get_pack(df_cleanning)
 	df_interfere = load_interfere_mapping(spark, interfere_path)
 	df_cleanning = human_interfere(spark, df_cleanning, df_interfere)
 
