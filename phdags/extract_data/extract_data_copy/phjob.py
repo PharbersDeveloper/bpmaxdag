@@ -17,8 +17,8 @@ def execute(**kwargs):
     logger.info("当前 job_id 为 " + str(kwargs["job_id"]))
 
     awsConf = {
-        "aws_access_key_id": "AKIAWPBDTVEAI6LUCLPX",
-        "aws_secret_access_key": "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"
+        "aws_access_key_id": "AKIAWPBDTVEAPUSJJMWN",
+        "aws_secret_access_key": "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"
     }
     copy(kwargs["from"], kwargs["to"], awsConf)
     return {}

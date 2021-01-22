@@ -24,8 +24,8 @@ def execute(**kwargs):
         "content": kwargs["content"]
     }
     awsConf = {
-        "aws_access_key_id": "AKIAWPBDTVEAI6LUCLPX",
-        "aws_secret_access_key": "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"
+        "aws_access_key_id": "AKIAWPBDTVEAPUSJJMWN",
+        "aws_secret_access_key": "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"
     }
     sqsConf = {
         "queue_name": "ph-notification.fifo"
