@@ -21,7 +21,7 @@ spec:
   jobs:
     - name: Rawdata_pretreat
     - name: Rawdata_needclean
-    - name: Rawdata_check
+    - name: Rawdata.check
   linkage:
-    - "Rawdata_pretreat >> Rawdata_needclean >> Rawdata_check"
+    - "Rawdata_pretreat >> Rawdata_needclean >> Rawdata.check"
 
