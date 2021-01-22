@@ -28,7 +28,8 @@ spec:
     - name: data_matching.effectiveness_adjust_prod
     - name: data_matching.model_training
     - name: data_matching.model_predictions
-    - name: data_matching.labeling_with_crossed_data 
+    - name: data_matching.labeling_with_crossed_data
+    - name: data_matching.data_matching_model_data_collect
   linkage:
-    - " [data_matching.cleaning_data_normalization,data_matching.standard_data_normalization] >> data_matching.cross_join_cutting >> data_matching.effectiveness_with_jws >> [data_matching.effectiveness_adjust_spec,data_matching.effectiveness_adjust_mnf] >> data_matching.effectiveness_adjust_prod >> data_matching.labeling_with_crossed_data >> data_matching.model_training >> data_matching.model_predictions "
+    - "[data_matching.cleaning_data_normalization,data_matching.standard_data_normalization] >> data_matching.cross_join_cutting >> data_matching.effectiveness_with_jws >> [data_matching.effectiveness_adjust_spec,data_matching.effectiveness_adjust_mnf] >> data_matching.effectiveness_adjust_prod >> data_matching.labeling_with_crossed_data >> data_matching.model_training >> data_matching.model_predictions >> data_matching.data_matching_model_data_collect"
 

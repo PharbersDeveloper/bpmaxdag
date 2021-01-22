@@ -123,10 +123,11 @@ def get_prediction_origin(df_origin,df_prediction):
 def get_lost_data(df_origin,df_prediction):
     df_origin_id = df_origin.select("id")
     df_prediction_id = df_prediction.select("id").distinct()
-    df_lost_id = df_origin_id.subtract(df_prediction_id)
-    df_lost_output = df_lost_id.join(df_origin,df_lost_id.id == df_origin.id ,'left')
-    print(df_lost_output.count())
-    return df_lost_output
+    df_lost_id = df_origin_id.subtract(df_prediction_id)  
+    df_origin = df_origin.withColumnRenamed('id','newid')
+    df_lost = df_lost_id.join(df_origin,df_lost_id.id == df_origin.newid ,'left').drop('newid')
+    print(df_lost.count())
+    return df_lost
 
 
 
