@@ -4,4 +4,4 @@ __pycache__/
 phdags/*
 phcombines/*
 demo/*
-.ipynb_checkpoints/
+**/.ipynb_checkpoints/
