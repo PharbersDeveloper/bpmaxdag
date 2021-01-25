@@ -14,12 +14,13 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--owner')
 @click.option('--run_id')
 @click.option('--job_id')
-@click.option('--from')
-@click.option('--to')
-@click.option('--extract_data_out')
+@click.option('--email')
+@click.option('--subject')
+@click.option('--content_type')
+@click.option('--content')
 def debug_execute(**kwargs):
     try:
-        args = {"name": "copy"}
+        args = {"name": "email"}
 
         args.update(kwargs)
         result = exec_before(**args)
@@ -36,3 +37,5 @@ def debug_execute(**kwargs):
 
 if __name__ == '__main__':
     debug_execute()
+
+

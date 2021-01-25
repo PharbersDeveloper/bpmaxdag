@@ -21,11 +21,15 @@ def execute(**kwargs):
     logger.info("当前 job_id 为 " + str(kwargs["job_id"]))
 
     awsConf = {
-        "aws_access_key_id": "AKIAWPBDTVEAI6LUCLPX",
-        "aws_secret_access_key": "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"
+        "aws_access_key_id": "AKIAWPBDTVEAPUSJJMWN",
+        "aws_secret_access_key": "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"
     }
     packaging(kwargs["from"], kwargs["out_suffix"], awsConf)
     return {}
+
+
+def get_bucket_name(path):
+    return path.replace("//", "/").split("/")[1]
 
 
 def packaging(target, out_suffix, awsConf):
@@ -34,20 +38,21 @@ def packaging(target, out_suffix, awsConf):
                         aws_access_key_id=awsConf["aws_access_key_id"],
                         aws_secret_access_key=awsConf["aws_secret_access_key"],
                         region_name="cn-northwest-1")
-    bucket = s3.Bucket("ph-stream")
+    bucket = s3.Bucket(get_bucket_name(target))
     # test
     local_path = "/root/{}"
     for obj in bucket.objects.filter(Prefix=prefix):
         download_path = local_path.format(
             obj.key[obj.key.find(out_suffix):])
         createFile(download_path)
-        s3.meta.client.download_file('ph-stream', obj.key, download_path)
+        s3.meta.client.download_file(
+            get_bucket_name(target), obj.key, download_path)
 
     createZip(local_path.format(out_suffix),
               local_path.format(out_suffix + ".zip"))
 
     s3.Object(
-        'ph-stream', prefix + "/" + out_suffix + ".zip").upload_file(local_path.format(out_suffix + ".zip"))
+        get_bucket_name(target), prefix + "/" + out_suffix + ".zip").upload_file(local_path.format(out_suffix + ".zip"))
 
 
 def createFile(path):

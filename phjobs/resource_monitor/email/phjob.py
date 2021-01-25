@@ -3,6 +3,7 @@
 
 This is job template for Pharbers Max Job
 """
+
 import boto3
 import uuid
 from phcli.ph_logs.ph_logs import phs3logger, LOG_DEBUG_LEVEL
@@ -11,7 +12,7 @@ from phcli.ph_logs.ph_logs import phs3logger, LOG_DEBUG_LEVEL
 def execute(**kwargs):
     """
         please input your code below
-        """
+    """
     logger = phs3logger(kwargs["job_id"], LOG_DEBUG_LEVEL)
     logger.info("当前 owner 为 " + str(kwargs["owner"]))
     logger.info("当前 run_id 为 " + str(kwargs["run_id"]))
@@ -31,10 +32,7 @@ def execute(**kwargs):
         "queue_name": "ph-notification.fifo"
     }
     result = send_sqs(emailConf, awsConf, sqsConf)
-    if "ResponseMetadata" in result and result["ResponseMetadata"]["HTTPStatusCode"] == 200:
-        return {"status": "success"}
-    else:
-        return {"status": "fail"}
+    return {}
 
 
 def send_sqs(emailConf, awsConf, sqsConf):

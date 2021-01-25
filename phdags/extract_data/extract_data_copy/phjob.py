@@ -17,27 +17,31 @@ def execute(**kwargs):
     logger.info("当前 job_id 为 " + str(kwargs["job_id"]))
 
     awsConf = {
-        "aws_access_key_id": "AKIAWPBDTVEAI6LUCLPX",
-        "aws_secret_access_key": "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"
+        "aws_access_key_id": "AKIAWPBDTVEAPUSJJMWN",
+        "aws_secret_access_key": "1sAEyQ8UTkuzd+wyW/d6aT3g8KG4M83ykSi81Ypy"
     }
     copy(kwargs["from"], kwargs["to"], awsConf)
     return {}
 
 
+def get_bucket_name(path):
+    return path.replace("//", "/").split("/")[1]
+
+
 def copy(target, to, awsConf):
     prefix = "/".join(target.replace("//", "").split("/")[1:])
+    out_put = "/".join(to.replace("//", "").split("/")[1:])
     s3 = boto3.resource('s3',
                         aws_access_key_id=awsConf["aws_access_key_id"],
                         aws_secret_access_key=awsConf["aws_secret_access_key"],
                         region_name="cn-northwest-1")
-    bucket = s3.Bucket("ph-stream")
+    bucket = s3.Bucket(get_bucket_name(target))
     for obj in bucket.objects.filter(Prefix=prefix):
         target_key = obj.key[obj.key.index(
             "extract_data_out") + len("extract_data_out"):]
         copy_source = {
-            'Bucket': 'ph-stream',
+            'Bucket': get_bucket_name(target),
             'Key': obj.key
         }
-        obj = bucket.Object(
-            "/".join(to.replace("//", "").split("/")[1:]) + target_key)
-        obj.copy(copy_source)
+        s3.meta.client.copy(
+            copy_source, get_bucket_name(to), out_put + target_key)

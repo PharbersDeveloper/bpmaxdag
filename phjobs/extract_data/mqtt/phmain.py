@@ -14,19 +14,18 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--owner')
 @click.option('--run_id')
 @click.option('--job_id')
-@click.option('--from')
-@click.option('--to')
-@click.option('--extract_data_out')
+@click.option('--topic')
+@click.option('--message')
 def debug_execute(**kwargs):
     try:
-        args = {"name": "copy"}
+        args = {"name": "mqtt"}
 
         args.update(kwargs)
         result = exec_before(**args)
 
         args.update(result if isinstance(result, dict) else {})
         result = execute(**args)
-
+        
         return result
     except Exception as e:
         logger = phs3logger(kwargs["job_id"])
@@ -36,3 +35,5 @@ def debug_execute(**kwargs):
 
 if __name__ == '__main__':
     debug_execute()
+
+
