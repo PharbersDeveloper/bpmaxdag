@@ -9,6 +9,8 @@ spec:
   containers:
     repository: local
     runtime: python3
+    command: "submit"
+    timeout: 720.0
     code: phmain.py
     config: phconf.yaml
     args:
@@ -17,7 +19,7 @@ spec:
       - key: extract_file
         value: "Empty"
       - key: data_type
-        value: "max"
+        value: "raw"
     outputs:
       - key: a
         value: abcde
