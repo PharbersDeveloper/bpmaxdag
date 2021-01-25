@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: job2
+  description: "pharbers job description"
+  labels:
+    name: job2
+    runtime: python3
+    command: submit
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    command: submit
+    timeout: 10.0
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: output_path_job1
+        value: "2222 "
+    outputs:
+      - key: output_path_job2
+        value: " "
+
+
+

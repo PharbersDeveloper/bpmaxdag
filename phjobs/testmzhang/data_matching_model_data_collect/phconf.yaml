@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: data_matching_model_data_collect
+  description: "pharbers job description"
+  labels:
+    name: data_matching_model_data_collect
+    runtime: python3
+    command: submit
+spec:
+  containers:
+    repository: local
+    runtime: python3a
+    command: submit
+    timeout: 10.0
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: job_name
+        value: data_matching_model_data_collect
+      - key: path_prefix
+        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs
+      - key: depend_job_names_keys
+        value: 
+          - cleaning_data_normalization#cleaning_origin#origin
+          - cleaning_data_model_preditions#prediction_result#prediction
+      - key: cleaning_origin
+        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs/manual__2021-01-22T16_12_26.610954+00_00/cleaning_data_normalization/cleaning_origin/
+      - key: prediction_result
+        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs/manual__2021-01-22T16_12_26.610954+00_00/cleaning_data_model_predictions/prediction_result/
+    outputs:
+      - key: prediction_origin_result
+        value: prediction_origin_result
+      - key: lost_data_result
+        value: lost_data_result
+
