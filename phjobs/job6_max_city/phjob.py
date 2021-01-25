@@ -282,11 +282,15 @@ all_models, if_others, out_path, out_dir, need_test, minimum_product_columns, mi
     for market in all_models:
         # market 的 time_left 和 time_right 选择，默认为参数时间
         if market in left_models:
-            time_left = left_models_time_left
+            time_left_1 = left_models_time_left
+        else:
+            time_left_1 = time_left
         if market in right_models:
-            time_right = right_models_time_right
+            time_right_1 = right_models_time_right
+        else:
+            time_right_1 = time_right
         
-        time_range = str(time_left) + '_' + str(time_right)
+        time_range = str(time_left_1) + '_' + str(time_right_1)
         
         if if_others:
             max_path = out_path_dir + "/MAX_result/MAX_result_" + time_range + '_'  + market + "_hosp_level_box"
