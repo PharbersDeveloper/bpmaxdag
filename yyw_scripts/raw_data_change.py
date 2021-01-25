@@ -34,7 +34,7 @@ if access_key is not None:
 '''    
     
 # 需要修改的参数
-project_name = '贝达'
+project_name = '汇宇'
 outdir = '202011'
 if_two_source = 'True'
 # 在c9上新建一个文件，将‘问题医院记录表’本项目要修改的条目复制粘贴（带着标题），保存的时候后缀写.csv即可
@@ -48,7 +48,7 @@ max_path = 's3a://ph-max-auto/v0.0.1-2020-06-08/'
 change_file = pd.read_csv(change_file_path, sep='\t', header=0, dtype="object")
 change_file[['Date']] = change_file[['Date']].astype(int)
 change_file['Hospital_ID'] = change_file['Hospital_ID'].str.rjust(6,'0')
-change_file = change_file.fillna({"Form":"NA","Specifications":"NA","Pack_Number":"NA","Manufacturer":"NA"})
+change_file = change_file.fillna({"Form":"NA","Specifications":"NA","Pack_Number":"NA","Manufacturer":"NA","Brand":"NA"})
 
 # 产品层面
 change_file_1 = change_file[change_file['错误类型'] == '产品层面']
@@ -101,8 +101,8 @@ def change_raw(raw_data_old_path, raw_data_new_path):
     
     # b. 医院层面
     if len(change_file_2) >0:
-        raw_data_new_drop = raw_data_old.join(change_file_2_spark, on= ['Date', 'ID'], how='left_anti')
-        raw_data_new_replace = raw_data_old.join(change_file_2_spark.withColumnRenamed('Date', 'Date_raw').withColumnRenamed('医院层面替换月份', 'Date'), 
+        raw_data_new_drop = raw_data_new.join(change_file_2_spark, on= ['Date', 'ID'], how='left_anti')
+        raw_data_new_replace = raw_data_new.join(change_file_2_spark.withColumnRenamed('Date', 'Date_raw').withColumnRenamed('医院层面替换月份', 'Date'), 
                                                 on=['Date', 'ID'] ,how='inner')
         raw_data_new_replace = raw_data_new_replace.withColumn('Date', raw_data_new_replace['Date_raw']).drop('Date_raw')
         
