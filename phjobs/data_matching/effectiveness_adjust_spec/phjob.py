@@ -4,7 +4,7 @@
 This is job template for Pharbers Max Job
 """
 
-from ph_logs.ph_logs import phs3logger
+from phcli.ph_logs.ph_logs import phs3logger
 import math
 from math import isnan, sqrt
 import uuid

@@ -6,7 +6,7 @@ This is job template for Pharbers Max Job
 
 import uuid
 import pandas as pd
-from ph_logs.ph_logs import phs3logger
+from phcli.ph_logs.ph_logs import phs3logger
 from pyspark.sql.types import *
 from pyspark.sql.functions import broadcast
 from pyspark.sql.functions import udf, pandas_udf, PandasUDFType

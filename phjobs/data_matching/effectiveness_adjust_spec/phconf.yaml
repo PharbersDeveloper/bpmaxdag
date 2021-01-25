@@ -12,6 +12,8 @@ spec:
     runtime: python3
     code: phmain.py
     config: phconf.yaml
+    command: submit
+    timeout: 800
     args:
       - key: job_name
         value: effectiveness_adjust_spec

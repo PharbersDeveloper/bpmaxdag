@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: PhJob
 metadata:
-  name: training2
+  name: model_training
   description: "pharbers job description"
   labels:
     name: model_training
@@ -12,6 +12,8 @@ spec:
     runtime: python3
     code: phmain.py
     config: phconf.yaml
+    command: submit
+    timeout: 800
     args:
       - key: job_name
         value: cleaning_data_model_training

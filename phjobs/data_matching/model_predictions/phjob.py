@@ -4,7 +4,7 @@
 This is job template for Pharbers Max Job
 """
 
-from ph_logs.ph_logs import phs3logger
+from phcli.ph_logs.ph_logs import phs3logger
 import uuid
 import time
 import pandas as pd
@@ -32,7 +32,7 @@ def execute(**kwargs):
 	depends = get_depends_path(kwargs)
 	model = PipelineModel.load(depends["model"])
 	df_result = spark.read.parquet(depends["data"])
-	df_lost = spark.read.parquet(depends["lost"])
+# 	df_lost = spark.read.parquet(depends["lost"])
 	
 	# output
 	job_id = get_job_id(kwargs)
@@ -97,16 +97,16 @@ def execute(**kwargs):
 	df_negative.repartition(1).write.mode("overwrite").option("header", "true").csv(final_negative_path)
 	logger.warn("机器判断negative的条目写入完成")
 
-	df_lost = df_lost.select("id").distinct()
+# 	df_lost = df_lost.select("id").distinct()
 	# df_lost.write.mode("overwrite").parquet(final_lost_path)
 	# df_lost.drop("JACCARD_DISTANCE").repartition(1).write.mode("overwrite").option("header", "true").csv(final_lost_path)
 	# logger.warn("匹配第一步丢失条目写入完成")
 	
 	# 6. 结果统计
-	all_count = df_predictions.count() + df_lost.count() # 数据总数
+	all_count = df_predictions.count()   #+ df_lost.count() # 数据总数
 	ph_total = df_result.groupBy("id").agg({"label": "first"}).count()
 	positive_count = df_positive.count()  # 机器判断pre=1条目
-	negative_count = all_count - positive_count - df_lost.count()  # 机器判断pre=0条目
+	negative_count = all_count - positive_count   # - df_lost.count()  # 机器判断pre=0条目
 	matching_ratio = positive_count / all_count  # 匹配率
 	
 	
@@ -116,7 +116,7 @@ def execute(**kwargs):
 	df_report = spark.createDataFrame(report, schema=report_schema).na.fill("")
 	df_report = df_report.withColumn("数据总数", lit(str(all_count)))
 	df_report = df_report.withColumn("进入匹配流程条目", lit(str(ph_total)))
-	df_report = df_report.withColumn("丢失条目", lit(str(df_lost.count())))
+# 	df_report = df_report.withColumn("丢失条目", lit(str(df_lost.count())))
 	df_report = df_report.withColumn("机器匹配条目", lit(str(positive_count)))
 	df_report = df_report.withColumn("机器无法匹配条目", lit(str(negative_count)))
 	df_report = df_report.withColumn("匹配率", lit(str(matching_ratio)))

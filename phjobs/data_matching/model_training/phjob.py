@@ -4,7 +4,7 @@
 This is job template for Pharbers Max Job
 """
 
-from ph_logs.ph_logs import phs3logger
+from phcli.ph_logs.ph_logs import phs3logger
 import uuid
 import time
 import pandas as pd
@@ -117,7 +117,7 @@ def execute(**kwargs):
 	
 	else:
 		# load 
-		model = PipelineModel.load(model_path)
+		model = PipelineModel.load(input_model_path)
 		model.write().overwrite().save(model_path)
 		model.write().overwrite().save(final_path)
 

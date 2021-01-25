@@ -12,6 +12,8 @@ spec:
     runtime: python3
     code: phmain.py
     config: phconf.yaml
+    timeout: 800
+    command: submit
     args:
       - key: job_name
         value: cross_join_cutting

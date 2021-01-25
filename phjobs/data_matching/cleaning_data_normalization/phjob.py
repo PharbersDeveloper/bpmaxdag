@@ -4,7 +4,7 @@
 This is job template for Pharbers Max Job
 """
 
-from ph_logs.ph_logs import phs3logger
+from phcli.ph_logs.ph_logs import phs3logger
 import uuid
 import re
 import pandas as pd
@@ -13,6 +13,7 @@ from pyspark.sql.types import StringType
 from pyspark.sql.functions import udf, pandas_udf, PandasUDFType
 from pyspark.sql.functions import split
 from pyspark.sql.functions import regexp_replace, upper, regexp_extract
+from pyspark.sql.functions import when
 
 
 def execute(**kwargs):
@@ -40,9 +41,11 @@ def execute(**kwargs):
 	df_cleanning = modify_pool_cleanning_prod(spark, raw_data_path)
 	df_cleanning.persist()
 	df_cleanning.write.mode("overwrite").parquet(origin_path)
-	
+    #从spec中抽取pack_id
+	df_cleanning_id = get_pack(df_cleanning)
 	df_interfere = load_interfere_mapping(spark, interfere_path)
 	df_cleanning = human_interfere(spark, df_cleanning, df_interfere)
+
 	
 	# TODO: 以后去掉
 	df_cleanning = df_cleanning.withColumn("SPEC_ORIGINAL", df_cleanning.SPEC)
@@ -50,8 +53,8 @@ def execute(**kwargs):
 
 	# df_cleanning = dosage_standify(df_cleanning)  # 剂型列规范
 	df_cleanning = spec_standify(df_cleanning)  # 规格列规范
+	df_cleanning = get_inter(spark,df_cleanning)
 	df_cleanning.write.mode("overwrite").parquet(result_path)
-
 	return {}
 
 
@@ -118,6 +121,7 @@ def spec_standify(df):
 	df = df.withColumn("SPEC_gross", regexp_extract('SPEC', spec_gross_regex, 2))
 	spec_third_regex = r'([0-9]\d*\.?\d*\s*[A-Za-z]*/?\s*[A-Za-z]+)[ /:∶+\s]([0-9]\d*\.?\d*\s*[A-Za-z]*/?\s*[A-Za-z]+)[ /:∶+\s]([0-9]\d*\.?\d*\s*[A-Za-z]*/?\s*[A-Za-z]+)'
 	df = df.withColumn("SPEC_third", regexp_extract('SPEC', spec_third_regex, 3))
+
 
 	pure_number_regex_spec = r'(\s\d+$)'
 	df = df.withColumn("SPEC_pure_number", regexp_extract('SPEC', pure_number_regex_spec, 1))
@@ -307,4 +311,25 @@ def interfere_replace_udf(origin, interfere):
 	if interfere != "unknown":
 		origin = interfere
 	return origin
+
+def get_inter(spark,df_cleanning):
+	df_inter = spark.read.parquet("s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DF_CONF/0.1/")
+	df_cleanning = df_cleanning.join(df_inter, df_cleanning.MOLE_NAME == df_inter.MOLE_NAME_LOST, 'left')
+	df_cleanning = df_cleanning.withColumn('new', when(df_cleanning.MOLE_NAME_LOST.isNull(), df_cleanning.MOLE_NAME)\
+											.otherwise(df_cleanning.MOLE_NAME_STANDARD))\
+											.drop("MOLE_NAME", "MOLE_NAME_LOST", "MOLE_NAME_STANDARD")\
+											.withColumnRenamed("new", "MOLE_NAME")\
+									.select(['id','PACK_ID_CHECK','MOLE_NAME','PRODUCT_NAME','DOSAGE','SPEC','PACK_QTY','MANUFACTURER_NAME','SPEC_ORIGINAL'])
+	return df_cleanning
+
+
+#抽取spec中pack_id数据
+def get_pack(df_cleanning):
+	df_cleanning = df_cleanning.withColumnRenamed('PACK_QTY','PACK_QTY_ORIGIN').drop('PACK_QTY')\
+						.withColumn('PACK_QTY',regexp_extract(df_cleanning.SPEC,'[×*](\d{1,3})',1).cast('float'))
+	df_cleanning = df_cleanning.withColumn('PACK_QTY',when(df_cleanning.PACK_QTY.isNull(), df_cleanning.PACK_QTY_ORIGIN).otherwise(df_cleanning.PACK_QTY))
+	return df_cleanning
+
+
+
 ################-----------------------------------------------------################
