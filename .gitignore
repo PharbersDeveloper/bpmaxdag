@@ -2,3 +2,11 @@
 .venv/
 __pycache__/
 phdags/*
+phcombines/*
+LICENSE
+main.py
+Pipfile
+README.md
+setup.py
+demo/*
+dags/*
