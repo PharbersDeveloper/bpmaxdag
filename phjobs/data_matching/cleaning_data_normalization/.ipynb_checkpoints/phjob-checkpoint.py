@@ -313,7 +313,7 @@ def interfere_replace_udf(origin, interfere):
 	return origin
 
 def get_inter(spark,df_cleanning):
-	df_inter = spark.read.parquet("s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DF_CONF")
+	df_inter = spark.read.parquet("s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DF_CONF/0.1/")
 	df_cleanning = df_cleanning.join(df_inter, df_cleanning.MOLE_NAME == df_inter.MOLE_NAME_LOST, 'left')
 	df_cleanning = df_cleanning.withColumn('new', when(df_cleanning.MOLE_NAME_LOST.isNull(), df_cleanning.MOLE_NAME)\
 											.otherwise(df_cleanning.MOLE_NAME_STANDARD))\

@@ -49,11 +49,13 @@ def execute(**kwargs):
     df_result = get_prediction_origin(df_origin,df_prediction)
     
 #     df_result.repartition(1).write.csv(path_prediction_origin_result)
+    df_result.repartition(1).write.mode('overwrite').csv("s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs/manual__2021-01-22T16_12_26.610954+00_00/data_matching_model_data_collect/prediction_origin_result",header=True)
     
     #get lost_data
     lost_data = get_lost_data(df_origin,df_prediction)
     
 #     lost_data.repartition(1).write.csv(path_lost_data)
+    lost_data.repartition(1).write.mode('overwrite').csv("s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs/manual__2021-01-22T16_12_26.610954+00_00/data_matching_model_data_collect/lost_data",header=True)
     
     
     return {}

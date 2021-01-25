@@ -23,7 +23,7 @@ spec:
       - key: depend_job_names_keys
         value: 
           - cleaning_data_normalization#cleaning_origin#origin
-          - cleaning_data_model_preditions#prediction_result#prediction
+          - cleaning_data_model_predictions#prediction_result#prediction
     outputs:
       - key: prediction_origin_result
         value: prediction_origin_result
