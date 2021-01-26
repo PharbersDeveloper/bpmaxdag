@@ -39,12 +39,12 @@ def execute(**kwargs):
     #处理prediction表,获取原始表名
     df_result = get_prediction_origin(df_origin,df_prediction)
     
-    df_result.repartition(1).write.csv(path_prediction_origin_result)
+    df_result.repartition(1).write.csv(path_prediction_origin_result,header=True)
     
     #get lost_data
     lost_data = get_lost_data(df_origin,df_prediction)
     
-    lost_data.repartition(1).write.csv(path_lost_data)
+    lost_data.repartition(1).write.csv(path_lost_data,header=True)
     
     
     return {}

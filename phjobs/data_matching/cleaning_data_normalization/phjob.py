@@ -12,7 +12,7 @@ from pyspark.sql.functions import col, lit, concat
 from pyspark.sql.types import StringType
 from pyspark.sql.functions import udf, pandas_udf, PandasUDFType
 from pyspark.sql.functions import split
-from pyspark.sql.functions import regexp_replace, upper, regexp_extract
+from pyspark.sql.functions import regexp_replace, upper, regexp_extract , concat_ws
 from pyspark.sql.functions import when
 
 
@@ -29,6 +29,7 @@ def execute(**kwargs):
 	# input
 	raw_data_path = kwargs["path_cleaning_data"]
 	interfere_path = kwargs["path_human_interfere"]
+	second_interfere_path = kwargs["path_second_human_interfere"]
 
 	# output
 	job_id = get_job_id(kwargs)
@@ -42,7 +43,7 @@ def execute(**kwargs):
 	df_cleanning.persist()
 	df_cleanning.write.mode("overwrite").parquet(origin_path)
     #从spec中抽取pack_id
-	df_cleanning_id = get_pack(df_cleanning)
+	df_cleanning = get_pack(df_cleanning)
 	df_interfere = load_interfere_mapping(spark, interfere_path)
 	df_cleanning = human_interfere(spark, df_cleanning, df_interfere)
 
@@ -50,11 +51,11 @@ def execute(**kwargs):
 	# TODO: 以后去掉
 	df_cleanning = df_cleanning.withColumn("SPEC_ORIGINAL", df_cleanning.SPEC)
 	df_cleanning = df_cleanning.withColumn("PRODUCT_NAME", split(df_cleanning.PRODUCT_NAME, "-")[0])
-
-	# df_cleanning = dosage_standify(df_cleanning)  # 剂型列规范
+	df_cleanning.show(100)
 	df_cleanning = spec_standify(df_cleanning)  # 规格列规范
-	df_cleanning = get_inter(spark,df_cleanning)
-	df_cleanning.write.mode("overwrite").parquet(result_path)
+	df_cleanning.show(100)
+	df_cleanning = get_inter(spark,df_cleanning,second_interfere_path)
+# 	df_cleanning.write.mode("overwrite").parquet(result_path)
 	return {}
 
 
@@ -107,38 +108,32 @@ def pudf_id_generator(oid):
 """
 def spec_standify(df):
 	# df = df.withColumn("SPEC_ORIGINAL", df.SPEC)
-	df = df.withColumn("SPEC", regexp_replace("SPEC", r"(万)", "T"))
-	df = df.withColumn("SPEC", regexp_replace("SPEC", r"(μ)", "U"))
-	df = df.withColumn("SPEC", upper(df.SPEC))
-	df = df.replace(" ", "")
-	# df = df.withColumn("SPEC_gross", regexp_extract('SPEC', spec_regex, 2))
-	# 拆分规格的成分s
-	df = df.withColumn("SPEC_percent", regexp_extract('SPEC', r'(\d+%)', 1))
-	df = df.withColumn("SPEC_co", regexp_extract('SPEC', r'(CO)', 1))
-	spec_valid_regex =  r'([0-9]\d*\.?\d*\s*[A-Za-z]*/?\s*[A-Za-z]+)'
-	df = df.withColumn("SPEC_valid", regexp_extract('SPEC', spec_valid_regex, 1))
-	spec_gross_regex =  r'([0-9]\d*\.?\d*\s*[A-Za-z]*/?\s*[A-Za-z]+)[ ,/:∶+\s][\u4e00-\u9fa5]*([0-9]\d*\.?\d*\s*[A-Za-z]*/?\s*[A-Za-z]+)'
-	df = df.withColumn("SPEC_gross", regexp_extract('SPEC', spec_gross_regex, 2))
+# 	spec_valid_regex = r'([0-9]\d*\.?\d*\s*[A-Za-z]*/?\s*[A-Za-z]+)'
+# 	spec_gross_regex = r'([0-9]\d*\.?\d*\s*[A-Za-z]*/?\s*[A-Za-z]+)[ ,/:∶+\s][\u4e00-\u9fa5]*([0-9]\d*\.?\d*\s*[A-Za-z]*/?\s*[A-Za-z]+)'
+	spec_valid_regex = r'(\d{0,}[.]{0,1}\d+[MU]{0,1}G|\d{0,}[.]{0,1}\d+[ITM]U[G]{0,1}|\d{0,}[.]{0,1}\d+(AXAIU)|\d{0,}[.]{0,1}\d+(AXAU)|\d{0,}[.]{0,1}\d+(TIU)|\d{0,}[.]{0,1}\d+[Y])'
+	spec_gross_regex =  r'(\d{0,}[.]{0,1}\d+[M]{0,1}L|\d{0,}[.]{0,1}\d+[ITM]U[G]{0,1}|\d{0,}[.]{0,1}\d+[CM]M)'
 	spec_third_regex = r'([0-9]\d*\.?\d*\s*[A-Za-z]*/?\s*[A-Za-z]+)[ /:∶+\s]([0-9]\d*\.?\d*\s*[A-Za-z]*/?\s*[A-Za-z]+)[ /:∶+\s]([0-9]\d*\.?\d*\s*[A-Za-z]*/?\s*[A-Za-z]+)'
-	df = df.withColumn("SPEC_third", regexp_extract('SPEC', spec_third_regex, 3))
-
-
-	pure_number_regex_spec = r'(\s\d+$)'
-	df = df.withColumn("SPEC_pure_number", regexp_extract('SPEC', pure_number_regex_spec, 1))
-
-	digit_regex_spec = r'(\d+\.?\d*e?-?\d*?)'
-	df = df.withColumn("SPEC_gross_digit", regexp_extract('SPEC_gross', digit_regex_spec, 1))
-	df = df.withColumn("SPEC_gross_unit", regexp_replace('SPEC_gross', digit_regex_spec, ""))
-	df = df.withColumn("SPEC_valid_digit", regexp_extract('SPEC_valid', digit_regex_spec, 1))
-	df = df.withColumn("SPEC_valid_unit", regexp_replace('SPEC_valid', digit_regex_spec, ""))
-	df = df.na.fill("")
+	digit_regex_spec = r'(\d{0,}[.]{0,1}\d+)'
+	df = df.withColumn("SPEC", upper(df.SPEC))\
+			.withColumn("SPEC", regexp_replace("SPEC", r"(万)", "T"))\
+			.withColumn("SPEC", regexp_replace("SPEC", r"(μ)", "U"))\
+			.replace(" ", "")\
+			.withColumn("SPEC_percent", regexp_extract('SPEC', r'(\d{1,3}[.]{0,1}\d+%)', 1))\
+			.withColumn("SPEC_valid", regexp_extract('SPEC', spec_valid_regex, 1))\
+			.withColumn("SPEC_gross", regexp_extract('SPEC', spec_gross_regex, 1))\
+			.withColumn("SPEC_third", regexp_extract('SPEC', spec_third_regex, 3))\
+			.withColumn("SPEC_gross_digit", regexp_extract('SPEC_gross', digit_regex_spec, 1))\
+			.withColumn("SPEC_gross_unit", regexp_replace('SPEC_gross', digit_regex_spec, ""))\
+			.withColumn("SPEC_valid_digit", regexp_extract('SPEC_valid', digit_regex_spec, 1))\
+			.withColumn("SPEC_valid_unit", regexp_replace('SPEC_valid', digit_regex_spec, ""))\
+			.na.fill("")
+    
 	df = df.withColumn("SPEC_valid", transfer_unit_pandas_udf(df.SPEC_valid))
 	df = df.withColumn("SPEC_gross", transfer_unit_pandas_udf(df.SPEC_gross))
 	df = df.drop("SPEC_gross_digit", "SPEC_gross_unit", "SPEC_valid_digit", "SPEC_valid_unit")
 	df = df.withColumn("SPEC_percent", percent_pandas_udf(df.SPEC_percent, df.SPEC_valid, df.SPEC_gross))
-	df = df.withColumn("SPEC_ept", lit("/"))
-	df = df.withColumn("SPEC", concat( "SPEC_percent", "SPEC_ept", "SPEC_valid", "SPEC_ept", "SPEC_gross", "SPEC_ept", "SPEC_third")) \
-					.drop("SPEC_ept", "SPEC_percent", "SPEC_co", "SPEC_valid", "SPEC_gross", "SPEC_pure_number", "SPEC_third")
+	df = df.withColumn("SPEC", concat_ws('/',df.SPEC_percent ,df.SPEC_valid , df.SPEC_gross , df.SPEC_third))\
+            .drop("SPEC_percent", "SPEC_valid", "SPEC_gross", "SPEC_third")
 	return df
 
 	
@@ -312,14 +307,14 @@ def interfere_replace_udf(origin, interfere):
 		origin = interfere
 	return origin
 
-def get_inter(spark,df_cleanning):
-	df_inter = spark.read.parquet("s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DF_CONF/0.1/")
+def get_inter(spark,df_cleanning,second_interfere_path):
+	df_inter = spark.read.parquet(second_interfere_path)
 	df_cleanning = df_cleanning.join(df_inter, df_cleanning.MOLE_NAME == df_inter.MOLE_NAME_LOST, 'left')
 	df_cleanning = df_cleanning.withColumn('new', when(df_cleanning.MOLE_NAME_LOST.isNull(), df_cleanning.MOLE_NAME)\
 											.otherwise(df_cleanning.MOLE_NAME_STANDARD))\
 											.drop("MOLE_NAME", "MOLE_NAME_LOST", "MOLE_NAME_STANDARD")\
 											.withColumnRenamed("new", "MOLE_NAME")\
-									.select(['id','PACK_ID_CHECK','MOLE_NAME','PRODUCT_NAME','DOSAGE','SPEC','PACK_QTY','MANUFACTURER_NAME','SPEC_ORIGINAL'])
+											.select(['id','PACK_ID_CHECK','MOLE_NAME','PRODUCT_NAME','DOSAGE','SPEC','PACK_QTY','MANUFACTURER_NAME','SPEC_ORIGINAL'])
 	return df_cleanning
 
 

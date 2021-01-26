@@ -17,7 +17,7 @@ spec:
     config: phconf.yaml
     args:
       - key: input
-        value: "zhang min is good boy !"
+        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/CHC/*
     outputs:
       - key: output_path_job1
         value: "111 "
