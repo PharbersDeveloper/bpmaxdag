@@ -305,8 +305,8 @@ def execute(**kwargs):
             从universe中去掉outliers以及其他Panel == 0的样本
         '''
         # %% 目的是实现 PANEL = 0 的样本回填
-        pha_list = universe.where(col('PANEL') == 0).select('PHA').distinct().toPandas()['PHA'].tolist()
-        pha_list2 = data.where(col('Date') > 202000).select('PHA').distinct().toPandas()['PHA'].tolist()
+        pha_list = universe.where(col('PANEL') == 0).where(~col('PHA').isNull()).select('PHA').distinct().toPandas()['PHA'].tolist()
+        pha_list2 = data.where(col('Date') > 202000).where(~col('PHA').isNull()).select('PHA').distinct().toPandas()['PHA'].tolist()
         
         universe_ot_rm = universe_ot.where((col('PANEL') == 1) | (col('PHA').isin(pha_list))) \
                                 .where( ~((col('PANEL') == 0) & (col('PHA').isin(pha_list2)) )) \
