@@ -111,6 +111,11 @@ def execute(max_path, extract_path, project_name, max_path_list, out_dir):
     
     # 3. product_map_all_ATC: 有补充的新的 PACK_ID - 标准通用名 - ACT （0是缺失）
     molecule_ACT_map = spark.read.csv(molecule_ACT_path, header=True)
+    # ATC4_CODE 列如果是0，用ATC3_CODE补充，ATC3_CODE 列也是0，用ATC2_CODE补充
+    molecule_ACT_map = molecule_ACT_map.withColumn('ATC4_CODE', func.when(molecule_ACT_map.ATC4_CODE == '0', 
+                                                                    func.when(molecule_ACT_map.ATC3_CODE == '0', molecule_ACT_map.ATC2_CODE) \
+                                                                      .otherwise(molecule_ACT_map.ATC3_CODE)) \
+                                                               .otherwise(molecule_ACT_map.ATC4_CODE))
     
     add_PACK_ID = molecule_ACT_map.where(molecule_ACT_map.project == project_name).select("min2", "PackID").distinct() \
                     .withColumn("PackID", molecule_ACT_map.PackID.cast(IntegerType()))
