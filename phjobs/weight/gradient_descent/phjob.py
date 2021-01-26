@@ -266,7 +266,6 @@ def execute(**kwargs):
     for market in market_list:
         # 输入文件
         # market = '固力康'
-        index += 1
         data_target_path = max_path + '/' + project_name + '/weight/' + market + '_data_target'
         ims_gr_path = max_path + '/' + project_name + '/weight/' + market + '_ims_gr'
         
@@ -354,6 +353,8 @@ def execute(**kwargs):
         df_sum = df_sum.repartition(1)
         df_sum.write.format("parquet") \
             .mode("overwrite").save(df_sum_path)
+        
+        index += 1
 
     return {}
 
