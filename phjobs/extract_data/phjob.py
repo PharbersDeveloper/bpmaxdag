@@ -360,6 +360,7 @@ project, doi, molecule_sep, data_type):
         包装数量为空的是others， Sales 或者 Units 可以为0
         包装数量不为空的，Sales和Units只要有一列为0，那么都调整为0；Units先四舍五入为整数，然后变化的系数乘以Sales获得新的Sales
         Sales 保留两位小数
+        负值调整为0
         去掉 Sales，Units 同时为0的行
         '''
         max_filter_out = max_filter_out.withColumn("Predict_Sales", max_filter_out["Predict_Sales"].cast(DoubleType())) \
@@ -379,7 +380,12 @@ project, doi, molecule_sep, data_type):
         max_filter_out = max_filter_out.withColumn("Sales", func.round(max_filter_out.Sales, 2)) \
                                     .withColumn("Units", max_filter_out["Units"].cast(IntegerType())) \
                                     .drop("Predict_Unit", "Predict_Sales", "p")
-                                    
+        
+        # 负值调整为0
+        max_filter_out = max_filter_out.withColumn("Sales", func.when(max_filter_out.Sales < 0 , func.lit(0)).otherwise(max_filter_out.Sales)) \
+                                .withColumn("Units", func.when(max_filter_out.Sales == 0, func.lit(0)).otherwise(max_filter_out.Units))
+
+        # 去掉 Sales，Units 同时为0的行
         max_filter_out_1 = max_filter_out.where(max_filter_out["标准包装数量"].isNull())
         max_filter_out_2 = max_filter_out.where((~max_filter_out["标准包装数量"].isNull()) & (max_filter_out.Sales != 0) & (max_filter_out.Units != 0))
         
