@@ -110,7 +110,7 @@ def change_raw(raw_data_old_path, raw_data_new_path):
     if len(change_file_2) >0:
         print("医院层面替换：")
         if len(change_file_1) >0:
-            raw_df = raw_data_new.
+            raw_df = raw_data_new
         else:
             raw_df = raw_data_old
         raw_data_new_drop = raw_df.join(change_file_2_spark, on= ['Date', 'ID'], how='left_anti')
