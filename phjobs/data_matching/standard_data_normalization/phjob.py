@@ -36,9 +36,10 @@ def execute(**kwargs):
 	origin_path = result_path_prefix + kwargs["standard_origin"]
 
 	df_standard = load_standard_prod(spark, path_master_prod)
-	df_standard.write.mode("overwrite").parquet(origin_path)
+# 	df_standard.write.mode("overwrite").parquet(origin_path)
 	df_standard = spec_standify(df_standard)
-	df_standard.write.mode("overwrite").parquet(result_path)
+	df_standard.select("SPEC_STANDARD").show(500)
+# 	df_standard.write.mode("overwrite").parquet(result_path)
 	
 	return {}
 

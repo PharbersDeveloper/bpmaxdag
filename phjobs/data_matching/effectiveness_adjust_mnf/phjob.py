@@ -58,7 +58,7 @@ def execute(**kwargs):
 								# .withColumnRenamed("EFFTIVENESS_DOSAGE", "EFFTIVENESS_DOSAGE_FIRST") \
 	df_second_round.persist()	
 	# df_second_round.printSchema()
-	df_second_round.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
+	df_second_round.repartition(g_repartition_shared).write.mode("overwrite").parquet(mid_path)
 	
 	cols = ["sid", "id","PACK_ID_CHECK",  "PACK_ID_STANDARD","DOSAGE","MOLE_NAME","PRODUCT_NAME","SPEC","PACK_QTY","MANUFACTURER_NAME","SPEC_ORIGINAL",
 			"MOLE_NAME_STANDARD","PRODUCT_NAME_STANDARD","CORP_NAME_STANDARD","MANUFACTURER_NAME_STANDARD","MANUFACTURER_NAME_EN_STANDARD","DOSAGE_STANDARD","SPEC_STANDARD","PACK_QTY_STANDARD",
@@ -193,9 +193,9 @@ def phcleanning_mnf_seg(df_standard, inputCol, outputCol):
 	# 4. 分词之后构建词库编码
 	# 4.1 stop word remover 去掉不需要的词
 	stopWords = ["高新", "化学", "生物", "合资", "中外", "工业", "现代", "化学制品" "科技", "国际", "AU", "OF", "US", "FR", "GE", "FI", "JP", "RO", "CA", "UK", "NO", "IS", "SI", "IT", "JA", \
-				"省", "市", "股份", "有限", "总公司", "公司", "集团", "制药", "总厂", "厂", "药业", "责任", "医药", "(", ")", "（", "）", \
-				 "有限公司", "股份", "控股", "集团", "总公司", "公司", "有限", "有限责任", "大药厂", '经济特区', '事业所', '株式会社', \
-				 "药业", "医药", "制药", "制药厂", "控股集团", "医药集团", "控股集团", "集团股份", "药厂", "分公司", "-", ".", "-", "·", ":", ","]
+				"省", "市", "股份", "有限",  "公司", "集团", "制药", "总厂", "厂", "责任", "医药", "(", ")", "（", "）", \
+				 "有限公司", "控股", "总公司", "有限", "有限责任", "大药厂", '经济特区', '事业所', '株式会社', \
+				 "药业", "制药", "制药厂", "医药集团", "控股集团", "集团股份", "药厂", "分公司", "-", ".", "-", "·", ":", ","]
 	remover = StopWordsRemover(stopWords=stopWords, inputCol="MANUFACTURER_NAME_WORDS", outputCol=outputCol)
 
 	return remover.transform(df_standard).drop("MANUFACTURER_NAME_WORDS")
