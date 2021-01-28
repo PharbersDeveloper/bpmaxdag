@@ -24,6 +24,7 @@ def execute(**kwargs):
 	
 	logger.info(kwargs)
 
+
 	#input
 	depends = get_depends_path(kwargs)
 
@@ -32,19 +33,19 @@ def execute(**kwargs):
 		df_cleanning = spark.read.parquet(depends["cleaning"]).limit(g_cleaning_limit)
 	else:
 		df_cleanning = spark.read.parquet(depends["cleaning"])
-		
+
 	df_standard = spark.read.parquet(depends["standard"])
-	print(df_cleanning.count())
-	
+
 	# output
 	job_id = get_job_id(kwargs)
 	run_id = get_run_id(kwargs)
 	result_path_prefix = get_result_path(kwargs, run_id, job_id)
 	result_path = result_path_prefix + kwargs["cross_result"]
-	drop_path = result_path_prefix + kwargs["cross_drop"]
+# 	drop_path = result_path_prefix + kwargs["cross_drop"]
 	
 
 	# 2. cross join
+
 	df_cleanning = df_cleanning.repartition(int(kwargs["g_partitions_num"]))
 	df_result = df_cleanning.crossJoin(broadcast(df_standard)).na.fill("")
 
@@ -67,6 +68,7 @@ def execute(**kwargs):
 	
 	df_result = df_result.where((df_result.JACCARD_DISTANCE[0] < g_mole_name_shared) & (df_result.JACCARD_DISTANCE[1] < g_pack_qty_shared))  # 目前取了分子名和pack来判断
 	df_result.repartition(g_repatition_shared).write.mode("overwrite").parquet(result_path)
+
 	
 	return {}
 

@@ -34,7 +34,7 @@ def execute(**kwargs):
 	result_path_prefix = get_result_path(kwargs, run_id, job_id)
 	result_path = result_path_prefix + kwargs["standard_result"]
 	origin_path = result_path_prefix + kwargs["standard_origin"]
-	
+
 	df_standard = load_standard_prod(spark, path_master_prod)
 	df_standard.write.mode("overwrite").parquet(origin_path)
 	df_standard = spec_standify(df_standard)
@@ -108,31 +108,58 @@ def load_standard_prod(spark, standard_prod_path):
 """
 规格列规范
 """
-def spec_standify(df):
+# def spec_standify(df):
     
-	# df = df.withColumn("SPEC_ORIGINAL", df.SPEC)
-# 	spec_valid_regex = r'([0-9]\d*\.?\d*\s*[A-Za-z]*/?\s*[A-Za-z]+)'
-# 	spec_gross_regex = r'([0-9]\d*\.?\d*\s*[A-Za-z]*/?\s*[A-Za-z]+)[ ,/:∶+\s][\u4e00-\u9fa5]*([0-9]\d*\.?\d*\s*[A-Za-z]*/?\s*[A-Za-z]+)'
-	spec_valid_regex = r'(\d{0,}[.]{0,1}\d+[MU]{0,1}G|\d{0,}[.]{0,1}\d+[ITM]U[G]{0,1}|\d{0,}[.]{0,1}\d+(AXAIU)|\d{0,}[.]{0,1}\d+(AXAU)|\d{0,}[.]{0,1}\d+(TIU)|\d{0,}[.]{0,1}\d+[Y])'
-	spec_gross_regex =  r'(\d{0,}[.]{0,1}\d+[M]{0,1}L|\d{0,}[.]{0,1}\d+[ITM]U[G]{0,1}|\d{0,}[.]{0,1}\d+[CM]M)'
-# 	spec_third_regex = r'([0-9]\d*\.?\d*\s*[A-Za-z]*/?\s*[A-Za-z]+)[ /:∶+\s]([0-9]\d*\.?\d*\s*[A-Za-z]*/?\s*[A-Za-z]+)[ /:∶+\s]([0-9]\d*\.?\d*\s*[A-Za-z]*/?\s*[A-Za-z]+)'
+# 	# df = df.withColumn("SPEC_ORIGINAL", df.SPEC)
+# # 	spec_valid_regex = r'([0-9]\d*\.?\d*\s*[A-Za-z]*/?\s*[A-Za-z]+)'
+# # 	spec_gross_regex = r'([0-9]\d*\.?\d*\s*[A-Za-z]*/?\s*[A-Za-z]+)[ ,/:∶+\s][\u4e00-\u9fa5]*([0-9]\d*\.?\d*\s*[A-Za-z]*/?\s*[A-Za-z]+)'
+# 	spec_valid_regex = r'(\d{0,}[.]{0,1}\d+[MU]{0,1}G|\d{0,}[.]{0,1}\d+[ITM]U[G]{0,1}|\d{0,}[.]{0,1}\d+(AXAIU)|\d{0,}[.]{0,1}\d+(AXAU)|\d{0,}[.]{0,1}\d+(TIU)|\d{0,}[.]{0,1}\d+[Y])'
+# 	spec_gross_regex =  r'(\d{0,}[.]{0,1}\d+[M]{0,1}L|\d{0,}[.]{0,1}\d+[ITM]U[G]{0,1}|\d{0,}[.]{0,1}\d+[CM]M)'
+# # 	spec_third_regex = r'([0-9]\d*\.?\d*\s*[A-Za-z]*/?\s*[A-Za-z]+)[ /:∶+\s]([0-9]\d*\.?\d*\s*[A-Za-z]*/?\s*[A-Za-z]+)[ /:∶+\s]([0-9]\d*\.?\d*\s*[A-Za-z]*/?\s*[A-Za-z]+)'
+# 	df = df.withColumn("SPEC_STANDARD_ORIGINAL", df.SPEC_STANDARD)\
+# 			.withColumn("SPEC_STANDARD", upper(df.SPEC_STANDARD))\
+# 			.withColumn("SPEC_STANDARD", regexp_replace("SPEC_STANDARD", r"(万)", "T"))\
+# 			.withColumn("SPEC_STANDARD", regexp_replace("SPEC_STANDARD", r"(μ)", "U"))\
+# 			.withColumn("SPEC_STANDARD", regexp_replace("SPEC_STANDARD", r"(ΜG)", "MG"))\
+# 			.replace(" ", "")\
+# 			.withColumn("SPEC_percent", regexp_extract('SPEC_STANDARD', r'(\d{1,3}[.]{0,1}\d+%)', 1))\
+# 			.withColumn("SPEC_valid", regexp_extract('SPEC_STANDARD', spec_valid_regex, 1))\
+# 			.withColumn("SPEC_gross", regexp_extract('SPEC_STANDARD', spec_gross_regex, 1))\
+# 			.na.fill("")
+
+# # 	df = df.withColumn("SPEC_percent", percent_pandas_udf(df.SPEC_percent, df.SPEC_valid, df.SPEC_gross))
+# 	df = df.withColumn("SPEC_valid", transfer_unit_pandas_udf(df.SPEC_valid))
+# 	df = df.withColumn("SPEC_gross", transfer_unit_pandas_udf(df.SPEC_gross))
+# 	df = df.withColumn("SPEC_STANDARD", concat_ws('/',df.SPEC_percent ,df.SPEC_valid , df.SPEC_gross))\
+# 			.drop("SPEC_percent", "SPEC_valid", "SPEC_gross")
+# 	return df
+
+
+def spec_standify(df):
+
+	spec_valid_regex = r'(\d+\.?\d*(((GM)|[MU]?G)|Y|(ΜG)))'
+	spec_gross_regex =  r'(\d+\.?\d*(M?L))'
+	spec_other_regex =  r'((\d+\.?\d*(([TM]IU)|(AXAI?U)|([ITM]?U(?!G))|(M[CM]?(?![GL]))|CM2?))|((CO)|(喷)))'
 	df = df.withColumn("SPEC_STANDARD_ORIGINAL", df.SPEC_STANDARD)\
 			.withColumn("SPEC_STANDARD", upper(df.SPEC_STANDARD))\
 			.withColumn("SPEC_STANDARD", regexp_replace("SPEC_STANDARD", r"(万)", "T"))\
 			.withColumn("SPEC_STANDARD", regexp_replace("SPEC_STANDARD", r"(μ)", "U"))\
 			.withColumn("SPEC_STANDARD", regexp_replace("SPEC_STANDARD", r"(ΜG)", "MG"))\
 			.replace(" ", "")\
-			.withColumn("SPEC_percent", regexp_extract('SPEC_STANDARD', r'(\d{1,3}[.]{0,1}\d+%)', 1))\
-			.withColumn("SPEC_valid", regexp_extract('SPEC_STANDARD', spec_valid_regex, 1))\
-			.withColumn("SPEC_gross", regexp_extract('SPEC_STANDARD', spec_gross_regex, 1))\
+			.withColumn("SPEC_percent", regexp_extract("SPEC_STANDARD", r'(\d+\.?\d*%)', 1))\
+			.withColumn("SPEC_valid", regexp_extract("SPEC_STANDARD", spec_valid_regex, 1))\
+			.withColumn("SPEC_gross", regexp_extract("SPEC_STANDARD", spec_gross_regex, 1))\
+			.withColumn("SPEC_other_unit",regexp_extract("SPEC_STANDARD", spec_other_regex,1))\
 			.na.fill("")
-
-# 	df = df.withColumn("SPEC_percent", percent_pandas_udf(df.SPEC_percent, df.SPEC_valid, df.SPEC_gross))
+    
+# 	df = df.withColumn("SPEC_percent", percent_pandas_udf(df.SPEC_percent, df.SPEC_valid, df.SPEC_gross))    
 	df = df.withColumn("SPEC_valid", transfer_unit_pandas_udf(df.SPEC_valid))
 	df = df.withColumn("SPEC_gross", transfer_unit_pandas_udf(df.SPEC_gross))
-	df = df.withColumn("SPEC_STANDARD", concat_ws('/',df.SPEC_percent ,df.SPEC_valid , df.SPEC_gross))\
-			.drop("SPEC_percent", "SPEC_valid", "SPEC_gross")
+# 	df = df.withColumn("SPEC_other_unit", transfer_unit_pandas_udf(df.SPEC_other_unit))
+	df = df.withColumn("SPEC_STANDARD", concat_ws('/',df.SPEC_percent ,df.SPEC_valid , df.SPEC_gross , df.SPEC_other_unit))\
+			.drop("SPEC_percent", "SPEC_valid", "SPEC_gross", "SPEC_other_unit")
 	return df
+
 
 
 	
