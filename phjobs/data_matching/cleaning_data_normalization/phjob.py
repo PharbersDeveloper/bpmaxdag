@@ -41,8 +41,7 @@ def execute(**kwargs):
 	# 1. human interfere 与 数据准备
 	df_cleanning = modify_pool_cleanning_prod(spark, raw_data_path)
 	df_cleanning.persist()
-	df_cleanning.show()
-# 	df_cleanning.write.mode("overwrite").parquet(origin_path)
+	df_cleanning.write.mode("overwrite").parquet(origin_path)
     #从spec中抽取pack_id
 	df_cleanning = get_pack(df_cleanning)
 	df_interfere = load_interfere_mapping(spark, interfere_path)
@@ -54,8 +53,7 @@ def execute(**kwargs):
 	df_cleanning = df_cleanning.withColumn("PRODUCT_NAME", split(df_cleanning.PRODUCT_NAME, "-")[0])
 	df_cleanning = spec_standify(df_cleanning)  # 规格列规范
 	df_cleanning = get_inter(spark,df_cleanning,second_interfere_path)
-	df_cleanning.show(100)
-# 	df_cleanning.write.mode("overwrite").parquet(result_path)
+	df_cleanning.write.mode("overwrite").parquet(result_path)
 	return {}
 
 
