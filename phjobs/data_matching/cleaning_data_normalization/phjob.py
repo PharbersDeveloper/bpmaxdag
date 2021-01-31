@@ -154,7 +154,7 @@ def add_chc_standard_gross_unit(df_cleanning,df_chc_gross_unit):
 def pre_to_standardize_data(df_cleanning):
 	df_cleanning = df_cleanning.replace(" ", "")\
 			.withColumn("SPEC", upper(col('SPEC')))\
-			.withColumn("SPEC", regexp_replace("SPEC", r"(万)", "T"))\
+			.withColumn("SPEC", regexp_replace("SPEC", r"(万单位)", "×10MG"))\
 			.withColumn("SPEC", regexp_replace("SPEC", r"(μ)", "U"))\
 			.withColumn("SPEC", regexp_replace("SPEC", r"(ΜG)", "MG"))\
 			.withColumn("SPEC", regexp_replace("SPEC" , r"(×)", "x"))\
@@ -175,7 +175,7 @@ def extract_useful_spec_data(df_cleanning):
 	extract_spec_value_ML = r'(\d+\.?\d*(M?L))'
 	extract_spec_value_U = r'(\d+\.?\d*((I?U)|(TIU)))'
 	extract_spec_value_PEN = r'(\d+\.?\d*(喷))'
-	extract_spec_value_CM = r'((\d+\.?\d*(CM)?[×:*](\d+\.?\d*(CM)?)([×*](\d+\.?\d*(CM)?))?|(\d+\.?\d*(CM))))'
+	extract_spec_value_CM = r'(\d+\.?\d*(CM)?[×:*](\d+\.?\d*(CM)?)([×*](\d+\.?\d*(CM)?))?|(\d+\.?\d*(CM)))'
 	df_cleanning = df_cleanning.withColumn('SPEC_GROSS_VALUE', when(col('CHC_GROSS_UNIT') == 'MG' , regexp_extract(col('SPEC'), extract_spec_value_MG, 1))\
 															.when(col('CHC_GROSS_UNIT') == 'ML' , regexp_extract(col('SPEC'), extract_spec_value_ML, 1))\
 															.when(col('CHC_GROSS_UNIT') == 'U' , regexp_extract(col('SPEC'), extract_spec_value_U, 1))\
@@ -190,17 +190,19 @@ def extract_useful_spec_data(df_cleanning):
 	print(df_cleanning.count())
 	print(df_cleanning.filter(col('SPEC_GROSS_VALUE') == 'Nomatch').count() , int(df_cleanning.filter(col('SPEC_GROSS_VALUE') == 'Nomatch').count()) / int(df_cleanning.count()) )   
     #有效性的提取
-	extract_spec_valid_value_MG = r'([:]\d+.?\d*[UM]?G)'
+	extract_spec_valid_value_MG = r'(([:/]\d+.?\d*[UM]?G)|(\d+.?\d*[MΜ]?G[×/](?![M]G))|(每(?!\d+.?\d*[MΜ]?G).*?(\d+.?\d*[MΜ]?G)))'
 	extract_spec_valid_value_ML = r'([:]\d+.?\d*(([UM]?G(?![:]))|U)|(\d+.?\d*ΜG/ML)|((\d+.?\d*)ML×\d{1,2})|((\d+.?\d*)ML(?![:(/,含的中)])))'
 	extract_spec_valid_value_U = r'(:?(\d+\.?\d*)((MIU)|([UKM](?![LG])U?)))'
 	extract_spec_valid_value_PEN = r'((\d+\.?\d*)([Μ]G[/]喷))'
+	extract_spec_valid_value_CM = r'(\d+\.?\d*(CM)?[×:*](\d+\.?\d*(CM)?)([×*](\d+\.?\d*(CM)?))?|(\d+\.?\d*(CM)))' 
 	df_cleanning = df_cleanning.withColumn("SPEC_VALID_VALUE", when(col('CHC_GROSS_UNIT') == 'MG' , regexp_extract(col('SPEC'), extract_spec_valid_value_MG, 1))\
 															.when(col('CHC_GROSS_UNIT') == 'ML' , regexp_extract(col('SPEC'), extract_spec_valid_value_ML, 1))\
 															.when(col('CHC_GROSS_UNIT') == 'U' , regexp_extract(col('SPEC'), extract_spec_valid_value_U, 1))\
 															.when(col('CHC_GROSS_UNIT') == '喷' , regexp_extract(col('SPEC'), extract_spec_valid_value_PEN, 1))\
+															.when(col('CHC_GROSS_UNIT') == 'CM' , regexp_extract(col('SPEC'), extract_spec_valid_value_CM, 1))\
 																				)
-	df_cleanning.show(1000)   
-    
+	df_cleanning.show(500)   
+	print(df_cleanning.printSchema())
 	return df_cleanning
     
     
