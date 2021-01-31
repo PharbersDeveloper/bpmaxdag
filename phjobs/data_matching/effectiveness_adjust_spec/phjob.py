@@ -49,11 +49,7 @@ def execute(**kwargs):
 
 	df_second_round = second_round_with_col_recalculate(df_second_round, df_dosage_mapping, spark)
     
-	df_second_round.show()
-	print(df_second_round.columns)
-	print(df_second_round.count()) 
-	df_second_round.select("SPEC").show(100)
-	'''
+
 	# spec拆列之后的匹配算法
 	df_second_round = spec_split_matching(df_second_round)
 
@@ -82,8 +78,10 @@ def execute(**kwargs):
 			"EFFTIVENESS_MOLE_NAME","EFFTIVENESS_PRODUCT_NAME","EFFTIVENESS_DOSAGE","EFFTIVENESS_PACK_QTY","EFFTIVENESS_MANUFACTURER","EFFTIVENESS_SPEC"]
 	df_second_round = df_second_round.select(cols)
 # 	df_second_round.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
-	'''
 
+	print(df_second_round.columns)
+	print(df_second_round.count()) 
+	df_second_round.select("SPEC").show(100)
 	return {}
 
 
@@ -179,19 +177,20 @@ def spec_split_matching(df):
 	# df.printSchema()
 	
 	df = df.withColumn("SPEC_valid_total_STANDARD",  spec_valid_std_transfer_pandas_udf(df.SPEC_valid_digit_STANDARD))
-	spec_valid_regex =  r'([0-9]\d*\.?\d*\s*[A-Za-z]*/?\s*[A-Za-z]+)'
+	spec_valid_regex =   r'(\d+\.?\d*(((GM)|[MU]?G)|Y|(ΜG)))'
 	df = df.withColumn("SPEC_valid", regexp_extract('SPEC', spec_valid_regex, 1))
-	spec_gross_regex =  r'([0-9]\d*\.?\d*\s*[A-Za-z]*/?\s*[A-Za-z]+)[ ,/:∶+\s]*[\u4e00-\u9fa5]*([0-9]\d*\.?\d*\s*[A-Za-z]*/?\s*[A-Za-z]+)'
+	spec_gross_regex =   r'(\d+\.?\d*(M?L))'
 	df = df.withColumn("SPEC_gross", regexp_extract('SPEC', spec_gross_regex, 2))
 	
 	spec_valid_se_regex =  r'([0-9]\d*\.?\d*\s*[:/+][0-9]\d*\.?\d*\s*[A-Za-z]+)'
 	df = df.withColumn("SPEC_valid_2", regexp_extract('SPEC', spec_valid_se_regex, 1))
 	df = df.withColumn("SPEC_valid", when((df.SPEC_valid_2 != ""), df.SPEC_valid_2).otherwise(df.SPEC_valid))
-
+   
+    
 	
 	# 单位转换
-	df = df.withColumn("SPEC_valid", transfer_unit_pandas_udf(df.SPEC_valid))
-	df = df.withColumn("SPEC_gross", transfer_unit_pandas_udf(df.SPEC_gross))
+# 	df = df.withColumn("SPEC_valid", transfer_unit_pandas_udf(df.SPEC_valid))
+# 	df = df.withColumn("SPEC_gross", transfer_unit_pandas_udf(df.SPEC_gross))
 	df = df.drop("SPEC_gross_digit", "SPEC_gross_unit", "SPEC_valid_digit", "SPEC_valid_unit")
 	# df = df.withColumn("SPEC_percent", percent_pandas_udf(df.SPEC_percent, df.SPEC_valid, df.SPEC_gross))
 	
@@ -337,9 +336,8 @@ def transfer_unit_pandas_udf(value):
 	def unit_transform(spec_str):
 		spec_str = spec_str.replace(" ", "")
 		# 拆分数字和单位
-		digit_regex = '\d+\.?\d*e?-?\d*?'
-		# digit_regex = '0.\d*'
-		# try:
+		digit_regex = r'\d+\.?\d*'
+
 		if spec_str != "":
 			values = re.findall(digit_regex, spec_str)
 			if len(values) == 1:
@@ -349,8 +347,6 @@ def transfer_unit_pandas_udf(value):
 				value = unit_trans(value, unit)[0]
 				unit = unit_trans(value, unit)[1]
 			elif len(values) >= 2:
-				# unit = unit
-				# value = 12222
 				value_result = ""
 				unit_regex = '[A-Z]+\d*'
 				unit = re.findall(unit_regex, spec_str)[0]
@@ -361,12 +357,10 @@ def transfer_unit_pandas_udf(value):
 					value_result = value_result + str(value) + ","
 				unit = unit_trans(value, unit)[1]
 				value = value_result.strip(",")
-				
 		else:
 			unit = ""
 			value = ""
-
-		return str(value) + unit
+			return str(value) + unit
 
 		# except Exception:
 		# 	return spec_str
