@@ -12,7 +12,7 @@ from pyspark.sql.functions import col , concat , concat_ws
 from pyspark.sql.types import StringType
 from pyspark.sql.functions import udf, pandas_udf, PandasUDFType
 from pyspark.sql.functions import split , bround
-from pyspark.sql.functions import regexp_replace, upper, regexp_extract ,pow
+from pyspark.sql.functions import regexp_replace, upper, regexp_extract
 from pyspark.sql.functions import when , lit
 
 
@@ -42,7 +42,6 @@ def execute(**kwargs):
 #########--------------output------------------------####################
 
 ###########--------------load file----------------------- ################
-	# 1. human interfere 与 数据准备
 	df_cleanning = modify_pool_cleanning_prod(spark, raw_data_path)
 	df_interfere = load_interfere_mapping(spark, interfere_path)
 	df_second_interfere = load_second_interfere(spark,second_interfere_path)
@@ -67,21 +66,15 @@ def execute(**kwargs):
 	df_cleanning = make_spec_unit_standardization(df_cleanning)
    #组合成新SPEC
 	df_cleanning = create_new_spec_col(df_cleanning)
-	'''
     #从spec中抽取pack_id
 	df_cleanning = get_pack(df_cleanning)
-	df_cleanning = human_interfere(df_cleanning, df_interfere)
+    #干预表逻辑存在问题，需要去掉！！！  
+# 	df_cleanning = human_interfere(df_cleanning, df_interfere)
 
-	
-	# TODO: 以后去掉
-	df_cleanning = df_cleanning.withColumn("SPEC_ORIGINAL", df_cleanning.SPEC)
-	df_cleanning = df_cleanning.withColumn("PRODUCT_NAME", split(df_cleanning.PRODUCT_NAME, "-")[0])
-# 	df_cleanning = spec_standify(df_cleanning)  # 规格列规范
 	df_cleanning = get_inter(df_cleanning,df_second_interfere)
+
 # 	df_cleanning.write.mode("overwrite").parquet(result_path)
 ########------------main fuction-------------------------################
-
-	'''
 
 	return {}
 
@@ -152,7 +145,6 @@ def add_chc_standard_gross_unit(df_cleanning,df_chc_gross_unit):
 
 	df_chc_gross_unit = df_chc_gross_unit_mg.union(df_chc_gross_unit_ml).union(df_chc_gross_unit_cm).union(df_chc_gross_unit_pen).filter(col('DOSAGE').isNotNull())
 	df_cleanning = df_cleanning.join(df_chc_gross_unit,df_cleanning.DOSAGE == df_chc_gross_unit.DOSAGE , 'left').drop(df_chc_gross_unit.DOSAGE)
-	df_cleanning.show(100)
 	return df_cleanning
    
     
@@ -190,7 +182,6 @@ def extract_useful_spec_data(df_cleanning):
 															.when(col('CHC_GROSS_UNIT') == 'CM' , regexp_extract(col('SPEC'), extract_spec_value_CM, 1)))\
 															.withColumn('SPEC_GROSS_VALUE', when( col('SPEC_GROSS_VALUE') == '', regexp_extract(col('SPEC'), extract_pure_spec_valid_value, 1))\
 															.otherwise(col('SPEC_GROSS_VALUE')))
-	df_cleanning.show(100)
 	print(  'chc数据总数：' + str(df_cleanning.count()))
 	print('匹配失败数据：' + ' ' + str(df_cleanning.filter(col('SPEC_GROSS_VALUE') == '').count()) ,  '匹配率:' +' ' +  str(( 1 - int(df_cleanning.filter(col('SPEC_GROSS_VALUE') == '').count()) / int(df_cleanning.count())) * 100) + '%' ) 
 	df_cleanning.filter(col('SPEC_GROSS_VALUE') == '').select("SPEC").distinct().show(200)
@@ -218,15 +209,13 @@ def make_spec_gross_and_valid_pure(df_cleanning):
 								.withColumn("SPEC_VALID_VALUE_PURE", regexp_extract(col("SPEC_VALID_VALUE"),extract_pure_spec_valid_value,1))\
 								.withColumn("SPEC_VALID_UNIT_PURE", regexp_extract(col("SPEC_VALID_VALUE"),extract_pure_spec_valid_value,2))\
 								.drop(col("SPEC_VALID_VALUE"))
-	df_cleanning_ = df_cleanning.select(["SPEC","SPEC_GROSS_VALUE","SPEC_GROSS_VALUE_PURE","SPEC_GROSS_UNIT_PURE","SPEC_VALID_VALUE_PURE","SPEC_VALID_UNIT_PURE"]).distinct()
-	df_cleanning_.show(200)    
+	df_cleanning_ = df_cleanning.select(["SPEC","SPEC_GROSS_VALUE","SPEC_GROSS_VALUE_PURE","SPEC_GROSS_UNIT_PURE","SPEC_VALID_VALUE_PURE","SPEC_VALID_UNIT_PURE"]).distinct()   
 	return df_cleanning
 
 
 def make_spec_unit_standardization(df_cleanning):
 	df_cleanning = df_cleanning.withColumn("SPEC_GROSS_VALUE_PURE", col("SPEC_GROSS_VALUE_PURE").cast("double"))\
 								.withColumn("SPEC_VALID_VALUE_PURE", col("SPEC_VALID_VALUE_PURE").cast("double"))
-	df_cleanning.select(["SPEC","SPEC_GROSS_VALUE","SPEC_GROSS_VALUE_PURE","SPEC_GROSS_UNIT_PURE","SPEC_VALID_VALUE_PURE","SPEC_VALID_UNIT_PURE"]).distinct().show(300)
 
 #总量数值归一化
 	df_cleanning = df_cleanning.withColumn("SPEC_GROSS_VALUE_PURE",when(col("SPEC_GROSS_UNIT_PURE") == "G", col("SPEC_GROSS_VALUE_PURE")*int(1000))\
@@ -246,193 +235,42 @@ def make_spec_unit_standardization(df_cleanning):
 								.when(col("SPEC_VALID_UNIT_PURE") == "MIU", col("SPEC_VALID_VALUE_PURE")*int(1000000))\
 								.when(col("SPEC_VALID_UNIT_PURE") == "K", col("SPEC_VALID_VALUE_PURE")*int(1000))\
 								.otherwise(col("SPEC_VALID_VALUE_PURE")))
-#有效性单位归一化
+# 有效性单位归一化
 	replace_spec_value_MG = r'(((GM)|[MU]?G)|Y)'
 	df_cleanning = df_cleanning.withColumn("SPEC_VALID_UNIT_PURE", regexp_replace(col("SPEC_VALID_UNIT_PURE"),replace_spec_value_MG,'MG'))
-	df_cleanning.select(["SPEC","SPEC_GROSS_VALUE","SPEC_GROSS_VALUE_PURE","SPEC_GROSS_UNIT_PURE","SPEC_VALID_VALUE_PURE","SPEC_VALID_UNIT_PURE"]).distinct().show(100)
+# 	df_cleanning.select(["SPEC","SPEC_GROSS_VALUE","SPEC_GROSS_VALUE_PURE","SPEC_GROSS_UNIT_PURE","SPEC_VALID_VALUE_PURE","SPEC_VALID_UNIT_PURE"]).distinct().show(100)
+#删除辅助列
+	df_cleanning = df_cleanning.withColumnRenamed("SPEC","SPEC_ORIGIN").drop("SPEC_GROSS_VALUE","SPEC_GROSS_UNIT_PURE")
 	return df_cleanning
 
 def create_new_spec_col(df_cleanning):
-	print(df_cleanning.columns)
-	df_cleanning = df_cleanning.withColumn("SPEC_GENERATION",concat(col("SPEC_GROSS_VALUE_PURE"),col("CHC_GROSS_UNIT"),col("SPEC_VALID_VALUE_PURE"),col("SPEC_VALID_UNIT_PURE")))\
-					.drop(col("SPEC_GROSS_UNIT_PURE"))
-	df_cleanning.select(["SPEC","SPEC_GENERATION","SPEC_GROSS_VALUE_PURE","CHC_GROSS_UNIT","SPEC_VALID_VALUE_PURE","SPEC_VALID_UNIT_PURE"]).distinct().show(300)
+	df_cleanning = df_cleanning.withColumn("SPEC_CHC",concat(col("SPEC_GROSS_VALUE_PURE"),col("CHC_GROSS_UNIT"),col("SPEC_VALID_VALUE_PURE"),col("SPEC_VALID_UNIT_PURE")))
+	col_list = ['MOLE_NAME', 'PRODUCT_NAME', 'DOSAGE', 'SPEC_CHC', 'MANUFACTURER_NAME', 'PACK_QTY', 'PACK_ID_CHECK', 'code', 'id',  'SPEC_GROSS_VALUE_PURE', 'CHC_GROSS_UNIT','SPEC_VALID_VALUE_PURE', 'SPEC_VALID_UNIT_PURE', 'SPEC_ORIGIN']
+	df_cleanning = df_cleanning.select(col_list) 
 	return df_cleanning
-
-
-# """
-# 规格列规范
-# """
-# def spec_standify(df):
-# 	# df = df.withColumn("SPEC_ORIGINAL", df.SPEC)
-# # 	spec_valid_regex = r'([0-9]\d*\.?\d*\s*[A-Za-z]*/?\s*[A-Za-z]+)'
-# # 	spec_gross_regex = r'([0-9]\d*\.?\d*\s*[A-Za-z]*/?\s*[A-Za-z]+)[ ,/:∶+\s][\u4e00-\u9fa5]*([0-9]\d*\.?\d*\s*[A-Za-z]*/?\s*[A-Za-z]+)'
-# 	spec_valid_regex = r'(\d+\.?\d*(((GM)|[MU]?G)|Y|(ΜG)))'
-# 	spec_gross_regex =  r'(\d+\.?\d*(M?L))'
-# 	spec_other_regex =  r'((\d+\.?\d*(([TM]IU)|(AXAI?U)|([ITM]?U(?!G))|(M[CM]?(?![GL]))|CM2?))|((CO)|(喷)))'
-# 	df = df.withColumn("SPEC", upper(df.SPEC))\
-# 			.withColumn("SPEC", regexp_replace("SPEC", r"(万)", "T"))\
-# 			.withColumn("SPEC", regexp_replace("SPEC", r"(μ)", "U"))\
-# 			.withColumn("SPEC", regexp_replace("SPEC", r"(ΜG)", "MG"))\
-# 			.replace(" ", "")\
-# 			.withColumn("SPEC_percent", regexp_extract('SPEC', r'(\d+\.?\d*%)', 1))\
-# 			.withColumn("SPEC_valid", regexp_extract('SPEC', spec_valid_regex, 1))\
-# 			.withColumn("SPEC_gross", regexp_extract('SPEC', spec_gross_regex, 1))\
-# 			.withColumn("SPEC_other_unit",regexp_extract('SPEC', spec_other_regex,1))\
-# 			.na.fill("")
-    
-# # 	df = df.withColumn("SPEC_percent", percent_pandas_udf(df.SPEC_percent, df.SPEC_valid, df.SPEC_gross))    
-# 	df = df.withColumn("SPEC_valid", transfer_unit_pandas_udf(df.SPEC_valid))
-# 	df = df.withColumn("SPEC_gross", transfer_unit_pandas_udf(df.SPEC_gross))
-# # 	df = df.withColumn("SPEC_other_unit", transfer_unit_pandas_udf(df.SPEC_other_unit))
-# 	df = df.withColumn("SPEC", concat_ws('/',df.SPEC_percent ,df.SPEC_valid , df.SPEC_gross , df.SPEC_other_unit))\
-# 			.drop("SPEC_percent", "SPEC_valid", "SPEC_gross", "SPEC_other_unit")
-# 	return df
-
-	
-@pandas_udf(StringType(), PandasUDFType.SCALAR)
-def transfer_unit_pandas_udf(value):
-	def unit_trans(value, unit):
-		# value transform
-		if unit == "G" or unit == "GM":
-			value = value *1000
-		elif unit == "UG" or unit == "UG/DOS":
-			value = value /1000
-		elif unit == "L":
-			value = value *1000
-		elif unit == "TU" or unit == "TIU":
-			value = value *10000
-		elif unit == "MU" or unit == "MIU" or unit == "M":
-			value = value *1000000
-		elif (unit == "Y"):
-			value = value /1000
-		if value >= 1:
-			value = round(value, 1)
-		else:
-			value = value
-
-		# unit transform
-		unit_switch = {
-				"G": "MG",
-				"GM": "MG",
-				"MG": "MG",
-				"UG": "MG",
-				"L": "ML",
-				"AXAU": "U",
-				"AXAIU": "U",
-				"IU": "U",
-				"TU": "U",
-				"TIU": "U",
-				"MU": "U",
-				"MIU": "U",
-				"M": "U",
-				"Y": "MG",
-				"MC": "MC",
-			}
-		try:
-			unit = unit_switch[unit]
-		except KeyError:
-			pass
-		return value, unit
-	
-	
-	def unit_transform(spec_str):
-		spec_str = spec_str.replace(" ", "")
-		# 拆分数字和单位
-		digit_regex = '\d+\.?\d*'
-		# digit_regex = '0.\d*'
-		# try:
-		if spec_str != "":
-			values = re.findall(digit_regex, spec_str)
-			if len(values) == 1:
-				value = values[0]
-				unit = spec_str.strip(value)  # type = str
-				value = float(value)  # type = float
-				value = unit_trans(value, unit)[0]
-				unit = unit_trans(value, unit)[1]
-			elif len(values) >= 2:
-				# unit = unit
-				# value = 12222
-				value_result = ""
-				unit_regex = '[A-Z]+\d*'
-				unit = re.findall(unit_regex, spec_str)[0]
-				# value = "000"
-				for value in values:
-					value = float(value)  # type = float
-					value = unit_trans(value, unit)[0]
-					value_result = value_result + str(value) + ","
-				unit = unit_trans(value, unit)[1]
-				value = value_result.strip(",")
-				
-		else:
-			unit = ""
-			value = ""
-
-		return str(value) + unit
-
-		# except Exception:
-		# 	return spec_str
-
-	frame = { "SPEC": value }
-	df = pd.DataFrame(frame)
-	df["RESULT"] = df["SPEC"].apply(unit_transform)
-	return df["RESULT"]
-	
-	
-@pandas_udf(StringType(), PandasUDFType.SCALAR)
-def percent_pandas_udf(percent, valid, gross):
-	def percent_calculation(percent, valid, gross):
-		digit_regex = '\d+\.?\d*'
-		if percent != "" and valid != "" and gross == "":
-			num = float(percent.strip("%"))
-			value = re.findall(digit_regex, valid)[0]
-			unit = valid.strip(value)  # type = str
-			if unit == "ML":
-				final_num = round(num*float(value)*10, 3)
-				result = str(final_num) + "MG"
-			elif unit == "MG":
-				final_num = num*float(value)*0.01
-				result = str(final_num) + "MG"
-			else:
-				result = unit
-
-		elif percent != "" and valid!= "" and gross != "":
-			result = ""
-
-		else:
-			result = percent
-		return result
-
-	frame = { "percent": percent, "valid": valid, "gross": gross }
-	df = pd.DataFrame(frame)
-	df["RESULT"] = df.apply(lambda x: percent_calculation(x["percent"], x["valid"], x["gross"]), axis=1)
-	return df["RESULT"]
-	
 
 """
 读取人工干预表
 """
 def load_interfere_mapping(spark, human_replace_packid_path):
-	 df_interfere = spark.read.parquet(human_replace_packid_path) \
-						 .withColumnRenamed("match_MOLE_NAME_CH", "MOLE_NAME_INTERFERE") \
-						 .withColumnRenamed("match_PRODUCT_NAME", "PRODUCT_NAME_INTERFERE")  \
-						 .withColumnRenamed("match_SPEC", "SPEC_INTERFERE") \
-						 .withColumnRenamed("match_DOSAGE", "DOSAGE_INTERFERE") \
-						 .withColumnRenamed("match_PACK_QTY", "PACK_QTY_INTERFERE") \
-						 .withColumnRenamed("match_MANUFACTURER_NAME_CH", "MANUFACTURER_NAME_INTERFERE") \
-						 .withColumnRenamed("PACK_ID", "PACK_ID_INTERFERE")
-	 return df_interfere
+	df_interfere = spark.read.parquet(human_replace_packid_path) \
+						.withColumnRenamed("match_MOLE_NAME_CH", "MOLE_NAME_INTERFERE") \
+						.withColumnRenamed("match_PRODUCT_NAME", "PRODUCT_NAME_INTERFERE")  \
+						.withColumnRenamed("match_SPEC", "SPEC_INTERFERE") \
+						.withColumnRenamed("match_DOSAGE", "DOSAGE_INTERFERE") \
+						.withColumnRenamed("match_PACK_QTY", "PACK_QTY_INTERFERE") \
+						.withColumnRenamed("match_MANUFACTURER_NAME_CH", "MANUFACTURER_NAME_INTERFERE") \
+						.withColumnRenamed("PACK_ID", "PACK_ID_INTERFERE")
+	return df_interfere
 
-	
-	
 def human_interfere(df_cleanning, df_interfere):
 	 # 1. 人工干预优先，不太对后期改
 	 # 干预流程将数据直接替换，在走平常流程，不直接过滤，保证流程的统一性
-	 df_cleanning = df_cleanning.withColumn("min", concat(df_cleanning["MOLE_NAME"], df_cleanning["PRODUCT_NAME"], df_cleanning["SPEC"], \
+	df_cleanning = df_cleanning.withColumn("min", concat(df_cleanning["MOLE_NAME"], df_cleanning["PRODUCT_NAME"], df_cleanning["SPEC_CHC"], \
 										df_cleanning["DOSAGE"], df_cleanning["PACK_QTY"], df_cleanning["MANUFACTURER_NAME"]))
 
 	 # 2. join 干预表，替换原有的原始数据列
-	 df_cleanning = df_cleanning.join(df_interfere, on="min",  how="left") \
+	df_cleanning = df_cleanning.join(df_interfere, on="min",  how="left") \
 					.na.fill({
 							"MOLE_NAME_INTERFERE": "unknown",
 							"PRODUCT_NAME_INTERFERE": "unknown",
@@ -441,19 +279,15 @@ def human_interfere(df_cleanning, df_interfere):
 							"PACK_QTY_INTERFERE": "unknown",
 							"MANUFACTURER_NAME_INTERFERE": "unknown"})
 
-	 df_cleanning = df_cleanning.withColumn("MOLE_NAME", interfere_replace_udf(df_cleanning.MOLE_NAME, df_cleanning.MOLE_NAME_INTERFERE)) \
+	df_cleanning = df_cleanning.withColumn("MOLE_NAME", interfere_replace_udf(df_cleanning.MOLE_NAME, df_cleanning.MOLE_NAME_INTERFERE)) \
 					.withColumn("PRODUCT_NAME", interfere_replace_udf(df_cleanning.PRODUCT_NAME, df_cleanning.PRODUCT_NAME_INTERFERE)) \
-					.withColumn("SPEC", interfere_replace_udf(df_cleanning.SPEC, df_cleanning.SPEC_INTERFERE)) \
+					.withColumn("SPEC_CHC", interfere_replace_udf(df_cleanning.SPEC_CHC, df_cleanning.SPEC_INTERFERE)) \
 					.withColumn("DOSAGE", interfere_replace_udf(df_cleanning.DOSAGE, df_cleanning.DOSAGE_INTERFERE)) \
 					.withColumn("PACK_QTY", interfere_replace_udf(df_cleanning.PACK_QTY, df_cleanning.PACK_QTY_INTERFERE)) \
 					.withColumn("MANUFACTURER_NAME", interfere_replace_udf(df_cleanning.MANUFACTURER_NAME, df_cleanning.MANUFACTURER_NAME_INTERFERE))
-
-	 df_cleanning = df_cleanning.select("id", "PACK_ID_CHECK", "MOLE_NAME", "PRODUCT_NAME", "DOSAGE", "SPEC", "PACK_QTY", "MANUFACTURER_NAME")
-	 # df_cleanning.persist()
-
-	 return df_cleanning
+	df_cleanning = df_cleanning.select("id", "PACK_ID_CHECK", "MOLE_NAME", "PRODUCT_NAME", "DOSAGE", "SPEC_CHC", "PACK_QTY", "MANUFACTURER_NAME")
+	return df_cleanning
 	 
-
 @udf(returnType=StringType())
 def interfere_replace_udf(origin, interfere):
 	if interfere != "unknown":
@@ -465,16 +299,14 @@ def get_inter(df_cleanning,df_second_interfere):
 	df_cleanning = df_cleanning.withColumn('new', when(df_cleanning.MOLE_NAME_LOST.isNull(), df_cleanning.MOLE_NAME)\
 											.otherwise(df_cleanning.MOLE_NAME_STANDARD))\
 											.drop("MOLE_NAME", "MOLE_NAME_LOST", "MOLE_NAME_STANDARD")\
-											.withColumnRenamed("new", "MOLE_NAME")\
-											.select(['id','PACK_ID_CHECK','MOLE_NAME','PRODUCT_NAME','DOSAGE','SPEC','PACK_QTY','MANUFACTURER_NAME','SPEC_ORIGINAL'])
+											.withColumnRenamed("new", "MOLE_NAME")
 	return df_cleanning
-
 
 #抽取spec中pack_id数据
 def get_pack(df_cleanning):
 	df_cleanning = df_cleanning.withColumnRenamed('PACK_QTY','PACK_QTY_ORIGIN').drop('PACK_QTY')\
-						.withColumn('PACK_QTY',regexp_extract(df_cleanning.SPEC,'[××*](\d{1,3})',1).cast('float'))
+						.withColumn('PACK_QTY',regexp_extract(df_cleanning.SPEC_ORIGIN,'[××*](\d{1,3})',1).cast('float'))
 	df_cleanning = df_cleanning.withColumn('PACK_QTY',when(df_cleanning.PACK_QTY.isNull(), df_cleanning.PACK_QTY_ORIGIN).otherwise(df_cleanning.PACK_QTY))
 	return df_cleanning
 
-################-----------------------------------------------------################
+################----------------------functions------------------------------################
