@@ -11,7 +11,7 @@ from pyspark.sql import functions as func
 import os
 
 def execute(max_path, project_name, if_base, time_left, time_right, left_models, left_models_time_left, right_models, right_models_time_right,
-all_models, universe_choice, if_others, out_path, out_dir, need_test):
+all_models, universe_choice, if_others, out_path, out_dir, need_test, use_d_weight):
     logger = phs3logger()
     os.environ["PYSPARK_PYTHON"] = "python3"
     spark = SparkSession.builder \
@@ -79,12 +79,19 @@ all_models, universe_choice, if_others, out_path, out_dir, need_test):
 
     # 医院权重文件	 
     PHA_weight_path = max_path + "/" + project_name + '/PHA_weight'
-    PHA_weight = spark.read.parquet(PHA_weight_path)
+    PHA_weight = spark.read.parquet(PHA_weight_path)   
+    # 是否加上 weight_default
+    if use_d_weight == 'True':
+        PHA_weight_default_path = max_path + "/" + project_name + '/PHA_weight_default'
+        PHA_weight_default = spark.read.parquet(PHA_weight_default_path)
+        PHA_weight_default = PHA_weight_default.withColumnRenamed('Weight', 'Weight_d')
+        PHA_weight = PHA_weight.join(PHA_weight_default, on=['Province', 'City', 'DOI', 'PHA'], how='full')
+        PHA_weight = PHA_weight.withColumn('Weight', func.when(col('Weight').isNull(), col('Weight_d')).otherwise(col('Weight')))
+    
     PHA_weight = PHA_weight.select('Province', 'City', 'DOI', 'Weight', 'PHA')
     PHA_weight = PHA_weight.withColumnRenamed('Province', 'Province_w') \
                             .withColumnRenamed('City', 'City_w')
-
-
+        
     # 计算max 函数
     def calculate_max(market, if_base=False, if_box=False):
 

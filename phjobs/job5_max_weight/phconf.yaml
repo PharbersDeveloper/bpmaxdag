@@ -44,6 +44,8 @@ spec:
         value: "Empty"  
       - key: need_test
         value: 0
+      - key: use_d_weight
+        value: "False"
     outputs:
       - key: a
         value: abcde

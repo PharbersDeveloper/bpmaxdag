@@ -26,10 +26,11 @@ import click
 @click.option('--out_path')
 @click.option('--out_dir')
 @click.option('--need_test')
+@click.option('--use_d_weight')
 @click.option('--a')
 @click.option('--b')
-def debug_execute(owner, run_id, job_id, a, b, max_path, project_name, if_base, time_left, time_right, left_models, left_models_time_left, right_models, right_models_time_right, all_models, universe_choice, if_others, out_path, out_dir, need_test):
-	execute(max_path, project_name, if_base, time_left, time_right, left_models, left_models_time_left, right_models, right_models_time_right, all_models, universe_choice, if_others, out_path, out_dir, need_test)
+def debug_execute(owner, run_id, job_id, a, b, max_path, project_name, if_base, time_left, time_right, left_models, left_models_time_left, right_models, right_models_time_right, all_models, universe_choice, if_others, out_path, out_dir, need_test, use_d_weight):
+	execute(max_path, project_name, if_base, time_left, time_right, left_models, left_models_time_left, right_models, right_models_time_right, all_models, universe_choice, if_others, out_path, out_dir, need_test, use_d_weight)
 
 
 if __name__ == '__main__':
