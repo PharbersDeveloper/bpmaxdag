@@ -18,17 +18,19 @@ spec:
       - key: max_path
         value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
       - key: project_name
-        value: "Merck"
+        value: "Empty"
       - key: ourdir
-        value: "202009"
+        value: "Empty"
       - key: minimum_product_columns
         value: "Brand, Form, Specifications, Pack_Number, Manufacturer"
       - key: minimum_product_sep
         value: "|"
       - key: market_city_brand
-        value: "思则凯:福厦泉_4|北京市_5,雪诺同:福厦泉_4"
+        value: "Empty"
       - key: universe_choice
-        value: "雪诺同:universe_生殖, 思则凯:universe_生殖"
+        value: "Empty"
+      - key: job_choice
+        value: "Empty"
     outputs:
       - key: c
         value: abcde

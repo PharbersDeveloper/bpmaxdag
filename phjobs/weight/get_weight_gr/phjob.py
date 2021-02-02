@@ -74,6 +74,11 @@ def execute(**kwargs):
     minimum_product_sep = kwargs["minimum_product_sep"]
     market_city_brand = kwargs["market_city_brand"]
     universe_choice = kwargs["universe_choice"]
+    job_choice = kwargs["job_choice"]
+    
+    # 是否运行此job
+    if job_choice != "weight":
+         raise ValueError('不运行weight')
     
     logger.info(market_city_brand)
 

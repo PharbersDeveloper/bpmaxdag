@@ -21,6 +21,7 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--minimum_product_sep')
 @click.option('--market_city_brand')
 @click.option('--universe_choice')
+@click.option('--job_choice')
 @click.option('--c')
 @click.option('--d')
 def debug_execute(**kwargs):

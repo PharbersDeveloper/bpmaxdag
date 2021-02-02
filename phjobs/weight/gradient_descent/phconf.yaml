@@ -18,9 +18,9 @@ spec:
       - key: max_path
         value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
       - key: project_name
-        value: "Merck"
+        value: "Empty"
       - key: market_city_brand
-        value: "思则凯:福厦泉_4|北京市_5,雪诺同:福厦泉_4"
+        value: "Empty"
       - key: lmda
         value: '0.001'
       - key: learning_rate
