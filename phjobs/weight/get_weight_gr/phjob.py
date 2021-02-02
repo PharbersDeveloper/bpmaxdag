@@ -60,7 +60,7 @@ def execute(**kwargs):
     max_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/"
     #project_name = "Eisai"
     project_name = "Merck"
-    ourdir = "202009"
+    outdir = "202009"
     minimum_product_columns = "Brand, Form, Specifications, Pack_Number, Manufacturer"
     minimum_product_sep = "|"
     #market_city_brand = '{"固力康":{"福厦泉":4}}'
@@ -69,7 +69,7 @@ def execute(**kwargs):
     '''
     max_path = kwargs["max_path"]
     project_name = kwargs["project_name"]
-    ourdir = kwargs["ourdir"]
+    outdir = kwargs["outdir"]
     minimum_product_columns = kwargs["minimum_product_columns"]
     minimum_product_sep = kwargs["minimum_product_sep"]
     market_city_brand = kwargs["market_city_brand"]
@@ -112,8 +112,8 @@ def execute(**kwargs):
     city_info_path = max_path + '/' + project_name + '/province_city_mapping'
     mkt_mapping_path = max_path + '/' + project_name + '/mkt_mapping'
     cpa_pha_mapping_path = max_path + '/' + project_name + '/cpa_pha_mapping'
-    product_map_path = max_path + '/' + project_name + '/' + ourdir + '/prod_mapping'
-    raw_data_path = max_path + '/' + project_name + '/' + ourdir + '/raw_data'
+    product_map_path = max_path + '/' + project_name + '/' + outdir + '/prod_mapping'
+    raw_data_path = max_path + '/' + project_name + '/' + outdir + '/raw_data'
     ims_sales_path = max_path + "/Common_files/extract_data_files/cn_IMS_Sales_Fdata_202007.csv"
     
     # raw_data = spark.read.csv('s3a://ph-max-auto/v0.0.1-2020-06-08/Test/Merck/raw_data.csv', header=True)
