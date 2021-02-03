@@ -11,7 +11,7 @@ import pandas as pd
 from pyspark.sql.functions import col , concat , concat_ws
 from pyspark.sql.types import StringType
 from pyspark.sql.functions import udf, pandas_udf, PandasUDFType
-from pyspark.sql.functions import split , bround
+from pyspark.sql.functions import split
 from pyspark.sql.functions import regexp_replace, upper, regexp_extract
 from pyspark.sql.functions import when , lit
 
@@ -69,7 +69,7 @@ def execute(**kwargs):
     #从spec中抽取pack_id
 	df_cleanning = get_pack(df_cleanning)
     #干预表逻辑存在问题，需要去掉！！！  
-# 	df_cleanning = human_interfere(df_cleanning, df_interfere)
+	df_cleanning = human_interfere(df_cleanning, df_interfere)
 
 	df_cleanning = get_inter(df_cleanning,df_second_interfere)
 
@@ -162,7 +162,8 @@ def pre_to_standardize_data(df_cleanning):
 			.withColumn("SPEC", regexp_replace("SPEC", r"(CM2)", "CM"))\
 			.withColumn("SPEC", regexp_replace("SPEC", r"(∶)", ":"))\
 			.withColumn("SPEC", regexp_replace("SPEC" , r"(克)" ,"G"))\
-			.withColumn("SPEC", regexp_replace("SPEC", r"(万U)","0000U"))  
+			.withColumn("SPEC", regexp_replace("SPEC", r"(万U)","0000U"))\
+			.withColumn("SPEC", regexp_replace("SPEC", r"(单位)","MG"))
 	return df_cleanning
  
     
@@ -270,7 +271,7 @@ def human_interfere(df_cleanning, df_interfere):
 										df_cleanning["DOSAGE"], df_cleanning["PACK_QTY"], df_cleanning["MANUFACTURER_NAME"]))
 
 	 # 2. join 干预表，替换原有的原始数据列
-	df_cleanning = df_cleanning.join(df_interfere, on="min",  how="left") \
+	df_cleanning = df_cleanning.join(df_interfere, on="min",  how="leftouter") \
 					.na.fill({
 							"MOLE_NAME_INTERFERE": "unknown",
 							"PRODUCT_NAME_INTERFERE": "unknown",
