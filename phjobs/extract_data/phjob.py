@@ -163,16 +163,23 @@ project, doi, molecule_sep, data_type):
         
     # 1. 根据path_for_extract， 合并项目brief，生成max_standard_brief_all
     path_for_extract = spark.read.csv(path_for_extract_path, header=True)
-    project_all = path_for_extract.toPandas()["project"].tolist()
+    # 如果指定了project，那么只读取该项目的brief文件即可        
+    if project:
+        project_all = project.replace(' ', '').split(',')
+    else:
+        project_all = path_for_extract.toPandas()["project"].tolist()
+        
     if data_type == 'raw':
         path_all_brief = [extract_path + '/' + i + "_rawdata_standard_brief" for i in project_all]
     elif data_type == 'max':
         path_all_brief = [extract_path + '/' + i + "_max_standard_brief" for i in project_all]
-    
+        
     # "project", "Date", "标准通用名", "ATC", "DOI"  ("PHA", "Source")
     index = 0
     for eachpath in path_all_brief:
         df = spark.read.parquet(eachpath)
+        if 'PACK_ID' not in df.columns:
+            df = df.withColumn('PACK_ID', func.lit(0))
         if index ==0:
             max_standard_brief_all = df
         else:
