@@ -304,7 +304,7 @@ def execute(max_path, extract_path, project_name, max_path_list, out_dir):
     
         
     # 目录结果汇总,
-    max_standard_brief = max_standard_all.select("project", "Date", "标准通用名", "ATC", "DOI").distinct()
+    max_standard_brief = max_standard_all.select("project", "Date", "标准通用名", "ATC", "DOI", "PACK_ID").distinct()
     
     # 获取时间范围
     time_list = [int(x) for x in time_list]
