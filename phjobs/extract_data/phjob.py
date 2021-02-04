@@ -165,7 +165,7 @@ project, doi, molecule_sep, data_type):
     path_for_extract = spark.read.csv(path_for_extract_path, header=True)
     # 如果指定了project，那么只读取该项目的brief文件即可        
     if project:
-        project_all = project.replace(' ', '').split(',')
+        project_all = project
     else:
         project_all = path_for_extract.toPandas()["project"].tolist()
         
@@ -389,8 +389,8 @@ project, doi, molecule_sep, data_type):
                                     .drop("Predict_Unit", "Predict_Sales", "p")
         
         # 负值调整为0
-        max_filter_out = max_filter_out.withColumn("Sales", func.when(max_filter_out.Sales < 0 , func.lit(0)).otherwise(max_filter_out.Sales)) \
-                                .withColumn("Units", func.when(max_filter_out.Sales == 0, func.lit(0)).otherwise(max_filter_out.Units))
+        max_filter_out = max_filter_out.withColumn("Sales", func.when(max_filter_out.Sales < 0 , func.lit(0)).otherwise(max_filter_out.Sales))
+        max_filter_out = max_filter_out.withColumn("Units", func.when(max_filter_out.Sales == 0, func.lit(0)).otherwise(max_filter_out.Units))
 
         # 去掉 Sales，Units 同时为0的行
         max_filter_out_1 = max_filter_out.where(max_filter_out["标准包装数量"].isNull())
