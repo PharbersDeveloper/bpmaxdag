@@ -61,7 +61,7 @@ def execute(**kwargs):
 		training_data = assembler.transform(training_data)
 		
 		
-		df_cleanning = training_data.select("id").distinct()
+		df_cleanning = training_data.select("ID").distinct()
 		# Split the data into training and test sets (30% held out for testing)
 		(df_training, df_test) = df_cleanning.randomSplit([0.7, 0.3])
 		# (df_training, df_test) = raw_data.randomSplit([0.7, 0.3])
@@ -71,19 +71,19 @@ def execute(**kwargs):
 		# 1. load the training data
 		# 准备训练集合
 		df_result = training_data
-		df_result = df_result.select("id", "label", "features")
+		df_result = df_result.select("ID", "label", "features")
 		print(df_result.where(df_result.label > 0).count())
 		df_result.where(df_result.label > 0).show(100, truncate=False)
 		labelIndexer = StringIndexer(inputCol="label", outputCol="indexedLabel").fit(df_result)
 		featureIndexer = VectorIndexer(inputCol="features", outputCol="indexedFeatures", maxCategories=6).fit(df_result)
 	
 		# 1.1 构建训练集合
-		df_training = df_training.join(df_result, how="left", on="id")
+		df_training = df_training.join(df_result, how="left", on="ID")
 		# df_training.show()
 	
 		# 1.2 构建测试集合
-		df_test = df_test.join(df_result, how="left", on="id")
-		# df_test.write.mode("overwrite").parquet(validate_path)
+		df_test = df_test.join(df_result, how="left", on="ID")
+		df_test.write.mode("overwrite").parquet(validate_path)
 		# df_test.show()
 	
 		# Train a DecisionTree model.
@@ -102,18 +102,18 @@ def execute(**kwargs):
 		df_predictions = model.transform(df_test)
 	
 		# save predictions
-		# df_predictions.write.mode("overwrite").parquet(model_validata)
+# 		df_predictions.write.mode("overwrite").parquet(model_validata)
 	
 		# Select (prediction, true label) and compute test error
-		evaluator = MulticlassClassificationEvaluator(
-			labelCol="indexedLabel", predictionCol="prediction", metricName="accuracy")
-		accuracy = evaluator.evaluate(df_predictions)
-		logger.warn("Test Error = %g " % (1.0 - accuracy))
+# 		evaluator = MulticlassClassificationEvaluator(
+# 			labelCol="indexedLabel", predictionCol="prediction", metricName="accuracy")
+# 		accuracy = evaluator.evaluate(df_predictions)
+# 		logger.warn("Test Error = %g " % (1.0 - accuracy))
 	
 		# Create pandas data frame and convert it to a spark data frame 
-		pandas_df = pd.DataFrame({"MODEL":["Decision Tree"], "ACCURACY": [accuracy]})
-		spark_df = spark.createDataFrame(pandas_df)
-		spark_df.repartition(1).write.mode("overwrite").parquet(validate_path)
+# 		pandas_df = pd.DataFrame({"MODEL":["Decision Tree"], "ACCURACY": [accuracy]})
+# 		spark_df = spark.createDataFrame(pandas_df)
+# 		spark_df.repartition(1).write.mode("overwrite").parquet(validate_path)
 	
 	else:
 		# load 

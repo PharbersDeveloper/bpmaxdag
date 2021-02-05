@@ -22,7 +22,7 @@ def execute(**kwargs):
 #######################---------------input-------------#######################	
 	depends = get_depends_path(kwargs)
 	df_mnf_adjusted = spark.read.parquet(depends["mnf_adjust"])
-	df_spec_adjusted = spark.read.parquet(depends["spec_adjust"])
+	df_jws_adjusted = spark.read.parquet(depends["jws_result"])
 	g_repartition_shared = int(kwargs["g_repartition_shared"])
 #######################---------------input-------------#######################	
 
@@ -35,8 +35,9 @@ def execute(**kwargs):
 
 
 
-########################--------------main function--------------------#################   
-	df_result = df_mnf_adjusted.union(df_spec_adjusted)
+########################--------------main function--------------------#################  
+	df_jws_adjusted = df_jws_adjusted.drop("JACCARD_DISTANCE").drop("CODE").drop("PACK_QTY_ORIGIN")
+	df_result = df_mnf_adjusted.union(df_jws_adjusted)
 	df_result = df_result.groupBy("SID") \
 					.agg(
 						max(df_result.EFFTIVENESS_MOLE_NAME).alias("EFFTIVENESS_MOLE_NAME"),
@@ -46,11 +47,9 @@ def execute(**kwargs):
 						max(df_result.EFFTIVENESS_PACK_QTY).alias("EFFTIVENESS_PACK_QTY"),
 						max(df_result.EFFTIVENESS_MANUFACTURER).alias("EFFTIVENESS_MANUFACTURER"),
 					)
-	cols = ["SID", "ID","PACK_ID_CHECK",  "PACK_ID_STANDARD","DOSAGE","MOLE_NAME","PRODUCT_NAME","SPEC","PACK_QTY","MANUFACTURER_NAME","SPEC_ORIGINAL",
-			"MOLE_NAME_STANDARD","PRODUCT_NAME_STANDARD","CORP_NAME_STANDARD","MANUFACTURER_NAME_STANDARD","MANUFACTURER_NAME_EN_STANDARD","DOSAGE_STANDARD","SPEC_STANDARD","PACK_QTY_STANDARD",
-			"SPEC_valid_digit_STANDARD","SPEC_valid_unit_STANDARD","SPEC_GROSS_VALUE_PURE_STANDARD","SPEC_GROSS_UNIT_STANDARD","SPEC_GROSS_VALUE_PURE","CHC_GROSS_UNIT","SPEC_VALID_VALUE_PURE",
-			"SPEC_VALID_UNIT_PURE","EFFTIVENESS_MOLE_NAME","EFFTIVENESS_PRODUCT_NAME","EFFTIVENESS_DOSAGE","EFFTIVENESS_PACK_QTY","EFFTIVENESS_MANUFACTURER","EFFTIVENESS_SPEC"]
-	df_result = df_result.join(df_mnf_adjusted.select(cols), on="SID", how="left")
+	cols = ['SID', 'ID', 'PACK_ID_CHECK', 'PACK_ID_STANDARD', 'DOSAGE', 'MOLE_NAME', 'PRODUCT_NAME', 'SPEC', 'PACK_QTY', 'MANUFACTURER_NAME', 'SPEC_ORIGINAL', 'MOLE_NAME_STANDARD', 'PRODUCT_NAME_STANDARD', 'CORP_NAME_STANDARD', 'MANUFACTURER_NAME_STANDARD', 'MANUFACTURER_NAME_EN_STANDARD', 'DOSAGE_STANDARD', 'SPEC_STANDARD', 'PACK_QTY_STANDARD', 'SPEC_valid_digit_STANDARD', 'SPEC_valid_unit_STANDARD', 'SPEC_GROSS_VALUE_PURE_STANDARD', 'STANDARD_GROSS_UNIT_STANDARD', 'SPEC_GROSS_VALUE_PURE', 'CHC_GROSS_UNIT', 'SPEC_VALID_VALUE_PURE', 'SPEC_VALID_UNIT_PURE']
+	df_mnf_distinct_col = df_mnf_adjusted.select(cols)
+	df_result = df_result.join(df_mnf_distinct_col, on="SID", how="left")
 	
 	df_result.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
 ######################--------------main function--------------------#################   

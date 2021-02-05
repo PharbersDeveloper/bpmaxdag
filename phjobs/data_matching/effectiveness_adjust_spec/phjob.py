@@ -53,7 +53,9 @@ def execute(**kwargs):
 	# df_second_round = second_round_with_col_recalculate(df_second_round, df_dosage_mapping, df_encode, spark)
 	df_second_round = second_round_with_col_recalculate(df_second_round, df_dosage_mapping, spark)
 	# spec拆列之后的匹配算法
+	'''
 	df_second_round = spec_split_matching(df_second_round)
+	'''
 ###################-----------------main function-------------------#################  
     
 
@@ -72,16 +74,14 @@ def execute(**kwargs):
 
 # 	df_second_round.repartition(g_repartition_shared).write.mode("overwrite").parquet(mid_path)
 
-	cols = ["sid", "id","PACK_ID_CHECK",  "PACK_ID_STANDARD","DOSAGE","MOLE_NAME","PRODUCT_NAME","SPEC","PACK_QTY","MANUFACTURER_NAME","SPEC_ORIGINAL",
+	cols = ["SID", "ID","PACK_ID_CHECK",  "PACK_ID_STANDARD","DOSAGE","MOLE_NAME","PRODUCT_NAME","SPEC","PACK_QTY","MANUFACTURER_NAME","SPEC_ORIGINAL",
 			"MOLE_NAME_STANDARD","PRODUCT_NAME_STANDARD","CORP_NAME_STANDARD","MANUFACTURER_NAME_STANDARD","MANUFACTURER_NAME_EN_STANDARD","DOSAGE_STANDARD","SPEC_STANDARD","PACK_QTY_STANDARD",
-			"SPEC_valid_digit_STANDARD","SPEC_valid_unit_STANDARD","SPEC_gross_digit_STANDARD","SPEC_gross_unit_STANDARD","SPEC_STANDARD_ORIGINAL",
-			"EFFTIVENESS_MOLE_NAME","EFFTIVENESS_PRODUCT_NAME","EFFTIVENESS_DOSAGE","EFFTIVENESS_PACK_QTY","EFFTIVENESS_MANUFACTURER","EFFTIVENESS_SPEC"]
+			"SPEC_valid_digit_STANDARD","SPEC_valid_unit_STANDARD","SPEC_GROSS_VALUE_PURE_STANDARD","SPEC_GROSS_UNIT_PURE_STANDARD","SPEC_GROSS_VALUE_PURE","CHC_GROSS_UNIT","SPEC_VALID_VALUE_PURE",
+			"SPEC_VALID_UNIT_PURE","EFFTIVENESS_MOLE_NAME","EFFTIVENESS_PRODUCT_NAME","EFFTIVENESS_DOSAGE","EFFTIVENESS_PACK_QTY","EFFTIVENESS_MANUFACTURER","EFFTIVENESS_SPEC"]
 	df_second_round = df_second_round.select(cols)
-# 	df_second_round.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
+	df_second_round.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
 
-	print(df_second_round.columns)
-	print(df_second_round.count()) 
-	df_second_round.select("SPEC").show(100)
+
 	return {}
 
 
@@ -167,8 +167,8 @@ def mole_dosage_calculaltion(df):
 	df_dosage_explode = df.withColumn("MASTER_DOSAGES", explode("MASTER_DOSAGE"))
 	df_dosage_explode = df_dosage_explode.withColumn("MOLE_DOSAGE", concat(df_dosage_explode.MOLE_NAME, df_dosage_explode.MASTER_DOSAGES))
 	df_dosage_explode = df_dosage_explode.withColumn("jws", pudf_jws_func_tmp(df_dosage_explode.MOLE_DOSAGE, df_dosage_explode.PRODUCT_NAME_STANDARD))
-	df_dosage_explode = df_dosage_explode.groupBy('id').agg({"jws":"max"}).withColumnRenamed("max(jws)","EFF_MOLE_DOSAGE")
-	df_dosage = df.join(df_dosage_explode, "id", how="left")
+	df_dosage_explode = df_dosage_explode.groupBy('ID').agg({"jws":"max"}).withColumnRenamed("max(jws)","EFF_MOLE_DOSAGE")
+	df_dosage = df.join(df_dosage_explode, "ID", how="left")
 	
 	return df_dosage
 

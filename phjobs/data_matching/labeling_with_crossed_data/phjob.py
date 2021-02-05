@@ -6,7 +6,7 @@ This is job template for Pharbers Max Job
 
 from phcli.ph_logs.ph_logs import phs3logger
 import uuid
-from pyspark.sql.functions import when
+from pyspark.sql.functions import when , col 
 
 
 def execute(**kwargs):
@@ -35,6 +35,9 @@ def execute(**kwargs):
 					when((df_result.PACK_ID_CHECK_NUM > 0) & (df_result.PACK_ID_STANDARD_NUM > 0) & (df_result.PACK_ID_CHECK_NUM == df_result.PACK_ID_STANDARD_NUM), 1.0).otherwise(0.0)) \
 					.drop("PACK_ID_CHECK_NUM", "PACK_ID_STANDARD_NUM")
 
+########################-----转换数据类型----------------#############
+	df_result = make_features_normalization(df_result)
+########################-----转换数据类型----------------#############
 	df_result.repartition(10).write.mode("overwrite").parquet(result_path)
 # 	logger.info("第二轮完成，写入完成")
 
@@ -80,4 +83,16 @@ def get_depends_path(kwargs):
 		depends_name = tmp_lst[2]
 		result[depends_name] = get_depends_file_path(kwargs, depends_job, depends_key)
 	return result
+
+def make_features_normalization(df_result):
+	df_result = df_result.withColumn("EFFTIVENESS_MOLE_NAME", col("EFFTIVENESS_MOLE_NAME").cast("double"))\
+						.withColumn("EFFTIVENESS_PRODUCT_NAME", col("EFFTIVENESS_PRODUCT_NAME").cast("double"))\
+						.withColumn("EFFTIVENESS_DOSAGE", col("EFFTIVENESS_DOSAGE").cast("double"))\
+						.withColumn("EFFTIVENESS_SPEC", col("EFFTIVENESS_SPEC").cast("double"))\
+						.withColumn("EFFTIVENESS_PACK_QTY", col("EFFTIVENESS_PACK_QTY").cast("double"))\
+						.withColumn("EFFTIVENESS_MANUFACTURER", col("EFFTIVENESS_MANUFACTURER").cast("double"))  
+	df_result = df_result.withColumn("EFFTIVENESS_SPEC", when(col("EFFTIVENESS_SPEC").isNull(), 0.0).otherwise(col("EFFTIVENESS_SPEC")))
+	return df_result
+
+
 ################-----------------------------------------------------################

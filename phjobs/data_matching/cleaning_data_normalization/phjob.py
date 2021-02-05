@@ -47,7 +47,7 @@ def execute(**kwargs):
 	df_second_interfere = load_second_interfere(spark,second_interfere_path)
 	df_chc_gross_unit = loda_chc_gross_unit(spark,chc_gross_unit_path)
 	df_cleanning.persist()
-# 	df_cleanning.write.mode("overwrite").parquet(origin_path)
+	df_cleanning.write.mode("overwrite").parquet(origin_path)
 #########---------------load file------------------------################
 
    
@@ -74,7 +74,7 @@ def execute(**kwargs):
 
 	df_cleanning = get_inter(df_cleanning,df_second_interfere)
 
-# 	df_cleanning.write.mode("overwrite").parquet(result_path)
+	df_cleanning.write.mode("overwrite").parquet(result_path)
 ########------------main fuction-------------------------################
 
 	return {}
@@ -261,11 +261,11 @@ def make_spec_unit_standardization(df_cleanning):
 	return df_cleanning
 
 def create_new_spec_col(df_cleanning):
-	df_cleanning = df_cleanning.withColumn("SPEC",concat_ws("/",col("SPEC_GROSS_VALUE_PURE"),col("CHC_GROSS_UNIT"),col("SPEC_VALID_VALUE_PURE"),col("SPEC_VALID_UNIT_PURE")))
+	df_cleanning = df_cleanning.withColumn("SPEC",concat_ws("/",col("SPEC_VALID_VALUE_PURE"),col("SPEC_VALID_UNIT_PURE"),col("SPEC_GROSS_VALUE_PURE"),col("CHC_GROSS_UNIT")))
 	col_list = ['MOLE_NAME', 'PRODUCT_NAME', 'DOSAGE', 'SPEC', 'MANUFACTURER_NAME', 'PACK_QTY', 'PACK_ID_CHECK', 'CODE', 'ID',  'SPEC_GROSS_VALUE_PURE', 'CHC_GROSS_UNIT','SPEC_VALID_VALUE_PURE', 'SPEC_VALID_UNIT_PURE', 'SPEC_ORIGINAL']
 	df_cleanning = df_cleanning.select(col_list) 
-	print(df_cleanning.columns)
 	return df_cleanning
+
 
 """
 读取人工干预表
@@ -319,7 +319,6 @@ def get_inter(df_cleanning,df_second_interfere):
 											.otherwise(df_cleanning.MOLE_NAME_STANDARD))\
 											.drop("MOLE_NAME", "MOLE_NAME_LOST", "MOLE_NAME_STANDARD")\
 											.withColumnRenamed("new", "MOLE_NAME")
-	print(df_cleanning.columns)
 	return df_cleanning
 
 #抽取spec中pack_id数据
@@ -327,7 +326,6 @@ def get_pack(df_cleanning):
 	df_cleanning = df_cleanning.withColumnRenamed('PACK_QTY','PACK_QTY_ORIGIN').drop('PACK_QTY')\
 						.withColumn('PACK_QTY',regexp_extract(df_cleanning.SPEC_ORIGINAL,'[××*](\d{1,3})',1).cast('float'))
 	df_cleanning = df_cleanning.withColumn('PACK_QTY',when(df_cleanning.PACK_QTY.isNull(), df_cleanning.PACK_QTY_ORIGIN).otherwise(df_cleanning.PACK_QTY))
-	print(df_cleanning.columns)
 	return df_cleanning
 
 ################----------------------functions------------------------------################
