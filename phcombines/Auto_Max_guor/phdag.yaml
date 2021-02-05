@@ -25,10 +25,10 @@ spec:
     - name: job3_2_data_adding
     - name: job4_panel
     - name: job5_max_weight
-    - name: job6_max_city
+    - name: Max.job6_max_city
     - name: job7_max_standard
     - name: job7_raw_standard
     - name: Max.check
   linkage:
-    - "job1_hospital_mapping >> job2_product_mapping >> job3_1_data_adding >> job3_2_data_adding >> job4_panel >> job5_max_weight >> job6_max_city >> [Max.check, job7_max_standard, job7_raw_standard]"
+    - "job1_hospital_mapping >> job2_product_mapping >> job3_1_data_adding >> job3_2_data_adding >> job4_panel >> job5_max_weight >> Max.job6_max_city >> [Max.check, job7_max_standard, job7_raw_standard]"
 

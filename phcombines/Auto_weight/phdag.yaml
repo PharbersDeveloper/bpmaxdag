@@ -21,6 +21,7 @@ spec:
   jobs:
     - name: weight.get_weight_gr
     - name: weight.gradient_descent
+    - name: weight.default
   linkage:
-    - "weight.get_weight_gr >> weight.gradient_descent"
+    - "[weight.default, weight.get_weight_gr >> weight.gradient_descent]"
 
