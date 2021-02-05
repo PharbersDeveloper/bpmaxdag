@@ -23,19 +23,22 @@ def execute(**kwargs):
 	
 	logger.info(kwargs)
 	
-	#input
+#####################-------------input------------############################
 	depends = get_depends_path(kwargs)
 	print(depends["input"])
 	df_result = spark.read.parquet(depends["input"])
-	
 	print(df_result.count())
+#####################-------------input-------------############################
 	
-	# output 	
+#####################-------------output------------#############################
 	job_id = get_job_id(kwargs)
 	run_id = get_run_id(kwargs)
 	result_path_prefix = get_result_path(kwargs, run_id, job_id)
 	result_path = result_path_prefix + kwargs["effective_result"]
-	
+#####################-------------output-----------------##########################
+
+
+#####################-----------main function------------##########################
 	# 5. edit_distance is not very good for normalization probloms
 	# we use jaro_winkler_similarity instead
 	# if not good enough, change back to edit distance
@@ -58,9 +61,10 @@ def execute(**kwargs):
 					.withColumn("EFFTIVENESS_MANUFACTURER", df_result.EFFTIVENESS[5]) \
 					.drop("EFFTIVENESS")
 
-	df_result = df_result.withColumn("sid", pudf_id_generator(df_result.id))
+	df_result = df_result.withColumn("SID", pudf_id_generator(df_result.ID))
 	df_result.write.mode("overwrite").parquet(result_path)
 	logger.info("第一轮完成，写入完成")
+#####################-----------main function------------##########################
 	
 	return {}
 

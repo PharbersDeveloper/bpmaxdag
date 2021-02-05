@@ -30,12 +30,26 @@ def execute(**kwargs):
 
 	#input
 	depends = get_depends_path(kwargs)
-	model = PipelineModel.load(depends["model"])
-	df_result = spark.read.parquet(depends["data"])
+# 	model = PipelineModel.load(depends["model"])
+# 	df_result = spark.read.parquet(depends["data"])
 # 	df_lost = spark.read.parquet(depends["lost"])
-	
+
+
+	model = PipelineModel.load("s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs/manual__2021-02-04T04_51_58.989778+00_00/cleaning_data_model_training/model_result")
+
+	df_result = spark.read.parquet("s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs/manual__2021-02-04T04_51_58.989778+00_00/labeling_with_crossed_data/label_result")
+
+	print(df_result.printSchema())
 	# output
 	job_id = get_job_id(kwargs)
+    
+    
+# 	df_result = df_result.na.drop(subset = (["EFFTIVENESS_SPEC","EFFTIVENESS_PRODUCT_NAME","EFFTIVENESS_DOSAGE","EFFTIVENESS_SPEC","EFFTIVENESS_PACK_QTY","EFFTIVENESS_MANUFACTURER"]))\
+# 				.withColumn("EFFTIVENESS_SPEC",col("EFFTIVENESS_SPEC").cast("double")).na.fill('0.0')
+	df_result = df_result.withColumn("EFFTIVENESS_SPEC", col("EFFTIVENESS_SPEC").cast("double"))
+	df_result = df_result.withColumn("EFFTIVENESS_SPEC", when(col("EFFTIVENESS_SPEC").isNull(), 0.0).otherwise(col("EFFTIVENESS_SPEC")))
+	print(df_result.printSchema())  
+    
 	run_id = get_run_id(kwargs)
 	result_path_prefix = get_result_path(kwargs, run_id, job_id)
 	prediction_path = result_path_prefix + kwargs["prediction_result"]
@@ -67,7 +81,7 @@ def execute(**kwargs):
 	df_predictions = df_predictions.na.fill("").drop("features")
 	df_predictions.persist()
 	print(df_predictions.count())
-	print(df_predictions.select("id").distinct().count())
+	print(df_predictions.select("ID").distinct().count())
 	print(df_predictions.where((df_predictions.label == 1)).count())
 	print(df_predictions.where((df_predictions.prediction == 1) & (df_predictions.RANK == 1)).count())
 	print(df_predictions.where((df_predictions.prediction == 1) & (df_predictions.label == 1) & (df_predictions.RANK == 1)).count())
@@ -104,7 +118,7 @@ def execute(**kwargs):
 	
 	# 6. 结果统计
 	all_count = df_predictions.count()   #+ df_lost.count() # 数据总数
-	ph_total = df_result.groupBy("id").agg({"label": "first"}).count()
+	ph_total = df_result.groupBy("ID").agg({"label": "first"}).count()
 	positive_count = df_positive.count()  # 机器判断pre=1条目
 	negative_count = all_count - positive_count   # - df_lost.count()  # 机器判断pre=0条目
 	matching_ratio = positive_count / all_count  # 匹配率
@@ -177,7 +191,8 @@ def similarity(df):
 	df = df.withColumn("SIMILARITY", \
 					(df.EFFTIVENESS_MOLE_NAME + df.EFFTIVENESS_PRODUCT_NAME + df.EFFTIVENESS_DOSAGE \
 						+ df.EFFTIVENESS_SPEC + df.EFFTIVENESS_PACK_QTY + df.EFFTIVENESS_MANUFACTURER))
-	windowSpec = Window.partitionBy("id").orderBy(desc("SIMILARITY"), desc("EFFTIVENESS_MOLE_NAME"), desc("EFFTIVENESS_DOSAGE"), desc("PACK_ID_STANDARD"))
+	df.filter(df.SIMILARITY.isNull()).select("EFFTIVENESS_MOLE_NAME","EFFTIVENESS_PRODUCT_NAME","EFFTIVENESS_DOSAGE","EFFTIVENESS_SPEC","EFFTIVENESS_PACK_QTY","EFFTIVENESS_MANUFACTURER").show(200)
+	windowSpec = Window.partitionBy("ID").orderBy(desc("SIMILARITY"), desc("EFFTIVENESS_MOLE_NAME"), desc("EFFTIVENESS_DOSAGE"), desc("PACK_ID_STANDARD"))
 	df = df.withColumn("RANK", row_number().over(windowSpec))
 	df = df.where((df.RANK <= 5) | (df.label == 1.0))
 	return df

@@ -65,9 +65,10 @@ def execute(**kwargs):
 	df_standard = create_new_spec_col(df_standard)
 	'''
 	df_standard = spec_standify(df_standard)
+	'''
 # 	df_standard.write.mode("overwrite").parquet(result_path)
 #########--------------main function--------------------################# 
-	'''
+
 	return {}
 
 
@@ -191,7 +192,8 @@ def pre_to_standardize_data(df_standard):
     #剔除SPEC中空格
 	remove_spaces_spec = r'(\s+)'
 	df_standard = df_standard.withColumn("SPEC_STANDARD", regexp_replace(col("SPEC_STANDARD"), remove_spaces_spec , ""))\
-    .withColumn("SPEC_STANDARD", regexp_replace(col("SPEC_STANDARD"), r"(/DOS)" , "喷"))
+							.withColumn("SPEC_STANDARD", regexp_replace(col("SPEC_STANDARD"), r"(/DOS)" , "喷"))\
+							.withColumn("SPEC_STANDARD", upper(col("SPEC_STANDARD")))
 	return df_standard
 
 def extract_useful_spec_data(df_standard):
@@ -244,6 +246,8 @@ def make_spec_unit_standardization(df_standard):
     
 #删除辅助列print(df_standard.columns)
 	df_standard =df_standard.withColumnRenamed("SPEC_STANDARD","SPEC_ORIGIN")\
+							.withColumnRenamed("SPEC_GROSS_VALUE_PURE","SPEC_GROSS_VALUE_PURE_STANDARD")\
+							.withColumnRenamed("STANDARD_GROSS_UNIT","SPEC_GROSS_UNIT_PURE_STANDARD")\
 							.drop("SPEC_gross_digit_STANDARD","SPEC_gross_unit_STANDARD","SPEC_gross_unit_STANDARD","SPEC_GROSS_UNIT_PURE","STANDARD_SPEC_GROSS_VALUE")
 
 	return df_standard
@@ -251,10 +255,11 @@ def make_spec_unit_standardization(df_standard):
 
 def create_new_spec_col(df_standard):
     
-	df_standard = df_standard.withColumn("SPEC_STANDARD",concat_ws('/',col("SPEC_valid_digit_STANDARD"),col("SPEC_valid_unit_STANDARD"),col("SPEC_GROSS_VALUE_PURE"),col("STANDARD_GROSS_UNIT")))
-	col_list = ['MOLE_NAME_STANDARD', 'PRODUCT_NAME_STANDARD', 'DOSAGE_STANDARD', 'SPEC_STANDARD', 'MANUFACTURER_NAME_STANDARD', 'PACK_QTY_STANDARD', 'PACK_ID_STANDARD', 'SPEC_valid_digit_STANDARD', 'SPEC_valid_unit_STANDARD', 'SPEC_GROSS_VALUE_PURE','STANDARD_GROSS_UNIT']
+	df_standard = df_standard.withColumn("SPEC_STANDARD",concat_ws('/',col("SPEC_valid_digit_STANDARD"),col("SPEC_valid_unit_STANDARD"),col("SPEC_GROSS_VALUE_PURE_STANDARD"),col("SPEC_GROSS_UNIT_PURE_STANDARD")))
+	col_list = ['MOLE_NAME_STANDARD', 'PRODUCT_NAME_STANDARD', 'DOSAGE_STANDARD', 'SPEC_STANDARD', 'MANUFACTURER_NAME_STANDARD','MANUFACTURER_NAME_EN_STANDARD', 'CORP_NAME_STANDARD','PACK_QTY_STANDARD', 'PACK_ID_STANDARD', 'SPEC_valid_digit_STANDARD', 'SPEC_valid_unit_STANDARD', 'SPEC_GROSS_VALUE_PURE_STANDARD','SPEC_GROSS_UNIT_PURE_STANDARD']
+
 	df_standard = df_standard.select(col_list) 
-# 	df_standard.select(["DOSAGE_STANDARD","SPEC_STANDARD","SPEC_valid_digit_STANDARD","SPEC_valid_unit_STANDARD","SPEC_GROSS_VALUE_PURE","STANDARD_GROSS_UNIT"]).show(200)
+	print(df_standard.columns)
 	return df_standard
 
 

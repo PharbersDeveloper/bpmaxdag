@@ -11,7 +11,7 @@ import pandas as pd
 from pyspark.sql.functions import col , concat , concat_ws
 from pyspark.sql.types import StringType
 from pyspark.sql.functions import udf, pandas_udf, PandasUDFType
-from pyspark.sql.functions import split
+from pyspark.sql.functions import split ,count
 from pyspark.sql.functions import regexp_replace, upper, regexp_extract
 from pyspark.sql.functions import when , lit
 
@@ -51,9 +51,10 @@ def execute(**kwargs):
 #########---------------load file------------------------################
 
    
-    
-#########--------------main function--------------------#################   
 
+#########--------------main function--------------------#################   
+    #DOSAGE预处理
+	df_cleanning = make_dosage_standardization(df_cleanning)
     #添加标准总量单位
 	df_cleanning = add_chc_standard_gross_unit(df_cleanning,df_chc_gross_unit)
     #SPEC数据预处理
@@ -69,7 +70,7 @@ def execute(**kwargs):
     #从spec中抽取pack_id
 	df_cleanning = get_pack(df_cleanning)
     #干预表逻辑存在问题，需要去掉！！！  
-	df_cleanning = human_interfere(df_cleanning, df_interfere)
+# 	df_cleanning = human_interfere(df_cleanning, df_interfere) 
 
 	df_cleanning = get_inter(df_cleanning,df_second_interfere)
 
@@ -108,9 +109,14 @@ def get_result_path(kwargs, run_id, job_id):
 """
 def modify_pool_cleanning_prod(spark, raw_data_path):
 	if raw_data_path.endswith(".csv"):
-		return spark.read.csv(path=raw_data_path, header=True).withColumn("id", pudf_id_generator(col("MOLE_NAME")))
+		df_cleanning = spark.read.csv(path=raw_data_path, header=True).withColumn("ID", pudf_id_generator(col("MOLE_NAME")))
 	else:
-		return spark.read.parquet(raw_data_path).withColumn("id", pudf_id_generator(col("MOLE_NAME")))
+		df_cleanning = spark.read.parquet(raw_data_path).withColumn("ID", pudf_id_generator(col("MOLE_NAME")))
+    #CHC列重命名
+	df_cleanning = df_cleanning.withColumnRenamed("code","CODE")
+	print(df_cleanning.columns)
+	return df_cleanning
+    
 	
 
 @pandas_udf(StringType(), PandasUDFType.SCALAR)
@@ -132,6 +138,13 @@ def loda_chc_gross_unit(spark,chc_gross_unit_path):
     df_chc_gross_unit = spark.read.parquet(chc_gross_unit_path)
     return df_chc_gross_unit
 
+def make_dosage_standardization(df_cleanning):
+    #CHC中DOSAGE干扰项剔除
+	replace_dosage_str = r'(([(（].*[)）])|(\s+))'
+	df_cleanning = df_cleanning.withColumn("DOSAGE", regexp_replace(col("DOSAGE"),replace_dosage_str,""))\
+							.dropna(subset="DOSAGE") 
+	return df_cleanning
+
 def add_chc_standard_gross_unit(df_cleanning,df_chc_gross_unit):
 
 	df_chc_gross_unit_mg = df_chc_gross_unit.select('CHC_GROSS_UNIT_MG').withColumnRenamed('CHC_GROSS_UNIT_MG','DOSAGE')\
@@ -149,7 +162,10 @@ def add_chc_standard_gross_unit(df_cleanning,df_chc_gross_unit):
    
     
 def pre_to_standardize_data(df_cleanning):
-	df_cleanning = df_cleanning.replace(" ", "")\
+    
+    #标准表DOSAGE中干扰项剔除
+	remove_spec_str = r'(\s+)'
+	df_cleanning = df_cleanning.withColumn("SPEC", regexp_replace(col("SPEC"),remove_spec_str,""))\
 			.withColumn("SPEC", upper(col('SPEC')))\
 			.withColumn("SPEC", regexp_replace("SPEC", r"(万单位)", "×10MG"))\
 			.withColumn("SPEC", regexp_replace("SPEC", r"(μ)", "U"))\
@@ -165,7 +181,7 @@ def pre_to_standardize_data(df_cleanning):
 			.withColumn("SPEC", regexp_replace("SPEC", r"(万U)","0000U"))\
 			.withColumn("SPEC", regexp_replace("SPEC", r"(单位)","MG"))
 	return df_cleanning
- 
+
     
 def extract_useful_spec_data(df_cleanning):
     
@@ -185,7 +201,7 @@ def extract_useful_spec_data(df_cleanning):
 															.otherwise(col('SPEC_GROSS_VALUE')))
 	print(  'chc数据总数：' + str(df_cleanning.count()))
 	print('匹配失败数据：' + ' ' + str(df_cleanning.filter(col('SPEC_GROSS_VALUE') == '').count()) ,  '匹配率:' +' ' +  str(( 1 - int(df_cleanning.filter(col('SPEC_GROSS_VALUE') == '').count()) / int(df_cleanning.count())) * 100) + '%' ) 
-	df_cleanning.filter(col('SPEC_GROSS_VALUE') == '').select("SPEC").distinct().show(200)
+	df_cleanning.filter(col('SPEC_GROSS_VALUE') == '').groupBy(col("SPEC")).agg(count(col("SPEC"))).show(200)
     #有效性的提取
 	extract_spec_valid_value_MG = r'(([:/]\d+.?\d*[UM]?G)|(\d+.?\d*[MΜ]?G[×/](?![M]G))|(每(?!\d+.?\d*[MΜ]?G).*?(\d+.?\d*[MΜ]?G)))'
 	extract_spec_valid_value_ML = r'([:]\d+.?\d*(([UM]?G(?![:]))|U)|(\d+.?\d*ΜG/ML)|((\d+.?\d*)ML×\d{1,2})|((\d+.?\d*)ML(?![:(/,含的中)])))'
@@ -241,19 +257,21 @@ def make_spec_unit_standardization(df_cleanning):
 	df_cleanning = df_cleanning.withColumn("SPEC_VALID_UNIT_PURE", regexp_replace(col("SPEC_VALID_UNIT_PURE"),replace_spec_value_MG,'MG'))
 # 	df_cleanning.select(["SPEC","SPEC_GROSS_VALUE","SPEC_GROSS_VALUE_PURE","SPEC_GROSS_UNIT_PURE","SPEC_VALID_VALUE_PURE","SPEC_VALID_UNIT_PURE"]).distinct().show(100)
 #删除辅助列
-	df_cleanning = df_cleanning.withColumnRenamed("SPEC","SPEC_ORIGIN").drop("SPEC_GROSS_VALUE","SPEC_GROSS_UNIT_PURE")
+	df_cleanning = df_cleanning.withColumnRenamed("SPEC","SPEC_ORIGINAL").drop("SPEC_GROSS_VALUE","SPEC_GROSS_UNIT_PURE")
 	return df_cleanning
 
 def create_new_spec_col(df_cleanning):
-	df_cleanning = df_cleanning.withColumn("SPEC_CHC",concat(col("SPEC_GROSS_VALUE_PURE"),col("CHC_GROSS_UNIT"),col("SPEC_VALID_VALUE_PURE"),col("SPEC_VALID_UNIT_PURE")))
-	col_list = ['MOLE_NAME', 'PRODUCT_NAME', 'DOSAGE', 'SPEC_CHC', 'MANUFACTURER_NAME', 'PACK_QTY', 'PACK_ID_CHECK', 'code', 'id',  'SPEC_GROSS_VALUE_PURE', 'CHC_GROSS_UNIT','SPEC_VALID_VALUE_PURE', 'SPEC_VALID_UNIT_PURE', 'SPEC_ORIGIN']
+	df_cleanning = df_cleanning.withColumn("SPEC",concat_ws("/",col("SPEC_GROSS_VALUE_PURE"),col("CHC_GROSS_UNIT"),col("SPEC_VALID_VALUE_PURE"),col("SPEC_VALID_UNIT_PURE")))
+	col_list = ['MOLE_NAME', 'PRODUCT_NAME', 'DOSAGE', 'SPEC', 'MANUFACTURER_NAME', 'PACK_QTY', 'PACK_ID_CHECK', 'CODE', 'ID',  'SPEC_GROSS_VALUE_PURE', 'CHC_GROSS_UNIT','SPEC_VALID_VALUE_PURE', 'SPEC_VALID_UNIT_PURE', 'SPEC_ORIGINAL']
 	df_cleanning = df_cleanning.select(col_list) 
+	print(df_cleanning.columns)
 	return df_cleanning
 
 """
 读取人工干预表
 """
 def load_interfere_mapping(spark, human_replace_packid_path):
+
 	df_interfere = spark.read.parquet(human_replace_packid_path) \
 						.withColumnRenamed("match_MOLE_NAME_CH", "MOLE_NAME_INTERFERE") \
 						.withColumnRenamed("match_PRODUCT_NAME", "PRODUCT_NAME_INTERFERE")  \
@@ -267,7 +285,7 @@ def load_interfere_mapping(spark, human_replace_packid_path):
 def human_interfere(df_cleanning, df_interfere):
 	 # 1. 人工干预优先，不太对后期改
 	 # 干预流程将数据直接替换，在走平常流程，不直接过滤，保证流程的统一性
-	df_cleanning = df_cleanning.withColumn("min", concat(df_cleanning["MOLE_NAME"], df_cleanning["PRODUCT_NAME"], df_cleanning["SPEC_CHC"], \
+	df_cleanning = df_cleanning.withColumn("min", concat(df_cleanning["MOLE_NAME"], df_cleanning["PRODUCT_NAME"], df_cleanning["SPEC"], \
 										df_cleanning["DOSAGE"], df_cleanning["PACK_QTY"], df_cleanning["MANUFACTURER_NAME"]))
 
 	 # 2. join 干预表，替换原有的原始数据列
@@ -282,11 +300,11 @@ def human_interfere(df_cleanning, df_interfere):
 
 	df_cleanning = df_cleanning.withColumn("MOLE_NAME", interfere_replace_udf(df_cleanning.MOLE_NAME, df_cleanning.MOLE_NAME_INTERFERE)) \
 					.withColumn("PRODUCT_NAME", interfere_replace_udf(df_cleanning.PRODUCT_NAME, df_cleanning.PRODUCT_NAME_INTERFERE)) \
-					.withColumn("SPEC_CHC", interfere_replace_udf(df_cleanning.SPEC_CHC, df_cleanning.SPEC_INTERFERE)) \
+					.withColumn("SPEC", interfere_replace_udf(df_cleanning.SPEC, df_cleanning.SPEC_INTERFERE)) \
 					.withColumn("DOSAGE", interfere_replace_udf(df_cleanning.DOSAGE, df_cleanning.DOSAGE_INTERFERE)) \
 					.withColumn("PACK_QTY", interfere_replace_udf(df_cleanning.PACK_QTY, df_cleanning.PACK_QTY_INTERFERE)) \
 					.withColumn("MANUFACTURER_NAME", interfere_replace_udf(df_cleanning.MANUFACTURER_NAME, df_cleanning.MANUFACTURER_NAME_INTERFERE))
-	df_cleanning = df_cleanning.select("id", "PACK_ID_CHECK", "MOLE_NAME", "PRODUCT_NAME", "DOSAGE", "SPEC_CHC", "PACK_QTY", "MANUFACTURER_NAME")
+	df_cleanning = df_cleanning.select("ID", "PACK_ID_CHECK", "MOLE_NAME", "PRODUCT_NAME", "DOSAGE", "SPEC", "PACK_QTY", "MANUFACTURER_NAME")
 	return df_cleanning
 	 
 @udf(returnType=StringType())
@@ -301,13 +319,15 @@ def get_inter(df_cleanning,df_second_interfere):
 											.otherwise(df_cleanning.MOLE_NAME_STANDARD))\
 											.drop("MOLE_NAME", "MOLE_NAME_LOST", "MOLE_NAME_STANDARD")\
 											.withColumnRenamed("new", "MOLE_NAME")
+	print(df_cleanning.columns)
 	return df_cleanning
 
 #抽取spec中pack_id数据
 def get_pack(df_cleanning):
 	df_cleanning = df_cleanning.withColumnRenamed('PACK_QTY','PACK_QTY_ORIGIN').drop('PACK_QTY')\
-						.withColumn('PACK_QTY',regexp_extract(df_cleanning.SPEC_ORIGIN,'[××*](\d{1,3})',1).cast('float'))
+						.withColumn('PACK_QTY',regexp_extract(df_cleanning.SPEC_ORIGINAL,'[××*](\d{1,3})',1).cast('float'))
 	df_cleanning = df_cleanning.withColumn('PACK_QTY',when(df_cleanning.PACK_QTY.isNull(), df_cleanning.PACK_QTY_ORIGIN).otherwise(df_cleanning.PACK_QTY))
+	print(df_cleanning.columns)
 	return df_cleanning
 
 ################----------------------functions------------------------------################

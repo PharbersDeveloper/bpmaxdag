@@ -28,39 +28,39 @@ def execute(**kwargs):
 	
 	logger.info(kwargs)
 
-	# input	
+#################-------------------input------------------###################
+
 	depends = get_depends_path(kwargs)
 	df_second_round = spark.read.parquet(depends["input"])
 	df_dosage_mapping = spark.read.parquet(kwargs["dosage_mapping_path"])
 	g_repartition_shared = int(kwargs["g_repartition_shared"])
- 
-	# output 	
+##################-------------------input------------------###################
+
+##################-----------------output------------------------###################
 	job_id = get_job_id(kwargs)
 	run_id = get_run_id(kwargs)
 	result_path_prefix = get_result_path(kwargs, run_id, job_id)
 	result_path = result_path_prefix + kwargs["spec_adjust_result"]
 	mid_path = result_path_prefix + kwargs["spec_adjust_mid"]
+##################-----------------output------------------------###################
 
-	df_second_round = df_second_round.limit(50)
-	print(df_second_round.columns)
+
+
+
+###################--------------main function------------------------#################  
 	# 6. 第二轮更改优化eff的计算方法
 # 	df_second_round = df_second_round.withColumnRenamed("EFFTIVENESS_SPEC", "EFFTIVENESS_SPEC_FIRST")
 	# df_second_round = second_round_with_col_recalculate(df_second_round, df_dosage_mapping, df_encode, spark)
-
 	df_second_round = second_round_with_col_recalculate(df_second_round, df_dosage_mapping, spark)
-    
-
 	# spec拆列之后的匹配算法
 	df_second_round = spec_split_matching(df_second_round)
-
+###################-----------------main function-------------------#################  
     
 
 	df_second_round = df_second_round.withColumn("EFFTIVENESS_SPEC", when((df_second_round.EFFTIVENESS_SPEC_FIRST > df_second_round.EFFTIVENESS_SPEC_SPLIT), \
 																		df_second_round.EFFTIVENESS_SPEC_FIRST) \
 																		.otherwise(df_second_round.EFFTIVENESS_SPEC_SPLIT))
-	'''
 
-	'''
 	df_second_round = df_second_round.withColumnRenamed("EFFTIVENESS_PRODUCT_NAME", "EFFTIVENESS_PRODUCT_NAME_FIRST") \
 								.withColumnRenamed("EFFTIVENESS_DOSAGE", "EFFTIVENESS_DOSAGE_FIRST") \
 								.withColumnRenamed("EFFTIVENESS_DOSAGE_SE", "EFFTIVENESS_DOSAGE") \
@@ -174,37 +174,6 @@ def mole_dosage_calculaltion(df):
 
 
 def spec_split_matching(df):
-	# df.printSchema()
-	
-	df = df.withColumn("SPEC_valid_total_STANDARD",  spec_valid_std_transfer_pandas_udf(df.SPEC_valid_digit_STANDARD))
-	spec_valid_regex =   r'(\d+\.?\d*(((GM)|[MU]?G)|Y|(ΜG)))'
-	df = df.withColumn("SPEC_valid", regexp_extract('SPEC', spec_valid_regex, 1))
-	spec_gross_regex =   r'(\d+\.?\d*(M?L))'
-	df = df.withColumn("SPEC_gross", regexp_extract('SPEC', spec_gross_regex, 2))
-	
-	spec_valid_se_regex =  r'([0-9]\d*\.?\d*\s*[:/+][0-9]\d*\.?\d*\s*[A-Za-z]+)'
-	df = df.withColumn("SPEC_valid_2", regexp_extract('SPEC', spec_valid_se_regex, 1))
-	df = df.withColumn("SPEC_valid", when((df.SPEC_valid_2 != ""), df.SPEC_valid_2).otherwise(df.SPEC_valid))
-   
-    
-	
-	# 单位转换
-# 	df = df.withColumn("SPEC_valid", transfer_unit_pandas_udf(df.SPEC_valid))
-# 	df = df.withColumn("SPEC_gross", transfer_unit_pandas_udf(df.SPEC_gross))
-	df = df.drop("SPEC_gross_digit", "SPEC_gross_unit", "SPEC_valid_digit", "SPEC_valid_unit")
-	# df = df.withColumn("SPEC_percent", percent_pandas_udf(df.SPEC_percent, df.SPEC_valid, df.SPEC_gross))
-	
-	df = df.na.fill("")
-
-	unit_regex_spec = r'([A-Z]+\d*)'
-	
-	df = df.withColumn("SPEC_valid_unit", regexp_extract('SPEC_valid', unit_regex_spec, 1))
-	df = df.withColumn("SPEC_valid_digit", regexp_replace('SPEC_valid', unit_regex_spec, ""))
-	
-	df = df.withColumn("SPEC_gross_unit", regexp_extract('SPEC_gross', unit_regex_spec, 1))
-	df = df.withColumn("SPEC_gross_digit", regexp_replace('SPEC_gross', unit_regex_spec, ""))
-	df = df.withColumn("SPEC_valid_total_ORIGINAL",  spec_valid_std_transfer_pandas_udf(df.SPEC_valid_digit))
-	df = df.withColumn("SPEC_total_ORIGINAL",  spec_total_cleanning_pandas_udf(df.SPEC_valid_digit, df.SPEC_valid_unit, df.SPEC_gross_digit, df.SPEC_gross_unit))
 
 	# 开始计算effectiveness的逻辑
 	df = df.withColumn("EFFTIVENESS_SPEC_SPLIT", lit(0))

@@ -99,7 +99,7 @@ def get_prediction_origin(df_origin,df_prediction):
     df_origin = df_origin.withColumnRenamed('MOLE_NAME','MOLE_NAME_origin')\
                 .withColumnRenamed('PRODUCT_NAME','PRODUCT_NAME_origin')\
                 .withColumnRenamed('DOSAGE','DOSAGE_origin')\
-                .withColumnRenamed('SPEC','SPEC_origin')\
+                .withColumnRenamed('SPEC_ORIGIN','SPEC_origin')\
                 .withColumnRenamed('MANUFACTURER_NAME','MANUFACTURER_NAME_origin')\
                 .withColumnRenamed('PACK_QTY','PACK_QTY_origin')\
                 .withColumnRenamed('PACK_ID_CHECK','PACK_ID_CHECK_origin')\
