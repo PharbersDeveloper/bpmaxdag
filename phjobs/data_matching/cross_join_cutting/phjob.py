@@ -21,7 +21,6 @@ def execute(**kwargs):
 #####################============configure================#################
 	logger = phs3logger(kwargs["job_id"])
 	spark = kwargs["spark"]()
-	# spark = prepare()
 	logger.info(kwargs)
 #####################=============configure===============#################
 
@@ -65,7 +64,7 @@ def execute(**kwargs):
 	#cutting for reduce the calculation
 	df_result = cutting_the_reduce_calculation(df_result, g_mole_name_shared, g_pack_qty_shared, g_repatition_shared)
 
-# 	df_result.repartition(g_repatition_shared).write.mode("overwrite").parquet(result_path)
+	df_result.repartition(g_repatition_shared).write.mode("overwrite").parquet(result_path)
 #########--------------main function--------------------#################   
 
 	return {}
@@ -111,7 +110,7 @@ def get_depends_path(kwargs):
 	
 
 def load_standard_table_files(spark, path_standard_table):
-	df_standard = spark.read.parquet(path_standard_table)
+	df_standard = spark.read.parquet(path_standard_table).limit(100)
 	return df_standard
         
 def load_cleanning_table(spark, path_cleanning_table, g_cleaning_limit):
@@ -120,6 +119,7 @@ def load_cleanning_table(spark, path_cleanning_table, g_cleaning_limit):
 		df_cleanning = spark.read.parquet(path_cleanning_table).limit(g_cleaning_limit)
 	else:
 		df_cleanning = spark.read.parquet(path_cleanning_table)
+	df_cleanning = df_cleanning.limit(100)
 	return df_cleanning
 
 

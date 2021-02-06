@@ -31,8 +31,8 @@ def execute(**kwargs):
 #################-------------------input------------------###################
 
 	depends = get_depends_path(kwargs)
-	df_second_round = spark.read.parquet(depends["input"])
-	df_dosage_mapping = spark.read.parquet(kwargs["dosage_mapping_path"])
+	path_effective_result = depends["input"]
+	path_dosage_mapping_path = kwargs["dosage_mapping_path"]
 	g_repartition_shared = int(kwargs["g_repartition_shared"])
 ##################-------------------input------------------###################
 
@@ -44,43 +44,24 @@ def execute(**kwargs):
 	mid_path = result_path_prefix + kwargs["spec_adjust_mid"]
 ##################-----------------output------------------------###################
 
-
+#################----------loading files---------------######################
+	df_second_round = load_effective_result(spark, path_effective_result)
+	df_dosage_mapping = load_dosage_mapping(spark, path_dosage_mapping_path)
+################-----------loading files---------------######################
 
 
 ###################--------------main function------------------------#################  
 	# 6. 第二轮更改优化eff的计算方法
-# 	df_second_round = df_second_round.withColumnRenamed("EFFTIVENESS_SPEC", "EFFTIVENESS_SPEC_FIRST")
-	# df_second_round = second_round_with_col_recalculate(df_second_round, df_dosage_mapping, df_encode, spark)
-	df_second_round = second_round_with_col_recalculate(df_second_round, df_dosage_mapping, spark)
+	df_second_round = second_round_with_col_recalculate(df_second_round, df_dosage_mapping)
+	df_second_round.repartition(g_repartition_shared).write.mode("overwrite").parquet(mid_path)
 	# spec拆列之后的匹配算法
 	'''
 	df_second_round = spec_split_matching(df_second_round)
 	'''
-###################-----------------main function-------------------#################  
-    
-
-	df_second_round = df_second_round.withColumn("EFFTIVENESS_SPEC", when((df_second_round.EFFTIVENESS_SPEC_FIRST > df_second_round.EFFTIVENESS_SPEC_SPLIT), \
-																		df_second_round.EFFTIVENESS_SPEC_FIRST) \
-																		.otherwise(df_second_round.EFFTIVENESS_SPEC_SPLIT))
-
-	df_second_round = df_second_round.withColumnRenamed("EFFTIVENESS_PRODUCT_NAME", "EFFTIVENESS_PRODUCT_NAME_FIRST") \
-								.withColumnRenamed("EFFTIVENESS_DOSAGE", "EFFTIVENESS_DOSAGE_FIRST") \
-								.withColumnRenamed("EFFTIVENESS_DOSAGE_SE", "EFFTIVENESS_DOSAGE") \
-								.withColumnRenamed("EFFTIVENESS_MANUFACTURER_SE", "EFFTIVENESS_MANUFACTURER") \
-								.withColumnRenamed("EFFTIVENESS_PRODUCT_NAME_SE", "EFFTIVENESS_PRODUCT_NAME")
-								# .withColumnRenamed("EFFTIVENESS_MANUFACTURER", "EFFTIVENESS_MANUFACTURER_FIRST") \
-								
-	df_second_round.persist()
-
-# 	df_second_round.repartition(g_repartition_shared).write.mode("overwrite").parquet(mid_path)
-
-	cols = ["SID", "ID","PACK_ID_CHECK",  "PACK_ID_STANDARD","DOSAGE","MOLE_NAME","PRODUCT_NAME","SPEC","PACK_QTY","MANUFACTURER_NAME","SPEC_ORIGINAL",
-			"MOLE_NAME_STANDARD","PRODUCT_NAME_STANDARD","CORP_NAME_STANDARD","MANUFACTURER_NAME_STANDARD","MANUFACTURER_NAME_EN_STANDARD","DOSAGE_STANDARD","SPEC_STANDARD","PACK_QTY_STANDARD",
-			"SPEC_valid_digit_STANDARD","SPEC_valid_unit_STANDARD","SPEC_GROSS_VALUE_PURE_STANDARD","SPEC_GROSS_UNIT_PURE_STANDARD","SPEC_GROSS_VALUE_PURE","CHC_GROSS_UNIT","SPEC_VALID_VALUE_PURE",
-			"SPEC_VALID_UNIT_PURE","EFFTIVENESS_MOLE_NAME","EFFTIVENESS_PRODUCT_NAME","EFFTIVENESS_DOSAGE","EFFTIVENESS_PACK_QTY","EFFTIVENESS_MANUFACTURER","EFFTIVENESS_SPEC"]
-	df_second_round = df_second_round.select(cols)
+    #选取指定的列用于和adjust_mnf job 进行union操作
+	df_second_round = select_specified_cols(df_second_round)
 	df_second_round.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
-
+###################-----------------main function-------------------#################  
 
 	return {}
 
@@ -125,9 +106,17 @@ def get_depends_path(kwargs):
 		result[depends_name] = get_depends_file_path(kwargs, depends_job, depends_key)
 	return result
 
+def load_effective_result(spark, path_effective_result):
+	print(path_effective_result)
+	df_second_round = spark.read.parquet(path_effective_result)  
+	return df_second_round
 
-def second_round_with_col_recalculate(df_second_round, dosage_mapping, spark):
-	df_second_round = df_second_round.withColumnRenamed("EFFTIVENESS_SPEC", "EFFTIVENESS_SPEC_FIRST")
+def load_dosage_mapping(spark, path_dosage_mapping_path):  
+	df_dosage_mapping = spark.read.parquet(path_dosage_mapping_path)
+	return df_dosage_mapping
+
+
+def second_round_with_col_recalculate(df_second_round, dosage_mapping):
 	df_second_round = df_second_round.join(dosage_mapping, "DOSAGE", how="left").na.fill("")
 	df_second_round = df_second_round.withColumn("MASTER_DOSAGE", when(df_second_round.MASTER_DOSAGE.isNull(), df_second_round.JACCARD_DISTANCE).otherwise(df_second_round.MASTER_DOSAGE))
 	df_second_round = df_second_round.withColumn("EFFTIVENESS_DOSAGE_SE", dosage_replace(df_second_round.MASTER_DOSAGE , df_second_round.DOSAGE_STANDARD, df_second_round.EFFTIVENESS_DOSAGE))
@@ -136,7 +125,28 @@ def second_round_with_col_recalculate(df_second_round, dosage_mapping, spark):
 							prod_name_replace(df_second_round.EFFTIVENESS_MOLE_NAME, 
 											df_second_round.EFFTIVENESS_PRODUCT_NAME, df_second_round.MOLE_NAME, \
 											df_second_round.PRODUCT_NAME_STANDARD, df_second_round.EFF_MOLE_DOSAGE))
+
+	df_second_round = df_second_round.withColumnRenamed("EFFTIVENESS_PRODUCT_NAME", "EFFTIVENESS_PRODUCT_NAME_FIRST") \
+								.withColumnRenamed("EFFTIVENESS_DOSAGE", "EFFTIVENESS_DOSAGE_FIRST") \
+								.withColumnRenamed("EFFTIVENESS_DOSAGE_SE", "EFFTIVENESS_DOSAGE") \
+								.withColumnRenamed("EFFTIVENESS_MANUFACTURER_SE", "EFFTIVENESS_MANUFACTURER") \
+								.withColumnRenamed("EFFTIVENESS_PRODUCT_NAME_SE", "EFFTIVENESS_PRODUCT_NAME")
+								# .withColumnRenamed("EFFTIVENESS_MANUFACTURER", "EFFTIVENESS_MANUFACTURER_FIRST") \
+								
+	df_second_round.persist()
 	return df_second_round
+
+
+def select_specified_cols(df_second_round):
+
+	cols = ["SID", "ID","PACK_ID_CHECK",  "PACK_ID_STANDARD","DOSAGE","MOLE_NAME","PRODUCT_NAME","SPEC","PACK_QTY","MANUFACTURER_NAME","SPEC_ORIGINAL",
+			"MOLE_NAME_STANDARD","PRODUCT_NAME_STANDARD","CORP_NAME_STANDARD","MANUFACTURER_NAME_STANDARD","MANUFACTURER_NAME_EN_STANDARD","DOSAGE_STANDARD","SPEC_STANDARD","PACK_QTY_STANDARD",
+			"SPEC_valid_digit_STANDARD","SPEC_valid_unit_STANDARD","SPEC_GROSS_VALUE_PURE_STANDARD","SPEC_GROSS_UNIT_PURE_STANDARD","SPEC_GROSS_VALUE_PURE","CHC_GROSS_UNIT","SPEC_VALID_VALUE_PURE",
+			"SPEC_VALID_UNIT_PURE","EFFTIVENESS_MOLE_NAME","EFFTIVENESS_PRODUCT_NAME","EFFTIVENESS_DOSAGE","EFFTIVENESS_PACK_QTY","EFFTIVENESS_MANUFACTURER","EFFTIVENESS_SPEC"]
+	df_second_round = df_second_round.select(cols)
+   
+	return df_second_round
+
 
 
 @pandas_udf(DoubleType(), PandasUDFType.SCALAR)

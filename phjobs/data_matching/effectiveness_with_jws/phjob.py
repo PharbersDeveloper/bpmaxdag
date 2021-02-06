@@ -49,7 +49,7 @@ def execute(**kwargs):
 	# if not good enough, change back to edit distance
 	df_result = use_jaro_winkler_similarity(df_result)
     
-# 	df_result.write.mode("overwrite").parquet(result_path)
+	df_result.write.mode("overwrite").parquet(result_path)
 	logger.info("第一轮完成，写入完成")
 ###################-----------main function----######################
 	

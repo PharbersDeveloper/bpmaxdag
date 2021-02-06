@@ -41,7 +41,7 @@ def execute(**kwargs):
 
 ###########--------------load file----------------------- ################
 	df_standard = load_standard_prod(spark, path_master_prod)
-# 	df_standard.write.mode("overwrite").parquet(origin_path)
+	df_standard.write.mode("overwrite").parquet(origin_path)
 	df_standard_gross_unit  = load_standard_gross_unit(spark,path_standard_gross_unit)
 	df_replace_standard_dosage  = load_replace_standard_dosage(spark,path_for_replace_standard_dosage) 
 ###########--------------load file----------------------- ################
@@ -66,7 +66,7 @@ def execute(**kwargs):
 	'''
 	df_standard = spec_standify(df_standard)
 	'''
-# 	df_standard.write.mode("overwrite").parquet(result_path)
+	df_standard.write.mode("overwrite").parquet(result_path)
 #########--------------main function--------------------################# 
 
 	return {}
