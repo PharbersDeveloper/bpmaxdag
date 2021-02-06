@@ -28,18 +28,20 @@ def execute(**kwargs):
 		please input your code below
 		get spark session: spark = kwargs["spark"]()
 	"""
+###########==========configure============############
 	logger = phs3logger(kwargs["job_id"])
 	spark = kwargs["spark"]()
 	# spark = prepare()
-	
 	logger.info(kwargs)
+###########==========configure============############
 
-	#input
+#############--------input-----------#################
 	depends = get_depends_path(kwargs)
-	training_data = spark.read.parquet(depends["input"])
+	path_label_result = depends["input"]
 	# raw_data = spark.read.parquet(depends["raw"])
+#############--------input-----------#################
 	
-	# output
+#############--------output-----------#################
 	job_id = get_job_id(kwargs)
 	run_id = get_run_id(kwargs)
 	result_path_prefix = get_result_path(kwargs, run_id, job_id)
@@ -48,6 +50,14 @@ def execute(**kwargs):
 	tm = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
 	final_path = get_final_result_path(kwargs, run_id, kwargs["final_model"], tm)
 	input_model_path = kwargs["input_model_path"]
+#############--------output-----------#################
+
+
+###########-------loading files-----------#################
+	training_data = load_training_data(spark, path_label_result)
+###########-------loading files-----------#################
+
+#####################-------main function-------------#####################
 
 	if input_model_path == "unknown":
 		# 0. load the cleanning data
@@ -124,6 +134,8 @@ def execute(**kwargs):
 	treeModel = model.stages[2]
 	# summary only
 	print(treeModel.toDebugString)
+    
+#####################-------main function-------------#####################
 	
 	return {}
 
@@ -172,4 +184,10 @@ def get_depends_path(kwargs):
 		depends_name = tmp_lst[2]
 		result[depends_name] = get_depends_file_path(kwargs, depends_job, depends_key)
 	return result
+
+
+def load_training_data(spark, path_label_result):
+	training_data = spark.read.parquet(path_label_result)
+	return training_data
+    
 ################-----------------------------------------------------################
