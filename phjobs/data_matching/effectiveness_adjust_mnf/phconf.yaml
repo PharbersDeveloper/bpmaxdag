@@ -20,7 +20,7 @@ spec:
       - key: path_prefix
         value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs
       - key: word_dict_encode_path
-        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/WORD_DIC/0.0.12
+        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/WORD_DIC/0.0.13
       - key: lexicon_path
         value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/LEXICON/0.0.2
       - key: depend_job_names_keys

@@ -110,7 +110,7 @@ def get_depends_path(kwargs):
 	
 
 def load_standard_table_files(spark, path_standard_table):
-	df_standard = spark.read.parquet(path_standard_table).limit(100)
+	df_standard = spark.read.parquet(path_standard_table)
 	return df_standard
         
 def load_cleanning_table(spark, path_cleanning_table, g_cleaning_limit):
@@ -119,7 +119,6 @@ def load_cleanning_table(spark, path_cleanning_table, g_cleaning_limit):
 		df_cleanning = spark.read.parquet(path_cleanning_table).limit(g_cleaning_limit)
 	else:
 		df_cleanning = spark.read.parquet(path_cleanning_table)
-	df_cleanning = df_cleanning.limit(100)
 	return df_cleanning
 
 
