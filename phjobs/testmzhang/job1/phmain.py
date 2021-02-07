@@ -14,7 +14,8 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--owner')
 @click.option('--run_id')
 @click.option('--job_id')
-@click.option('--input')
+@click.option('--path_chc')
+@click.option('--path_standard')
 @click.option('--output_path_job1')
 def debug_execute(**kwargs):
     try:

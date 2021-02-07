@@ -6,7 +6,7 @@ This is job template for Pharbers Max Job
 
 from phcli.ph_logs.ph_logs import phs3logger
 import uuid
-from pyspark.sql.functions import when
+from pyspark.sql.functions import when , col 
 
 
 def execute(**kwargs):
@@ -14,29 +14,34 @@ def execute(**kwargs):
 		please input your code below
 		get spark session: spark = kwargs["spark"]()
 	"""
+################========configure=============############
 	logger = phs3logger(kwargs["job_id"])
 	spark = kwargs["spark"]()
-	
 	logger.info(kwargs)
+############========configure==============#############
 
-	#input
+##############-----------input------------##############
 	depends = get_depends_path(kwargs)
-	df_result = spark.read.parquet(depends["input"])
-	
-	# output
+	path_adjust_prod = depends["input"]
+#############------------input-------------##############
+
+#############------------output-----------##############
 	job_id = get_job_id(kwargs)
 	run_id = get_run_id(kwargs)
 	result_path_prefix = get_result_path(kwargs, run_id, job_id)
 	result_path = result_path_prefix + kwargs["label_result"]
+############-------------output------------#############
 
-	df_result = df_result.withColumn("PACK_ID_CHECK_NUM", df_result.PACK_ID_CHECK.cast("int")).na.fill({"PACK_ID_CHECK_NUM": -1})
-	df_result = df_result.withColumn("PACK_ID_STANDARD_NUM", df_result.PACK_ID_STANDARD.cast("int")).na.fill({"PACK_ID_STANDARD_NUM": -1})
-	df_result = df_result.withColumn("label",
-					when((df_result.PACK_ID_CHECK_NUM > 0) & (df_result.PACK_ID_STANDARD_NUM > 0) & (df_result.PACK_ID_CHECK_NUM == df_result.PACK_ID_STANDARD_NUM), 1.0).otherwise(0.0)) \
-					.drop("PACK_ID_CHECK_NUM", "PACK_ID_STANDARD_NUM")
+###########----------loading files-------------############
+	df_result = load_adjust_prod(spark, path_adjust_prod)
+##########-----------loading files--------############
 
+###########---------mian functions ----------######################
+	df_result = make_label(df_result)
+	df_result = make_features_normalization(df_result)
 	df_result.repartition(10).write.mode("overwrite").parquet(result_path)
-# 	logger.info("第二轮完成，写入完成")
+	logger.info("第二轮完成，写入完成")
+###########---------mian functions ----------######################
 
 	return {}
 	
@@ -80,4 +85,26 @@ def get_depends_path(kwargs):
 		depends_name = tmp_lst[2]
 		result[depends_name] = get_depends_file_path(kwargs, depends_job, depends_key)
 	return result
+
+def load_adjust_prod(spark, path_adjust_prod):
+	df_result = spark.read.parquet(path_adjust_prod)
+	return df_result
+
+def make_label(df_result):
+	df_result = df_result.withColumn("PACK_ID_CHECK_NUM", df_result.PACK_ID_CHECK.cast("int")).na.fill({"PACK_ID_CHECK_NUM": -1})
+	df_result = df_result.withColumn("PACK_ID_STANDARD_NUM", df_result.PACK_ID_STANDARD.cast("int")).na.fill({"PACK_ID_STANDARD_NUM": -1})
+	df_result = df_result.withColumn("label",
+					when((df_result.PACK_ID_CHECK_NUM > 0) & (df_result.PACK_ID_STANDARD_NUM > 0) & (df_result.PACK_ID_CHECK_NUM == df_result.PACK_ID_STANDARD_NUM), 1.0).otherwise(0.0)) \
+					.drop("PACK_ID_CHECK_NUM", "PACK_ID_STANDARD_NUM")
+	return df_result
+
+def make_features_normalization(df_result):
+	df_result = df_result.withColumn("EFFTIVENESS_MOLE_NAME", col("EFFTIVENESS_MOLE_NAME").cast("double"))\
+						.withColumn("EFFTIVENESS_PRODUCT_NAME", col("EFFTIVENESS_PRODUCT_NAME").cast("double"))\
+						.withColumn("EFFTIVENESS_DOSAGE", col("EFFTIVENESS_DOSAGE").cast("double"))\
+						.withColumn("EFFTIVENESS_SPEC", col("EFFTIVENESS_SPEC").cast("double"))\
+						.withColumn("EFFTIVENESS_PACK_QTY", col("EFFTIVENESS_PACK_QTY").cast("double"))\
+						.withColumn("EFFTIVENESS_MANUFACTURER", col("EFFTIVENESS_MANUFACTURER").cast("double"))  
+	df_result = df_result.withColumn("EFFTIVENESS_SPEC", when(col("EFFTIVENESS_SPEC").isNull(), 0.0).otherwise(col("EFFTIVENESS_SPEC")))
+	return df_result
 ################-----------------------------------------------------################

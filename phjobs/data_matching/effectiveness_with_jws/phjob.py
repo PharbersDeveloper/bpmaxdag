@@ -8,7 +8,7 @@ import uuid
 import pandas as pd
 from phcli.ph_logs.ph_logs import phs3logger
 from pyspark.sql.types import *
-from pyspark.sql.functions import broadcast
+from pyspark.sql.functions import broadcast , count
 from pyspark.sql.functions import udf, pandas_udf, PandasUDFType
 from nltk.metrics.distance import jaro_winkler_similarity
 
@@ -18,54 +18,45 @@ def execute(**kwargs):
 		please input your code below
 		get spark session: spark = kwargs["spark"]()
 	"""
+################========configure============################
 	logger = phs3logger(kwargs["job_id"])
 	spark = kwargs["spark"]()
-	
 	logger.info(kwargs)
+###############=========configure===========#################
 	
-	#input
+###############-------------input------------##############
 	depends = get_depends_path(kwargs)
-	print(depends["input"])
-	df_result = spark.read.parquet(depends["input"])
-	
-	print(df_result.count())
-	
-	# output 	
+	path_cross_result = depends["input"]
+###############-------------input-------------##############
+
+
+###############-------------output------------###############
 	job_id = get_job_id(kwargs)
 	run_id = get_run_id(kwargs)
 	result_path_prefix = get_result_path(kwargs, run_id, job_id)
 	result_path = result_path_prefix + kwargs["effective_result"]
-	
+###############-------------output------------##################
+
+
+##############---------loading files--------####################
+	df_result = load_cross_result_file(spark, path_cross_result)
+##############----------loading files-------#####################
+
+
+##################-----------main function-----###################
 	# 5. edit_distance is not very good for normalization probloms
 	# we use jaro_winkler_similarity instead
 	# if not good enough, change back to edit distance
-	df_result = df_result.withColumn("EFFTIVENESS", \
-					efftiveness_with_jaro_winkler_similarity( \
-						df_result.MOLE_NAME, df_result.MOLE_NAME_STANDARD, \
-						df_result.PRODUCT_NAME, df_result.PRODUCT_NAME_STANDARD, \
-						df_result.DOSAGE, df_result.DOSAGE_STANDARD, \
-						df_result.SPEC, df_result.SPEC_STANDARD, \
-						df_result.PACK_QTY, df_result.PACK_QTY_STANDARD, \
-						df_result.MANUFACTURER_NAME, df_result.MANUFACTURER_NAME_STANDARD, df_result.MANUFACTURER_NAME_EN_STANDARD, \
-						df_result.SPEC_ORIGINAL
-					))
-
-	df_result = df_result.withColumn("EFFTIVENESS_MOLE_NAME", df_result.EFFTIVENESS[0]) \
-					.withColumn("EFFTIVENESS_PRODUCT_NAME", df_result.EFFTIVENESS[1]) \
-					.withColumn("EFFTIVENESS_DOSAGE", df_result.EFFTIVENESS[2]) \
-					.withColumn("EFFTIVENESS_SPEC", df_result.EFFTIVENESS[3]) \
-					.withColumn("EFFTIVENESS_PACK_QTY", df_result.EFFTIVENESS[4]) \
-					.withColumn("EFFTIVENESS_MANUFACTURER", df_result.EFFTIVENESS[5]) \
-					.drop("EFFTIVENESS")
-
-	df_result = df_result.withColumn("sid", pudf_id_generator(df_result.id))
+	df_result = use_jaro_winkler_similarity(df_result)
+    
 	df_result.write.mode("overwrite").parquet(result_path)
 	logger.info("第一轮完成，写入完成")
+###################-----------main function----######################
 	
 	return {}
 
 
-################--------------------- functions ---------------------################
+################==============functions=========######################
 """
 中间文件与结果文件路径
 """
@@ -106,6 +97,35 @@ def get_depends_path(kwargs):
 	return result
 	
 	
+    
+def load_cross_result_file(spark, path_cross_result):
+	df_result = spark.read.parquet(path_cross_result)
+	return df_result
+
+def use_jaro_winkler_similarity(df_result):
+
+	df_result = df_result.withColumn("EFFTIVENESS", \
+					efftiveness_with_jaro_winkler_similarity( \
+						df_result.MOLE_NAME, df_result.MOLE_NAME_STANDARD, \
+						df_result.PRODUCT_NAME, df_result.PRODUCT_NAME_STANDARD, \
+						df_result.DOSAGE, df_result.DOSAGE_STANDARD, \
+						df_result.SPEC, df_result.SPEC_STANDARD, \
+						df_result.PACK_QTY, df_result.PACK_QTY_STANDARD, \
+						df_result.MANUFACTURER_NAME, df_result.MANUFACTURER_NAME_STANDARD, df_result.MANUFACTURER_NAME_EN_STANDARD, \
+						df_result.SPEC_ORIGINAL
+					))
+
+	df_result = df_result.withColumn("EFFTIVENESS_MOLE_NAME", df_result.EFFTIVENESS[0]) \
+					.withColumn("EFFTIVENESS_PRODUCT_NAME", df_result.EFFTIVENESS[1]) \
+					.withColumn("EFFTIVENESS_DOSAGE", df_result.EFFTIVENESS[2]) \
+					.withColumn("EFFTIVENESS_SPEC", df_result.EFFTIVENESS[3]) \
+					.withColumn("EFFTIVENESS_PACK_QTY", df_result.EFFTIVENESS[4]) \
+					.withColumn("EFFTIVENESS_MANUFACTURER", df_result.EFFTIVENESS[5]) \
+					.drop("EFFTIVENESS")
+	df_result = df_result.withColumn("SID", pudf_id_generator(df_result.ID))
+    
+	return df_result
+    
 @pandas_udf(StringType(), PandasUDFType.SCALAR)
 def pudf_id_generator(oid):
 	frame = {
@@ -178,5 +198,4 @@ def efftiveness_with_jaro_winkler_similarity(mo, ms, po, ps, do, ds, so, ss, qo,
 										x["MANUFACTURER_NAME_JWS"], \
 										], axis=1)
 	return df["RESULT"]
-################-----------------------------------------------------################
-	
+################================functions=====================######################

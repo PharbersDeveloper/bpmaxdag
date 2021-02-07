@@ -28,18 +28,20 @@ def execute(**kwargs):
 		please input your code below
 		get spark session: spark = kwargs["spark"]()
 	"""
+###########==========configure============############
 	logger = phs3logger(kwargs["job_id"])
 	spark = kwargs["spark"]()
 	# spark = prepare()
-	
 	logger.info(kwargs)
+###########==========configure============############
 
-	#input
+#############--------input-----------#################
 	depends = get_depends_path(kwargs)
-	training_data = spark.read.parquet(depends["input"])
+	path_label_result = depends["input"]
 	# raw_data = spark.read.parquet(depends["raw"])
+#############--------input-----------#################
 	
-	# output
+#############--------output-----------#################
 	job_id = get_job_id(kwargs)
 	run_id = get_run_id(kwargs)
 	result_path_prefix = get_result_path(kwargs, run_id, job_id)
@@ -48,6 +50,14 @@ def execute(**kwargs):
 	tm = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
 	final_path = get_final_result_path(kwargs, run_id, kwargs["final_model"], tm)
 	input_model_path = kwargs["input_model_path"]
+#############--------output-----------#################
+
+
+###########-------loading files-----------#################
+	training_data = load_training_data(spark, path_label_result)
+###########-------loading files-----------#################
+
+#####################-------main function-------------#####################
 
 	if input_model_path == "unknown":
 		# 0. load the cleanning data
@@ -61,7 +71,7 @@ def execute(**kwargs):
 		training_data = assembler.transform(training_data)
 		
 		
-		df_cleanning = training_data.select("id").distinct()
+		df_cleanning = training_data.select("ID").distinct()
 		# Split the data into training and test sets (30% held out for testing)
 		(df_training, df_test) = df_cleanning.randomSplit([0.7, 0.3])
 		# (df_training, df_test) = raw_data.randomSplit([0.7, 0.3])
@@ -71,19 +81,19 @@ def execute(**kwargs):
 		# 1. load the training data
 		# 准备训练集合
 		df_result = training_data
-		df_result = df_result.select("id", "label", "features")
+		df_result = df_result.select("ID", "label", "features")
 		print(df_result.where(df_result.label > 0).count())
 		df_result.where(df_result.label > 0).show(100, truncate=False)
 		labelIndexer = StringIndexer(inputCol="label", outputCol="indexedLabel").fit(df_result)
 		featureIndexer = VectorIndexer(inputCol="features", outputCol="indexedFeatures", maxCategories=6).fit(df_result)
 	
 		# 1.1 构建训练集合
-		df_training = df_training.join(df_result, how="left", on="id")
+		df_training = df_training.join(df_result, how="left", on="ID")
 		# df_training.show()
 	
 		# 1.2 构建测试集合
-		df_test = df_test.join(df_result, how="left", on="id")
-		# df_test.write.mode("overwrite").parquet(validate_path)
+		df_test = df_test.join(df_result, how="left", on="ID")
+		df_test.write.mode("overwrite").parquet(validate_path)
 		# df_test.show()
 	
 		# Train a DecisionTree model.
@@ -102,18 +112,18 @@ def execute(**kwargs):
 		df_predictions = model.transform(df_test)
 	
 		# save predictions
-		# df_predictions.write.mode("overwrite").parquet(model_validata)
+# 		df_predictions.write.mode("overwrite").parquet(model_validata)
 	
 		# Select (prediction, true label) and compute test error
-		evaluator = MulticlassClassificationEvaluator(
-			labelCol="indexedLabel", predictionCol="prediction", metricName="accuracy")
-		accuracy = evaluator.evaluate(df_predictions)
-		logger.warn("Test Error = %g " % (1.0 - accuracy))
+# 		evaluator = MulticlassClassificationEvaluator(
+# 			labelCol="indexedLabel", predictionCol="prediction", metricName="accuracy")
+# 		accuracy = evaluator.evaluate(df_predictions)
+# 		logger.warn("Test Error = %g " % (1.0 - accuracy))
 	
 		# Create pandas data frame and convert it to a spark data frame 
-		pandas_df = pd.DataFrame({"MODEL":["Decision Tree"], "ACCURACY": [accuracy]})
-		spark_df = spark.createDataFrame(pandas_df)
-		spark_df.repartition(1).write.mode("overwrite").parquet(validate_path)
+# 		pandas_df = pd.DataFrame({"MODEL":["Decision Tree"], "ACCURACY": [accuracy]})
+# 		spark_df = spark.createDataFrame(pandas_df)
+# 		spark_df.repartition(1).write.mode("overwrite").parquet(validate_path)
 	
 	else:
 		# load 
@@ -124,6 +134,8 @@ def execute(**kwargs):
 	treeModel = model.stages[2]
 	# summary only
 	print(treeModel.toDebugString)
+    
+#####################-------main function-------------#####################
 	
 	return {}
 
@@ -172,4 +184,10 @@ def get_depends_path(kwargs):
 		depends_name = tmp_lst[2]
 		result[depends_name] = get_depends_file_path(kwargs, depends_job, depends_key)
 	return result
+
+
+def load_training_data(spark, path_label_result):
+	training_data = spark.read.parquet(path_label_result)
+	return training_data
+    
 ################-----------------------------------------------------################

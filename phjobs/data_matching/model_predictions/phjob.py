@@ -13,7 +13,7 @@ from pyspark.sql.types import *
 from pyspark.ml import PipelineModel
 from pyspark.ml.feature import VectorAssembler
 from pyspark.sql.functions import udf, pandas_udf, PandasUDFType
-from pyspark.sql.functions import desc, col
+from pyspark.sql.functions import desc, col 
 from pyspark.sql.functions import rank, lit, when, row_number
 from pyspark.sql import Window
 
@@ -31,9 +31,12 @@ def execute(**kwargs):
 	#input
 	depends = get_depends_path(kwargs)
 	model = PipelineModel.load(depends["model"])
+
 	df_result = spark.read.parquet(depends["data"])
+
 # 	df_lost = spark.read.parquet(depends["lost"])
-	
+
+    
 	# output
 	job_id = get_job_id(kwargs)
 	run_id = get_run_id(kwargs)
@@ -67,7 +70,7 @@ def execute(**kwargs):
 	df_predictions = df_predictions.na.fill("").drop("features")
 	df_predictions.persist()
 	print(df_predictions.count())
-	print(df_predictions.select("id").distinct().count())
+	print(df_predictions.select("ID").distinct().count())
 	print(df_predictions.where((df_predictions.label == 1)).count())
 	print(df_predictions.where((df_predictions.prediction == 1) & (df_predictions.RANK == 1)).count())
 	print(df_predictions.where((df_predictions.prediction == 1) & (df_predictions.label == 1) & (df_predictions.RANK == 1)).count())
@@ -104,7 +107,7 @@ def execute(**kwargs):
 	
 	# 6. 结果统计
 	all_count = df_predictions.count()   #+ df_lost.count() # 数据总数
-	ph_total = df_result.groupBy("id").agg({"label": "first"}).count()
+	ph_total = df_result.groupBy("ID").agg({"label": "first"}).count()
 	positive_count = df_positive.count()  # 机器判断pre=1条目
 	negative_count = all_count - positive_count   # - df_lost.count()  # 机器判断pre=0条目
 	matching_ratio = positive_count / all_count  # 匹配率
@@ -177,7 +180,7 @@ def similarity(df):
 	df = df.withColumn("SIMILARITY", \
 					(df.EFFTIVENESS_MOLE_NAME + df.EFFTIVENESS_PRODUCT_NAME + df.EFFTIVENESS_DOSAGE \
 						+ df.EFFTIVENESS_SPEC + df.EFFTIVENESS_PACK_QTY + df.EFFTIVENESS_MANUFACTURER))
-	windowSpec = Window.partitionBy("id").orderBy(desc("SIMILARITY"), desc("EFFTIVENESS_MOLE_NAME"), desc("EFFTIVENESS_DOSAGE"), desc("PACK_ID_STANDARD"))
+	windowSpec = Window.partitionBy("ID").orderBy(desc("SIMILARITY"), desc("EFFTIVENESS_MOLE_NAME"), desc("EFFTIVENESS_DOSAGE"), desc("PACK_ID_STANDARD"))
 	df = df.withColumn("RANK", row_number().over(windowSpec))
 	df = df.where((df.RANK <= 5) | (df.label == 1.0))
 	return df

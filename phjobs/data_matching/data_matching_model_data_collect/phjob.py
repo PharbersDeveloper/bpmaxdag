@@ -39,12 +39,11 @@ def execute(**kwargs):
     #处理prediction表,获取原始表名
     df_result = get_prediction_origin(df_origin,df_prediction)
     
-    df_result.repartition(1).write.csv(path_prediction_origin_result)
+    df_result.repartition(1).write.csv(path_prediction_origin_result,header=True)
     
     #get lost_data
     lost_data = get_lost_data(df_origin,df_prediction)
-    
-    lost_data.repartition(1).write.csv(path_lost_data)
+    lost_data.repartition(1).write.csv(path_lost_data,header=True)
     
     
     return {}
@@ -96,29 +95,32 @@ def get_depends_path(kwargs):
 
 #获取原始表信息
 def get_prediction_origin(df_origin,df_prediction):
-    df_origin = df_origin.withColumnRenamed('MOLE_NAME','MOLE_NAME_origin')\
-                .withColumnRenamed('PRODUCT_NAME','PRODUCT_NAME_origin')\
-                .withColumnRenamed('DOSAGE','DOSAGE_origin')\
-                .withColumnRenamed('SPEC','SPEC_origin')\
-                .withColumnRenamed('MANUFACTURER_NAME','MANUFACTURER_NAME_origin')\
-                .withColumnRenamed('PACK_QTY','PACK_QTY_origin')\
-                .withColumnRenamed('PACK_ID_CHECK','PACK_ID_CHECK_origin')\
-                .withColumnRenamed('code','code_origin')\
-                .withColumnRenamed('id','id_origin')
+	print(df_origin.columns,len(df_origin.columns))
+	print(df_prediction.columns,len(df_prediction.columns))
+    
+	df_origin = df_origin.withColumnRenamed('MOLE_NAME','MOLE_NAME_ORIGINAL')\
+				.withColumnRenamed('PRODUCT_NAME','PRODUCT_NAME_ORIGINAL')\
+				.withColumnRenamed('DOSAGE','DOSAGE_ORIGINAL')\
+				.withColumnRenamed('SPEC','SPEC_ORIGINAL')\
+				.withColumnRenamed('MANUFACTURER_NAME','MANUFACTURER_NAME_ORIGINAL')\
+				.withColumnRenamed('PACK_QTY','PACK_QTY_ORIGINAL')\
+				.withColumnRenamed('PACK_ID_CHECK','PACK_ID_CHECK_ORIGINAL')\
+				.withColumnRenamed('CODE','CODE_ORIGINAL')\
+				.withColumnRenamed('ID','ID_ORIGINAL')
 
-    df_result = df_prediction.join(df_origin,df_prediction.id == df_origin.id_origin, 'left')
-    return  df_result 
+	df_result = df_prediction.join(df_origin,df_prediction.ID == df_origin.ID_ORIGINAL, 'left').drop(df_prediction.SPEC_ORIGINAL)
+	return  df_result 
 
 
 #获取丢失数据
 def get_lost_data(df_origin,df_prediction):
-    df_origin_id = df_origin.select("id")
-    df_prediction_id = df_prediction.select("id").distinct()
-    df_lost_id = df_origin_id.subtract(df_prediction_id)  
-    df_origin = df_origin.withColumnRenamed('id','newid')
-    df_lost = df_lost_id.join(df_origin,df_lost_id.id == df_origin.newid ,'left').drop('newid')
+	df_origin_id = df_origin.select("ID")
+	df_prediction_id = df_prediction.select("ID").distinct()
+	df_lost_id = df_origin_id.subtract(df_prediction_id)  
+	df_origin = df_origin.withColumnRenamed('ID','newid')
+	df_lost = df_lost_id.join(df_origin,df_lost_id.ID == df_origin.newid ,'left').drop('newid')
     
-    return df_lost
+	return df_lost
 
 
 ################--------------------- functions ---------------------################

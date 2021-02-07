@@ -16,8 +16,10 @@ spec:
     code: phmain.py
     config: phconf.yaml
     args:
-      - key: input
-        value: "zhang min is good boy !"
+      - key: path_chc
+        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/CHC/*
+      - key: path_standard
+        value: s3a://ph-stream/common/public/prod/0.0.21
     outputs:
       - key: output_path_job1
         value: "111 "

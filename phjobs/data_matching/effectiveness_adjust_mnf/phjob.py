@@ -26,46 +26,44 @@ def execute(**kwargs):
 		please input your code below
 		get spark session: spark = kwargs["spark"]()
 	"""
+##################=========configure===========###################
 	logger = phs3logger(kwargs["job_id"])
 	spark = kwargs["spark"]()
-	
 	logger.info(kwargs)
+##################=========configure===========###################
 
-	# input	
+############-----------input-------------------------###################
 	depends = get_depends_path(kwargs)
-	df_second_round = spark.read.parquet(depends["input"])
+	path_effective_result = depends["input"]
 	g_repartition_shared = int(kwargs["g_repartition_shared"])
-
 	word_dict_encode_path = kwargs["word_dict_encode_path"]
-	df_encode = load_word_dict_encode(spark, word_dict_encode_path)
-	
 	lexicon_path = kwargs["lexicon_path"]	
-	get_seg(spark, lexicon_path)
-	
-	# output 	
+############-----------input-------------------------###################
+
+###########------------output------------------------###################
 	job_id = get_job_id(kwargs)
 	run_id = get_run_id(kwargs)
 	result_path_prefix = get_result_path(kwargs, run_id, job_id)
 	result_path = result_path_prefix + kwargs["mnf_adjust_result"]
 	mid_path= result_path_prefix + kwargs["mnf_adjust_mid"]
-   
+###########------------output------------------------###################
+
+###############--------loading files --------------##################
+	get_seg(spark, lexicon_path)
+	df_second_round = load_effective_result(spark, path_effective_result)
+	df_encode = load_word_dict_encode(spark, word_dict_encode_path)
+###############--------loading files----------------#################
+
+
+#########--------------main function--------------------#################  
 	df_second_round = second_round_with_col_recalculate(df_second_round, df_encode, spark)
-	df_second_round = df_second_round.withColumnRenamed("EFFTIVENESS_PRODUCT_NAME", "EFFTIVENESS_PRODUCT_NAME_FIRST") \
-								.withColumnRenamed("EFFTIVENESS_MANUFACTURER", "EFFTIVENESS_MANUFACTURER_FIRST") \
-								.withColumnRenamed("EFFTIVENESS_DOSAGE_SE", "EFFTIVENESS_DOSAGE") \
-								.withColumnRenamed("EFFTIVENESS_MANUFACTURER_SE", "EFFTIVENESS_MANUFACTURER") \
-								.withColumnRenamed("EFFTIVENESS_PRODUCT_NAME_SE", "EFFTIVENESS_PRODUCT_NAME")
-								# .withColumnRenamed("EFFTIVENESS_DOSAGE", "EFFTIVENESS_DOSAGE_FIRST") \
-	df_second_round.persist()	
-	# df_second_round.printSchema()
+
+# 	df_second_round.repartition(g_repartition_shared).write.mode("overwrite").parquet(mid_path)
+    #选取指定的列用于和adjust_spec job 进行union操作
+	df_second_round = select_specified_cols(df_second_round)
+
 	df_second_round.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
-	
-	cols = ["sid", "id","PACK_ID_CHECK",  "PACK_ID_STANDARD","DOSAGE","MOLE_NAME","PRODUCT_NAME","SPEC","PACK_QTY","MANUFACTURER_NAME","SPEC_ORIGINAL",
-			"MOLE_NAME_STANDARD","PRODUCT_NAME_STANDARD","CORP_NAME_STANDARD","MANUFACTURER_NAME_STANDARD","MANUFACTURER_NAME_EN_STANDARD","DOSAGE_STANDARD","SPEC_STANDARD","PACK_QTY_STANDARD",
-			"SPEC_valid_digit_STANDARD","SPEC_valid_unit_STANDARD","SPEC_gross_digit_STANDARD","SPEC_gross_unit_STANDARD","SPEC_STANDARD_ORIGINAL",
-			"EFFTIVENESS_MOLE_NAME","EFFTIVENESS_PRODUCT_NAME","EFFTIVENESS_DOSAGE","EFFTIVENESS_PACK_QTY","EFFTIVENESS_MANUFACTURER","EFFTIVENESS_SPEC"]
-	df_second_round = df_second_round.select(cols)
-	df_second_round.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
+#########--------------main function--------------------#################  
 	
    
 	return {}
@@ -111,6 +109,9 @@ def get_depends_path(kwargs):
 		result[depends_name] = get_depends_file_path(kwargs, depends_job, depends_key)
 	return result
 
+def load_effective_result(spark, path_effective_result):
+	df_second_round = spark.read.parquet(path_effective_result)
+	return df_second_round
 
 """
 读取剂型替换表
@@ -130,7 +131,14 @@ def second_round_with_col_recalculate(df_second_round, df_encode, spark):
 								prod_name_replace(df_second_round.EFFTIVENESS_MOLE_NAME, df_second_round.EFFTIVENESS_MANUFACTURER_SE, \
 												df_second_round.EFFTIVENESS_PRODUCT_NAME, df_second_round.MOLE_NAME, \
 												df_second_round.PRODUCT_NAME_STANDARD))
-												
+        
+	df_second_round = df_second_round.withColumnRenamed("EFFTIVENESS_PRODUCT_NAME", "EFFTIVENESS_PRODUCT_NAME_FIRST") \
+								.withColumnRenamed("EFFTIVENESS_MANUFACTURER", "EFFTIVENESS_MANUFACTURER_FIRST") \
+								.withColumnRenamed("EFFTIVENESS_DOSAGE_SE", "EFFTIVENESS_DOSAGE") \
+								.withColumnRenamed("EFFTIVENESS_MANUFACTURER_SE", "EFFTIVENESS_MANUFACTURER") \
+								.withColumnRenamed("EFFTIVENESS_PRODUCT_NAME_SE", "EFFTIVENESS_PRODUCT_NAME")
+								# .withColumnRenamed("EFFTIVENESS_DOSAGE", "EFFTIVENESS_DOSAGE_FIRST") \
+	df_second_round.persist()	
 	return df_second_round
 
 
@@ -158,24 +166,28 @@ def manifacture_name_pseg_cut(mnf):
 	df["MANUFACTURER_NAME_STANDARD_WORDS"] = df["MANUFACTURER_NAME_STANDARD"].apply(lambda x: seg.cut(x))
 	return df["MANUFACTURER_NAME_STANDARD_WORDS"]
 	
+    
+    
+    
+def select_specified_cols(df_second_round):
+	print(df_second_round.columns)
+	cols = ["SID", "ID","PACK_ID_CHECK",  "PACK_ID_STANDARD","DOSAGE","MOLE_NAME","PRODUCT_NAME","SPEC","PACK_QTY","MANUFACTURER_NAME","SPEC_ORIGINAL",
+			"MOLE_NAME_STANDARD","PRODUCT_NAME_STANDARD","CORP_NAME_STANDARD","MANUFACTURER_NAME_STANDARD","MANUFACTURER_NAME_EN_STANDARD","DOSAGE_STANDARD","SPEC_STANDARD","PACK_QTY_STANDARD",
+			"SPEC_valid_digit_STANDARD","SPEC_valid_unit_STANDARD","SPEC_GROSS_VALUE_PURE_STANDARD","SPEC_GROSS_UNIT_PURE_STANDARD","SPEC_GROSS_VALUE_PURE","CHC_GROSS_UNIT","SPEC_VALID_VALUE_PURE",
+			"SPEC_VALID_UNIT_PURE","EFFTIVENESS_MOLE_NAME","EFFTIVENESS_PRODUCT_NAME","EFFTIVENESS_DOSAGE","EFFTIVENESS_PACK_QTY","EFFTIVENESS_MANUFACTURER","EFFTIVENESS_SPEC"]
+	df_second_round = df_second_round.select(cols)  
+	return df_second_round
 
 def mnf_encoding_index(df_cleanning, df_encode, spark):
-	# 增加两列MANUFACTURER_NAME_CLEANNING_WORDS MANUFACTURER_NAME_STANDARD_WORDS - array(string)
-	# 读取df_lexicon
-	# df_lexicon = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/lexicon/0.0.1")
-	# df_pd = df_lexicon.toPandas()  # type = pd.df
+
 	df_cleanning = phcleanning_mnf_seg(df_cleanning, "MANUFACTURER_NAME_STANDARD", "MANUFACTURER_NAME_STANDARD_WORDS")
 	df_cleanning = phcleanning_mnf_seg(df_cleanning, "MANUFACTURER_NAME", "MANUFACTURER_NAME_CLEANNING_WORDS")
 	df_cleanning = df_cleanning.withColumn("MANUFACTURER_NAME_STANDARD_WORDS_SEG", df_cleanning.MANUFACTURER_NAME_STANDARD_WORDS)
 	df_cleanning = df_cleanning.withColumn("MANUFACTURER_NAME_CLEANNING_WORDS_SEG", df_cleanning.MANUFACTURER_NAME_CLEANNING_WORDS)
 	df_cleanning = words_to_reverse_index(df_cleanning, df_encode, "MANUFACTURER_NAME_STANDARD_WORDS", "MANUFACTURER_NAME_STANDARD_WORDS")
 	df_cleanning = words_to_reverse_index(df_cleanning, df_encode, "MANUFACTURER_NAME_CLEANNING_WORDS", "MANUFACTURER_NAME_CLEANNING_WORDS")
-	# df_cleanning.printSchema
-	# df_cleanning.show(2)
 	df_cleanning = df_cleanning.withColumn("MANUFACTURER_NAME_STANDARD_WORDS", array_distinct(df_cleanning.MANUFACTURER_NAME_STANDARD_WORDS))
 	df_cleanning = df_cleanning.withColumn("MANUFACTURER_NAME_CLEANNING_WORDS", array_distinct(df_cleanning.MANUFACTURER_NAME_CLEANNING_WORDS))
-	# df_cleanning.show(2)
-	
 	return df_cleanning
 	
 
@@ -193,9 +205,9 @@ def phcleanning_mnf_seg(df_standard, inputCol, outputCol):
 	# 4. 分词之后构建词库编码
 	# 4.1 stop word remover 去掉不需要的词
 	stopWords = ["高新", "化学", "生物", "合资", "中外", "工业", "现代", "化学制品" "科技", "国际", "AU", "OF", "US", "FR", "GE", "FI", "JP", "RO", "CA", "UK", "NO", "IS", "SI", "IT", "JA", \
-				"省", "市", "股份", "有限", "总公司", "公司", "集团", "制药", "总厂", "厂", "药业", "责任", "医药", "(", ")", "（", "）", \
-				 "有限公司", "股份", "控股", "集团", "总公司", "公司", "有限", "有限责任", "大药厂", '经济特区', '事业所', '株式会社', \
-				 "药业", "医药", "制药", "制药厂", "控股集团", "医药集团", "控股集团", "集团股份", "药厂", "分公司", "-", ".", "-", "·", ":", ","]
+				"省", "市", "股份", "有限",  "公司", "集团", "制药", "总厂", "厂", "责任", "医药", "(", ")", "（", "）", \
+				 "有限公司", "控股", "总公司", "有限", "有限责任", "大药厂", '经济特区', '事业所', '株式会社', \
+				 "药业", "制药", "制药厂", "医药集团", "控股集团", "集团股份", "药厂", "分公司", "-", ".", "-", "·", ":", ","]
 	remover = StopWordsRemover(stopWords=stopWords, inputCol="MANUFACTURER_NAME_WORDS", outputCol=outputCol)
 
 	return remover.transform(df_standard).drop("MANUFACTURER_NAME_WORDS")
