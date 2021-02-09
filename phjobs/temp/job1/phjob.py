@@ -20,18 +20,11 @@ def execute(**kwargs):
     spark = kwargs["spark"]()
   
 
+    
   
     
-#     df_label =spark.read.csv("s3a://ph-max-auto/2020-08-11/data_matching/refactor/results/2021-02-04_13-14-33/Report",header=True)
     
-    df_negative = spark.read.csv("s3a://ph-max-auto/2020-08-11/data_matching/refactor/results/2021-02-05_00-02-13/Report/",header=True)
-    df_negative.show()
 
-#     df_label.show(50)
   
-#     df_negative.show(20)
-#     print(df_negative.columns)
-#     cols =[ 'DOSAGE_STANDARD','DOSAGE', 'SPEC_STANDARD','SPEC', 'EFFTIVENESS_SPEC', 'SPEC_ORIGINAL','SIMILARITY']
-#     df_negative.filter(col("EFFTIVENESS_SPEC")>0.9).select(cols).show(500)
     
     return {}

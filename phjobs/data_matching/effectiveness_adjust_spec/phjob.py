@@ -172,7 +172,7 @@ def dosage_replace(dosage_lst, dosage_standard, eff):
 	frame = { "MASTER_DOSAGE": dosage_lst, "DOSAGE_STANDARD": dosage_standard, "EFFTIVENESS_DOSAGE": eff }
 	df = pd.DataFrame(frame)
 
-	df["EFFTIVENESS"] = df.apply(lambda x: 1.0 if ((x["DOSAGE_STANDARD"] in x["MASTER_DOSAGE"]) ) \
+	df["EFFTIVENESS"] = df.apply(lambda x: 0.95 if ((x["DOSAGE_STANDARD"] in x["MASTER_DOSAGE"]) ) \
 											else x["EFFTIVENESS_DOSAGE"], axis=1)
 
 	return df["EFFTIVENESS"]
