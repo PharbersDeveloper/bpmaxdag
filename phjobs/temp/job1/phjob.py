@@ -5,8 +5,7 @@ This is job template for Pharbers Max Job
 """
 
 from phcli.ph_logs.ph_logs import phs3logger, LOG_DEBUG_LEVEL
-import time
-from pyspark.sql.functions import regexp_extract , regexp_replace, upper ,concat_ws ,count , max ,col
+
 
 def execute(**kwargs):
     """
@@ -18,13 +17,8 @@ def execute(**kwargs):
     logger.info("当前 run_id 为 " + str(kwargs["run_id"]))
     logger.info("当前 job_id 为 " + str(kwargs["job_id"]))
     spark = kwargs["spark"]()
-  
-
-    
-  
-    
-    
-
-  
-    
+    logger.info(kwargs["a"])
+    logger.info(kwargs["b"])
+    logger.info(kwargs["c"])
+    logger.info(kwargs["d"])
     return {}

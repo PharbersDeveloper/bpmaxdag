@@ -14,13 +14,14 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--owner')
 @click.option('--run_id')
 @click.option('--job_id')
-@click.option('--path_chc')
-@click.option('--path_standard')
-@click.option('--output_path_job1')
+@click.option('--a')
+@click.option('--b')
+@click.option('--c')
+@click.option('--d')
 def debug_execute(**kwargs):
     try:
         args = {"name": "job1"}
-        outputs = ["output_path_job1"]
+        outputs = ["c", "d"]
 
         args.update(kwargs)
         result = exec_before(**args)
@@ -35,6 +36,7 @@ def debug_execute(**kwargs):
     except Exception as e:
         logger = phs3logger(kwargs["job_id"])
         logger.error(traceback.format_exc())
+        print(traceback.format_exc())
         raise e
 
 
