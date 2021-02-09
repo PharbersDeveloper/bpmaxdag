@@ -61,6 +61,7 @@ def execute(**kwargs):
 	'''
     #选取指定的列用于和adjust_mnf job 进行union操作
 	df_second_round = select_specified_cols(df_second_round)
+	# df_second_round.where(df_second_round.EFFTIVENESS_DOSAGE == 1).show(100, truncate=False)
 	df_second_round.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
 ###################-----------------main function-------------------#################  
 
@@ -172,7 +173,7 @@ def dosage_replace(dosage_lst, dosage_standard, eff):
 	frame = { "MASTER_DOSAGE": dosage_lst, "DOSAGE_STANDARD": dosage_standard, "EFFTIVENESS_DOSAGE": eff }
 	df = pd.DataFrame(frame)
 
-	df["EFFTIVENESS"] = df.apply(lambda x: 1.0 if ((x["DOSAGE_STANDARD"] in x["MASTER_DOSAGE"]) ) \
+	df["EFFTIVENESS"] = df.apply(lambda x: 0.999 if ((x["DOSAGE_STANDARD"] in x["MASTER_DOSAGE"]) ) \
 											else x["EFFTIVENESS_DOSAGE"], axis=1)
 
 	return df["EFFTIVENESS"]

@@ -33,9 +33,11 @@ def execute(**kwargs):
 	model = PipelineModel.load(depends["model"])
 
 	df_result = spark.read.parquet(depends["data"])
+	
+	shareholds = [kwargs["g_sharehold_mole_name"], kwargs["g_sharehold_product_name"], kwargs["g_sharehold_dosage"], \
+					kwargs["g_sharehold_spec"], kwargs["g_sharehold_pack_qty"], kwargs["g_sharehold_manufacturer_name"]]
 
 # 	df_lost = spark.read.parquet(depends["lost"])
-
     
 	# output
 	job_id = get_job_id(kwargs)
@@ -66,7 +68,7 @@ def execute(**kwargs):
 	# 			.drop("JACCARD_DISTANCE", "indexedFeatures").drop("rawPrediction", "probability")
 	# 5. 生成文件
 	df_predictions = df_predictions.drop("indexedFeatures", "rawPrediction", "probability")
-	df_predictions = similarity(df_predictions)
+	df_predictions = similarity(df_predictions, shareholds)
 	df_predictions = df_predictions.na.fill("").drop("features")
 	df_predictions.persist()
 	print(df_predictions.count())
@@ -176,10 +178,10 @@ def get_depends_path(kwargs):
 	return result
 	
 
-def similarity(df):
+def similarity(df, shareholds):
 	df = df.withColumn("SIMILARITY", \
-					(df.EFFTIVENESS_MOLE_NAME + df.EFFTIVENESS_PRODUCT_NAME + df.EFFTIVENESS_DOSAGE \
-						+ df.EFFTIVENESS_SPEC + df.EFFTIVENESS_PACK_QTY + df.EFFTIVENESS_MANUFACTURER))
+					(df.EFFTIVENESS_MOLE_NAME * shareholds[0] + df.EFFTIVENESS_PRODUCT_NAME * shareholds[1] + df.EFFTIVENESS_DOSAGE * shareholds[2] \
+						+ df.EFFTIVENESS_SPEC * shareholds[3] + df.EFFTIVENESS_PACK_QTY * shareholds[4] + df.EFFTIVENESS_MANUFACTURER * shareholds[5]))
 	windowSpec = Window.partitionBy("ID").orderBy(desc("SIMILARITY"), desc("EFFTIVENESS_MOLE_NAME"), desc("EFFTIVENESS_DOSAGE"), desc("PACK_ID_STANDARD"))
 	df = df.withColumn("RANK", row_number().over(windowSpec))
 	df = df.where((df.RANK <= 5) | (df.label == 1.0))
