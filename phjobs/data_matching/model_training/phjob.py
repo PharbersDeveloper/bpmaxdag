@@ -127,9 +127,10 @@ def execute(**kwargs):
 	
 	else:
 		# load 
-		model = PipelineModel.load(input_model_path)
-		model.write().overwrite().save(model_path)
-		model.write().overwrite().save(final_path)
+# 		model = PipelineModel.load(input_model_path)
+		model = PipelineModel.load("s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs/manual__2021-02-07T09_20_31.149300+00_00/cleaning_data_model_training/model_result")
+# 		model.write().overwrite().save(model_path)
+# 		model.write().overwrite().save(final_path)
 
 	treeModel = model.stages[2]
 	# summary only

@@ -5,7 +5,7 @@ This is job template for Pharbers Max Job
 """
 
 from phcli.ph_logs.ph_logs import phs3logger
-from pyspark.sql.functions import max
+from pyspark.sql.functions import max 
 import uuid
 
 
@@ -21,8 +21,8 @@ def execute(**kwargs):
 
 #######################---------------input-------------#######################	
 	depends = get_depends_path(kwargs)
-	df_mnf_adjusted = spark.read.parquet(depends["mnf_adjust"])
-	df_spec_adjusted = spark.read.parquet(depends["spec_adjust"])
+	path_mnf_adjust = depends["mnf_adjust"]
+	path_spec_adjust = depends["spec_adjust"]
 	g_repartition_shared = int(kwargs["g_repartition_shared"])
 #######################---------------input-------------#######################	
 
@@ -34,23 +34,16 @@ def execute(**kwargs):
 #######################--------------output--------------########################
 
 
+###################--------loading files--------------########################
+	df_mnf_adjusted = load_df_mnf_adjusted(spark, path_mnf_adjust)
+	df_spec_adjusted = load_df_spec_adjusted(spark, path_spec_adjust)
+##################--------loading files----------------########################
 
-########################--------------main function--------------------#################  
-	df_result = df_mnf_adjusted.union(df_spec_adjusted)
-	df_result = df_result.groupBy("SID") \
-					.agg(
-						max(df_result.EFFTIVENESS_MOLE_NAME).alias("EFFTIVENESS_MOLE_NAME"),
-						max(df_result.EFFTIVENESS_PRODUCT_NAME).alias("EFFTIVENESS_PRODUCT_NAME"),
-						max(df_result.EFFTIVENESS_DOSAGE).alias("EFFTIVENESS_DOSAGE"),
-						max(df_result.EFFTIVENESS_SPEC).alias("EFFTIVENESS_SPEC"),
-						max(df_result.EFFTIVENESS_PACK_QTY).alias("EFFTIVENESS_PACK_QTY"),
-						max(df_result.EFFTIVENESS_MANUFACTURER).alias("EFFTIVENESS_MANUFACTURER"),
-					)
-	cols = ['SID', 'ID', 'PACK_ID_CHECK', 'PACK_ID_STANDARD', 'DOSAGE', 'MOLE_NAME', 'PRODUCT_NAME', 'SPEC', 'PACK_QTY', 'MANUFACTURER_NAME', 'SPEC_ORIGINAL', 'MOLE_NAME_STANDARD', 'PRODUCT_NAME_STANDARD', 'CORP_NAME_STANDARD', 'MANUFACTURER_NAME_STANDARD', 'MANUFACTURER_NAME_EN_STANDARD', 'DOSAGE_STANDARD', 'SPEC_STANDARD', 'PACK_QTY_STANDARD', 'SPEC_valid_digit_STANDARD', 'SPEC_valid_unit_STANDARD', 'SPEC_GROSS_VALUE_PURE_STANDARD', 'SPEC_GROSS_UNIT_PURE_STANDARD', 'SPEC_GROSS_VALUE_PURE', 'CHC_GROSS_UNIT', 'SPEC_VALID_VALUE_PURE', 'SPEC_VALID_UNIT_PURE']
-	df_mnf_distinct_col = df_mnf_adjusted.select(cols)
-	df_result = df_result.join(df_mnf_distinct_col, on="SID", how="left")
-	
-	df_result.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
+
+
+########################--------------main function--------------------#################
+	df_result = choose_max_effectiveness(df_mnf_adjusted,df_spec_adjusted)
+# 	df_result.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
 ######################--------------main function--------------------#################   
 	return {}
 
@@ -94,4 +87,32 @@ def get_depends_path(kwargs):
 		depends_name = tmp_lst[2]
 		result[depends_name] = get_depends_file_path(kwargs, depends_job, depends_key)
 	return result
-################-----------------------------------------------------################
+
+def load_df_mnf_adjusted(spark, path_mnf_adjust):
+	df_mnf_adjusted = spark.read.parquet(path_mnf_adjust)
+	return df_mnf_adjusted
+
+def load_df_spec_adjusted(spark, path_spec_adjust):
+	df_spec_adjusted = spark.read.parquet(path_spec_adjust)
+	return df_spec_adjusted  
+
+def choose_max_effectiveness(df_mnf_adjusted,df_spec_adjusted):
+
+	df_result = df_mnf_adjusted.union(df_spec_adjusted)
+	df_result = df_result.groupBy("SID") \
+					.agg(
+						max(df_result.EFFTIVENESS_MOLE_NAME).alias("EFFTIVENESS_MOLE_NAME"),
+						max(df_result.EFFTIVENESS_PRODUCT_NAME).alias("EFFTIVENESS_PRODUCT_NAME"),
+						max(df_result.EFFTIVENESS_DOSAGE).alias("EFFTIVENESS_DOSAGE"),
+						max(df_result.EFFTIVENESS_SPEC).alias("EFFTIVENESS_SPEC"),
+						max(df_result.EFFTIVENESS_PACK_QTY).alias("EFFTIVENESS_PACK_QTY"),
+						max(df_result.EFFTIVENESS_MANUFACTURER).alias("EFFTIVENESS_MANUFACTURER"),
+					)  
+	cols = ['SID', 'ID', 'PACK_ID_CHECK', 'PACK_ID_STANDARD', 'DOSAGE', 'MOLE_NAME', 'PRODUCT_NAME', 'SPEC', 'PACK_QTY', 'MANUFACTURER_NAME', 'SPEC_ORIGINAL', 'MOLE_NAME_STANDARD', 'PRODUCT_NAME_STANDARD', 'CORP_NAME_STANDARD', 'MANUFACTURER_NAME_STANDARD', 'MANUFACTURER_NAME_EN_STANDARD', 'DOSAGE_STANDARD', 'SPEC_STANDARD', 'PACK_QTY_STANDARD', 'SPEC_valid_digit_STANDARD', 'SPEC_valid_unit_STANDARD', 'SPEC_GROSS_VALUE_PURE_STANDARD', 'SPEC_GROSS_UNIT_PURE_STANDARD', 'SPEC_GROSS_VALUE_PURE', 'CHC_GROSS_UNIT', 'SPEC_VALID_VALUE_PURE', 'SPEC_VALID_UNIT_PURE']
+	df_mnf_distinct_col = df_mnf_adjusted.select(cols)
+	df_result = df_result.join(df_mnf_distinct_col, on="SID", how="left")
+    
+	return df_result
+
+
+################---------------functions--------------------################

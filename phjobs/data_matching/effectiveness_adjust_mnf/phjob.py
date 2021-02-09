@@ -14,7 +14,7 @@ from math import isnan, sqrt
 from pyspark.sql.types import *
 from pyspark.sql.functions import pandas_udf, PandasUDFType
 from pyspark.sql.functions import col, monotonically_increasing_id, explode
-from pyspark.sql.functions import when
+from pyspark.sql.functions import when 
 from pyspark.sql.functions import array_distinct, array
 from pyspark.ml.linalg import Vectors, VectorUDT
 from pyspark.ml.feature import StopWordsRemover
@@ -58,13 +58,13 @@ def execute(**kwargs):
 #########--------------main function--------------------#################  
 	df_second_round = second_round_with_col_recalculate(df_second_round, df_encode, spark)
 
-# 	df_second_round.repartition(g_repartition_shared).write.mode("overwrite").parquet(mid_path)
+	df_second_round.repartition(g_repartition_shared).write.mode("overwrite").parquet(mid_path)
     #选取指定的列用于和adjust_spec job 进行union操作
 	df_second_round = select_specified_cols(df_second_round)
 
 	df_second_round.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
 #########--------------main function--------------------#################  
-	
+
    
 	return {}
 
@@ -152,7 +152,6 @@ def get_seg(spark, lexicon_path):
 	lexicon = lexicon.rdd.map(lambda x: x.lexicon).collect()
 	seg = pkuseg.pkuseg(user_dict=lexicon)
 	dict_seg['seg'] = seg
-	# print(lexicon)
 	return dict_seg
 	
 

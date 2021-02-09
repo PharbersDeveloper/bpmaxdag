@@ -142,7 +142,8 @@ def cutting_the_reduce_calculation(df_result, g_mole_name_shared, g_pack_qty_sha
 	# 需要换一个做法
 	# df_drop_data = df_result.where((df_result.JACCARD_DISTANCE[0] >= g_mole_name_shared) & (df_result.JACCARD_DISTANCE[1] >= g_pack_qty_shared))
 	# df_drop_data.repartition(g_repatition_shared).write.mode("overwrite").parquet(drop_path)	
-	df_result = df_result.where((df_result.JACCARD_DISTANCE[0] < g_mole_name_shared) & (df_result.JACCARD_DISTANCE[1] < g_pack_qty_shared))  # 目前取了分子名和pack来判断
+# 	df_result = df_result.where((df_result.JACCARD_DISTANCE[0] < g_mole_name_shared) & (df_result.JACCARD_DISTANCE[1] < g_pack_qty_shared))  # 目前取了分子名和pack来判断
+	df_result = df_result.where(df_result.JACCARD_DISTANCE[0] < g_mole_name_shared)  # 目前取了分子名
 	return df_result
 
 """

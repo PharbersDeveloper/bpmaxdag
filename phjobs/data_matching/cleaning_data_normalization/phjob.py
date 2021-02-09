@@ -75,6 +75,7 @@ def execute(**kwargs):
 	df_cleanning = get_inter(df_cleanning,df_second_interfere)
 
 	df_cleanning.write.mode("overwrite").parquet(result_path)
+
 ########------------main fuction-------------------------################
 
 	return {}
@@ -141,8 +142,7 @@ def loda_chc_gross_unit(spark,chc_gross_unit_path):
 def make_dosage_standardization(df_cleanning):
     #CHC中DOSAGE干扰项剔除
 	replace_dosage_str = r'(([(（].*[)）])|(\s+))'
-	df_cleanning = df_cleanning.withColumn("DOSAGE", regexp_replace(col("DOSAGE"),replace_dosage_str,""))\
-							.dropna(subset="DOSAGE") 
+	df_cleanning = df_cleanning.withColumn("DOSAGE", regexp_replace(col("DOSAGE"),replace_dosage_str,""))
 	return df_cleanning
 
 def add_chc_standard_gross_unit(df_cleanning,df_chc_gross_unit):
@@ -323,9 +323,10 @@ def get_inter(df_cleanning,df_second_interfere):
 
 #抽取spec中pack_id数据
 def get_pack(df_cleanning):
-	df_cleanning = df_cleanning.withColumnRenamed('PACK_QTY','PACK_QTY_ORIGIN').drop('PACK_QTY')\
-						.withColumn('PACK_QTY',regexp_extract(df_cleanning.SPEC_ORIGINAL,'[××*](\d{1,3})',1).cast('float'))
-	df_cleanning = df_cleanning.withColumn('PACK_QTY',when(df_cleanning.PACK_QTY.isNull(), df_cleanning.PACK_QTY_ORIGIN).otherwise(df_cleanning.PACK_QTY))
+	extract_pack_id = r'[×x](\d+)./.'
+	df_cleanning = df_cleanning.withColumnRenamed("PACK_QTY", "PACK_QTY_ORIGINAL")
+	df_cleanning = df_cleanning.withColumn("PACK_QTY", regexp_extract(col("SPEC_ORIGINAL"), extract_pack_id, 1).cast('float'))
+	df_cleanning = df_cleanning.withColumn("PACK_QTY", when(col("PACK_QTY").isNull(), col("PACK_QTY_ORIGINAL")).otherwise(col("PACK_QTY"))).drop(col("PACK_QTY_ORIGINAL"))
 	return df_cleanning
 
 ################----------------------functions------------------------------################

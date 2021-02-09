@@ -108,7 +108,6 @@ def get_depends_path(kwargs):
 	return result
 
 def load_effective_result(spark, path_effective_result):
-	print(path_effective_result)
 	df_second_round = spark.read.parquet(path_effective_result)  
 	return df_second_round
 
@@ -133,7 +132,6 @@ def second_round_with_col_recalculate(df_second_round, dosage_mapping):
 								.withColumnRenamed("EFFTIVENESS_MANUFACTURER_SE", "EFFTIVENESS_MANUFACTURER") \
 								.withColumnRenamed("EFFTIVENESS_PRODUCT_NAME_SE", "EFFTIVENESS_PRODUCT_NAME")
 								# .withColumnRenamed("EFFTIVENESS_MANUFACTURER", "EFFTIVENESS_MANUFACTURER_FIRST") \
-								
 
 	df_second_round.persist()
 	return df_second_round
@@ -145,7 +143,6 @@ def recalculation_spec_effectiveness(df_second_round):
 									when((col("CHC_GROSS_UNIT")==col("SPEC_GROSS_UNIT_PURE_STANDARD"))&(col("SPEC_VALID_UNIT_PURE")==col("SPEC_valid_unit_STANDARD")),\
 									modify_first_spec_effectiveness(df_second_round.SPEC_valid_digit_STANDARD, df_second_round.SPEC_GROSS_VALUE_PURE_STANDARD,df_second_round.SPEC_VALID_VALUE_PURE, df_second_round.SPEC_GROSS_VALUE_PURE, df_second_round.EFFTIVENESS_SPEC_FIRST))\
 									.otherwise(col("EFFTIVENESS_SPEC_FIRST")))
-# 	df_second_round.filter(col("EFFTIVENESS_SPEC") == 1.0).select('DOSAGE','SPEC','DOSAGE_STANDARD','SPEC_STANDARD','EFFTIVENESS_SPEC','EFFTIVENESS_SPEC_FIRST').show(1000)
 	return df_second_round
 
 def select_specified_cols(df_second_round):
