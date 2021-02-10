@@ -16,7 +16,6 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--job_id')
 @click.option('--job_name')
 @click.option('--path_prefix')
-@click.option('--dosage_mapping_path')
 @click.option('--depend_job_names_keys')
 @click.option('--g_repartition_shared')
 @click.option('--spec_adjust_result')
