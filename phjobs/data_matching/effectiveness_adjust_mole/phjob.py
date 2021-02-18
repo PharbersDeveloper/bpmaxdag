@@ -42,20 +42,20 @@ def execute(**kwargs):
     job_id = get_job_id(kwargs)
     run_id = get_run_id(kwargs)
     result_path_prefix = get_result_path(kwargs, run_id, job_id)
-    result_path = result_path_prefix + kwargs["mnf_adjust_result"]
-    mid_path= result_path_prefix + kwargs["mnf_adjust_mid"]
+    result_path = result_path_prefix + kwargs["mole_adjust_result"]
+    mid_path= result_path_prefix + kwargs["mole_adjust_mid"]
 ###########------------output------------------------###################
 
 ###############--------loading files --------------##################
-    df_lexicon = get_seg(spark, lexicon_path)
+    df_lexicon = load_lexicon(spark, lexicon_path)
     df_second_round = load_effective_result(spark, path_effective_result)
     df_encode = load_word_dict_encode(spark, word_dict_encode_path)
 ###############--------loading files----------------#################
 
 
 #########--------------main function--------------------#################  
-    df_second_round = mnf_encoding_index(df_second_round, df_encode, df_lexicon)
-    df_second_round = mnf_encoding_cosine(df_second_round)
+    df_second_round = mole_encoding_index(df_second_round, df_encode, df_lexicon)
+    df_second_round = mole_encoding_cosine(df_second_round)
     df_second_round = second_round_with_col_recalculate(df_second_round, df_encode)
     df_second_round.repartition(g_repartition_shared).write.mode("overwrite").parquet(mid_path)
     #选取指定的列用于和adjust_spec job 进行union操作
@@ -103,6 +103,7 @@ def get_depends_path(kwargs):
 def load_effective_result(spark, path_effective_result):
     df_second_round = spark.read.parquet(path_effective_result).limit(2000)
     print(df_second_round.columns)
+    df_second_round.select("PRODUCT_NAME").show(100)
     return df_second_round
 
 """
@@ -113,8 +114,10 @@ def load_word_dict_encode(spark, word_dict_encode_path):
     df_encode.show()
     print(df_encode.printSchema())
     return df_encode
-
-def get_seg(spark, lexicon_path):
+'''
+读取分词字典
+'''
+def load_lexicon(spark, lexicon_path):
     df_lexicon = spark.read.csv(lexicon_path,header=True)
     return df_lexicon
     
@@ -125,14 +128,14 @@ def phcleanning_mnf_seg(df, df_lexicon, inputCol, outputCol):
     lexicon = df_lexicon.rdd.map(lambda x: x.lexicon).collect()
     seg = pkuseg.pkuseg(user_dict=lexicon)
     @pandas_udf(ArrayType(StringType()), PandasUDFType.SCALAR)
-    def manifacture_name_pseg_cut(mnf):
+    def manifacture_name_pseg_cut(mole):
         nonlocal seg 
         frame = {
-            "MANUFACTURER_NAME_STANDARD": mnf,
+            "MOLE_NAME_STANDARD": mole,
         }
         df = pd.DataFrame(frame)
-        df["MANUFACTURER_NAME_STANDARD_WORDS"] = df["MANUFACTURER_NAME_STANDARD"].apply(lambda x: seg.cut(x))
-        return df["MANUFACTURER_NAME_STANDARD_WORDS"]
+        df["MOLE_NAME_STANDARD_WORDS"] = df["MOLE_NAME_STANDARD"].apply(lambda x: seg.cut(x))
+        return df["MOLE_NAME_STANDARD_WORDS"]
     
     # 2. 英文的分词方法，tokenizer
     # 英文先不管
@@ -142,7 +145,7 @@ def phcleanning_mnf_seg(df, df_lexicon, inputCol, outputCol):
     # df_standard = tokenizer.transform(df_standard)
 
     # 3. 中文的分词，
-    df = df.withColumn("MANUFACTURER_NAME_WORDS", manifacture_name_pseg_cut(col(inputCol)))
+    df = df.withColumn("MOLE_NAME_WORDS", manifacture_name_pseg_cut(col(inputCol)))
 
     # 4. 分词之后构建词库编码
     # 4.1 stop word remover 去掉不需要的词
@@ -150,37 +153,37 @@ def phcleanning_mnf_seg(df, df_lexicon, inputCol, outputCol):
 				"省", "市", "股份", "有限",  "公司", "集团", "制药", "总厂", "厂", "责任", "医药", "(", ")", "（", "）", \
 				 "有限公司", "控股", "总公司", "有限", "有限责任", "大药厂", '经济特区', '事业所', '株式会社', \
 				 "药业", "制药", "制药厂", "医药集团", "控股集团", "集团股份", "药厂", "分公司", "-", ".", "-", "·", ":", ","]
-    remover = StopWordsRemover(stopWords=stopWords, inputCol="MANUFACTURER_NAME_WORDS", outputCol=outputCol)
-    df = remover.transform(df).drop("MANUFACTURER_NAME_WORDS")
+    remover = StopWordsRemover(stopWords=stopWords, inputCol="MOLE_NAME_WORDS", outputCol=outputCol)
+    df = remover.transform(df).drop("MOLE_NAME_WORDS")
     return df
 
 def words_to_reverse_index(df_cleanning, df_encode, inputCol, outputCol):
     df_cleanning = df_cleanning.withColumn("tid", monotonically_increasing_id())
-    df_indexing = df_cleanning.withColumn("MANUFACTURER_NAME_STANDARD_WORD_LIST", explode(col(inputCol)))
-    df_indexing = df_indexing.join(df_encode, df_indexing.MANUFACTURER_NAME_STANDARD_WORD_LIST == df_encode.WORD, how="left").na.fill(8999)
+    df_indexing = df_cleanning.withColumn("MOLE_NAME_STANDARD_WORD_LIST", explode(col(inputCol)))
+    df_indexing = df_indexing.join(df_encode, df_indexing.MOLE_NAME_STANDARD_WORD_LIST == df_encode.WORD, how="left").na.fill(8999)
     df_indexing = df_indexing.groupBy("tid").agg(word_index_to_array(df_indexing.ENCODE).alias("INDEX_ENCODE"))
 
     df_cleanning = df_cleanning.join(df_indexing, on="tid", how="left")
     df_cleanning = df_cleanning.withColumn(outputCol, df_cleanning.INDEX_ENCODE)
-    df_cleanning = df_cleanning.drop("tid", "INDEX_ENCODE", "MANUFACTURER_NAME_STANDARD_WORD_LIST")
+    df_cleanning = df_cleanning.drop("tid", "INDEX_ENCODE", "MOLE_NAME_STANDARD_WORD_LIST")
     return df_cleanning
 
-def mnf_encoding_index(df_cleanning, df_encode, df_lexicon):
+def mole_encoding_index(df_cleanning, df_encode, df_lexicon):
 
-    df_cleanning = phcleanning_mnf_seg(df_cleanning, df_lexicon, "MANUFACTURER_NAME_STANDARD", "MANUFACTURER_NAME_STANDARD_WORDS")
-    df_cleanning = phcleanning_mnf_seg(df_cleanning, df_lexicon, "MANUFACTURER_NAME", "MANUFACTURER_NAME_CLEANNING_WORDS")
+    df_cleanning = phcleanning_mnf_seg(df_cleanning, df_lexicon, "MOLE_NAME_STANDARD", "MOLE_NAME_STANDARD_WORDS")
+    df_cleanning = phcleanning_mnf_seg(df_cleanning, df_lexicon, "MOLE_NAME", "MOLE_NAME_CLEANNING_WORDS")
     
-    df_cleanning = df_cleanning.withColumn("MANUFACTURER_NAME_STANDARD_WORDS_SEG", df_cleanning.MANUFACTURER_NAME_STANDARD_WORDS)
-    df_cleanning = df_cleanning.withColumn("MANUFACTURER_NAME_CLEANNING_WORDS_SEG", df_cleanning.MANUFACTURER_NAME_CLEANNING_WORDS)
-    df_cleanning = words_to_reverse_index(df_cleanning, df_encode, "MANUFACTURER_NAME_STANDARD_WORDS", "MANUFACTURER_NAME_STANDARD_WORDS")
-    df_cleanning = words_to_reverse_index(df_cleanning, df_encode, "MANUFACTURER_NAME_CLEANNING_WORDS", "MANUFACTURER_NAME_CLEANNING_WORDS")
-    df_cleanning = df_cleanning.withColumn("MANUFACTURER_NAME_STANDARD_WORDS", array_distinct(df_cleanning.MANUFACTURER_NAME_STANDARD_WORDS))
-    df_cleanning = df_cleanning.withColumn("MANUFACTURER_NAME_CLEANNING_WORDS", array_distinct(df_cleanning.MANUFACTURER_NAME_CLEANNING_WORDS))
+    df_cleanning = df_cleanning.withColumn("MOLE_NAME_STANDARD_WORDS_SEG", df_cleanning.MOLE_NAME_STANDARD_WORDS)
+    df_cleanning = df_cleanning.withColumn("MOLE_NAME_CLEANNING_WORDS_SEG", df_cleanning.MOLE_NAME_CLEANNING_WORDS)
+    df_cleanning = words_to_reverse_index(df_cleanning, df_encode, "MOLE_NAME_STANDARD_WORDS", "MOLE_NAME_STANDARD_WORDS")
+    df_cleanning = words_to_reverse_index(df_cleanning, df_encode, "MOLE_NAME_CLEANNING_WORDS", "MOLE_NAME_CLEANNING_WORDS")
+    df_cleanning = df_cleanning.withColumn("MOLE_NAME_STANDARD_WORDS", array_distinct(df_cleanning.MOLE_NAME_STANDARD_WORDS))
+    df_cleanning = df_cleanning.withColumn("MOLE_NAME_CLEANNING_WORDS", array_distinct(df_cleanning.MOLE_NAME_CLEANNING_WORDS))
     return df_cleanning
 
-def mnf_encoding_cosine(df_cleanning):
+def mole_encoding_cosine(df_cleanning):
     df_cleanning = df_cleanning.withColumn("COSINE_SIMILARITY", \
-                                mnf_index_word_cosine_similarity(df_cleanning.MANUFACTURER_NAME_CLEANNING_WORDS, df_cleanning.MANUFACTURER_NAME_STANDARD_WORDS))
+                                mole_index_word_cosine_similarity(df_cleanning.MOLE_NAME_CLEANNING_WORDS, df_cleanning.MOLE_NAME_STANDARD_WORDS))
     return df_cleanning
 
 def second_round_with_col_recalculate(df_second_round, df_encode):
@@ -214,7 +217,7 @@ def word_index_to_array(v):
     return v.tolist()
 
 @pandas_udf(DoubleType(), PandasUDFType.SCALAR)
-def mnf_index_word_cosine_similarity(o, v):
+def mole_index_word_cosine_similarity(o, v):
     frame = {
         "CLEANNING": o,
         "STANDARD": v
