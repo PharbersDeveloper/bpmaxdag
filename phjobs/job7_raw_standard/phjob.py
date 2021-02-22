@@ -50,10 +50,12 @@ def execute(max_path, extract_path, project_name, if_two_source, out_dir, minimu
     minimum_product_columns = minimum_product_columns.replace(' ', '').split(',')
     
     # 双源数据用 raw_data_std
-    if if_two_source == 'True':
-    	raw_data_path = max_path + '/' + project_name + '/' + out_dir + '/raw_data_std'
-    else:
-    	raw_data_path = max_path + '/' + project_name + '/' + out_dir + '/raw_data'
+    #if if_two_source == 'True':
+    #	raw_data_path = max_path + '/' + project_name + '/' + out_dir + '/raw_data_std'
+    #else:
+    #	raw_data_path = max_path + '/' + project_name + '/' + out_dir + '/raw_data'
+    
+    raw_data_path = max_path + '/' + project_name + '/' + out_dir + '/raw_data_delivery'
     
     product_map_path = max_path + "/" + project_name + "/" + out_dir + "/prod_mapping"
     market_path  = max_path + "/" + project_name + "/mkt_mapping"
