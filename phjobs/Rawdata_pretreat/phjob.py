@@ -91,8 +91,13 @@ raw_data_path, if_union, test, auto_max):
         all_raw_data_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_check/raw_data'
         if if_two_source == 'True':
             all_raw_data_std_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_check/raw_data_std'
-
     
+    # 备份原始未修改数据
+    if if_two_source == 'True':
+        history_raw_data_delivery_path = max_path + '/' + project_name + '/201912/raw_data_std'
+    else:
+        history_raw_data_delivery_path = max_path + '/' + project_name + '/201912/raw_data'
+    raw_data_delivery_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_delivery'
     
     # =============  数据执行 ==============
     raw_data = spark.read.csv(raw_data_path, header=True)    
@@ -276,7 +281,7 @@ raw_data_path, if_union, test, auto_max):
         
     
     # 4. 与历史数据合并
-    if if_union == 'True':
+    def union_raw_data(raw_data_dedup, history_raw_data_path, all_raw_data_path):
         history_raw_data = spark.read.parquet(history_raw_data_path)
         if 'Corp' not in history_raw_data.columns:
             history_raw_data = history_raw_data.withColumn('Corp', func.lit(''))
@@ -285,43 +290,34 @@ raw_data_path, if_union, test, auto_max):
         for colname, coltype in history_raw_data.dtypes:
             if coltype == "boolean":
                 history_raw_data = history_raw_data.withColumn(colname, history_raw_data[colname].cast(StringType()))
-            
+
         history_raw_data = history_raw_data.withColumn('Date', history_raw_data.Date.cast(IntegerType()))
         history_raw_data = history_raw_data.where(history_raw_data.Date < cut_time_left)
         history_raw_data = history_raw_data.drop("Brand_new", "all_info")
-        
+
         raw_data_dedup = raw_data_dedup.withColumn('Date', raw_data_dedup.Date.cast(IntegerType()))
         new_raw_data = raw_data_dedup.where((raw_data_dedup.Date >= cut_time_left) & (raw_data_dedup.Date <= cut_time_right))
         all_raw_data = new_raw_data.select(history_raw_data.columns).union(history_raw_data)
-        
+
         all_raw_data = deal_ID_length(all_raw_data)
-        
+
         all_raw_data = all_raw_data.repartition(2)
         all_raw_data.write.format("parquet") \
             .mode("overwrite").save(all_raw_data_path)
-            
+    
+    # 与历史数据合并
+    if if_union == 'True':
+        # 用于max计算
+        union_raw_data(raw_data_dedup, history_raw_data_path, all_raw_data_path)             
         if if_two_source == 'True':
-            history_raw_data_std = spark.read.parquet(history_raw_data_std_path)
-            if 'Corp' not in history_raw_data_std.columns:
-                history_raw_data_std = history_raw_data_std.withColumn('Corp', func.lit(''))
-            if 'Route' not in history_raw_data_std.columns:
-                history_raw_data_std = history_raw_data_std.withColumn('Route', func.lit(''))
-            for colname, coltype in history_raw_data_std.dtypes:
-                if coltype == "boolean":
-                    history_raw_data_std = history_raw_data_std.withColumn(colname, history_raw_data_std[colname].cast(StringType()))
-            history_raw_data_std = history_raw_data_std.withColumn('Date', history_raw_data_std.Date.cast(IntegerType()))
-            history_raw_data_std = history_raw_data_std.where(history_raw_data_std.Date < cut_time_left)
-            history_raw_data_std = history_raw_data_std.drop("Brand_new", "all_info")
-            
-            raw_data_dedup_std = raw_data_dedup_std.withColumn('Date', raw_data_dedup_std.Date.cast(IntegerType()))
-            new_raw_data_std = raw_data_dedup_std.where((raw_data_dedup_std.Date >= cut_time_left) & (raw_data_dedup_std.Date <= cut_time_right))
-            all_raw_data_std = new_raw_data_std.select(history_raw_data_std.columns).union(history_raw_data_std)
-            
-            all_raw_data_std = deal_ID_length(all_raw_data_std)
-            
-            all_raw_data_std = all_raw_data_std.repartition(2)
-            all_raw_data_std.write.format("parquet") \
-                .mode("overwrite").save(all_raw_data_std_path)
+            # 用于max计算
+            union_raw_data(raw_data_dedup_std, history_raw_data_std_path, all_raw_data_std_path)
+            # 备份生成手动修改前的交付结果
+            union_raw_data(raw_data_dedup_std, history_raw_data_delivery_path, raw_data_delivery_path)
+        else:
+            # 备份生成手动修改前的交付结果
+            union_raw_data(raw_data_dedup, history_raw_data_delivery_path, raw_data_delivery_path)   
+    # 不与历史数据合并        
     else:
         raw_data_dedup = deal_ID_length(raw_data_dedup)
         
@@ -335,6 +331,14 @@ raw_data_path, if_union, test, auto_max):
             raw_data_dedup_std = raw_data_dedup_std.repartition(2)
             raw_data_dedup_std.write.format("parquet") \
                 .mode("overwrite").save(all_raw_data_std_path)
+            # 备份生成手动修改前的交付结果
+            raw_data_dedup_std.write.format("parquet") \
+                .mode("overwrite").save(raw_data_delivery_path)
+        else:
+            # 备份生成手动修改前的交付结果
+            raw_data_dedup.write.format("parquet") \
+                .mode("overwrite").save(raw_data_delivery_path)
+            
         
         
     
