@@ -14,21 +14,24 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--owner')
 @click.option('--run_id')
 @click.option('--job_id')
-@click.option('--input')
-@click.option('--output')
+@click.option('--job_name')
+@click.option('--path_prefix')
+@click.option('--dosage_mapping_path')
+@click.option('--depend_job_names_keys')
+@click.option('--g_repartition_shared')
+@click.option('--dosage_adjust_result')
 def debug_execute(**kwargs):
     try:
-        args = {"name": "job3"}
-        outputs = ["output"]
+        args = {'name': 'effectiveness_adjust_dosage'}
 
         args.update(kwargs)
         result = exec_before(**args)
 
-        args.update(result if isinstance(result, dict) else {})
+        args.update(result)
         result = execute(**args)
 
-        args.update(result if isinstance(result, dict) else {})
-        result = exec_after(outputs=outputs, **args)
+        args.update(result)
+        result = exec_after(outputs=[], **args)
 
         return result
     except Exception as e:

@@ -23,6 +23,18 @@ spec:
         value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/results
       - key: g_is_labeled
         value: 1
+      - key: g_sharehold_mole_name
+        value: 0.0
+      - key: g_sharehold_product_name
+        value: 0.1
+      - key: g_sharehold_dosage
+        value: 0.1
+      - key: g_sharehold_spec
+        value: 0.2
+      - key: g_sharehold_manufacturer_name
+        value: 0.5
+      - key: g_sharehold_pack_qty
+        value: 0.1
       - key: depend_job_names_keys
         value: 
           - cleaning_data_model_training#model_result#model

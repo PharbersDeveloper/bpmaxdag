@@ -16,12 +16,15 @@ spec:
     code: phmain.py
     config: phconf.yaml
     args:
-      - key: path_chc
-        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/CHC/*
-      - key: path_standard
-        value: s3a://ph-stream/common/public/prod/0.0.21
+      - key: a
+        value: "abc"
+      - key: b
+        value: "abc"
     outputs:
-      - key: output_path_job1
-        value: "111 "
+      - key: c
+        value: "abc"
+      - key: d
+        value: "abc"
+
 
 

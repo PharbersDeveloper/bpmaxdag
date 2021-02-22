@@ -24,7 +24,7 @@ spec:
       - key: path_human_interfere
         value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/HUMAN_INTERFERE
       - key: path_second_human_interfere
-        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DF_CONF/0.2
+        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DF_CONF/0.3
       - key: path_chc_gross_unit
         value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/STANDARD_GROSS_UNIT/CHC_STANDARD_GROSS_UNIT
     outputs:
