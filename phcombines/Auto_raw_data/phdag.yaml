@@ -19,9 +19,9 @@ spec:
   dag_tag: Max
   dag_timeout:  # minutes
   jobs:
-    - name: Rawdata_pretreat
-    - name: Rawdata_needclean
+    - name: Rawdata.pretreat
+    - name: Rawdata.needclean
     - name: Rawdata.check
   linkage:
-    - "Rawdata_pretreat >> Rawdata_needclean >> Rawdata.check"
+    - "Rawdata.pretreat >> Rawdata.needclean >> Rawdata.check"
 
