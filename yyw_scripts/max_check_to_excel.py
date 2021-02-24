@@ -11,30 +11,31 @@ import pandas as pd
 os.environ["PYSPARK_PYTHON"] = "python3"
 spark = SparkSession.builder \
     .master("yarn") \
-    .appName("data from s3") \
-    .config("spark.driver.memory", "1g") \
+    .appName("ywyuan") \
+    .config("spark.driver.cores", "1") \
+    .config("spark.driver.memory", "4g") \
     .config("spark.executor.cores", "1") \
-    .config("spark.executor.instance", "1") \
-    .config("spark.executor.memory", "1g") \
+    .config("spark.executor.memory", "4g") \
+    .config("spark.executor.instances", "1") \
     .config('spark.sql.codegen.wholeStage', False) \
+    .enableHiveSupport() \
     .getOrCreate()
 
-access_key = os.getenv("AWS_ACCESS_KEY_ID")
-secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
-if access_key is not None:
+access_key = os.getenv("AWS_ACCESS_KEY_ID", "AKIAWPBDTVEAEU44ZAGT")
+secret_key = os.getenv("AWS_SECRET_ACCESS_KEY", "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")
+if access_key:
     spark._jsc.hadoopConfiguration().set("fs.s3a.access.key", access_key)
     spark._jsc.hadoopConfiguration().set("fs.s3a.secret.key", secret_key)
-    spark._jsc.hadoopConfiguration().set("fs.s3a.impl","org.apache.hadoop.fs.s3a.S3AFileSystem")
     spark._jsc.hadoopConfiguration().set("com.amazonaws.services.s3.enableV4", "true")
-    # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
+    spark._jsc.hadoopConfiguration().set("fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
     spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
 
     
 '''
 合并s3上的max_check/.csv 为excel
 '''
-project_name = 'Eisai'
-outdir = '202009'
+project_name = '贝达'
+outdir = '202012'
 outdir_local = "/home/ywyuan/tmp_file"
 
 max_path = 's3a://ph-max-auto/v0.0.1-2020-06-08/'
@@ -72,7 +73,7 @@ check_6 = check_6.toPandas()
 check_6[check_6.columns]=check_6[check_6.columns].astype(float)
 
 
-with pd.ExcelWriter(outdir_local + "/" + project_name + "_max_check.xlsx") as xlsx:
+with pd.ExcelWriter(outdir_local + "/" + project_name + "_" + outdir + "_max_check.xlsx") as xlsx:
     check_1.to_excel(xlsx, sheet_name="check_byProduct", index=False)
     check_2.to_excel(xlsx, sheet_name="check_bycity", index=False)
     check_3.to_excel(xlsx, sheet_name="check补数比例", index=False)

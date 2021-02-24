@@ -11,22 +11,23 @@ import pandas as pd
 os.environ["PYSPARK_PYTHON"] = "python3"
 spark = SparkSession.builder \
     .master("yarn") \
-    .appName("data from s3") \
-    .config("spark.driver.memory", "2g") \
+    .appName("ywyuan write yyw_scripts.load in jupyter using python3") \
+    .config("spark.driver.cores", "1") \
+    .config("spark.driver.memory", "4g") \
     .config("spark.executor.cores", "1") \
-    .config("spark.executor.instance", "1") \
-    .config("spark.executor.memory", "2g") \
+    .config("spark.executor.memory", "4g") \
+    .config("spark.executor.instances", "1") \
     .config('spark.sql.codegen.wholeStage', False) \
+    .enableHiveSupport() \
     .getOrCreate()
 
-access_key = os.getenv("AWS_ACCESS_KEY_ID")
-secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
-if access_key is not None:
+access_key = os.getenv("AWS_ACCESS_KEY_ID", "AKIAWPBDTVEAEU44ZAGT")
+secret_key = os.getenv("AWS_SECRET_ACCESS_KEY", "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")
+if access_key:
     spark._jsc.hadoopConfiguration().set("fs.s3a.access.key", access_key)
     spark._jsc.hadoopConfiguration().set("fs.s3a.secret.key", secret_key)
-    spark._jsc.hadoopConfiguration().set("fs.s3a.impl","org.apache.hadoop.fs.s3a.S3AFileSystem")
     spark._jsc.hadoopConfiguration().set("com.amazonaws.services.s3.enableV4", "true")
-    # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
+    spark._jsc.hadoopConfiguration().set("fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
     spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
 
 '''
@@ -34,8 +35,8 @@ if access_key is not None:
 '''    
     
 # 需要修改的参数
-project_name = '汇宇'
-outdir = '202011'
+project_name = '贝达'
+outdir = '202012'
 if_two_source = 'True'
 # 在c9上新建一个文件，将‘问题医院记录表’本项目要修改的条目复制粘贴（带着标题），保存的时候后缀写.csv即可
 change_file_path = '/home/ywyuan/BP_Max_AutoJob/yyw_scripts//raw_data_change.csv'

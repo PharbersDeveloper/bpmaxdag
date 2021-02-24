@@ -30,13 +30,13 @@ if access_key is not None:
 月更新数据上传
 '''    
 
-outdir = '202009'
-product_name = '康哲'
+outdir = '202012'
+product_name = '贝达'
  
 # 产品匹配表
 
 import pandas as pd
-df = pd.read_excel(u"/workspace/YYW_max_project/kangzhe/kangzhe_prod_map.xlsx", dtype="object")
+df = pd.read_excel(u"/home/ywyuan/产品匹配表_贝达_20200728", dtype="object")
 print(df.head(4))
 
 for each in df.columns.values:
