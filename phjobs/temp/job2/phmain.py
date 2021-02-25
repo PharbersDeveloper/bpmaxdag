@@ -14,32 +14,29 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--owner')
 @click.option('--run_id')
 @click.option('--job_id')
-@click.option('--job_name')
-@click.option('--path_prefix')
-@click.option('--path_cleaning_data')
-@click.option('--path_human_interfere')
-@click.option('--path_second_human_interfere')
-@click.option('--path_chc_gross_unit')
-@click.option('--path_cpa_gross_unit')
-@click.option('--cleaning_result')
-@click.option('--cleaning_origin')
+@click.option('--a')
+@click.option('--b')
+@click.option('--c')
+@click.option('--d')
 def debug_execute(**kwargs):
     try:
-        args = {'name': 'cleaning_data_normalization'}
+        args = {"name": "job2"}
+        outputs = ["c", "d"]
 
         args.update(kwargs)
         result = exec_before(**args)
 
-        args.update(result)
+        args.update(result if isinstance(result, dict) else {})
         result = execute(**args)
 
-        args.update(result)
-        result = exec_after(outputs=[], **args)
+        args.update(result if isinstance(result, dict) else {})
+        result = exec_after(outputs=outputs, **args)
 
         return result
     except Exception as e:
         logger = phs3logger(kwargs["job_id"])
         logger.error(traceback.format_exc())
+        print(traceback.format_exc())
         raise e
 
 

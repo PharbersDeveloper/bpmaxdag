@@ -127,7 +127,7 @@ def modify_first_spec_effectiveness(standard_valid, standard_gross, target_valid
 
 	frame = { "standard_valid": standard_valid, "standard_gross": standard_gross, "target_valid": target_valid, "target_gross":target_gross ,"EFFTIVENESS_SPEC_FIRST" : EFFTIVENESS_SPEC_FIRST}  
 	df = pd.DataFrame(frame)
-	df["EFFTIVENESS_SPEC"] = df.apply(lambda x : 0.95 if (math.isclose(float(x['standard_valid']),float(x['target_valid']), rel_tol=0, abs_tol=0 ))|\
+	df["EFFTIVENESS_SPEC"] = df.apply(lambda x : 0.995 if (math.isclose(float(x['standard_valid']),float(x['target_valid']), rel_tol=0, abs_tol=0 ))|\
                                       (math.isclose(float(x['standard_gross']),float(x['target_gross']), rel_tol=0, abs_tol=0 )) else x['EFFTIVENESS_SPEC_FIRST'], axis=1)
 	return df["EFFTIVENESS_SPEC"]
 
