@@ -6,14 +6,15 @@ This is job template for Pharbers Max Job
 from phcli.ph_logs.ph_logs import phs3logger
 import uuid
 import re
+import numpy as np
 import pandas as pd
 from pyspark.sql.functions import col , concat , concat_ws
-from pyspark.sql.types import StringType
+from pyspark.sql.types import StringType, ArrayType
 from pyspark.sql.functions import udf, pandas_udf, PandasUDFType
 from pyspark.sql.functions import split ,count
 from pyspark.sql.functions import regexp_replace, upper, regexp_extract
 from pyspark.sql.functions import when , lit
-
+from pyspark.ml.feature import StopWordsRemover
 
 def execute(**kwargs):
     """
@@ -22,7 +23,6 @@ def execute(**kwargs):
     """
     logger = phs3logger(kwargs["job_id"])
     spark = kwargs["spark"]()
-
     logger.info(kwargs)
 
 ############-----------input-------------------------###################
@@ -80,10 +80,12 @@ def execute(**kwargs):
     else:
         #添加cpa标准总量单位
         df_cleanning = add_cpa_standard_gross_unit(df_cleanning, df_cpa_gross_unit)
-        #去掉cpa中spec空格
-        df_cleanning = remove_cpa_spec_space(df_cleanning)
+        #cpa中spec转化成结构化数据
+        df_cleanning = make_cpa_spec_become_structured(df_cleanning)
         #基于不同的总量单位进行SPEC数据提取
         df_cleanning = extract_useful_cpa_spec_data(df_cleanning)
+        #cpa数据提纯
+        df_cleanning = make_cpa_psec_gross_and_valid_prue(df_cleanning)
         print("ok")
     #df_cleanning.write.mode("overwrite").parquet(result_path)
 
@@ -233,25 +235,68 @@ def extract_useful_spec_data(df_cleanning):
 
     return df_cleanning
     
-def remove_cpa_spec_space(df_cleanning):
-    remove_spec_str = r'(\s+)'
-    df_cleanning = df_cleanning.withColumn("SPEC", regexp_replace(col("SPEC"),remove_spec_str,""))
+def make_cpa_spec_become_structured(df_cleanning):
+    split_spec_str = r'(\s+)'
+    df_cleanning = df_cleanning.withColumn("SPEC", split(col("SPEC"), split_spec_str,))
+    print(df_cleanning.printSchema())
     return df_cleanning
+
 def extract_useful_cpa_spec_data(df_cleanning):
     #cpa总量数据的提取
-    extract_spec_value_MG = r'(\d+\.?\d*(((GM)|[MU]?G)|Y|(ΜG)|(万?单位)|(PNA)))'
-    extract_spec_value_ML = r'(\d+\.?\d*((M?L)|(PE)))'
-    extract_spec_value_PEN = r'(\d+\.?\d*(喷))'
-    extract_pure_spec_valid_value = r'((\d+\.?\d*)((M?L)|([MU]?G)|I?[U喷KY]|(C?M)))' 
-    df_cleanning = df_cleanning.withColumn('SPEC_GROSS_VALUE', when(col('CPA_GROSS_UNIT') == 'MG' , regexp_extract(col('SPEC'), extract_spec_value_MG, 1))\
-                                           .when(col('CPA_GROSS_UNIT') == 'ML' , regexp_extract(col('SPEC'), extract_spec_value_ML, 1))\
-                                           .when(col('CPA_GROSS_UNIT') == '喷' , regexp_extract(col('SPEC'), extract_spec_value_PEN, 1)))\
-                                           .withColumn('SPEC_GROSS_VALUE', when( col('SPEC_GROSS_VALUE') == '', regexp_extract(col('SPEC'), extract_pure_spec_valid_value, 1))\
-                                           .otherwise(col('SPEC_GROSS_VALUE')))
-    print('数据总数：' + str(df_cleanning.count()))
-    print('匹配失败数据：' + ' ' + str(df_cleanning.filter(col('SPEC_GROSS_VALUE') == '').count()) ,  '匹配率:' +' ' +  str(( 1 - int(df_cleanning.filter(col('SPEC_GROSS_VALUE') == '').count()) / int(df_cleanning.count())) * 100) + '%' ) 
-    df_cleanning.filter(col('SPEC_GROSS_VALUE') == '').groupBy(col("SPEC")).agg(count(col("SPEC"))).show(200)
-    #有效性的提取
+    df_cleanning.groupBy("SPEC").agg(count("SPEC")).show(200)
+    @pandas_udf(ArrayType(StringType()),PandasUDFType.SCALAR)
+    def extract_gross_data(spec,gross_unit):
+        frame = {
+           "spec":spec,
+           "gross_unit":gross_unit
+       } 
+        df = pd.DataFrame(frame)
+        def add_cpa_gross_data(df):
+            if len(df.spec) >= 2 :
+                df["CPA_GROSS_DATA"] = np.array(df.spec[-2:])
+            else:
+                df["CPA_GROSS_DATA"] = np.array(df.spec)
+            return df["CPA_GROSS_DATA"]
+        df["CPA_GROSS_DATA"] = df.apply(add_cpa_gross_data, axis=1)
+        return df["CPA_GROSS_DATA"]
+    df_cleanning = df_cleanning.withColumn("SPEC_CPA_GROSS_DATA", extract_gross_data(col("SPEC"),col("CPA_GROSS_UNIT")))
+    #cpa有效性数据提取
+    @pandas_udf(ArrayType(StringType()), PandasUDFType.SCALAR)
+    def extract_valid_data(spec, spec_cpa_gross_data):
+        frame = {
+            "spec":spec,
+            "spec_cpa_gross_data":spec_cpa_gross_data
+        }
+        df = pd.DataFrame(frame)
+        def add_cpa_valid_data(df):
+            df['CPA_VALID_DATA'] = np.array([x for x in df.spec if x not in df.spec_cpa_gross_data])
+            return df['CPA_VALID_DATA'] 
+        df["CPA_VALID_DATA"] = df.apply(add_cpa_valid_data, axis=1)
+        return df["CPA_VALID_DATA"]
+    df_cleanning = df_cleanning.withColumn("SPEC_CPA_VALID_DATA", extract_valid_data(df_cleanning.SPEC, df_cleanning.SPEC_CPA_GROSS_DATA))
+    return df_cleanning
+
+def make_cpa_psec_gross_and_valid_prue(df_cleanning):
+    df_cleanning.show(100)
+    print(df_cleanning.printSchema())
+    stopwords = ['POWD','IN','SOLN','IJ','AERO','CAP','SYRP','OR','EX','PATC','GRAN','OINT','PILL','TAB','SUSP','OP','SL','NA','LSU']
+    remover = StopWordsRemover(stopWords=stopwords, inputCol="SPEC_CPA_VALID_DATA", outputCol="SPEC_CPA_VALID_DATA_")
+    df_cleanning = remover.transform(df_cleanning)
+    df_cleanning.select("SPEC_CPA_VALID_DATA","SPEC_CPA_VALID_DATA_").distinct().show(500)
+    @pandas_udf(ArrayType(StringType()),PandasUDFType.SCALAR)
+    def make_cpa_valid_data_to_string(cpa_valid_data):
+        frame = {'cpa_valid_data':cpa_valid_data}
+        df = pd.DataFrame(frame)
+        def remove_stopwords(df):
+            if len(df.cpa_valid_data) >= 2:
+                df['cpa_valid_data'] = np.array(df.cpa_valid_data[-2:]) 
+            else: 
+                df['cpa_valid_data'] = np.array(df.cpa_valid_data) 
+            return df['cpa_valid_data']
+        df['SPEC_CPA_VALID_DATA'] = df.apply(remove_stopwords, axis=1)
+        return df['SPEC_CPA_VALID_DATA'] 
+    df_cleanning = df_cleanning.withColumn("SPEC_CPA_VALID_DATA__", make_cpa_valid_data_to_string(df_cleanning.SPEC_CPA_VALID_DATA_))
+    df_cleanning.select("SPEC_CPA_VALID_DATA_","SPEC_CPA_VALID_DATA__").distinct().show(500)
     return df_cleanning
 
 def make_spec_gross_and_valid_pure(df_cleanning):

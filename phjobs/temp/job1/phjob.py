@@ -44,10 +44,8 @@ def execute(**kwargs):
     df_mnf_stopwords = spark.createDataFrame(stopWords_dict)
     df_mnf_stopwords.show(50)
     '''
-    cpa_az = spark.read.parquet("s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/STANDARD_GROSS_UNIT/STANDARD_TABLE_GROSS_UNIT")
-    cpa_az.show(100)
-    #cpa_az.repartition(1).write.mode("overwrite").parquet("s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MZHANG_TEMP/CPA_DOSAGE_CONF/v0.1")
-    #mnf_stopwords.repartition(1).write.mode('overwrite').parquet("s3a://ph-stream/common/public/prod/0.0.22")
+    s = " hello ,world!"
+    print(word_tokenize(s))
 #####################-------test---------------################
 
     
