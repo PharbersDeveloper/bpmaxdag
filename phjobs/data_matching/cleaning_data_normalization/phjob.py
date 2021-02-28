@@ -84,8 +84,12 @@ def execute(**kwargs):
         df_cleanning = make_cpa_spec_become_structured(df_cleanning)
         #基于不同的总量单位进行SPEC数据提取
         df_cleanning = extract_useful_cpa_spec_data(df_cleanning)
-        #cpa数据提纯
-        df_cleanning = make_cpa_psec_gross_and_valid_prue(df_cleanning)
+        #单位归一化处理
+        df_cleanning = make_cpa_unit_standardization(df_cleanning)
+        #组合成新SPEC
+        '''
+        df_cleanning = create_new_cpa_spec_col(df_cleanning)
+        '''
         print("ok")
     #df_cleanning.write.mode("overwrite").parquet(result_path)
 
@@ -236,30 +240,67 @@ def extract_useful_spec_data(df_cleanning):
     return df_cleanning
     
 def make_cpa_spec_become_structured(df_cleanning):
+    df_cleanning = df_cleanning.withColumn('SPEC_ORIGANL', col("SPEC"))
+    remove_pattern = r'([×*].*)'
+    df_cleanning = df_cleanning.withColumn("SPEC", regexp_replace(col("SPEC"),remove_pattern,''))
     split_spec_str = r'(\s+)'
-    df_cleanning = df_cleanning.withColumn("SPEC", split(col("SPEC"), split_spec_str,))
+    df_cleanning = df_cleanning.withColumn("SPEC", split(col("SPEC"), split_spec_str,).cast(ArrayType(StringType())))
     print(df_cleanning.printSchema())
+    stopwords = ['POWD','IN','SOLN','IJ','AERO','CAP','SYRP','OR','EX','PATC','GRAN','OINT','PILL','TAB','SUSP','OP','SL','NA','LSU','']
+    remover = StopWordsRemover(stopWords=stopwords, inputCol="SPEC", outputCol="SPEC_TEMP")
+    df_cleanning = remover.transform(df_cleanning)
+    df_cleanning = df_cleanning.drop("SPEC").withColumnRenamed("SPEC_TEMP","SPEC")
     return df_cleanning
+
+@pandas_udf(ArrayType(StringType()),PandasUDFType.SCALAR)
+def make_single_word_to_double(cpa_valid_data):
+    frame = {'cpa_valid_data':cpa_valid_data}
+    df = pd.DataFrame(frame)
+    def remove_stopwords(df):
+        if  len(df.cpa_valid_data) ==1  and df.cpa_valid_data[-1].isdigit() == False  and df.cpa_valid_data[-1].isalpha() == False: 
+            try:
+                integer_split_pattern = r'^(\d+)(\w+)$' 
+                df['cpa_valid_data'] = np.array(re.match(integer_split_pattern, str(df.cpa_valid_data[-1])).groups([0,-1]))
+            except:
+                df['cpa_valid_data'] = np.array(df.cpa_valid_data)
+        else: 
+            df['cpa_valid_data'] = np.array(df.cpa_valid_data) 
+        if len(df.cpa_valid_data) ==1 and df.cpa_valid_data[-1].isdigit() == False  and df.cpa_valid_data[-1].isalpha() == False: 
+            try:
+                decimal_split_pattern = r'^(\d+\.\d+)(\w+)$' 
+                df['cpa_valid_data'] = np.array(re.match(decimal_split_pattern, str(df.cpa_valid_data[-1])).groups([0,-1]))
+            except:
+                df['cpa_valid_data'] = np.array(df.cpa_valid_data)
+        else: 
+            df['cpa_valid_data'] = np.array(df.cpa_valid_data)     
+        return df['cpa_valid_data']
+
+    df['SPEC_CPA_VALID_DATA'] = df.apply(remove_stopwords, axis=1)
+    return df['SPEC_CPA_VALID_DATA'] 
 
 def extract_useful_cpa_spec_data(df_cleanning):
     #cpa总量数据的提取
-    df_cleanning.groupBy("SPEC").agg(count("SPEC")).show(200)
+    df_cleanning = df_cleanning.withColumn("SPEC", make_single_word_to_double(col("SPEC")))
+    print(df_cleanning.printSchema())
     @pandas_udf(ArrayType(StringType()),PandasUDFType.SCALAR)
-    def extract_gross_data(spec,gross_unit):
+    def extract_gross_data(spec):
         frame = {
            "spec":spec,
-           "gross_unit":gross_unit
        } 
         df = pd.DataFrame(frame)
         def add_cpa_gross_data(df):
             if len(df.spec) >= 2 :
-                df["CPA_GROSS_DATA"] = np.array(df.spec[-2:])
+                if df.spec[-1].isdigit() == False  and df.spec[-1].isalpha() == False:
+                    df["CPA_GROSS_DATA"] = ['{}'.format(df.spec[-1])] 
+                else:
+                    df["CPA_GROSS_DATA"] = df.spec[-2:]
             else:
                 df["CPA_GROSS_DATA"] = np.array(df.spec)
             return df["CPA_GROSS_DATA"]
         df["CPA_GROSS_DATA"] = df.apply(add_cpa_gross_data, axis=1)
         return df["CPA_GROSS_DATA"]
-    df_cleanning = df_cleanning.withColumn("SPEC_CPA_GROSS_DATA", extract_gross_data(col("SPEC"),col("CPA_GROSS_UNIT")))
+    df_cleanning = df_cleanning.withColumn("SPEC_CPA_GROSS_DATA", extract_gross_data(col("SPEC")))
+     
     #cpa有效性数据提取
     @pandas_udf(ArrayType(StringType()), PandasUDFType.SCALAR)
     def extract_valid_data(spec, spec_cpa_gross_data):
@@ -269,34 +310,117 @@ def extract_useful_cpa_spec_data(df_cleanning):
         }
         df = pd.DataFrame(frame)
         def add_cpa_valid_data(df):
-            df['CPA_VALID_DATA'] = np.array([x for x in df.spec if x not in df.spec_cpa_gross_data])
+            if len(df.spec) == len(df.spec_cpa_gross_data):
+                df['CPA_VALID_DATA'] = []  
+            else:
+                index = int(len(df.spec)) - int(len(df.spec_cpa_gross_data)) 
+                df['CPA_VALID_DATA'] = np.array([x for x in df.spec[:index]])
+                #df['CPA_VALID_DATA'] = np.array([x for x in df.spec if x not in df.spec_cpa_gross_data])
             return df['CPA_VALID_DATA'] 
         df["CPA_VALID_DATA"] = df.apply(add_cpa_valid_data, axis=1)
         return df["CPA_VALID_DATA"]
     df_cleanning = df_cleanning.withColumn("SPEC_CPA_VALID_DATA", extract_valid_data(df_cleanning.SPEC, df_cleanning.SPEC_CPA_GROSS_DATA))
+    df_cleanning.select("SPEC_ORIGANL","SPEC","SPEC_CPA_GROSS_DATA","SPEC_CPA_VALID_DATA").distinct().show(500)
     return df_cleanning
 
-def make_cpa_psec_gross_and_valid_prue(df_cleanning):
-    df_cleanning.show(100)
-    print(df_cleanning.printSchema())
+def make_cpa_spec_gross_and_valid_prue(df_cleanning):
     stopwords = ['POWD','IN','SOLN','IJ','AERO','CAP','SYRP','OR','EX','PATC','GRAN','OINT','PILL','TAB','SUSP','OP','SL','NA','LSU']
-    remover = StopWordsRemover(stopWords=stopwords, inputCol="SPEC_CPA_VALID_DATA", outputCol="SPEC_CPA_VALID_DATA_")
+    remover = StopWordsRemover(stopWords=stopwords, inputCol="SPEC_CPA_VALID_DATA", outputCol="SPEC_CPA_VALID_DATA_TEMP")
     df_cleanning = remover.transform(df_cleanning)
-    df_cleanning.select("SPEC_CPA_VALID_DATA","SPEC_CPA_VALID_DATA_").distinct().show(500)
+    df_cleanning = df_cleanning.drop("SPEC_CPA_VALID_DATA").withColumnRenamed("SPEC_CPA_VALID_DATA_TEMP","SPEC_CPA_VALID_DATA")
     @pandas_udf(ArrayType(StringType()),PandasUDFType.SCALAR)
     def make_cpa_valid_data_to_string(cpa_valid_data):
         frame = {'cpa_valid_data':cpa_valid_data}
         df = pd.DataFrame(frame)
         def remove_stopwords(df):
-            if len(df.cpa_valid_data) >= 2:
-                df['cpa_valid_data'] = np.array(df.cpa_valid_data[-2:]) 
+            if len(df.cpa_valid_data) == 1 and df.cpa_valid_data[-1].isdigit() == False  and df.cpa_valid_data[-1].isalpha() == False: 
+                try:
+                    integer_split_pattern = r'^(\d+)(\w+)$' 
+                    df['cpa_valid_data'] = np.array(re.match(integer_split_pattern, str(df.cpa_valid_data[-1])).groups([0,-1]))
+                except:
+                    df['cpa_valid_data'] = np.array(df.cpa_valid_data)
             else: 
                 df['cpa_valid_data'] = np.array(df.cpa_valid_data) 
+            if len(df.cpa_valid_data) == 1 and df.cpa_valid_data[-1].isdigit() == False  and df.cpa_valid_data[-1].isalpha() == False: 
+                try:
+                    decimal_split_pattern = r'^(\d+\.\d+)(\w+)$' 
+                    df['cpa_valid_data'] = np.array(re.match(decimal_split_pattern, str(df.cpa_valid_data[-1])).groups([0,-1]))
+                except:
+                    df['cpa_valid_data'] = np.array(df.cpa_valid_data)
+            else: 
+                df['cpa_valid_data'] = np.array(df.cpa_valid_data)     
             return df['cpa_valid_data']
+        
         df['SPEC_CPA_VALID_DATA'] = df.apply(remove_stopwords, axis=1)
         return df['SPEC_CPA_VALID_DATA'] 
-    df_cleanning = df_cleanning.withColumn("SPEC_CPA_VALID_DATA__", make_cpa_valid_data_to_string(df_cleanning.SPEC_CPA_VALID_DATA_))
-    df_cleanning.select("SPEC_CPA_VALID_DATA_","SPEC_CPA_VALID_DATA__").distinct().show(500)
+    df_cleanning = df_cleanning.withColumn("SPEC_CPA_VALID_DATA", make_cpa_valid_data_to_string(df_cleanning.SPEC_CPA_VALID_DATA))
+    return df_cleanning
+
+def make_cpa_unit_standardization(df_cleanning):
+    @pandas_udf(ArrayType(StringType()), PandasUDFType.SCALAR)
+    def make_spec_units_normal(original_col):
+        frame = {"original_col":original_col}  
+        df = pd.DataFrame(frame)
+        unit_data_dict = {
+            'G':'MG',
+            'UG':'MG',
+            'Y':'MG',
+            'GM':'MG',
+            'L':'ML',
+            'IU':'U',
+            'MU':'U',
+            'MIU':'U',
+            'k':'U',
+            'AXAIU':'U',
+            'mCi':'MC',
+            'MG':'MG'
+        }
+        conversion_dic ={
+            'G':1000,
+            'UG':0.001,
+            'Y':0.001,
+            'GM':1,
+            'L':1000,
+            'MU':1000000,
+            'M':100000,
+            'MIU':1000000,
+            'K':1000,
+            'MG':1
+        }
+        def integrate_spec_data(df):
+            nonlocal unit_data_dict
+            nonlocal conversion_dic
+            try:
+                if len(df.original_col) == 2:
+                    df.original_col[0] = str(float(df.original_col[0]) * float(conversion_dic[df.original_col[-1]]))
+                    df.original_col[-1] = str(unit_data_dict[df.original_col[-1]])
+                    df['original_col'] = np.array(df.original_col)
+                else:
+                    df['original_col'] = np.array(df.original_col)
+            except:
+                df['original_col'] = np.array(df.original_col)
+            return df['original_col']
+        df["original_col"] =  df.apply(integrate_spec_data, axis=1) 
+        return df["original_col"] 
+    df_cleanning = df_cleanning.withColumn("SPEC_CPA_GROSS_DATA", make_spec_units_normal(col("SPEC_CPA_GROSS_DATA")))
+    df_cleanning = df_cleanning.withColumn("SPEC_CPA_VALID_DATA", make_spec_units_normal(col("SPEC_CPA_VALID_DATA")))
+    return df_cleanning
+
+def create_new_cpa_spec_col(df_cleanning):
+    @pandas_udf(ArrayType(StringType()), PandasUDFType.SCALAR)
+    def create_cpa_spec_new_col(spec_cpa_gross_data, spec_cpa_valid_data):
+        frame = {
+            "spec_cpa_gross_data":spec_cpa_gross_data,
+            "spec_cpa_valid_data":spec_cpa_valid_data
+        }
+        df = pd.DataFrame(frame)
+        def make_new_col(df):
+            df['spec'] = np.concatenate(df.spec_cpa_valid_data,df.spec_cpa_gross_data)
+            return df['spec'] 
+        df["SPEC"] = df.apply(make_new_col, axis=1)
+        return df["SPEC"]
+    df_cleanning = df_cleanning.withColumn("NEW_SPEC", create_cpa_spec_new_col(col("SPEC_CPA_GROSS_DATA"),col("SPEC_CPA_VALID_DATA")))
+    df_cleanning.show(500)
     return df_cleanning
 
 def make_spec_gross_and_valid_pure(df_cleanning):
