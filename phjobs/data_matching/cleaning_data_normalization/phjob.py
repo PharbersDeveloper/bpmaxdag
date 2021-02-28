@@ -87,9 +87,7 @@ def execute(**kwargs):
         #单位归一化处理
         df_cleanning = make_cpa_unit_standardization(df_cleanning)
         #组合成新SPEC
-        '''
         df_cleanning = create_new_cpa_spec_col(df_cleanning)
-        '''
         print("ok")
     #df_cleanning.write.mode("overwrite").parquet(result_path)
 
@@ -407,7 +405,7 @@ def make_cpa_unit_standardization(df_cleanning):
     return df_cleanning
 
 def create_new_cpa_spec_col(df_cleanning):
-    @pandas_udf(ArrayType(StringType()), PandasUDFType.SCALAR)
+    @pandas_udf(StringType(), PandasUDFType.SCALAR)
     def create_cpa_spec_new_col(spec_cpa_gross_data, spec_cpa_valid_data):
         frame = {
             "spec_cpa_gross_data":spec_cpa_gross_data,
@@ -415,7 +413,7 @@ def create_new_cpa_spec_col(df_cleanning):
         }
         df = pd.DataFrame(frame)
         def make_new_col(df):
-            df['spec'] = np.concatenate(df.spec_cpa_valid_data,df.spec_cpa_gross_data)
+            df['spec'] = '/'.join(df.spec_cpa_valid_data) + ' ' + '/'.join(df.spec_cpa_gross_data)
             return df['spec'] 
         df["SPEC"] = df.apply(make_new_col, axis=1)
         return df["SPEC"]
