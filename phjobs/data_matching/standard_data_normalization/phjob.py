@@ -233,7 +233,7 @@ def make_spec_unit_standardization(df_standard):
 								.withColumn("SPEC_valid_digit_STANDARD", col("SPEC_valid_digit_STANDARD").cast("double"))
 #总量数值归一化
 	df_standard = df_standard.withColumn("SPEC_GROSS_VALUE_PURE",when(col("SPEC_GROSS_UNIT_PURE") == "G", col("SPEC_GROSS_VALUE_PURE")*int(1000))\
-								.when(col("SPfEC_GROSS_UNIT_PURE") == "UG", col("SPEC_GROSS_VALUE_PURE")*int(0.001))\
+								.when(col("SPEC_GROSS_UNIT_PURE") == "UG", col("SPEC_GROSS_VALUE_PURE")*int(0.001))\
 								.when(col("SPEC_GROSS_UNIT_PURE") == "Y", col("SPEC_GROSS_VALUE_PURE")*int(0.001))\
 								.when(col("SPEC_GROSS_UNIT_PURE") == "L", col("SPEC_GROSS_VALUE_PURE")*int(1000))\
 								.when(col("SPEC_GROSS_UNIT_PURE") == "MU", col("SPEC_GROSS_VALUE_PURE")*int(1000000))\
