@@ -44,8 +44,9 @@ def execute(**kwargs):
     df_mnf_stopwords = spark.createDataFrame(stopWords_dict)
     df_mnf_stopwords.show(50)
     '''
-    s = " hello ,world!"
-    print(word_tokenize(s))
+    df = spark.read.csv("s3a://ph-stream/common/public/prod/0.0.23",header=True,encoding='gbk')
+    df.show()
+    df.repartition(1).write.mode("overwrite").parquet("s3a://ph-stream/common/public/prod/0.0.23")
 #####################-------test---------------################
 
     

@@ -27,8 +27,6 @@ spec:
         value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DF_CONF/0.3
       - key: path_chc_gross_unit
         value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/STANDARD_GROSS_UNIT/CHC_STANDARD_GROSS_UNIT
-      - key: path_cpa_gross_unit
-        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/STANDARD_GROSS_UNIT/CPA_STANDARD_GROSS_UNIT/v0.1
     outputs:
       - key: cleaning_result
         value: cleaning_result

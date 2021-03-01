@@ -31,6 +31,7 @@ def execute(**kwargs):
     depends = get_depends_path(kwargs)
     label_result_path = depends['data']
     model_path = depends['model']
+    origin_data_path = depends['origin_data']
     shareholds = [kwargs["g_sharehold_mole_name"], kwargs["g_sharehold_product_name"], kwargs["g_sharehold_dosage"], \
                   kwargs["g_sharehold_spec"], kwargs["g_sharehold_pack_qty"], kwargs["g_sharehold_manufacturer_name"]]
 ###########------------input---------######################
@@ -52,6 +53,7 @@ def execute(**kwargs):
 
 #################------------loading files--------------#################
     df_result = load_label_result(spark, label_result_path)
+    df_origin_data = load_origin_data(spark, origin_data_path)
     model = load_model(model_path)
 ################-----------loading files---------------##################
 #df_lost = spark.read.parquet(depends["lost"])
@@ -107,7 +109,8 @@ def execute(**kwargs):
 	# logger.warn("匹配第一步丢失条目写入完成")
 
     # 6. 结果统计
-    all_count = df_predictions.count()# + df_lost.count() # 数据总数
+    #all_count = df_predictions.count()# + df_lost.count() # 数据总数
+    all_count = df_origin_data.count()
     ph_total = df_result.groupBy("ID").agg({"label": "first"}).count()
     positive_count = df_positive.count()  # 机器判断pre=1条目
     negative_count = all_count - positive_count # - df_lost.count()  # 机器判断pre=0条目
@@ -117,7 +120,11 @@ def execute(**kwargs):
     report = [("data_matching_report", ),]
     report_schema = StructType([StructField('title',StringType(),True),])
     df_report = spark.createDataFrame(report, schema=report_schema).na.fill("")
-    df_report = df_report.withColumn("数据总数", lit(str(all_count)))
+    if "CHC_GROSS_UNIT" in df_result.columns:
+        name = "CHC"
+    else:
+        name = "CPA"
+    df_report = df_report.withColumn("{}数据总数".format(name), lit(str(all_count)))
     df_report = df_report.withColumn("进入匹配流程条目", lit(str(ph_total)))
     # 	df_report = df_report.withColumn("丢失条目", lit(str(df_lost.count())))
     df_report = df_report.withColumn("机器匹配条目", lit(str(positive_count)))
@@ -173,6 +180,10 @@ def get_depends_path(kwargs):
 def load_label_result(spark, label_result_path):
     df_result = spark.read.parquet(label_result_path) 
     return df_result  
+
+def load_origin_data(spark, origin_data_path):
+    df_origin_data = spark.read.parquet(origin_data_path)
+    return df_origin_data
 
 def load_model(model_path):
     model = PipelineModel.load(model_path)

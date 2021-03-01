@@ -20,7 +20,6 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--path_human_interfere')
 @click.option('--path_second_human_interfere')
 @click.option('--path_chc_gross_unit')
-@click.option('--path_cpa_gross_unit')
 @click.option('--cleaning_result')
 @click.option('--cleaning_origin')
 def debug_execute(**kwargs):

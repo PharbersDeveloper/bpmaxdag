@@ -30,7 +30,6 @@ def execute(**kwargs):
     interfere_path = kwargs["path_human_interfere"]
     second_interfere_path = kwargs["path_second_human_interfere"]
     chc_gross_unit_path = kwargs["path_chc_gross_unit"]
-    cpa_gross_unit_path = kwargs["path_cpa_gross_unit"]
 ############-----------input-------------------------###################
 
 ###########------------output------------------------###################
@@ -46,13 +45,10 @@ def execute(**kwargs):
     df_interfere = load_interfere_mapping(spark, interfere_path)
     df_second_interfere = load_second_interfere(spark,second_interfere_path)
     df_chc_gross_unit = load_chc_gross_unit(spark, chc_gross_unit_path)
-    df_cpa_gross_unit = load_cpa_gross_unit(spark, cpa_gross_unit_path)
     df_cleanning.persist()
-    #df_cleanning.write.mode("overwrite").parquet(origin_path)
+    df_cleanning.write.mode("overwrite").parquet(origin_path)
 #########---------------load file------------------------################
 
-    cpa_dosage_convert_path = r's3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MZHANG_TEMP/CPA_DOSAGE_CONF/v0.1'
-    df_cpa_dosage_convert = spark.read.parquet(cpa_dosage_convert_path)
 #########--------------main function--------------------#################   
 
     if "code" in df_cleanning.columns:
@@ -78,8 +74,6 @@ def execute(**kwargs):
     # 	df_cleanning = human_interfere(df_cleanning, df_interfere) 
         df_cleanning = get_inter(df_cleanning,df_second_interfere)
     else:
-        #添加cpa标准总量单位
-        df_cleanning = add_cpa_standard_gross_unit(df_cleanning, df_cpa_gross_unit)
         #cpa中spec转化成结构化数据
         df_cleanning = make_cpa_spec_become_structured(df_cleanning)
         #基于不同的总量单位进行SPEC数据提取
@@ -88,8 +82,12 @@ def execute(**kwargs):
         df_cleanning = make_cpa_unit_standardization(df_cleanning)
         #组合成新SPEC
         df_cleanning = create_new_cpa_spec_col(df_cleanning)
-        print("ok")
-    #df_cleanning.write.mode("overwrite").parquet(result_path)
+        #从cpa spec中抽取pack_id
+        df_cleanning = get_cpa_pack(df_cleanning)
+        df_cleanning = get_pca_inter(df_cleanning,df_second_interfere)
+        #选择指定的列
+        df_cleanning = select_cpa_col(df_cleanning)
+    df_cleanning.write.mode("overwrite").parquet(result_path)
 
 ########------------main fuction-------------------------################
     return {}
@@ -121,7 +119,6 @@ def get_result_path(kwargs, run_id, job_id):
 更高的并发数
 """
 def modify_pool_cleanning_prod(spark, raw_data_path):
-    raw_data_path = r"s3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/azsanofi/0.0.15/splitdata"
     if raw_data_path.endswith(".csv"):
         df_cleanning = spark.read.csv(path=raw_data_path, header=True).withColumn("ID", pudf_id_generator(col("MOLE_NAME")))
     else:
@@ -145,11 +142,6 @@ def load_chc_gross_unit(spark,chc_gross_unit_path):
     df_chc_gross_unit = spark.read.parquet(chc_gross_unit_path)
     return df_chc_gross_unit
 
-def load_cpa_gross_unit(spark, cpa_gross_unit_path):
-    df_cpa_gross_unit = spark.read.parquet(cpa_gross_unit_path)
-    df_cpa_gross_unit.show(100)
-    return df_cpa_gross_unit
-
 def make_dosage_standardization(df_cleanning):
     #CHC中DOSAGE干扰项剔除
     replace_dosage_str = r'(([(（].*[)）])|(\s+))'
@@ -169,18 +161,6 @@ def add_chc_standard_gross_unit(df_cleanning,df_chc_gross_unit):
 
     df_chc_gross_unit = df_chc_gross_unit_mg.union(df_chc_gross_unit_ml).union(df_chc_gross_unit_cm).union(df_chc_gross_unit_pen).filter(col('DOSAGE').isNotNull())
     df_cleanning = df_cleanning.join(df_chc_gross_unit,df_cleanning.DOSAGE == df_chc_gross_unit.DOSAGE , 'left').drop(df_chc_gross_unit.DOSAGE)
-    return df_cleanning
-
-def add_cpa_standard_gross_unit(df_cleanning, df_cpa_gross_unit):
-    df_cpa_gross_unit_mg = df_cpa_gross_unit.select('CPA_GROSS_UNIT_MG').withColumnRenamed('CPA_GROSS_UNIT_MG','DOSAGE')\
-                                            .withColumn('CPA_GROSS_UNIT',lit('MG'))
-    df_cpa_gross_unit_ml = df_cpa_gross_unit.select('CPA_GROSS_UNIT_ML').withColumnRenamed('CPA_GROSS_UNIT_ML','DOSAGE')\
-                                            .withColumn('CPA_GROSS_UNIT',lit('ML'))
-    df_cpa_gross_unit_pen = df_cpa_gross_unit.select('CPA_GROSS_UNIT_PEN').withColumnRenamed('CPA_GROSS_UNIT_PEN','DOSAGE')\
-                                            .withColumn('CPA_GROSS_UNIT',lit('喷'))
-
-    df_cpa_gross_unit = df_cpa_gross_unit_mg.union(df_cpa_gross_unit_ml).union(df_cpa_gross_unit_pen).filter(col('DOSAGE').isNotNull())
-    df_cleanning = df_cleanning.join(df_cpa_gross_unit,df_cleanning.DOSAGE == df_cpa_gross_unit.DOSAGE , 'left').drop(df_cpa_gross_unit.DOSAGE)
     return df_cleanning
 
 def pre_to_standardize_data(df_cleanning):
@@ -238,12 +218,11 @@ def extract_useful_spec_data(df_cleanning):
     return df_cleanning
     
 def make_cpa_spec_become_structured(df_cleanning):
-    df_cleanning = df_cleanning.withColumn('SPEC_ORIGANL', col("SPEC"))
+    df_cleanning = df_cleanning.withColumn('SPEC_ORIGINAL', col("SPEC"))
     remove_pattern = r'([×*].*)'
     df_cleanning = df_cleanning.withColumn("SPEC", regexp_replace(col("SPEC"),remove_pattern,''))
     split_spec_str = r'(\s+)'
     df_cleanning = df_cleanning.withColumn("SPEC", split(col("SPEC"), split_spec_str,).cast(ArrayType(StringType())))
-    print(df_cleanning.printSchema())
     stopwords = ['POWD','IN','SOLN','IJ','AERO','CAP','SYRP','OR','EX','PATC','GRAN','OINT','PILL','TAB','SUSP','OP','SL','NA','LSU','']
     remover = StopWordsRemover(stopWords=stopwords, inputCol="SPEC", outputCol="SPEC_TEMP")
     df_cleanning = remover.transform(df_cleanning)
@@ -318,7 +297,6 @@ def extract_useful_cpa_spec_data(df_cleanning):
         df["CPA_VALID_DATA"] = df.apply(add_cpa_valid_data, axis=1)
         return df["CPA_VALID_DATA"]
     df_cleanning = df_cleanning.withColumn("SPEC_CPA_VALID_DATA", extract_valid_data(df_cleanning.SPEC, df_cleanning.SPEC_CPA_GROSS_DATA))
-    df_cleanning.select("SPEC_ORIGANL","SPEC","SPEC_CPA_GROSS_DATA","SPEC_CPA_VALID_DATA").distinct().show(500)
     return df_cleanning
 
 def make_cpa_spec_gross_and_valid_prue(df_cleanning):
@@ -417,10 +395,29 @@ def create_new_cpa_spec_col(df_cleanning):
             return df['spec'] 
         df["SPEC"] = df.apply(make_new_col, axis=1)
         return df["SPEC"]
-    df_cleanning = df_cleanning.withColumn("NEW_SPEC", create_cpa_spec_new_col(col("SPEC_CPA_GROSS_DATA"),col("SPEC_CPA_VALID_DATA")))
-    df_cleanning.show(500)
+    df_cleanning = df_cleanning.withColumn("SPEC", create_cpa_spec_new_col(col("SPEC_CPA_GROSS_DATA"),col("SPEC_CPA_VALID_DATA")))
     return df_cleanning
 
+def get_cpa_pack(df_cleanning):
+    extract_pack_id = r'[×*](\d+)'
+    df_cleanning = df_cleanning.withColumnRenamed("PACK_QTY", "PACK_QTY_ORIGINAL")
+    df_cleanning = df_cleanning.withColumn("PACK_QTY", regexp_extract(col("SPEC_ORIGINAL"), extract_pack_id, 1).cast('float'))
+    df_cleanning = df_cleanning.withColumn("PACK_QTY", when(col("PACK_QTY").isNull(), col("PACK_QTY_ORIGINAL")).otherwise(col("PACK_QTY"))).drop(col("PACK_QTY_ORIGINAL"))
+    return df_cleanning
+
+def get_pca_inter(df_cleanning,df_second_interfere):
+    df_cleanning = df_cleanning.join(df_second_interfere, df_cleanning.MOLE_NAME == df_second_interfere.MOLE_NAME_LOST, 'left')
+    df_cleanning = df_cleanning.withColumn('new', when(df_cleanning.MOLE_NAME_LOST.isNull(), df_cleanning.MOLE_NAME)\
+                                           .otherwise(df_cleanning.MOLE_NAME_STANDARD))\
+                                            .drop("MOLE_NAME", "MOLE_NAME_LOST", "MOLE_NAME_STANDARD")\
+                                            .withColumnRenamed("new", "MOLE_NAME")
+    return df_cleanning 
+
+def select_cpa_col(df_cleanning):
+    cpa_cols =['MOLE_NAME','PRODUCT_NAME', 'DOSAGE', 'SPEC', 'PACK_QTY', 'MANUFACTURER_NAME', 'PACK_ID_CHECK', 'ID','SPEC_ORIGINAL']
+    df_cleanning = df_cleanning.select(cpa_cols)
+    print(df_cleanning.columns)
+    return df_cleanning
 def make_spec_gross_and_valid_pure(df_cleanning):
 
     #数据提纯

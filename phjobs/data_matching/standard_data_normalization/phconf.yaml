@@ -20,7 +20,7 @@ spec:
       - key: path_prefix
         value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs
       - key: path_master_prod
-        value: s3a://ph-stream/common/public/prod/0.0.22
+        value: s3a://ph-stream/common/public/prod/0.0.23
       - key: path_standard_gross_unit
         value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/STANDARD_GROSS_UNIT/STANDARD_TABLE_GROSS_UNIT
       - key: path_for_replace_standard_dosage
