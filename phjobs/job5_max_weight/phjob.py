@@ -69,6 +69,11 @@ all_models, universe_choice, if_others, out_path, out_dir, need_test, use_d_weig
     if if_others == "True":
         out_dir = out_dir + "/others_box/"
     out_path_dir = out_path + "/" + project_name + '/' + out_dir
+    
+    if use_d_weight != "Empty":
+        use_d_weight = use_d_weight.replace(" ","").split(",")
+    else:
+        use_d_weight = []
 
     # 市场的universe文件
     universe_choice_dict={}
@@ -82,9 +87,10 @@ all_models, universe_choice, if_others, out_path, out_dir, need_test, use_d_weig
     PHA_weight_path = max_path + "/" + project_name + '/PHA_weight'
     PHA_weight = spark.read.parquet(PHA_weight_path)   
     # 是否加上 weight_default
-    if use_d_weight == 'True':
+    if use_d_weight:
         PHA_weight_default_path = max_path + "/" + project_name + '/PHA_weight_default'
         PHA_weight_default = spark.read.parquet(PHA_weight_default_path)
+        PHA_weight_default = PHA_weight_default.where(PHA_weight_default.DOI.isin(use_d_weight))
         PHA_weight_default = PHA_weight_default.withColumnRenamed('Weight', 'Weight_d')
         PHA_weight = PHA_weight.join(PHA_weight_default, on=['Province', 'City', 'DOI', 'PHA'], how='full')
         PHA_weight = PHA_weight.withColumn('Weight', func.when(col('Weight').isNull(), col('Weight_d')).otherwise(col('Weight')))
