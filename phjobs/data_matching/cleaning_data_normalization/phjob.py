@@ -414,7 +414,7 @@ def get_pca_inter(df_cleanning,df_second_interfere):
     return df_cleanning 
 
 def select_cpa_col(df_cleanning):
-    cpa_cols =['MOLE_NAME','PRODUCT_NAME', 'DOSAGE', 'SPEC', 'PACK_QTY', 'MANUFACTURER_NAME', 'PACK_ID_CHECK', 'ID','SPEC_ORIGINAL']
+    cpa_cols =['MOLE_NAME','PRODUCT_NAME', 'DOSAGE', 'SPEC', 'PACK_QTY', 'MANUFACTURER_NAME', 'PACK_ID_CHECK', 'ID','SPEC_ORIGINAL','SPEC_CPA_VALID_DATA','SPEC_CPA_GROSS_DATA']
     df_cleanning = df_cleanning.select(cpa_cols)
     print(df_cleanning.columns)
     return df_cleanning

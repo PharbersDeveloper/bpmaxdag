@@ -44,9 +44,8 @@ def execute(**kwargs):
     df_mnf_stopwords = spark.createDataFrame(stopWords_dict)
     df_mnf_stopwords.show(50)
     '''
-    df = spark.read.csv("s3a://ph-stream/common/public/prod/0.0.23",header=True,encoding='gbk')
-    df.show()
-    df.repartition(1).write.mode("overwrite").parquet("s3a://ph-stream/common/public/prod/0.0.23")
+    df = spark.read.csv("s3a://ph-max-auto/2020-08-11/data_matching/refactor/results/2021-03-01_05-34-42/Negative_Predictions",header=True)
+    df.show(500)
 #####################-------test---------------################
 
     

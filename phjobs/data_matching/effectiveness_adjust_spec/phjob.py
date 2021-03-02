@@ -47,7 +47,8 @@ def execute(**kwargs):
 
 
 ###################--------------main function------------------------#################  
-	df_second_round = recalculation_spec_effectiveness(df_second_round)
+	if  "CHC_GROSS_UNIT"in df_second_round.columns:
+		df_second_round = recalculation_spec_effectiveness(df_second_round)
 	df_second_round.repartition(g_repartition_shared).write.mode("overwrite").parquet(mid_path)
     #选取指定的列用于和adjust_mnf job 进行union操作
 	df_second_round = select_specified_cols(df_second_round)
@@ -103,7 +104,6 @@ def load_adjust_dosage_result(spark, path_adjust_dosage_result):
 
 
 def recalculation_spec_effectiveness(df_second_round):
-	print(df_second_round.columns)
 	df_second_round = df_second_round.withColumn("EFFTIVENESS_SPEC_FIRST", col("EFFTIVENESS_SPEC"))
 	df_second_round = df_second_round.withColumn("EFFTIVENESS_SPEC",\
 									when((col("CHC_GROSS_UNIT")==col("SPEC_GROSS_UNIT_PURE_STANDARD"))&(col("SPEC_VALID_UNIT_PURE")==col("SPEC_valid_unit_STANDARD")),\
