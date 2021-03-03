@@ -103,8 +103,8 @@ def execute(**kwargs):
     # 输出
     if test == "False":
         weight_path = max_path + '/' + project_name + '/PHA_weight'
-        weight_tmp_path = max_path + '/' + project_name + '/PHA_weight_tmp'
-        tmp_path = max_path + '/' + project_name + '/tmp'
+        weight_tmp_path = max_path + '/' + project_name + '/weight/PHA_weight_tmp'
+        tmp_path = max_path + '/' + project_name + '/weight/tmp'
     else:
         weight_path = max_path + '/' + project_name + '/weight/PHA_weight'
     
