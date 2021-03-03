@@ -75,7 +75,7 @@ def execute(**kwargs):
         .withColumn("TYPE", lit("nan")) \
         .withColumn("LEVEL", lit("nan")) \
         .withColumn("VERSION", lit(_version)) \
-        .withColumn("ID", _id()) \
+        .withColumn("ID", _id(lit(13))) \
         .select("ID", "CATEGORY", "TYPE", "LEVEL", "VALUE", "DESCRIPTION", "VERSION")
     union_df.show()
     # union_df.repartition(1).write.mode("overwrite").parquet(_out_put_path)

@@ -47,7 +47,7 @@ def execute(**kwargs):
         .withColumn("CATEGORY", lit("PACKID")) \
         .withColumn("TYPE", lit("nan")) \
         .withColumn("VERSION", lit(_version)) \
-        .withColumn("ID", _id()) \
+        .withColumn("ID", _id(lit(13))) \
         .selectExpr("ID", "CATEGORY", "TYPE", "VALUE", "VERSION")
 
     product_re_df.show()
