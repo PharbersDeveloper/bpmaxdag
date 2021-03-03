@@ -12,28 +12,27 @@ from pyspark.sql.types import StringType
 from pyspark.sql import SparkSession
 
 
-def generate_random_str(random_length):
-    '''
-    string.digits = 0123456789 string.ascii_letters = 26个小写,26个大写
-    '''
-    str_list = random.sample(string.digits + string.ascii_letters, random_length)
-    random_str = ''.join(str_list)
-    return random_str
-
-
-def unpivot(df, keys):
-    # 参数说明 df  dataframe   keys 待转换表中需要保留的主键key，以list[]类型传入
-    # 转换是为了避免字段类不匹配，统一将数据转换为string类型，如果保证数据类型完全一致，可以省略该句
-    df = df.select(*[col(_).astype("string") for _ in df.columns])
-    # cols = [_ for _ in df.columns if _ not in keys and "DESC" not in _]
-    cols = ["ATC", "NFC"]
-    stack_str = ','.join(map(lambda x: "'%s', %s" % (x, x), cols))
-    # CATEGORY, VALUE 转换后的列名，可自定义
-    df = df.selectExpr(*keys, "stack(%s, %s) as (CATEGORY, VALUE)" % (len(cols), stack_str))
-    return df
-
-
 def execute(**kwargs):
+
+    def generate_random_str(random_length):
+        '''
+        string.digits = 0123456789 string.ascii_letters = 26个小写,26个大写
+        '''
+        str_list = random.sample(string.digits + string.ascii_letters, random_length)
+        random_str = ''.join(str_list)
+        return random_str
+
+    def unpivot(data_frame, keys):
+        # 参数说明 df  dataframe   keys 待转换表中需要保留的主键key，以list[]类型传入
+        # 转换是为了避免字段类不匹配，统一将数据转换为string类型，如果保证数据类型完全一致，可以省略该句
+        data_frame = data_frame.select(*[col(_).astype("string") for _ in df.columns])
+        # cols = [_ for _ in df.columns if _ not in keys and "DESC" not in _]
+        cols = ["ATC", "NFC"]
+        stack_str = ','.join(map(lambda x: "'%s', %s" % (x, x), cols))
+        # CATEGORY, VALUE 转换后的列名，可自定义
+        data_frame = data_frame.selectExpr(*keys, "stack(%s, %s) as (CATEGORY, VALUE)" % (len(cols), stack_str))
+        return data_frame
+
     """
         please input your code below
         get spark session: spark = kwargs["spark"]()

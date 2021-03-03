@@ -7,20 +7,20 @@ This is job template for Pharbers Max Job
 import random
 import string
 from phcli.ph_logs.ph_logs import phs3logger, LOG_DEBUG_LEVEL
-from pyspark.sql.functions import lit, col, array, udf, create_map, concat
+from pyspark.sql.functions import lit, udf
 from pyspark.sql.types import StringType
 from pyspark.sql import SparkSession
 
-def generate_random_str(random_length):
-    '''
-    string.digits = 0123456789 string.ascii_letters = 26个小写,26个大写
-    '''
-    str_list = random.sample(string.digits + string.ascii_letters, random_length)
-    random_str = ''.join(str_list)
-    return random_str
-
 
 def execute(**kwargs):
+    def generate_random_str(random_length):
+        '''
+        string.digits = 0123456789 string.ascii_letters = 26个小写,26个大写
+        '''
+        str_list = random.sample(string.digits + string.ascii_letters, random_length)
+        random_str = ''.join(str_list)
+        return random_str
+
     """
         please input your code below
         get spark session: spark = kwargs["spark"]()

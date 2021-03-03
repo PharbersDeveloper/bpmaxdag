@@ -12,20 +12,19 @@ from pyspark.sql.types import StringType
 from pyspark.sql import SparkSession
 
 
-def generate_random_str(random_length):
-    '''
-    string.digits = 0123456789 string.ascii_letters = 26个小写,26个大写
-    '''
-    str_list = random.sample(string.digits + string.ascii_letters, random_length)
-    random_str = ''.join(str_list)
-    return random_str
-
-
-def generate_id():
-    return bytes("M" + generate_random_str(7), "UTF-8").hex()
-
-
 def execute(**kwargs):
+    def generate_random_str(random_length):
+        '''
+        string.digits = 0123456789 string.ascii_letters = 26个小写,26个大写
+        '''
+        str_list = random.sample(string.digits + string.ascii_letters, random_length)
+        random_str = ''.join(str_list)
+        return random_str
+    
+    def generate_id():
+        return bytes("M" + generate_random_str(7), "UTF-8").hex()
+
+
     """
         please input your code below
         get spark session: spark = kwargs["spark"]()

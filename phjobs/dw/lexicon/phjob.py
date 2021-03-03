@@ -12,17 +12,16 @@ from pyspark.sql.types import StringType
 from pyspark.sql import SparkSession
 
 
-def generate_random_str(randomlength):
-    '''
-    string.digits = 0123456789
-    string.ascii_letters = 26个小写,26个大写
-    '''
-    str_list = random.sample(string.digits + string.ascii_letters,randomlength)
-    random_str = ''.join(str_list)
-    return random_str
-
-
 def execute(**kwargs):
+    def generate_random_str(randomlength):
+        '''
+        string.digits = 0123456789
+        string.ascii_letters = 26个小写,26个大写
+        '''
+        str_list = random.sample(string.digits + string.ascii_letters,randomlength)
+        random_str = ''.join(str_list)
+        return random_str
+
     """
         please input your code below
         get spark session: spark = kwargs["spark"]()
@@ -58,7 +57,7 @@ def execute(**kwargs):
 
     union_df = prod_df.unionAll(word_dic_df) \
         .withColumn("VERSION", lit(_version)) \
-        .withColumn("ID", _id()) \
+        .withColumn("ID", _id(lit(13))) \
         .selectExpr("ID", "CATEGORY", "TYPE", "ENCODE", "VALUE", "VERSION")
 
     union_df.show()
