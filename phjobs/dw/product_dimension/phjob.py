@@ -48,8 +48,8 @@ def execute(**kwargs):
     _mole_spec_dim_version = kwargs["mole_spec_dim_version"]
     _mnf_dim_version = kwargs["mnf_dim_version"]
     _input_path = kwargs["input_path"]
-    _mole_spec_dim_path = kwargs["mole_spec_dim_path"]
-    _mnf_dim_path = kwargs["mnf_dim_path"]
+    _mole_spec_dim_path = kwargs["mole_spec_dim_path"] + _mole_spec_dim_version
+    _mnf_dim_path = kwargs["mnf_dim_path"] + _mnf_dim_version
     _table_type = kwargs["table_type"]
     _table_name = kwargs["table_name"]
     _out_put_path = kwargs["out_put"] \
