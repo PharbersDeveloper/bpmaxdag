@@ -20,7 +20,7 @@ def execute(**kwargs):
         str_list = random.sample(string.digits + string.ascii_letters, random_length)
         random_str = ''.join(str_list)
         return random_str
-    
+
     def generate_id():
         return bytes("M" + generate_random_str(7), "UTF-8").hex()
 
@@ -61,6 +61,6 @@ def execute(**kwargs):
                 "CORP_ID", "CORP_NAME_EN",
                 "CORP_NAME_CH", "LOCATION", "VERSION")
 
-    # pd.show()
-    pd.repartition(1).write.mode("overwrite").parquet(_out_put_path)
+    pd.show()
+    # pd.repartition(1).write.mode("overwrite").parquet(_out_put_path)
     return {}
