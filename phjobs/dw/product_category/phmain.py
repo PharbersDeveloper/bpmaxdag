@@ -16,7 +16,7 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--job_id')
 @click.option('--version')
 @click.option('--input_path')
-@click.option('--out_path')
+@click.option('--out_put')
 @click.option('--table_type')
 @click.option('--table_name')
 @click.option('--c')
