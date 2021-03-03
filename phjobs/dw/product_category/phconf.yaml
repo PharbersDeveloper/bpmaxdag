@@ -20,7 +20,7 @@ spec:
         value: "0.0.1"
       - key: input_path
         value: "s3a://ph-stream/common/public/prod/0.0.22"
-      - key: out_path
+      - key: out_put
         value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/#table_type#/#table_name#/"
       - key: table_type
         value: "RELATIONSHIP"
