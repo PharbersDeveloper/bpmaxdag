@@ -380,7 +380,7 @@ def execute(**kwargs):
             judge += 1
     if judge > 0:
         old_out = spark.read.parquet(weight_path)   
-        new_info = df_weight_final.select('Province', 'City', 'DOI').distinct().toPandas()['Province', 'City', 'DOI'].tolist()
+        new_info = df_weight_final.select('Province', 'City', 'DOI').distinct()
         old_out_keep = old_out.join(new_info, on=['Province', 'City', 'DOI'], how='left_anti')
         df_weight_final = df_weight_final.union(old_out_keep.select(df_weight_final.columns))           
         # 中间文件读写一下
