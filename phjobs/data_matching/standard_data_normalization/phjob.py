@@ -6,6 +6,7 @@ This is job template for Pharbers Max Job
 from phcli.ph_logs.ph_logs import phs3logger
 import uuid
 import re
+from functools import reduce
 import numpy as np
 import pandas as pd
 from pyspark.sql.functions import col , concat_ws
@@ -56,11 +57,13 @@ def execute(**kwargs):
 ##################------------新计算方法----------------####################
     #spec转成结构化数据
     df_standard = make_spec_become_structured(df_standard)
+    #词形还原
+    df_standard = restore_nonstandard_data_to_normal(df_standard)
+    ''' 
     #基于不同的总量单位进行SPEC数据提取
     df_standard = extract_useful_cpa_spec_data(df_standard)
     #单位归一化处理
     df_standard = make_unit_standardization(df_standard)
-    '''
     #组合成新SPEC
     df_standard = create_new_cpa_spec_col(df_standard)
     #从cpa spec中抽取pack_id
@@ -132,7 +135,6 @@ def load_standard_prod(spark, standard_prod_path):
                             .withColumnRenamed("SPEC", "SPEC_STANDARD") \
                             .withColumnRenamed("PACK", "PACK_QTY_STANDARD")
                             
-
     df_standard = df_standard.select("PACK_ID_STANDARD", "MOLE_NAME_STANDARD",
                                      "PRODUCT_NAME_STANDARD", "CORP_NAME_STANDARD",
                                      "MANUFACTURER_NAME_STANDARD", "MANUFACTURER_NAME_EN_STANDARD",
@@ -143,7 +145,6 @@ def load_standard_prod(spark, standard_prod_path):
 def load_standard_gross_unit(spark,path_standard_gross_unit):
     df_standard_gross_unit = spark.read.parquet(path_standard_gross_unit)
     return df_standard_gross_unit
-    
     
 def load_replace_standard_dosage(spark,path_for_replace_standard_dosage):
     df_replace_standard_dosage = spark.read.parquet(path_for_replace_standard_dosage)
@@ -168,7 +169,7 @@ def make_spec_become_structured(df_standard):
     df_standard = df_standard.withColumn('SPEC_STANDARD_ORIGINAL', col("SPEC_STANDARD"))
     split_spec_str = r'(\s+)'
     df_standard = df_standard.withColumn("SPEC_STANDARD", split(col("SPEC_STANDARD"), split_spec_str,).cast(ArrayType(StringType())))
-    stopwords = ['PAED','OTCP','SUFR','ADLT','PAP.','IRBX','','/DOS','/ML','TN','x']
+    stopwords = ['PAED','OTCP','SUFR','ADLT','PAP.','IRBX','','/DOS','/ML','TN','x','INF.','/G']
     remover = StopWordsRemover(stopWords=stopwords, inputCol="SPEC_STANDARD", outputCol="SPEC__STANDARD_TEMP")
     df_standard = remover.transform(df_standard)
     df_standard = df_standard.drop("SPEC_STANDARD").withColumnRenamed("SPEC__STANDARD_TEMP","SPEC_STANDARD")
@@ -205,10 +206,6 @@ def extract_useful_cpa_spec_data(df_standard):
     
     df_standard = df_standard.withColumn("SPEC_STANDARD_GROSS_DATA", extract_gross_data(col("SPEC_STANDARD")))
     df_standard = df_standard.withColumn("SPEC_STANDARD_VALID_DATA", extract_valid_data(col("SPEC_STANDARD")))
-    '''
-    df_standard = df_standard.withColumn("SPEC_STANDARD_GROSS_DATA", make_single_word_to_double(col("SPEC_STANDARD_GROSS_DATA")))
-    df_standard = df_standard.withColumn("SPEC_STANDARD_VALID_DATA", make_single_word_to_double(col("SPEC_STANDARD_VALID_DATA")))
-    '''
     return df_standard
 
 #总量数据的提取
@@ -248,11 +245,46 @@ def extract_valid_data(spec):
     df["STANDARD_VALID_DATA"] = df.apply(add_valid_data, axis=1) 
     return df["STANDARD_VALID_DATA"]
 
+#处理spec中非标准数据
+def restore_nonstandard_data_to_normal(df_standard):
+    df_standard = df_standard.withColumn("SPEC_STANDARD_TEMP",make_nonstandard_data_become_normal(col("SPEC_STANDARD")))
+    df_standard.select("SPEC_STANDARD_ORIGINAL","SPEC_STANDARD","SPEC_STANDARD_TEMP").distinct().show(200)
+    print(df_standard.printSchema()) 
+    return df_standard
+
+@pandas_udf(ArrayType(StringType()), PandasUDFType.SCALAR)
+def make_nonstandard_data_become_normal(origin_col):
+    def judge_nonstandard_data(word):
+        data_extraction_rule = r'(\d+(\.\d+)?)(\w+(?=\+))'
+        if re.match(data_extraction_rule, word) != None:
+            the_first_data = re.findall(data_extraction_rule, word)[0]
+            the_first_data_value = the_first_data[0]
+            the_first_data_unit = the_first_data[-1]
+            the_test_of_data_extract_rule = r'\+(\d+(\.\d+)?)(\w+)' 
+            the_rest_of_data = re.findall(the_test_of_data_extract_rule, word)
+            the_rest_of_data_values = list(map(lambda x : x[0], the_rest_of_data))
+            the_rest_of_data_units = list(map(lambda x: x[-1], the_rest_of_data))
+            if len(set(the_rest_of_data_units)) == 1 and the_first_data_unit in the_rest_of_data_units:
+                try:
+                    the_sum_of_rest_data_values = reduce(lambda x , y: float(x) + float(y), the_rest_of_data_values)
+                    the_sum_of_all_data = float(the_first_data_value) + float(the_sum_of_rest_data_values)
+                except:
+                    the_sum_of_all_data = float(the_first_data_value)
+                final_data = str(the_sum_of_all_data) + the_first_data_unit
+            else:
+                final_data = word
+        else:
+            final_data = word
+        return final_data 
+    frame = {"origin_col": origin_col}
+    df = pd.DataFrame(frame) 
+    df['out_put_col'] = df.apply(lambda x : np.array(tuple(map(judge_nonstandard_data, x.origin_col))), axis=1)
+    return df['out_put_col']
+
 def make_unit_standardization(df_standard):
     
     df_standard = df_standard.withColumn("SPEC_STANDARD_GROSS_DATA", create_values_and_units(col("SPEC_STANDARD_GROSS_DATA")))
     df_standard = df_standard.withColumn("SPEC_STANDARD_VALID_DATA", create_values_and_units(col("SPEC_STANDARD_VALID_DATA")))
-    df_standard.select("SPEC_STANDARD_ORIGINAL","SPEC_STANDARD","SPEC_STANDARD_GROSS_DATA","SPEC_STANDARD_VALID_DATA").distinct().show(200)
     ''' 
     df_standard = df_standard.withColumn("SPEC_STANDARD_GROSS_DATA", make_spec_units_normal(col("SPEC_STANDARD_GROSS_DATA")))
     df_standard = df_standard.withColumn("SPEC_STANDARD_VALID_DATA", make_spec_units_normal(col("SPEC_STANDARD_VALID_DATA")))
