@@ -18,7 +18,8 @@ import numpy as np
 import json
 from copy import deepcopy
 import math
-
+import boto3
+import os
 
 def execute(**kwargs):
     """
@@ -102,6 +103,8 @@ def execute(**kwargs):
     # 输出
     if test == "False":
         weight_path = max_path + '/' + project_name + '/PHA_weight'
+        weight_tmp_path = max_path + '/' + project_name + '/PHA_weight_tmp'
+        tmp_path = max_path + '/' + project_name + '/tmp'
     else:
         weight_path = max_path + '/' + project_name + '/weight/PHA_weight'
     
@@ -328,15 +331,17 @@ def execute(**kwargs):
                                                                     .otherwise(col('Province'))) \
                                          .withColumn('Province', func.when(col('City')=='珠三角', func.lit('广东省')) \
                                                                     .otherwise(col('Province'))) 
+
         if index == 0:
             df_weight_final = df_weight_final.repartition(1)
             df_weight_final.write.format("parquet") \
-                .mode("overwrite").save(weight_path)
+                .mode("overwrite").save(weight_tmp_path)
         else:
             df_weight_final = df_weight_final.repartition(1)
             df_weight_final.write.format("parquet") \
-                .mode("append").save(weight_path)
-        
+                .mode("append").save(weight_tmp_path)
+            
+       
         # 4.3 share 和 gr 结果
         data_final = data_target.join(df_weight_out.select('PHA','W'), on='PHA', how='left')
         data_final = data_final.withColumn('MAX_new', col('Sales')*col('W'))
@@ -355,6 +360,39 @@ def execute(**kwargs):
             .mode("overwrite").save(df_sum_path)
         
         index += 1
+    
+    # 输出判断是否已有 weight_path 结果，对已有 weight_path 结果替换或者补充
+    '''
+    如果已经存在 weight_path 则用新的结果对已有结果进行(Province,City,DOI)替换和补充
+    '''
+    df_weight_final = spark.read.parquet(weight_tmp_path)
+
+    file_name = weight_path.replace('//', '/').split('s3a:/ph-max-auto/')[1]
+
+    s3 = boto3.resource('s3', region_name='cn-northwest-1',
+                            aws_access_key_id="AKIAWPBDTVEAEU44ZAGT",
+                            aws_secret_access_key="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")
+    bucket = s3.Bucket('ph-max-auto')
+    judge = 0
+    for obj in bucket.objects.filter(Prefix = file_name):
+        path, filename = os.path.split(obj.key)  
+        if path == file_name:
+            judge += 1
+    if judge > 0:
+        old_out = spark.read.parquet(weight_path)   
+        new_info = df_weight_final.select('Province', 'City', 'DOI').distinct().toPandas()['Province', 'City', 'DOI'].tolist()
+        old_out_keep = old_out.join(new_info, on=['Province', 'City', 'DOI'], how='left_anti')
+        df_weight_final = df_weight_final.union(old_out_keep.select(df_weight_final.columns))           
+        # 中间文件读写一下
+        df_weight_final = df_weight_final.repartition(2)
+        df_weight_final.write.format("parquet") \
+                            .mode("overwrite").save(tmp_path)
+        df_weight_final = spark.read.parquet(tmp_path)   
+
+    # 输出到 weight_path
+    df_weight_final = df_weight_final.repartition(2)
+    df_weight_final.write.format("parquet") \
+        .mode("append").save(weight_path)
 
     return {}
 
