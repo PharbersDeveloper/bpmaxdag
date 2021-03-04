@@ -67,7 +67,8 @@ def execute(**kwargs):
     df = product_df.selectExpr("PACK_ID as IMS_PACK_ID", "PROD_DESC", "PROD_NAME_CH", "PACK", "PCK_DESC",
                                "DOSAGE", "ATC4_CODE", "NFC123",
                                "SPEC_valid_digit", "SPEC_valid_unit", "MOLE_NAME_CH",
-                               "MNF_NAME_CH", "CORP_ID", "MNF_TYPE", "MNF_TYPE_NAME", "CORP_NAME_EN")
+                               "MNF_NAME_CH", "CORP_ID", "MNF_TYPE", "MNF_TYPE_NAME", "CORP_NAME_EN") \
+         .withColumn("VERSION", lit(_version))
 
     mole_df = mole_spec_dim_df.filter(col("TYPE") == "MOLE") \
         .selectExpr("MOLE_NAME", "ID as MOLE_ID", "TYPE as MOLE_TYPE")
@@ -79,7 +80,7 @@ def execute(**kwargs):
     nfc_df = product_category_df.filter(col("CATEGORY") == "NFC") \
         .selectExpr("ID as NFC_ID", "VALUE as NFC_VALUE")
 
-    mole_join = df \
+    mole_join = df.withColumnRenamed("VERSION", "PROD_VERSION") \
         .join(mole_df, [df.MOLE_NAME_CH == mole_spec_dim_df.MOLE_NAME], "left_outer") \
         .join(spec_df, [df.SPEC_valid_digit == mole_spec_dim_df.QUANTITY, df.SPEC_valid_unit == mole_spec_dim_df.UNIT],
               "left_outer") \
@@ -96,7 +97,7 @@ def execute(**kwargs):
                           lit('MOLE_NAME'), col("MOLE_NAME"),
                           lit("SPEC_ID"), _rn(col("SPEC_ID")),
                           lit("QUANTITY"), _rn(col("QUANTITY")),
-                          lit("UNIT"), _rn(col("UNIT"))).alias("CONTAINS")) \
+                          lit("UNIT"), _rn(col("UNIT"))).alias("CONTAINS"), "PROD_VERSION") \
         .withColumn("MOLE_NAME", col("CONTAINS.MOLE_NAME")) \
         .withColumn("SPEC", concat(col("CONTAINS.QUANTITY"), col("CONTAINS.UNIT"))) \
         .withColumn("ID", _id(col("ATC4_CODE"), col("NFC123"), col("PACK"))) \
@@ -104,8 +105,8 @@ def execute(**kwargs):
         .withColumn("ATC_ID", col("ATC_ID")) \
         .withColumn("NFC_ID", col("NFC_ID")) \
         .withColumn("EVENTS", lit("nan")) \
-        .select("ID", "MOLE_NAME", "PROD_DESC", "PROD_NAME_CH", "PACK", "PCK_DESC",
-                "DOSAGE", "CONTAINS", "SPEC", "MNF_ID", "PACK_ID","ATC_ID", "NFC_ID", "EVENTS")
+        .selectExpr("ID", "MOLE_NAME", "PROD_DESC", "PROD_NAME_CH", "PACK", "PCK_DESC",
+                "DOSAGE", "CONTAINS", "SPEC", "MNF_ID", "PACK_ID","ATC_ID", "NFC_ID", "EVENTS", "PROD_VERSION as VERSION")
     mole_join.show()
     mole_join.repartition(1) \
         .write.mode("overwrite") \
