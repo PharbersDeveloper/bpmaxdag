@@ -22,6 +22,10 @@ spec:
         value: "0.0.1"
       - key: mnf_dim_version
         value: "0.0.1"
+      - key: product_category_version
+        value: "0.0.1"
+      - key: product_rel_version
+        value: "0.0.1"
       - key: input_path
         value: "s3a://ph-stream/common/public/prod/0.0.22"
       - key: out_put
@@ -30,6 +34,10 @@ spec:
         value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DIMENSION/MOLE_SPEC_DIMENSION/"
       - key: mnf_dim_path
         value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DIMENSION/MNF_DIMENSION/"
+      - key: product_category_path
+        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/RELATIONSHIP/PRODUCT_CATEGORY/"
+      - key: product_rel_path
+        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/RELATIONSHIP/PRODUCT_RELATIONSHIP/"
       - key: table_type
         value: "DIMENSION"
       - key: table_name
