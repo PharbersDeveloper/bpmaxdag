@@ -35,9 +35,9 @@ if access_key:
 '''    
     
 # 需要修改的参数
-project_name = '贝达'
+project_name = 'Servier'
 outdir = '202012'
-if_two_source = 'True'
+if_two_source = 'False'
 # 在c9上新建一个文件，将‘问题医院记录表’本项目要修改的条目复制粘贴（带着标题），保存的时候后缀写.csv即可
 change_file_path = '/home/ywyuan/BP_Max_AutoJob/yyw_scripts//raw_data_change.csv'
 
@@ -54,7 +54,7 @@ change_file = change_file.fillna({"Form":"NA","Specifications":"NA","Pack_Number
 # 产品层面
 change_file_1 = change_file[change_file['错误类型'] == '产品层面']
 if len(change_file_1) >0:
-    change_file_1[['Pack_Number']] = change_file_1[['Pack_Number']].astype(int)
+    # change_file_1[['Pack_Number']] = change_file_1[['Pack_Number']].astype(int)
     change_file_1[['Brand','Pack_Number', 'Date', 'Hospital_ID']] = change_file_1[['Brand','Pack_Number', 'Date', 'Hospital_ID']].astype(str)
     change_file_1['all_info'] = (change_file_1['Molecule'] + change_file_1['Brand'] + change_file_1['Form'] + 
                                     change_file_1['Specifications'] + change_file_1['Pack_Number'] + 
@@ -80,9 +80,14 @@ def change_raw(raw_data_old_path, raw_data_new_path):
     
     # a. 产品层面
     if len(change_file_1) >0:
-        raw_data_old = raw_data_old.withColumn('Brand_new', func.when(raw_data_old.Brand.isNull(), func.lit('nan')).otherwise(raw_data_old.Brand))
-        raw_data_old = raw_data_old.withColumn('all_info', func.concat(func.col('Molecule'), func.col('Brand_new'), func.col('Form'), 
-                                                                       func.col('Specifications'), func.col('Pack_Number'), func.col('Manufacturer'),
+        raw_data_old = raw_data_old.withColumn('Brand_new', func.when(raw_data_old.Brand.isNull(), func.lit('NA')).otherwise(raw_data_old.Brand)) \
+                                  .withColumn('Form_new', func.when(raw_data_old.Form.isNull(), func.lit('NA')).otherwise(raw_data_old.Form))  \
+                .withColumn('Specifications_new', func.when(raw_data_old.Specifications.isNull(), func.lit('NA')).otherwise(raw_data_old.Specifications)) \
+                .withColumn('Pack_Number_new', func.when(raw_data_old.Pack_Number.isNull(), func.lit('NA')).otherwise(raw_data_old.Pack_Number)) \
+                .withColumn('Manufacturer_new', func.when(raw_data_old.Manufacturer.isNull(), func.lit('NA')).otherwise(raw_data_old.Manufacturer))
+        
+        raw_data_old = raw_data_old.withColumn('all_info', func.concat(func.col('Molecule'), func.col('Brand_new'), func.col('Form_new'), 
+                                                                    func.col('Specifications_new'), func.col('Pack_Number_new'), func.col('Manufacturer_new'),
                                                                        func.col('Date'), func.col('ID')))
         raw_data_new = raw_data_old.join(change_file_1_spark, on='all_info', how='left')
 
@@ -103,7 +108,8 @@ def change_raw(raw_data_old_path, raw_data_new_path):
         raw_data_new.where(~raw_data_new.Sales_old.isNull()) \
                 .select('all_info', 'Sales', 'Sales_old', 'Sales_new', 'Units', 'Units_old', 'Units_new').show()
 
-        raw_data_new = raw_data_new.drop('all_info', 'Sales_old', 'Sales_new', 'Units_old', 'Units_new', 'Brand_new')
+        raw_data_new = raw_data_new.drop('all_info', 'Sales_old', 'Sales_new', 'Units_old', 'Units_new', 'Brand_new', 
+                                         'Form_new', 'Specifications_new', 'Pack_Number_new', 'Manufacturer_new')
 
         print('修改前后raw_data行数是否一致：', (raw_data_new.count() == raw_data_old.count()))
     
@@ -122,6 +128,7 @@ def change_raw(raw_data_old_path, raw_data_new_path):
         raw_data_new = raw_data_new_drop.union(raw_data_new_replace)
     
     # 输出结果
+
     raw_data_new = raw_data_new.repartition(2)
     raw_data_new.write.format("parquet") \
         .mode("overwrite").save(raw_data_new_path)
