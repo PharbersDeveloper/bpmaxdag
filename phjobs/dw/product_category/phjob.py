@@ -67,7 +67,7 @@ def execute(**kwargs):
         .selectExpr("DCRANK", "CATEGORY", "VALUE", "DESCRIPTION")
 
     nfc_cate_df = prod_category_df.filter(col("CATEGORY") == "NFC") \
-        .join(df, [col("ATC") == col("VALUE"), col("RANK") == col("DCRANK")], "left_outer") \
+        .join(df, [col("NFC") == col("VALUE"), col("RANK") == col("DCRANK")], "left_outer") \
         .withColumn("DESCRIPTION", col("NFC_DESC")) \
         .selectExpr("DCRANK", "CATEGORY", "VALUE", "DESCRIPTION")
 
@@ -75,8 +75,10 @@ def execute(**kwargs):
         .withColumn("TYPE", lit("nan")) \
         .withColumn("LEVEL", lit("nan")) \
         .withColumn("VERSION", lit(_version)) \
-        .withColumn("ID", _id(lit(13))) \
+        .select("CATEGORY", "TYPE", "LEVEL", "VALUE", "DESCRIPTION", "VERSION") \
+        .distinct()
+    union_df = union_df.withColumn("ID", _id(lit(13))) \
         .select("ID", "CATEGORY", "TYPE", "LEVEL", "VALUE", "DESCRIPTION", "VERSION")
     union_df.show()
-    # union_df.repartition(1).write.mode("overwrite").parquet(_out_put_path)
+    union_df.repartition(1).write.mode("overwrite").parquet(_out_put_path)
     return {}

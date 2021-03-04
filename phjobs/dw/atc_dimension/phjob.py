@@ -46,12 +46,13 @@ def execute(**kwargs):
         .select("ATC1", "ATC1_CODE", "ATC2", "ATC2_CODE", "ATC3", "ATC3_CODE", "ATC4", "ATC4_CODE") \
         .distinct() \
         .withColumn("ID", _id(lit(13))) \
-        .select("ID", "ATC1", "ATC1_CODE", "ATC2", "ATC2_CODE", "ATC3", "ATC3_CODE", "ATC4", "ATC4_CODE")
+        .withColumn("VERSION", lit(_version)) \
+        .select("ID", "ATC1", "ATC1_CODE", "ATC2", "ATC2_CODE", "ATC3", "ATC3_CODE", "ATC4", "ATC4_CODE", "VERSION")
 
     atc_df.show()
-    # atc_df \
-    #     .repartition(1) \
-    #     .write.mode("overwrite") \
-    #     .parquet(_out_put_path)
+    atc_df \
+        .repartition(1) \
+        .write.mode("overwrite") \
+        .parquet(_out_put_path)
 
     return {}

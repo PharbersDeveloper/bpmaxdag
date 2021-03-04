@@ -23,9 +23,9 @@ spec:
       - key: out_put
         value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/#table_type#/#table_name#/"
       - key: table_type
-        value: "RELATIONSHIP"
+        value: "DIMENSION"
       - key: table_name
-        value: "PRODUCT_CATEGORY"
+        value: "PRODUCT_CATEGORY_DIMENSION"
     outputs:
       - key: c
         value: "abc"

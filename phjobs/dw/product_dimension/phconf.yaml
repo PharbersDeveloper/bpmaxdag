@@ -35,9 +35,9 @@ spec:
       - key: mnf_dim_path
         value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DIMENSION/MNF_DIMENSION/"
       - key: product_category_path
-        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/RELATIONSHIP/PRODUCT_CATEGORY/"
+        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DIMENSION/PRODUCT_CATEGORY_DIMENSION/"
       - key: product_rel_path
-        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/RELATIONSHIP/PRODUCT_RELATIONSHIP/"
+        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DIMENSION/PRODUCT_RELATIONSHIP_DIMENSION/"
       - key: table_type
         value: "DIMENSION"
       - key: table_name

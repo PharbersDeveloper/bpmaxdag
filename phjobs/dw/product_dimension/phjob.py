@@ -14,15 +14,12 @@ from pyspark.sql import SparkSession
 
 def execute(**kwargs):
     def generate_random_str(random_length):
-        '''
-        string.digits = 0123456789 string.ascii_letters = 26个小写,26个大写
-        '''
         str_list = random.sample(string.digits + string.ascii_letters, random_length)
         random_str = ''.join(str_list)
         return random_str
 
     def generate_id(atc, mnf_id, pack):
-        return "P" + bytes(atc + mnf_id + generate_random_str(3) + pack, "UTF-8").hex()
+        return "P" + bytes(atc + mnf_id + generate_random_str(5) + pack, "UTF-8").hex()
 
     def replace_null(value):
         if value is None:
@@ -38,8 +35,8 @@ def execute(**kwargs):
     logger.info("当前 owner 为 " + str(kwargs["owner"]))
     logger.info("当前 run_id 为 " + str(kwargs["run_id"]))
     logger.info("当前 job_id 为 " + str(kwargs["job_id"]))
-    # spark = kwargs["spark"]()
-    spark = SparkSession.builder.master("").getOrCreate()
+    spark = kwargs["spark"]()
+    # spark = SparkSession.builder.master("").getOrCreate()
     _id = udf(generate_id, StringType())
     _rn = udf(replace_null, StringType())
     _version = kwargs["version"]
@@ -89,30 +86,29 @@ def execute(**kwargs):
         .join(mnf_dim_df,
               [df.MNF_NAME_CH == mnf_dim_df.MNF_NAME_CH, df.CORP_ID == mnf_dim_df.CORP_ID,
                df.MNF_TYPE == mnf_dim_df.MNF_TYPE, df.CORP_NAME_EN == mnf_dim_df.CORP_NAME_EN], "left_outer") \
+        .join(product_rel_df, [df.IMS_PACK_ID == product_rel_df.PACK_ID_VALUE], "left_outer") \
         .join(atc_df, [df.ATC4_CODE == atc_df.ATC_VALUE], "left_outer") \
-        .join(nfc_df, [df.NFC_ID == nfc_df.NFC_VALUE], "left_outer") \
-        .join(product_rel_df, [df.IMS_PACK_ID == product_rel_df.PACK_ID_VALUE], "left_outer")
-
+        .join(nfc_df, [df.NFC123 == nfc_df.NFC_VALUE], "left_outer")
+        
     mole_join = mole_join \
-        .select("PROD_DESC", "PROD_NAME_CH", "PACK", "PCK_DESC", "DOSAGE", "ATC", "NFC", "MNF_ID",
+        .select("PACK_ID", "ATC_ID", "NFC_ID", "PROD_DESC", "PROD_NAME_CH", "PACK", "PCK_DESC", "DOSAGE", "ATC4_CODE", "NFC123", "MNF_ID",
                 create_map(lit('MOLE_ID'), col("MOLE_ID"),
-                           lit('MOLE_NAME'), col("MOLE_NAME"),
-                           lit("SPEC_ID"), _rn(col("SPEC_ID")),
-                           lit("QUANTITY"), _rn(col("QUANTITY")),
-                           lit("UNIT"), _rn(col("UNIT"))).alias("CONTAINS")) \
+                          lit('MOLE_NAME'), col("MOLE_NAME"),
+                          lit("SPEC_ID"), _rn(col("SPEC_ID")),
+                          lit("QUANTITY"), _rn(col("QUANTITY")),
+                          lit("UNIT"), _rn(col("UNIT"))).alias("CONTAINS")) \
         .withColumn("MOLE_NAME", col("CONTAINS.MOLE_NAME")) \
         .withColumn("SPEC", concat(col("CONTAINS.QUANTITY"), col("CONTAINS.UNIT"))) \
-        .withColumn("ID", _id(col("ATC"), col("MNF_ID"), col("PACK"))) \
+        .withColumn("ID", _id(col("ATC4_CODE"), col("NFC123"), col("PACK"))) \
         .withColumn("MNF_ID", col("MNF_ID")) \
-        .withColumn("EVENTS", lit("nan")) \
         .withColumn("ATC_ID", col("ATC_ID")) \
         .withColumn("NFC_ID", col("NFC_ID")) \
+        .withColumn("EVENTS", lit("nan")) \
         .select("ID", "MOLE_NAME", "PROD_DESC", "PROD_NAME_CH", "PACK", "PCK_DESC",
-                "DOSAGE", "CONTAINS", "SPEC", "MNF_ID", "ATC", "NFC", "EVENTS")
+                "DOSAGE", "CONTAINS", "SPEC", "MNF_ID", "PACK_ID","ATC_ID", "NFC_ID", "EVENTS")
     mole_join.show()
-    print(mole_join.count())
-    # mole_join.repartition(1) \
-    #     .write.mode("overwrite") \
-    #     .parquet(_out_put_path)
+    mole_join.repartition(1) \
+        .write.mode("overwrite") \
+        .parquet(_out_put_path)
 
     return {}

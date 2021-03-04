@@ -72,6 +72,6 @@ def execute(**kwargs):
     union_df = mole_df.unionAll(spec_df)
 
     union_df.show()
-    # union_df.repartition(1).write.mode("overwrite").parquet(_out_put_path)
+    union_df.repartition(1).write.mode("overwrite").parquet(_out_put_path)
 
     return {}
