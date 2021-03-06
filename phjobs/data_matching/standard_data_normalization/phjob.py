@@ -60,10 +60,11 @@ def execute(**kwargs):
     #词形还原
     df_standard = restore_nonstandard_data_to_normal(df_standard)
     ''' 
+    #数据单位标准化
+    df_standard = make_unit_standardization(df_standard)
     #基于不同的总量单位进行SPEC数据提取
     df_standard = extract_useful_cpa_spec_data(df_standard)
-    #单位归一化处理
-    df_standard = make_unit_standardization(df_standard)
+    
     #组合成新SPEC
     df_standard = create_new_cpa_spec_col(df_standard)
     #从cpa spec中抽取pack_id
@@ -165,11 +166,13 @@ def make_dosage_standardization(df_standard,df_replace_standard_dosage):
                                          .otherwise(col("DOSAGE_STANDARD")))  
 
     return df_standard
+
+#spec数据改为array
 def make_spec_become_structured(df_standard):
     df_standard = df_standard.withColumn('SPEC_STANDARD_ORIGINAL', col("SPEC_STANDARD"))
     split_spec_str = r'(\s+)'
     df_standard = df_standard.withColumn("SPEC_STANDARD", split(col("SPEC_STANDARD"), split_spec_str,).cast(ArrayType(StringType())))
-    stopwords = ['PAED','OTCP','SUFR','ADLT','PAP.','IRBX','','/DOS','/ML','TN','x','INF.','/G']
+    stopwords = ['PAED','OTCP','SUFR','ADLT','PAP.','IRBX','','/DOS','/ML','TN','x','INF.','/G','FSH','LH']
     remover = StopWordsRemover(stopWords=stopwords, inputCol="SPEC_STANDARD", outputCol="SPEC__STANDARD_TEMP")
     df_standard = remover.transform(df_standard)
     df_standard = df_standard.drop("SPEC_STANDARD").withColumnRenamed("SPEC__STANDARD_TEMP","SPEC_STANDARD")
@@ -247,16 +250,18 @@ def extract_valid_data(spec):
 
 #处理spec中非标准数据
 def restore_nonstandard_data_to_normal(df_standard):
-    df_standard = df_standard.withColumn("SPEC_STANDARD_TEMP",make_nonstandard_data_become_normal(col("SPEC_STANDARD")))
-    df_standard.select("SPEC_STANDARD_ORIGINAL","SPEC_STANDARD","SPEC_STANDARD_TEMP").distinct().show(200)
+    df_standard = df_standard.withColumn("SPEC_STANDARD", make_nonstandard_data_become_normal_addType(col("SPEC_STANDARD")))
+    df_standard = df_standard.withColumn("SPEC_STANDARD_TEMP", make_nonstandard_data_become_normal_percent_or_rateType(col("SPEC_STANDARD")))
+    df_standard.select("SPEC_STANDARD_ORIGINAL","SPEC_STANDARD","SPEC_STANDARD_TEMP").distinct().show(500)
     print(df_standard.printSchema()) 
     return df_standard
 
+#处理spec中add类型数据
 @pandas_udf(ArrayType(StringType()), PandasUDFType.SCALAR)
-def make_nonstandard_data_become_normal(origin_col):
+def make_nonstandard_data_become_normal_addType(origin_col):
     def judge_nonstandard_data(word):
         data_extraction_rule = r'(\d+(\.\d+)?)(\w+(?=\+))'
-        if re.match(data_extraction_rule, word) != None:
+        if len(re.findall(data_extraction_rule, word)) != 0:
             the_first_data = re.findall(data_extraction_rule, word)[0]
             the_first_data_value = the_first_data[0]
             the_first_data_unit = the_first_data[-1]
@@ -278,19 +283,100 @@ def make_nonstandard_data_become_normal(origin_col):
         return final_data 
     frame = {"origin_col": origin_col}
     df = pd.DataFrame(frame) 
-    df['out_put_col'] = df.apply(lambda x : np.array(tuple(map(judge_nonstandard_data, x.origin_col))), axis=1)
+    df['out_put_col'] = df.apply(lambda x:np.array(tuple(map(judge_nonstandard_data, x.origin_col))), axis=1)
     return df['out_put_col']
 
+#处理spec中浓度
+@pandas_udf(ArrayType(StringType()), PandasUDFType.SCALAR)
+def make_nonstandard_data_become_normal_percent_or_rateType(origin_col):
+    frame = {"origin_col": origin_col}
+    df = pd.DataFrame(frame) 
+    def make_elements_of_list_into_one_string(origin_list):
+        placeholder_word = ' '
+        output_sentence = reduce(lambda x,y: x + f"{placeholder_word}" + y ,origin_list)
+        return output_sentence
+    def extract_gross_data(sentence):
+        percent_extract_pattern = r'\d+(\.\d+)?(?=.*?)%'
+        remove_placeholder = ''
+        if len(re.findall(percent_extract_pattern, sentence)) != 0:
+            sentence = re.sub(percent_extract_pattern,remove_placeholder,sentence)
+        gross_data_pattern = r'[\+]?(\d+(\.\d+)?)(?!\d+)(\w+)'
+        try:
+            if len(re.findall(gross_data_pattern, sentence)) == 0:
+                gross_data = sentence
+            else:
+                extract_data_list = re.findall(gross_data_pattern, sentence)
+                max_gross_value_units = list(map(lambda x: x[-1], extract_data_list))
+                gross_value_list = list(map(lambda x: float(x[0]), extract_data_list))
+                max_gross_value = max(gross_value_list)
+                max_gross_value_index = gross_value_list.index(max_gross_value)
+                max_gross_value_unit = max_gross_value_units[max_gross_value_index]
+                gross_data = str(max_gross_value) + max_gross_value_unit
+        except:
+            gross_data = sentence
+        return gross_data
+    def extract_value_and_unit(word):
+        gross_data_pattern = r'[\+]?(\d+(\.\d+)?)([^%]\w+)'
+        try:
+            if len(re.findall(gross_data_pattern,word)) == 0:
+                return None
+            else:
+                gross_data = re.findall(gross_data_pattern,word)[0]
+                gross_value = gross_data[0]
+                gross_unit = gross_data[-1]
+                return (gross_value,gross_unit)
+        except:
+            return None
+    def make_percent_or_rate_into_normal(word, origin_list):
+        gross_data = extract_value_and_unit(origin_list)
+        if gross_data == None:
+            data = word
+        else:
+            rate_pattern = r'[\s+()]?(\d+)[：:](\d+)'
+            percent_pattern = r'[\s+]?(\d+(\.\d+)?)(?=%)'
+            gross_value = gross_data[0]
+            gross_unit = gross_data[-1]
+            if len(re.findall(percent_pattern, word)) != 0:
+                match_percent_data = re.findall(percent_pattern, word)[0]
+                if len(match_percent_data) >= 1:
+                    percent_data = match_percent_data[0]
+                    numerical_value = float(float(percent_data) / 100)
+                    if gross_unit == "ML":
+                        gross_unit = "MG"
+                        numerical_value = numerical_value * 1000
+                    data = str(float(numerical_value * float(gross_value))) + gross_unit
+                else:
+                    data = word
+            elif len(re.findall(rate_pattern, word)) != 0:
+                match_rate_data = re.findall(rate_pattern, word)[0]
+                if len(match_rate_data) >=1 :
+                    min_value = min(match_rate_data)
+                    max_value = max(match_rate_data)
+                    numerical_value = float( int(min_value) / (int(min_value) + int(max_value)))
+                    if gross_unit == "ML":
+                        gross_unit = "MG"
+                        numerical_value = numerical_value * 1000
+                    data = str(float(numerical_value * float(gross_value))) + gross_unit
+                else:
+                    data = word
+            else:    
+                
+                    data = word
+        return data
+    
+    def execute_percent_or_rate_into_normal(origin_list):
+        sentence = make_elements_of_list_into_one_string(origin_list)
+        gross_data = extract_gross_data(sentence)
+        out_put_file = list(map(lambda x: make_percent_or_rate_into_normal(x,gross_data),origin_list))
+        return out_put_file
+    
+    df['out_put_col'] = df.apply( lambda x: np.array(execute_percent_or_rate_into_normal(x.origin_col)), axis=1)
+    return df['out_put_col']
+
+#数据单位标准化
 def make_unit_standardization(df_standard):
     
-    df_standard = df_standard.withColumn("SPEC_STANDARD_GROSS_DATA", create_values_and_units(col("SPEC_STANDARD_GROSS_DATA")))
-    df_standard = df_standard.withColumn("SPEC_STANDARD_VALID_DATA", create_values_and_units(col("SPEC_STANDARD_VALID_DATA")))
-    ''' 
-    df_standard = df_standard.withColumn("SPEC_STANDARD_GROSS_DATA", make_spec_units_normal(col("SPEC_STANDARD_GROSS_DATA")))
-    df_standard = df_standard.withColumn("SPEC_STANDARD_VALID_DATA", make_spec_units_normal(col("SPEC_STANDARD_VALID_DATA")))
-    df_standard = df_standard.withColumn("SPEC_STANDARD_GROSS_DATA", combine_values_and_units(col("SPEC_STANDARD_GROSS_DATA")))
-    df_standard = df_standard.withColumn("SPEC_STANDARD_VALID_DATA", combine_values_and_units(col("SPEC_STANDARD_VALID_DATA")))
-    '''
+    df_standard = df_standard.withColumn("SPEC_STANDARD", create_values_and_units(col("SPEC_STANDARD")))
     return df_standard 
 
 @pandas_udf(ArrayType(StringType()), PandasUDFType.SCALAR)
