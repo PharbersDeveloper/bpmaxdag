@@ -59,9 +59,11 @@ def execute(**kwargs):
     df_standard = make_spec_become_structured(df_standard)
     #词形还原
     df_standard = restore_nonstandard_data_to_normal(df_standard)
-    ''' 
     #数据单位标准化
     df_standard = make_unit_standardization(df_standard)
+    #spec有效性和总量拆分
+    df_standard = extract_spec_valid_and_gross(df_standard)
+    '''
     #基于不同的总量单位进行SPEC数据提取
     df_standard = extract_useful_cpa_spec_data(df_standard)
     
@@ -251,9 +253,7 @@ def extract_valid_data(spec):
 #处理spec中非标准数据
 def restore_nonstandard_data_to_normal(df_standard):
     df_standard = df_standard.withColumn("SPEC_STANDARD", make_nonstandard_data_become_normal_addType(col("SPEC_STANDARD")))
-    df_standard = df_standard.withColumn("SPEC_STANDARD_TEMP", make_nonstandard_data_become_normal_percent_or_rateType(col("SPEC_STANDARD")))
-    df_standard.select("SPEC_STANDARD_ORIGINAL","SPEC_STANDARD","SPEC_STANDARD_TEMP").distinct().show(500)
-    print(df_standard.printSchema()) 
+    df_standard = df_standard.withColumn("SPEC_STANDARD", make_nonstandard_data_become_normal_percent_or_rateType(col("SPEC_STANDARD")))
     return df_standard
 
 #处理spec中add类型数据
@@ -377,6 +377,7 @@ def make_nonstandard_data_become_normal_percent_or_rateType(origin_col):
 def make_unit_standardization(df_standard):
     
     df_standard = df_standard.withColumn("SPEC_STANDARD", create_values_and_units(col("SPEC_STANDARD")))
+
     return df_standard 
 
 @pandas_udf(ArrayType(StringType()), PandasUDFType.SCALAR)
@@ -476,6 +477,45 @@ def make_spec_units_normal(original_col):
         return df['original_col']
     df["original_col"] =  df.apply(integrate_spec_data, axis=1) 
     return df["original_col"] 
+
+def extract_spec_valid_and_gross(df_standard):
+    df_standard = df_standard.withColumn("SPEC_STANDARD_GROSS", make_spec_gross_data(col("SPEC_STANDARD")))
+    df_standard.select("SPEC_STANDARD_ORIGINAL","SPEC_STANDARD","SPEC_STANDARD_GROSS").distinct().show(500)
+    print(df_standard.printSchema())
+    return df_standard
+
+@pandas_udf(StringType(), PandasUDFType.SCALAR)
+def make_spec_gross_data(spec):
+    frame = {"spec":spec}
+    df = pd.DataFrame(frame)
+    def make_elements_of_list_into_one_string(origin_list):
+        placeholder_word = ' '
+        output_sentence = reduce(lambda x,y: x + f"{placeholder_word}" + y ,origin_list)
+        return output_sentence
+    def extract_gross_data(origin_list):
+        sentence = make_elements_of_list_into_one_string(origin_list)
+        percent_extract_pattern = r'\d+(\.\d+)?(?=.*?)%'
+        remove_placeholder = ''
+        if len(re.findall(percent_extract_pattern, sentence)) != 0:
+            sentence = re.sub(percent_extract_pattern,remove_placeholder,sentence)
+        gross_data_pattern = r'[\+]?(\d+(\.\d+)?)(?!\d+)(\w+)'
+        try:
+            if len(re.findall(gross_data_pattern, sentence)) == 0:
+                gross_data = sentence
+            else:
+                extract_data_list = re.findall(gross_data_pattern, sentence)
+                max_gross_value_units = list(map(lambda x: x[-1], extract_data_list))
+                gross_value_list = list(map(lambda x: float(x[0]), extract_data_list))
+                max_gross_value = max(gross_value_list)
+                max_gross_value_index = gross_value_list.index(max_gross_value)
+                max_gross_value_unit = max_gross_value_units[max_gross_value_index]
+                gross_data = str(max_gross_value) + max_gross_value_unit
+        except:
+            gross_data = sentence
+        return gross_data
+    df['spec_standard_gross'] = df.apply(lambda x: extract_gross_data(x.spec), axis=1)
+    return df['spec_standard_gross']
+
 
 #合并数值和单位
 @pandas_udf(StringType(), PandasUDFType.SCALAR)
