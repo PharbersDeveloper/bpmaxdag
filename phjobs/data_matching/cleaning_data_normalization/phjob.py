@@ -6,6 +6,7 @@ This is job template for Pharbers Max Job
 from phcli.ph_logs.ph_logs import phs3logger
 import uuid
 import re
+from functools import reduce
 import numpy as np
 import pandas as pd
 from pyspark.sql.functions import col , concat , concat_ws
@@ -76,6 +77,7 @@ def execute(**kwargs):
     else:
         #cpa中spec转化成结构化数据
         df_cleanning = make_cpa_spec_become_structured(df_cleanning)
+        '''
         #基于不同的总量单位进行SPEC数据提取
         df_cleanning = extract_useful_cpa_spec_data(df_cleanning)
         #单位归一化处理
@@ -87,7 +89,8 @@ def execute(**kwargs):
         df_cleanning = get_pca_inter(df_cleanning,df_second_interfere)
         #选择指定的列
         df_cleanning = select_cpa_col(df_cleanning)
-    df_cleanning.write.mode("overwrite").parquet(result_path)
+#     df_cleanning.write.mode("overwrite").parquet(result_path)
+       '''
 
 ########------------main fuction-------------------------################
     return {}
