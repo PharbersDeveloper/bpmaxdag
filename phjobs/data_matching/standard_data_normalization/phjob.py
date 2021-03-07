@@ -63,6 +63,8 @@ def execute(**kwargs):
     df_standard = make_unit_standardization(df_standard)
     #spec有效性和总量拆分
     df_standard = extract_spec_valid_and_gross(df_standard)
+    #spec array转string类型
+    df_standard = make_spec_become_string(df_standard)
     '''
     #基于不同的总量单位进行SPEC数据提取
     df_standard = extract_useful_cpa_spec_data(df_standard)
@@ -308,7 +310,8 @@ def make_nonstandard_data_become_normal_percent_or_rateType(origin_col):
                 extract_data_list = re.findall(gross_data_pattern, sentence)
                 max_gross_value_units = list(map(lambda x: x[-1], extract_data_list))
                 gross_value_list = list(map(lambda x: float(x[0]), extract_data_list))
-                max_gross_value = max(gross_value_list)
+#                 max_gross_value = max(gross_value_list)
+                max_gross_value = gross_value_list[-1]            #单位的优先级还没做，先暂时选最后一位数据作为总量
                 max_gross_value_index = gross_value_list.index(max_gross_value)
                 max_gross_value_unit = max_gross_value_units[max_gross_value_index]
                 gross_data = str(max_gross_value) + max_gross_value_unit
@@ -480,8 +483,7 @@ def make_spec_units_normal(original_col):
 
 def extract_spec_valid_and_gross(df_standard):
     df_standard = df_standard.withColumn("SPEC_STANDARD_GROSS", make_spec_gross_data(col("SPEC_STANDARD")))
-    df_standard.select("SPEC_STANDARD_ORIGINAL","SPEC_STANDARD","SPEC_STANDARD_GROSS").distinct().show(500)
-    print(df_standard.printSchema())
+    df_standard = df_standard.withColumn("SPEC_STANDARD_VALID", make_spec_valid_data(col("SPEC_STANDARD"),col("SPEC_STANDARD_GROSS")))
     return df_standard
 
 @pandas_udf(StringType(), PandasUDFType.SCALAR)
@@ -506,7 +508,8 @@ def make_spec_gross_data(spec):
                 extract_data_list = re.findall(gross_data_pattern, sentence)
                 max_gross_value_units = list(map(lambda x: x[-1], extract_data_list))
                 gross_value_list = list(map(lambda x: float(x[0]), extract_data_list))
-                max_gross_value = max(gross_value_list)
+#                 max_gross_value = max(gross_value_list)
+                max_gross_value = gross_value_list[-1]            #单位的优先级还没做，先暂时选最后一位数据作为总量
                 max_gross_value_index = gross_value_list.index(max_gross_value)
                 max_gross_value_unit = max_gross_value_units[max_gross_value_index]
                 gross_data = str(max_gross_value) + max_gross_value_unit
@@ -515,6 +518,63 @@ def make_spec_gross_data(spec):
         return gross_data
     df['spec_standard_gross'] = df.apply(lambda x: extract_gross_data(x.spec), axis=1)
     return df['spec_standard_gross']
+
+@pandas_udf(StringType(), PandasUDFType.SCALAR)
+def make_spec_valid_data(spec,spec_gross_data):
+    frame = {"spec":spec,
+            "spec_gross_data":spec_gross_data}
+    df = pd.DataFrame(frame)
+    def make_elements_of_list_into_one_string(origin_list):
+        placeholder_word = ' '
+        output_sentence = reduce(lambda x,y: x + f"{placeholder_word}" + y ,origin_list)
+        return output_sentence
+    def remove_gross_from_spec(spec,spec_gross_data):
+        try:
+            if spec_gross_data in spec:
+                spec = [x for x in spec if x != spec_gross_data]
+                spec_valid = make_elements_of_list_into_one_string(spec)       
+            else:
+                spec_valid = ' '
+        except:
+            spec_valid = ' '
+            return spec_valid
+        
+#     df['valid_data'] = df.apply(lambda x:remove_gross_from_spec(x.spec,x.spec_gross_data), axis=1)
+    df['valid_data'] = df.apply(lambda x:x.spec[0], axis=1)
+    return df['valid_data']
+    
+
+
+def make_spec_become_string(df_standard):
+    df_standard = df_standard.withColumn("SPEC_STANDARD", make_spec_from_array_into_string(col("SPEC_STANDARD")))
+    df_standard.select("SPEC_STANDARD_ORIGINAL","SPEC_STANDARD","SPEC_STANDARD_GROSS","SPEC_STANDARD_VALID").distinct().show(500)
+    print(df_standard.printSchema())
+    return df_standard
+
+
+
+
+@pandas_udf(StringType(), PandasUDFType.SCALAR)
+def make_spec_from_array_into_string(spec_standard):
+    frame = {"spec_standard":spec_standard}
+    df = pd.DataFrame(frame)
+    def make_elements_of_list_into_one_string(origin_list):
+        placeholder_word = ' '
+        try:
+            output_sentence = str(reduce(lambda x,y: x + f"{placeholder_word}" + y ,origin_list))
+        except:
+            output_sentence = ''
+        return output_sentence
+    df['out_put_col'] = df.apply(lambda x: make_elements_of_list_into_one_string(x.spec_standard), axis=1)
+    return df['out_put_col']
+
+
+
+
+
+
+
+
 
 
 #合并数值和单位
