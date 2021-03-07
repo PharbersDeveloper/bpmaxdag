@@ -61,10 +61,8 @@ def execute(**kwargs):
     df_standard = extract_spec_valid_and_gross(df_standard)
     #spec array转string类型
     df_standard = make_spec_become_string(df_standard)
-    '''
     df_standard.write.mode("overwrite").parquet(result_path)
 #########--------------main function--------------------################# 
-    '''
     return {}
 
 ################--------------------- functions ---------------------################

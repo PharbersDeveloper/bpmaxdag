@@ -77,18 +77,19 @@ def execute(**kwargs):
     else:
         #cpa中spec转化成结构化数据
         df_cleanning = make_cpa_spec_become_structured(df_cleanning)
-        '''
-        #基于不同的总量单位进行SPEC数据提取
-        df_cleanning = extract_useful_cpa_spec_data(df_cleanning)
-        #单位归一化处理
-        df_cleanning = make_cpa_unit_standardization(df_cleanning)
-        #组合成新SPEC
-        df_cleanning = create_new_cpa_spec_col(df_cleanning)
-        #从cpa spec中抽取pack_id
+        #词形还原
+        df_cleanning = restore_nonstandard_data_to_normal(df_cleanning)
+        #数据单位标准化
+        df_cleanning = make_unit_standardization(df_cleanning)
+        #spec 有效性和总量拆分
+        df_cleanning = extract_spec_valid_and_gross(df_cleanning)
+        #spec array转string类型
+        df_cleanning = make_spec_become_string(df_cleanning)
+        #处理pack_id
         df_cleanning = get_cpa_pack(df_cleanning)
-        df_cleanning = get_pca_inter(df_cleanning,df_second_interfere)
-        #选择指定的列
-        df_cleanning = select_cpa_col(df_cleanning)
+        
+        df_cleanning = get_inter(df_cleanning,df_second_interfere)
+        '''
 #     df_cleanning.write.mode("overwrite").parquet(result_path)
        '''
 
@@ -122,6 +123,10 @@ def get_result_path(kwargs, run_id, job_id):
 更高的并发数
 """
 def modify_pool_cleanning_prod(spark, raw_data_path):
+    raw_data_path = r's3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/azsanofi/0.0.15/splitdata'
+
+#     raw_data_path = r's3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/azsanofi/0.0.15/for_analysis7'
+#     raw_data_path = r's3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/qilu/0.0.11/splitdata'
     if raw_data_path.endswith(".csv"):
         df_cleanning = spark.read.csv(path=raw_data_path, header=True).withColumn("ID", pudf_id_generator(col("MOLE_NAME")))
     else:
@@ -221,6 +226,7 @@ def extract_useful_spec_data(df_cleanning):
     return df_cleanning
     
 def make_cpa_spec_become_structured(df_cleanning):
+    
     df_cleanning = df_cleanning.withColumn('SPEC_ORIGINAL', col("SPEC"))
     remove_pattern = r'([×*].*)'
     df_cleanning = df_cleanning.withColumn("SPEC", regexp_replace(col("SPEC"),remove_pattern,''))
@@ -230,176 +236,293 @@ def make_cpa_spec_become_structured(df_cleanning):
     remover = StopWordsRemover(stopWords=stopwords, inputCol="SPEC", outputCol="SPEC_TEMP")
     df_cleanning = remover.transform(df_cleanning)
     df_cleanning = df_cleanning.drop("SPEC").withColumnRenamed("SPEC_TEMP","SPEC")
+
     return df_cleanning
 
-@pandas_udf(ArrayType(StringType()),PandasUDFType.SCALAR)
-def make_single_word_to_double(cpa_valid_data):
-    frame = {'cpa_valid_data':cpa_valid_data}
-    df = pd.DataFrame(frame)
-    def remove_stopwords(df):
-        if  len(df.cpa_valid_data) ==1  and df.cpa_valid_data[-1].isdigit() == False  and df.cpa_valid_data[-1].isalpha() == False: 
-            try:
-                integer_split_pattern = r'^(\d+)(\w+)$' 
-                df['cpa_valid_data'] = np.array(re.match(integer_split_pattern, str(df.cpa_valid_data[-1])).groups([0,-1]))
-            except:
-                df['cpa_valid_data'] = np.array(df.cpa_valid_data)
-        else: 
-            df['cpa_valid_data'] = np.array(df.cpa_valid_data) 
-        if len(df.cpa_valid_data) ==1 and df.cpa_valid_data[-1].isdigit() == False  and df.cpa_valid_data[-1].isalpha() == False: 
-            try:
-                decimal_split_pattern = r'^(\d+\.\d+)(\w+)$' 
-                df['cpa_valid_data'] = np.array(re.match(decimal_split_pattern, str(df.cpa_valid_data[-1])).groups([0,-1]))
-            except:
-                df['cpa_valid_data'] = np.array(df.cpa_valid_data)
-        else: 
-            df['cpa_valid_data'] = np.array(df.cpa_valid_data)     
-        return df['cpa_valid_data']
 
-    df['SPEC_CPA_VALID_DATA'] = df.apply(remove_stopwords, axis=1)
-    return df['SPEC_CPA_VALID_DATA'] 
+#处理spec中非标准数据
+def restore_nonstandard_data_to_normal(df_cleanning):
+    df_cleanning = df_cleanning.withColumn("SPEC", make_nonstandard_data_become_normal_addType(col("SPEC")))
+    df_cleanning = df_cleanning.withColumn("SPEC", make_nonstandard_data_become_normal_percent_or_rateType(col("SPEC")))
+    
+    return df_cleanning
 
-def extract_useful_cpa_spec_data(df_cleanning):
-    #cpa总量数据的提取
-    df_cleanning = df_cleanning.withColumn("SPEC", make_single_word_to_double(col("SPEC")))
-    print(df_cleanning.printSchema())
-    @pandas_udf(ArrayType(StringType()),PandasUDFType.SCALAR)
-    def extract_gross_data(spec):
-        frame = {
-           "spec":spec,
-       } 
-        df = pd.DataFrame(frame)
-        def add_cpa_gross_data(df):
-            if len(df.spec) >= 2 :
-                if df.spec[-1].isdigit() == False  and df.spec[-1].isalpha() == False:
-                    df["CPA_GROSS_DATA"] = ['{}'.format(df.spec[-1])] 
+#处理spec中add类型数据
+@pandas_udf(ArrayType(StringType()), PandasUDFType.SCALAR)
+def make_nonstandard_data_become_normal_addType(origin_col):
+    def judge_nonstandard_data(word):
+        data_extraction_rule = r'(\d+(\.\d+)?)(\w+(?=\+))'
+        if len(re.findall(data_extraction_rule, word)) != 0:
+            the_first_data = re.findall(data_extraction_rule, word)[0]
+            the_first_data_value = the_first_data[0]
+            the_first_data_unit = the_first_data[-1]
+            the_test_of_data_extract_rule = r'\+(\d+(\.\d+)?)(\w+)' 
+            the_rest_of_data = re.findall(the_test_of_data_extract_rule, word)
+            the_rest_of_data_values = list(map(lambda x : x[0], the_rest_of_data))
+            the_rest_of_data_units = list(map(lambda x: x[-1], the_rest_of_data))
+            if len(set(the_rest_of_data_units)) == 1 and the_first_data_unit in the_rest_of_data_units:
+                try:
+                    the_sum_of_rest_data_values = reduce(lambda x , y: float(x) + float(y), the_rest_of_data_values)
+                    the_sum_of_all_data = float(the_first_data_value) + float(the_sum_of_rest_data_values)
+                except:
+                    the_sum_of_all_data = float(the_first_data_value)
+                final_data = str(the_sum_of_all_data) + the_first_data_unit
+            else:
+                final_data = word
+        else:
+            final_data = word
+        return final_data 
+    frame = {"origin_col": origin_col}
+    df = pd.DataFrame(frame) 
+    df['out_put_col'] = df.apply(lambda x:np.array(tuple(map(judge_nonstandard_data, x.origin_col))), axis=1)
+    return df['out_put_col']
+
+#处理spec中浓度
+@pandas_udf(ArrayType(StringType()), PandasUDFType.SCALAR)
+def make_nonstandard_data_become_normal_percent_or_rateType(origin_col):
+    frame = {"origin_col": origin_col}
+    df = pd.DataFrame(frame) 
+    def make_elements_of_list_into_one_string(origin_list):
+        placeholder_word = ' '
+        output_sentence = reduce(lambda x,y: x + f"{placeholder_word}" + y ,origin_list)
+        return output_sentence
+    def extract_gross_data(sentence):
+        percent_extract_pattern = r'\d+(\.\d+)?(?=.*?)%'
+        remove_placeholder = ''
+        if len(re.findall(percent_extract_pattern, sentence)) != 0:
+            sentence = re.sub(percent_extract_pattern,remove_placeholder,sentence)
+        gross_data_pattern = r'[\+]?(\d+(\.\d+)?)(?!\d+)(\w+)'
+        try:
+            if len(re.findall(gross_data_pattern, sentence)) == 0:
+                gross_data = sentence
+            else:
+                extract_data_list = re.findall(gross_data_pattern, sentence)
+                max_gross_value_units = list(map(lambda x: x[-1], extract_data_list))
+                gross_value_list = list(map(lambda x: float(x[0]), extract_data_list))
+#                 max_gross_value = max(gross_value_list)
+                max_gross_value = gross_value_list[-1]            #单位的优先级还没做，先暂时选最后一位数据作为总量
+                max_gross_value_index = gross_value_list.index(max_gross_value)
+                max_gross_value_unit = max_gross_value_units[max_gross_value_index]
+                gross_data = str(max_gross_value) + max_gross_value_unit
+        except:
+            gross_data = sentence
+        return gross_data
+    def extract_value_and_unit(word):
+        gross_data_pattern = r'[\+]?(\d+(\.\d+)?)(\w+)'
+        try:
+            if len(re.findall(gross_data_pattern,word)) == 0:
+                return None
+            else:
+                gross_data = re.findall(gross_data_pattern,word)[0]
+                gross_value = gross_data[0]
+                gross_unit = gross_data[-1]
+                return (gross_value,gross_unit)
+        except:
+            return None
+    def make_percent_or_rate_into_normal(word,gross_data):
+        gross_data = extract_value_and_unit(gross_data)
+        if gross_data == None:
+            data = word
+        else:
+            rate_pattern = r'[\s+()]?(\d+)[：:](\d+)'
+            percent_pattern = r'[\s+]?(\d+(\.\d+)?)(?=%)'
+            gross_value = gross_data[0]
+            gross_unit = gross_data[-1]
+            if len(re.findall(percent_pattern, word)) != 0:
+                match_percent_data = re.findall(percent_pattern, word)[0]
+                if len(match_percent_data) >= 1:
+                    percent_data = match_percent_data[0]
+                    numerical_value = float(float(percent_data) / 100)
+                    if gross_unit == "ML":
+                        gross_unit = "MG"
+                        numerical_value = numerical_value * 1000
+                    data = str(float(numerical_value * float(gross_value))) + gross_unit
                 else:
-                    df["CPA_GROSS_DATA"] = df.spec[-2:]
-            else:
-                df["CPA_GROSS_DATA"] = np.array(df.spec)
-            return df["CPA_GROSS_DATA"]
-        df["CPA_GROSS_DATA"] = df.apply(add_cpa_gross_data, axis=1)
-        return df["CPA_GROSS_DATA"]
-    df_cleanning = df_cleanning.withColumn("SPEC_CPA_GROSS_DATA", extract_gross_data(col("SPEC")))
-     
-    #cpa有效性数据提取
-    @pandas_udf(ArrayType(StringType()), PandasUDFType.SCALAR)
-    def extract_valid_data(spec, spec_cpa_gross_data):
-        frame = {
-            "spec":spec,
-            "spec_cpa_gross_data":spec_cpa_gross_data
-        }
-        df = pd.DataFrame(frame)
-        def add_cpa_valid_data(df):
-            if len(df.spec) == len(df.spec_cpa_gross_data):
-                df['CPA_VALID_DATA'] = []  
-            else:
-                index = int(len(df.spec)) - int(len(df.spec_cpa_gross_data)) 
-                df['CPA_VALID_DATA'] = np.array([x for x in df.spec[:index]])
-                #df['CPA_VALID_DATA'] = np.array([x for x in df.spec if x not in df.spec_cpa_gross_data])
-            return df['CPA_VALID_DATA'] 
-        df["CPA_VALID_DATA"] = df.apply(add_cpa_valid_data, axis=1)
-        return df["CPA_VALID_DATA"]
-    df_cleanning = df_cleanning.withColumn("SPEC_CPA_VALID_DATA", extract_valid_data(df_cleanning.SPEC, df_cleanning.SPEC_CPA_GROSS_DATA))
+                    data = word
+            elif len(re.findall(rate_pattern, word)) != 0:
+                match_rate_data = re.findall(rate_pattern, word)[0]
+                if len(match_rate_data) >=1 :
+                    min_value = min(match_rate_data)
+                    max_value = max(match_rate_data)
+                    numerical_value = float( int(min_value) / (int(min_value) + int(max_value)))
+                    if gross_unit == "ML":
+                        gross_unit = "MG"
+                        numerical_value = numerical_value * 1000
+                    data = str(float(numerical_value * float(gross_value))) + gross_unit
+                else:
+                    data = word
+            else:    
+                
+                    data = word
+        return data
+    
+    def execute_percent_or_rate_into_normal(origin_list):
+        sentence = make_elements_of_list_into_one_string(origin_list)
+        gross_data = extract_gross_data(sentence)
+        out_put_file = list(map(lambda x: make_percent_or_rate_into_normal(x,gross_data),origin_list))
+        return out_put_file
+    
+    df['out_put_col'] = df.apply( lambda x: np.array(execute_percent_or_rate_into_normal(x.origin_col)), axis=1)
+    return df['out_put_col']
+
+
+#数据单位标准化
+def make_unit_standardization(df_cleanning):
+    
+    df_cleanning = df_cleanning.withColumn("SPEC", create_values_and_units(col("SPEC")))
+    
+    
     return df_cleanning
 
-def make_cpa_spec_gross_and_valid_prue(df_cleanning):
-    stopwords = ['POWD','IN','SOLN','IJ','AERO','CAP','SYRP','OR','EX','PATC','GRAN','OINT','PILL','TAB','SUSP','OP','SL','NA','LSU']
-    remover = StopWordsRemover(stopWords=stopwords, inputCol="SPEC_CPA_VALID_DATA", outputCol="SPEC_CPA_VALID_DATA_TEMP")
-    df_cleanning = remover.transform(df_cleanning)
-    df_cleanning = df_cleanning.drop("SPEC_CPA_VALID_DATA").withColumnRenamed("SPEC_CPA_VALID_DATA_TEMP","SPEC_CPA_VALID_DATA")
-    @pandas_udf(ArrayType(StringType()),PandasUDFType.SCALAR)
-    def make_cpa_valid_data_to_string(cpa_valid_data):
-        frame = {'cpa_valid_data':cpa_valid_data}
-        df = pd.DataFrame(frame)
-        def remove_stopwords(df):
-            if len(df.cpa_valid_data) == 1 and df.cpa_valid_data[-1].isdigit() == False  and df.cpa_valid_data[-1].isalpha() == False: 
-                try:
-                    integer_split_pattern = r'^(\d+)(\w+)$' 
-                    df['cpa_valid_data'] = np.array(re.match(integer_split_pattern, str(df.cpa_valid_data[-1])).groups([0,-1]))
-                except:
-                    df['cpa_valid_data'] = np.array(df.cpa_valid_data)
-            else: 
-                df['cpa_valid_data'] = np.array(df.cpa_valid_data) 
-            if len(df.cpa_valid_data) == 1 and df.cpa_valid_data[-1].isdigit() == False  and df.cpa_valid_data[-1].isalpha() == False: 
-                try:
-                    decimal_split_pattern = r'^(\d+\.\d+)(\w+)$' 
-                    df['cpa_valid_data'] = np.array(re.match(decimal_split_pattern, str(df.cpa_valid_data[-1])).groups([0,-1]))
-                except:
-                    df['cpa_valid_data'] = np.array(df.cpa_valid_data)
-            else: 
-                df['cpa_valid_data'] = np.array(df.cpa_valid_data)     
-            return df['cpa_valid_data']
+
+@pandas_udf(ArrayType(StringType()), PandasUDFType.SCALAR)
+def create_values_and_units(origin_col):
+    unit_data_dict = {
+        'G':'MG',
+        'UG':'MG',
+        'Y':'MG',
+        'GM':'MG',
+        'L':'ML',
+        'IU':'U',
+        'MU':'U',
+        'MIU':'U',
+        'k':'U',
+        'AXAIU':'U',
+        'mCi':'MC',
+        'MG':'MG'
+    }
+    conversion_dict ={
+        'G':1000,
+        'UG':0.001,
+        'Y':0.001,
+        'GM':1,
+        'L':1000,
+        'MU':1000000,
+        'M':100000,
+        'MIU':1000000,
+        'K':1000,
+        'MG':1
+    }
+
+        #分割字符
+    def split_int_word(word):
         
-        df['SPEC_CPA_VALID_DATA'] = df.apply(remove_stopwords, axis=1)
-        return df['SPEC_CPA_VALID_DATA'] 
-    df_cleanning = df_cleanning.withColumn("SPEC_CPA_VALID_DATA", make_cpa_valid_data_to_string(df_cleanning.SPEC_CPA_VALID_DATA))
+        pattern_decimal = r'(\d+\.\d+)(\w+)$'
+        try:
+            if re.match(pattern_decimal, word) == None:
+                pattern_decimal = r'(\d+)(\w+)$'
+            s = re.findall(pattern_decimal,word)[0]
+            value = str(float(s[0]) * float(conversion_dict[s[1]]))
+            unit = str(unit_data_dict[s[1]])
+            temp_data = value + unit
+        except:
+            temp_data = word
+        return temp_data 
+#         extract_pattern = r'[\+]?(\d+(\.\d+)?)([^%]\w+)'
+#         try:
+#             if len(re.findall(gross_data_pattern,word)) == 0:
+#                 return word
+#             else:
+#                 extract_data = re.findall(gross_data_pattern,word)[0]
+#                 extract_value = gross_data[0]
+#                 extract_unit = gross_data[-1]
+#                 value = str(float(extract_value) * float(conversion_dict[extract_unit]))
+#                 word = value + extract_unit
+#                 return word
+#         except:
+#                 return word
+
+    frame = {"origin_col":origin_col}
+    df = pd.DataFrame(frame)
+    df['out_put_col'] = df.apply(lambda x: np.array(tuple(map(split_int_word, x.origin_col))),axis=1)
+    return df['out_put_col']
+
+
+def extract_spec_valid_and_gross(df_cleanning):    
+    
+    df_cleanning = df_cleanning.withColumn("SPEC_GROSS", make_spec_gross_data(col("SPEC")))
+    df_cleanning = df_cleanning.withColumn("SPEC_VALID", make_spec_valid_data(col("SPEC"),col("SPEC_GROSS")))
+    
     return df_cleanning
 
-def make_cpa_unit_standardization(df_cleanning):
-    @pandas_udf(ArrayType(StringType()), PandasUDFType.SCALAR)
-    def make_spec_units_normal(original_col):
-        frame = {"original_col":original_col}  
-        df = pd.DataFrame(frame)
-        unit_data_dict = {
-            'G':'MG',
-            'UG':'MG',
-            'Y':'MG',
-            'GM':'MG',
-            'L':'ML',
-            'IU':'U',
-            'MU':'U',
-            'MIU':'U',
-            'k':'U',
-            'AXAIU':'U',
-            'mCi':'MC',
-            'MG':'MG'
-        }
-        conversion_dic ={
-            'G':1000,
-            'UG':0.001,
-            'Y':0.001,
-            'GM':1,
-            'L':1000,
-            'MU':1000000,
-            'M':100000,
-            'MIU':1000000,
-            'K':1000,
-            'MG':1
-        }
-        def integrate_spec_data(df):
-            nonlocal unit_data_dict
-            nonlocal conversion_dic
-            try:
-                if len(df.original_col) == 2:
-                    df.original_col[0] = str(float(df.original_col[0]) * float(conversion_dic[df.original_col[-1]]))
-                    df.original_col[-1] = str(unit_data_dict[df.original_col[-1]])
-                    df['original_col'] = np.array(df.original_col)
-                else:
-                    df['original_col'] = np.array(df.original_col)
-            except:
-                df['original_col'] = np.array(df.original_col)
-            return df['original_col']
-        df["original_col"] =  df.apply(integrate_spec_data, axis=1) 
-        return df["original_col"] 
-    df_cleanning = df_cleanning.withColumn("SPEC_CPA_GROSS_DATA", make_spec_units_normal(col("SPEC_CPA_GROSS_DATA")))
-    df_cleanning = df_cleanning.withColumn("SPEC_CPA_VALID_DATA", make_spec_units_normal(col("SPEC_CPA_VALID_DATA")))
+
+@pandas_udf(StringType(), PandasUDFType.SCALAR)
+def make_spec_gross_data(spec):
+    frame = {"spec":spec}
+    df = pd.DataFrame(frame)
+    def make_elements_of_list_into_one_string(origin_list):
+        placeholder_word = ' '
+        output_sentence = reduce(lambda x,y: x + f"{placeholder_word}" + y ,origin_list)
+        return output_sentence
+    def extract_gross_data(origin_list):
+        sentence = make_elements_of_list_into_one_string(origin_list)
+        percent_extract_pattern = r'\d+(\.\d+)?(?=.*?)%'
+        remove_placeholder = ''
+        if len(re.findall(percent_extract_pattern, sentence)) != 0:
+            sentence = re.sub(percent_extract_pattern,remove_placeholder,sentence)
+        gross_data_pattern = r'[\+]?(\d+(\.\d+)?)(?!\d+)(\w+)'
+        try:
+            if len(re.findall(gross_data_pattern, sentence)) == 0:
+                gross_data = sentence
+            else:
+                extract_data_list = re.findall(gross_data_pattern, sentence)
+                max_gross_value_units = list(map(lambda x: x[-1], extract_data_list))
+                gross_value_list = list(map(lambda x: float(x[0]), extract_data_list))
+#                 max_gross_value = max(gross_value_list)
+                max_gross_value = gross_value_list[-1]            #单位的优先级还没做，先暂时选最后一位数据作为总量
+                max_gross_value_index = gross_value_list.index(max_gross_value)
+                max_gross_value_unit = max_gross_value_units[max_gross_value_index]
+                gross_data = str(max_gross_value) + max_gross_value_unit
+        except:
+            gross_data = sentence
+        return gross_data
+    df['spec_standard_gross'] = df.apply(lambda x: extract_gross_data(x.spec), axis=1)
+    return df['spec_standard_gross']
+
+@pandas_udf(StringType(), PandasUDFType.SCALAR)
+def make_spec_valid_data(spec,spec_gross_data):
+    frame = {"spec":spec,
+            "spec_gross_data":spec_gross_data}
+    df = pd.DataFrame(frame)
+    def make_elements_of_list_into_one_string(origin_list):
+        placeholder_word = ' '
+        output_sentence = reduce(lambda x,y: x + f"{placeholder_word}" + y ,origin_list)
+        return output_sentence
+    def remove_gross_from_spec(spec,spec_gross_data):
+        try:
+            if spec_gross_data in spec:
+                spec = [x for x in spec if x != spec_gross_data]
+                spec_valid = make_elements_of_list_into_one_string(spec)       
+            else:
+                spec_valid = ' '
+        except:
+            spec_valid = ' '
+            return spec_valid
+        
+#     df['valid_data'] = df.apply(lambda x:remove_gross_from_spec(x.spec,x.spec_gross_data), axis=1)
+    df['valid_data'] = df.apply(lambda x:x.spec[0], axis=1)
+    return df['valid_data']
+
+def make_spec_become_string(df_cleanning):
+    df_cleanning = df_cleanning.withColumn("SPEC", make_spec_from_array_into_string(col("SPEC")))
+    df_cleanning.select("SPEC_ORIGINAL","SPEC","SPEC_GROSS","SPEC_VALID").distinct().show(500)
+    print(df_cleanning.count())
+    print(df_cleanning.printSchema())   
     return df_cleanning
 
-def create_new_cpa_spec_col(df_cleanning):
-    @pandas_udf(StringType(), PandasUDFType.SCALAR)
-    def create_cpa_spec_new_col(spec_cpa_gross_data, spec_cpa_valid_data):
-        frame = {
-            "spec_cpa_gross_data":spec_cpa_gross_data,
-            "spec_cpa_valid_data":spec_cpa_valid_data
-        }
-        df = pd.DataFrame(frame)
-        def make_new_col(df):
-            df['spec'] = '/'.join(df.spec_cpa_valid_data) + ' ' + '/'.join(df.spec_cpa_gross_data)
-            return df['spec'] 
-        df["SPEC"] = df.apply(make_new_col, axis=1)
-        return df["SPEC"]
-    df_cleanning = df_cleanning.withColumn("SPEC", create_cpa_spec_new_col(col("SPEC_CPA_GROSS_DATA"),col("SPEC_CPA_VALID_DATA")))
-    return df_cleanning
+@pandas_udf(StringType(), PandasUDFType.SCALAR)
+def make_spec_from_array_into_string(spec_standard):
+    frame = {"spec_standard":spec_standard}
+    df = pd.DataFrame(frame)
+    def make_elements_of_list_into_one_string(origin_list):
+        placeholder_word = ' '
+        try:
+            output_sentence = str(reduce(lambda x,y: x + f"{placeholder_word}" + y ,origin_list))
+        except:
+            output_sentence = ''
+        return output_sentence
+    df['out_put_col'] = df.apply(lambda x: make_elements_of_list_into_one_string(x.spec_standard), axis=1)
+    return df['out_put_col']
 
 def get_cpa_pack(df_cleanning):
     extract_pack_id = r'[×*](\d+)'
