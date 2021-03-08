@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: db2dw
+  description: "pharbers job description"
+  labels:
+    name: db2dw
+    runtime: python3
+    command: submit
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    command: submit
+    timeout: 60.0
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: db_uri
+        value: "jdbc:postgresql://ph-db-lambda.cngk1jeurmnv.rds.cn-northwest-1.amazonaws.com.cn/phentry"
+      - key: db_user
+        value: "pharbers"
+      - key: db_password
+        value: "Abcde196125"
+      - key: db_tables
+        value:
+          - "product"
+          - "productcategory"
+          - "productrelationship"
+          - "molespec"
+          - "manufacturer"
+          - "lexicon"
+    outputs:
+      - key: c
+        value: "abc"
+      - key: d
+        value: "abc"
+
+
+
