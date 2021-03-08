@@ -16,6 +16,8 @@ spec:
     code: phmain.py
     config: phconf.yaml
     args:
+      - key: version
+        value: "0.0.2"
       - key: db_uri
         value: "jdbc:postgresql://ph-db-lambda.cngk1jeurmnv.rds.cn-northwest-1.amazonaws.com.cn/phentry"
       - key: db_user
@@ -23,13 +25,14 @@ spec:
       - key: db_password
         value: "Abcde196125"
       - key: db_tables
-        value:
-          - "product"
-          - "productcategory"
-          - "productrelationship"
-          - "molespec"
-          - "manufacturer"
-          - "lexicon"
+        value: [
+            {"table_name": "product", "dw_path": "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DIMENSION/PRODUCT_DIMENSION/"},
+            {"table_name": "productcategory", "dw_path": "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DIMENSION/PRODUCT_CATEGORY_DIMENSION/"},
+            {"table_name": "productrelationship", "dw_path": "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DIMENSION/PRODUCT_RELATIONSHIP_DIMENSION/"},
+            {"table_name": "molespec", "dw_path": "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DIMENSION/MOLE_SPEC_DIMENSION/"},
+            {"table_name": "manufacturer", "dw_path": "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DIMENSION/MNF_DIMENSION/"},
+            {"table_name": "lexicon", "dw_path": "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/METADATA/LEXICON/"},
+          ]
     outputs:
       - key: c
         value: "abc"
