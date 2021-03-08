@@ -39,22 +39,16 @@ def execute(**kwargs):
     _postgres_properties = {'user': kwargs["db_user"], 'password': kwargs["db_password"]}
     _version = kwargs["version"]
 
-    print(kwargs["db_tables"])
-    print(type(kwargs["db_tables"]))
-    tables = base64.b64decode(kwargs["db_tables"])
-    print(tables)
-    print(type(tables))
-    # tables = json.loads(kwargs["db_tables"].replace("'", '"'))
-    # print(tables)
-    # for item in tables:
-    #     reading = spark.read.jdbc(url=_postgres_uri, table=item["table_name"], properties=_postgres_properties)
-    #     columns =  reading.drop("category").drop("product").columns
-    #     reading \
-    #         .selectExpr(*list(map(camel_to_underline, columns))) \
-    #         .withColumn("VERSION", lit(_version)) \
-    #         .repartition(1) \
-    #         .write.mode("overwrite") \
-    #         .parquet(item["dw_path"] + _version)
+    tables = json.loads(str(base64.b64decode(kwargs["db_tables"]), "utf-8"))
+    for item in tables:
+        reading = spark.read.jdbc(url=_postgres_uri, table=item["table_name"], properties=_postgres_properties)
+        columns = reading.drop("category").drop("product").columns
+        reading \
+            .selectExpr(*list(map(camel_to_underline, columns))) \
+            .withColumn("VERSION", lit(_version)) \
+            .repartition(1) \
+            .write.mode("overwrite") \
+            .parquet(item["dw_path"] + _version)
 
     return {}
 
