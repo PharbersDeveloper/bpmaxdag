@@ -157,7 +157,11 @@ def modify_first_spec_effectiveness_az(standard_gross, standard_valid, target_gr
 		if df.standard_gross == df.target_gross:
 			effectiveness_spec = float(0.995)
 		elif df.standard_valid == df.target_valid:
-			effectiveness_spec = float(0.9)
+			effectiveness_spec = float(0.995)
+		elif: df.standard_gross == df.target_valid:
+			effectiveness_spec = float(0.995)               
+		elif: df.standard_valid == df.target_gross:
+			effectiveness_spec = float(0.995)
 		else:
 			effectiveness_spec = float(df.EFFTIVENESS_SPEC_FIRST)
 		return effectiveness_spec 

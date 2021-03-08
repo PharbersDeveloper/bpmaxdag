@@ -75,23 +75,27 @@ def execute(**kwargs):
     # 	df_cleanning = human_interfere(df_cleanning, df_interfere) 
         df_cleanning = get_inter(df_cleanning,df_second_interfere)
     else:
-        #cpa中spec转化成结构化数据
-        df_cleanning = make_cpa_spec_become_structured(df_cleanning)
-        #词形还原
-        df_cleanning = restore_nonstandard_data_to_normal(df_cleanning)
-        #数据单位标准化
-        df_cleanning = make_unit_standardization(df_cleanning)
+        df_cleanning = df_cleanning.withColumn('SPEC_ORIGINAL', col("SPEC"))
+        df_cleanning = df_cleanning.withColumn("SPEC", upper(df_cleanning.SPEC))
+        #第一轮处理
+        df_cleanning = the_first_round_make_spec_become_normal(df_cleanning, input_function=remove_spec_spaces_between_values_and_units(df_cleanning.SPEC))
+        #第二轮处理
+        df_cleanning = the_second_round_make_spec_become_normal(df_cleanning,input_function=extract_spec_values_and_units_from_qiluType(df_cleanning.SPEC))
+       
         #spec 有效性和总量拆分
         df_cleanning = extract_spec_valid_and_gross(df_cleanning)
         #spec array转string类型
         df_cleanning = make_spec_become_string(df_cleanning)
+        df_cleanning.show(500)
         #处理pack_id
         df_cleanning = get_cpa_pack(df_cleanning)
         
         df_cleanning = get_inter(df_cleanning,df_second_interfere)
         df_cleanning = select_cpa_col(df_cleanning)
     df_cleanning.write.mode("overwrite").parquet(result_path)
+    print("ok!")
 ########------------main fuction-------------------------################
+        
     return {}
 
 
@@ -122,6 +126,7 @@ def get_result_path(kwargs, run_id, job_id):
 """
 def modify_pool_cleanning_prod(spark, raw_data_path):
 #     raw_data_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/azsanofi/raw_data"
+#     raw_data_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/qilu/raw_data2"
     if raw_data_path.endswith(".csv"):
         df_cleanning = spark.read.csv(path=raw_data_path, header=True).withColumn("ID", pudf_id_generator(col("MOLE_NAME")))
     else:
@@ -220,21 +225,47 @@ def extract_useful_spec_data(df_cleanning):
 
     return df_cleanning
     
-def make_cpa_spec_become_structured(df_cleanning):
-    
-    df_cleanning = df_cleanning.withColumn('SPEC_ORIGINAL', col("SPEC"))
-    df_cleanning = df_cleanning.withColumn("SPEC", remove_spec_spaces_between_values_and_units(col("SPEC")))
-    remove_pattern = r'([×*].*)'
-    df_cleanning = df_cleanning.withColumn("SPEC", regexp_replace(col("SPEC"),remove_pattern,''))
-    split_spec_str = r'(\s+)'
-    df_cleanning = df_cleanning.withColumn("SPEC", split(col("SPEC"), split_spec_str,).cast(ArrayType(StringType())))
-    stopwords = ['POWD','IN','SOLN','IJ','AERO','CAP','SYRP','OR','EX','PATC','GRAN','OINT','PILL','TAB','SUSP','OP','SL','NA','LSU','']
-    remover = StopWordsRemover(stopWords=stopwords, inputCol="SPEC", outputCol="SPEC_TEMP")
-    df_cleanning = remover.transform(df_cleanning)
-    df_cleanning = df_cleanning.drop("SPEC").withColumnRenamed("SPEC_TEMP","SPEC")
-    
+#第一轮spec处理,正常处理模式
+def the_first_round_make_spec_become_normal(df_cleanning,input_function):
+
+    #cpa中spec转化成结构化数据
+    df_cleanning = make_cpa_spec_become_structured(df_cleanning,input_function)
+
+    #词形还原
+    df_cleanning = restore_nonstandard_data_to_normal(df_cleanning)
+    #数据单位标准化
+    df_cleanning = make_unit_standardization(df_cleanning)
+    #spec array转string类型
+    df_cleanning = make_spec_become_string(df_cleanning)
+
     return df_cleanning
 
+#第二轮spec处理，采用齐鲁模式处理
+def the_second_round_make_spec_become_normal(df_cleanning, input_function):
+     #cpa中spec转化成结构化数据
+    df_cleanning = make_cpa_spec_become_structured(df_cleanning,input_function)
+
+    #词形还原
+    df_cleanning = restore_nonstandard_data_to_normal(df_cleanning)
+    #数据单位标准化
+    df_cleanning = make_unit_standardization(df_cleanning)
+    return df_cleanning
+
+def make_cpa_spec_become_structured(df, input_function):
+    
+    df = df.withColumn("SPEC", input_function)
+    remove_pattern = r'([×*].*)'
+    df = df.withColumn("SPEC", regexp_replace(col("SPEC"),remove_pattern,''))
+    split_spec_str = r'(\s+)'
+    df = df.withColumn("SPEC", split(col("SPEC"), split_spec_str,).cast(ArrayType(StringType())))
+    stopwords = ['POWD','IN','SOLN','IJ','AERO','CAP','SYRP','OR','EX','PATC','GRAN','OINT','PILL','TAB','SUSP','OP','SL','NA','LSU','']
+    remover = StopWordsRemover(stopWords=stopwords, inputCol="SPEC", outputCol="SPEC_TEMP")
+    df = remover.transform(df)
+    df = df.drop("SPEC").withColumnRenamed("SPEC_TEMP","SPEC")
+    
+    return df
+
+#spec采用两轮预处理，第一次用标准处理模式，第二次用齐鲁处理模式
 @pandas_udf(StringType(),PandasUDFType.SCALAR)
 def remove_spec_spaces_between_values_and_units(origin_col):
     frame = {"origin_col":origin_col}
@@ -258,6 +289,28 @@ def remove_spec_spaces_between_values_and_units(origin_col):
     
     return df['output_col'] 
 
+#处理齐鲁类型数据
+@pandas_udf(StringType(),PandasUDFType.SCALAR)
+def extract_spec_values_and_units_from_qiluType(origin_col):
+    frame = {"origin_col":origin_col}
+    df = pd.DataFrame(frame)
+    
+    def make_elements_of_list_into_one_string(input_list):
+        placeholder_word = ' '
+        output_sentence = reduce(lambda x,y: str(x).upper() + f"{placeholder_word}" + str(y).upper() ,input_list)
+        return output_sentence
+     
+    def remove_spaces_between_values_and_units(input_sentence):
+        remove_space = r'(\d+(\.\d+)?)(\w+)(?!\w+)'
+        data_list = re.findall(remove_space,input_sentence)
+        if len(data_list) == 0:
+            output_sentence = input_sentence
+        else:
+            output_list = list(map(lambda x: x[0]+ x[-1], data_list))
+            output_sentence = make_elements_of_list_into_one_string(output_list)   
+        return output_sentence
+    df['output_col'] = df.apply(lambda x: remove_spaces_between_values_and_units(x.origin_col), axis =1)
+    return df['output_col']
 
 @pandas_udf(ArrayType(StringType()),PandasUDFType.SCALAR)
 def remove_spec_space_element(origin_spec):
@@ -535,9 +588,6 @@ def make_spec_valid_data(spec,spec_gross_data):
 
 def make_spec_become_string(df_cleanning):
     df_cleanning = df_cleanning.withColumn("SPEC", make_spec_from_array_into_string(col("SPEC")))
-    df_cleanning.select("SPEC_ORIGINAL","SPEC","SPEC_GROSS","SPEC_VALID").distinct().show(500)
-    print(df_cleanning.count())
-    print(df_cleanning.printSchema())   
     return df_cleanning
 
 @pandas_udf(StringType(), PandasUDFType.SCALAR)
