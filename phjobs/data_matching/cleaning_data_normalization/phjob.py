@@ -89,10 +89,8 @@ def execute(**kwargs):
         df_cleanning = get_cpa_pack(df_cleanning)
         
         df_cleanning = get_inter(df_cleanning,df_second_interfere)
-        '''
-#     df_cleanning.write.mode("overwrite").parquet(result_path)
-       '''
-
+        df_cleanning = select_cpa_col(df_cleanning)
+    df_cleanning.write.mode("overwrite").parquet(result_path)
 ########------------main fuction-------------------------################
     return {}
 
@@ -123,10 +121,7 @@ def get_result_path(kwargs, run_id, job_id):
 更高的并发数
 """
 def modify_pool_cleanning_prod(spark, raw_data_path):
-    raw_data_path = r's3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/azsanofi/0.0.15/splitdata'
-
-#     raw_data_path = r's3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/azsanofi/0.0.15/for_analysis7'
-#     raw_data_path = r's3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/qilu/0.0.11/splitdata'
+#     raw_data_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/azsanofi/raw_data"
     if raw_data_path.endswith(".csv"):
         df_cleanning = spark.read.csv(path=raw_data_path, header=True).withColumn("ID", pudf_id_generator(col("MOLE_NAME")))
     else:
@@ -228,6 +223,7 @@ def extract_useful_spec_data(df_cleanning):
 def make_cpa_spec_become_structured(df_cleanning):
     
     df_cleanning = df_cleanning.withColumn('SPEC_ORIGINAL', col("SPEC"))
+    df_cleanning = df_cleanning.withColumn("SPEC", remove_spec_spaces_between_values_and_units(col("SPEC")))
     remove_pattern = r'([×*].*)'
     df_cleanning = df_cleanning.withColumn("SPEC", regexp_replace(col("SPEC"),remove_pattern,''))
     split_spec_str = r'(\s+)'
@@ -236,9 +232,43 @@ def make_cpa_spec_become_structured(df_cleanning):
     remover = StopWordsRemover(stopWords=stopwords, inputCol="SPEC", outputCol="SPEC_TEMP")
     df_cleanning = remover.transform(df_cleanning)
     df_cleanning = df_cleanning.drop("SPEC").withColumnRenamed("SPEC_TEMP","SPEC")
-
+    
     return df_cleanning
 
+@pandas_udf(StringType(),PandasUDFType.SCALAR)
+def remove_spec_spaces_between_values_and_units(origin_col):
+    frame = {"origin_col":origin_col}
+    df = pd.DataFrame(frame)
+    
+    def make_elements_of_list_into_one_string(input_list):
+        placeholder_word = ' '
+        output_sentence = reduce(lambda x,y: x + f"{placeholder_word}" + y ,input_list)
+        return output_sentence
+    
+    def remove_spaces_between_values_and_units(input_sentence):
+        remove_space = r'(\d+(\.\d+)?)\s+(\w+)'
+        data_list = re.findall(remove_space,input_sentence)
+        if len(data_list) == 0:
+            output_sentence = input_sentence
+        else:
+            output_list = list(map(lambda x: x[0]+ x[-1], data_list))
+            output_sentence = make_elements_of_list_into_one_string(output_list)   
+        return output_sentence
+    df['output_col'] = df.apply(lambda x: remove_spaces_between_values_and_units(x.origin_col), axis =1)
+    
+    return df['output_col'] 
+
+
+@pandas_udf(ArrayType(StringType()),PandasUDFType.SCALAR)
+def remove_spec_space_element(origin_spec):
+    frame = {"origin_spec":origin_spec}
+    df = pd.DataFrame(frame)
+    def remove_space_element(input_list):
+        out_put_list = [x for x in input_list if len(x) != 0]
+        return out_put_list
+    df['out_put_spec'] = df.apply(lambda x: np.array(remove_space_element(x.origin_spec)), axis=1)
+    
+    return df['out_put_spec']
 
 #处理spec中非标准数据
 def restore_nonstandard_data_to_normal(df_cleanning):
@@ -540,10 +570,10 @@ def get_pca_inter(df_cleanning,df_second_interfere):
     return df_cleanning 
 
 def select_cpa_col(df_cleanning):
-    cpa_cols =['MOLE_NAME','PRODUCT_NAME', 'DOSAGE', 'SPEC', 'PACK_QTY', 'MANUFACTURER_NAME', 'PACK_ID_CHECK', 'ID','SPEC_ORIGINAL','SPEC_CPA_VALID_DATA','SPEC_CPA_GROSS_DATA']
+    cpa_cols =['MOLE_NAME','PRODUCT_NAME', 'DOSAGE', 'SPEC', 'PACK_QTY', 'MANUFACTURER_NAME', 'PACK_ID_CHECK', 'ID','SPEC_ORIGINAL','SPEC_VALID','SPEC_GROSS']
     df_cleanning = df_cleanning.select(cpa_cols)
-    print(df_cleanning.columns)
     return df_cleanning
+
 def make_spec_gross_and_valid_pure(df_cleanning):
 
     #数据提纯

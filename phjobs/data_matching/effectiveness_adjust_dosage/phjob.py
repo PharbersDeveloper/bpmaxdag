@@ -160,23 +160,23 @@ def mole_dosage_calculaltion(df):
 	df_dosage = df.join(df_dosage_explode, "ID", how="left")
 	return df_dosage
 
-@pandas_udf(DoubleType(), PandasUDFType.SCALAR)
-def spec_eff_int_or_carry(SPEC_valid_digit_STANDARD, SPEC_valid_total_ORIGINAL, SPEC_valid_unit_STANDARD, SPEC_valid_unit, SPEC_valid_total_STANDARD, EFFTIVENESS_SPEC_SPLIT):
+# @pandas_udf(DoubleType(), PandasUDFType.SCALAR)
+# def spec_eff_int_or_carry(SPEC_valid_digit_STANDARD, SPEC_valid_total_ORIGINAL, SPEC_valid_unit_STANDARD, SPEC_valid_unit, SPEC_valid_total_STANDARD, EFFTIVENESS_SPEC_SPLIT):
 
-	frame = { "SPEC_valid_digit_STANDARD": SPEC_valid_digit_STANDARD, "SPEC_valid_total_ORIGINAL": SPEC_valid_total_ORIGINAL,
-			  "SPEC_valid_unit_STANDARD": SPEC_valid_unit_STANDARD,  "SPEC_valid_unit": SPEC_valid_unit, 
-			  "SPEC_valid_total_STANDARD": SPEC_valid_total_STANDARD, "EFFTIVENESS_SPEC_SPLIT": EFFTIVENESS_SPEC_SPLIT}
-	df = pd.DataFrame(frame)
-	# try:
-	df["EFFTIVENESS_SPEC_SPLIT"] = df.apply(lambda x: 0.99 if ((int(float(x["SPEC_valid_total_ORIGINAL"])) == int(float(x["SPEC_valid_total_STANDARD"]))) \
-														& (x["SPEC_valid_unit_STANDARD"] == x["SPEC_valid_unit"])) \
-													else 0.999 if ((math.ceil(float(x["SPEC_valid_total_ORIGINAL"])) == math.ceil(float(x["SPEC_valid_total_STANDARD"]))) \
-														& (x["SPEC_valid_unit_STANDARD"] == x["SPEC_valid_unit"])) \
-											else x["EFFTIVENESS_SPEC_SPLIT"], axis=1)
-	# except ValueError:
-	# 	df["EFFTIVENESS_SPEC_SPLIT"] = df.apply(lambda x: 0.888, axis=1)
+# 	frame = { "SPEC_valid_digit_STANDARD": SPEC_valid_digit_STANDARD, "SPEC_valid_total_ORIGINAL": SPEC_valid_total_ORIGINAL,
+# 			  "SPEC_valid_unit_STANDARD": SPEC_valid_unit_STANDARD,  "SPEC_valid_unit": SPEC_valid_unit, 
+# 			  "SPEC_valid_total_STANDARD": SPEC_valid_total_STANDARD, "EFFTIVENESS_SPEC_SPLIT": EFFTIVENESS_SPEC_SPLIT}
+# 	df = pd.DataFrame(frame)
+# 	# try:
+# 	df["EFFTIVENESS_SPEC_SPLIT"] = df.apply(lambda x: 0.99 if ((int(float(x["SPEC_valid_total_ORIGINAL"])) == int(float(x["SPEC_valid_total_STANDARD"]))) \
+# 														& (x["SPEC_valid_unit_STANDARD"] == x["SPEC_valid_unit"])) \
+# 													else 0.999 if ((math.ceil(float(x["SPEC_valid_total_ORIGINAL"])) == math.ceil(float(x["SPEC_valid_total_STANDARD"]))) \
+# 														& (x["SPEC_valid_unit_STANDARD"] == x["SPEC_valid_unit"])) \
+# 											else x["EFFTIVENESS_SPEC_SPLIT"], axis=1)
+# 	# except ValueError:
+# 	# 	df["EFFTIVENESS_SPEC_SPLIT"] = df.apply(lambda x: 0.888, axis=1)
 
-	return df["EFFTIVENESS_SPEC_SPLIT"]
+# 	return df["EFFTIVENESS_SPEC_SPLIT"]
 	
 @pandas_udf(DoubleType(), PandasUDFType.SCALAR)
 def prod_name_replace(eff_mole_name, eff_product_name, mole_name, prod_name_standard, eff_mole_dosage):

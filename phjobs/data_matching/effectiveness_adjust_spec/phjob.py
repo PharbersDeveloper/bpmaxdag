@@ -49,12 +49,13 @@ def execute(**kwargs):
 ###################--------------main function------------------------#################  
 	if  "CHC_GROSS_UNIT"in df_second_round.columns:
 		df_second_round = recalculation_spec_effectiveness(df_second_round)
+	else:
+		df_second_round = recalculation_spec_effectiveness_az(df_second_round)
 	df_second_round.repartition(g_repartition_shared).write.mode("overwrite").parquet(mid_path)
     #选取指定的列用于和adjust_mnf job 进行union操作
 	df_second_round = select_specified_cols(df_second_round)
 	df_second_round.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
 ###################-----------------main function-------------------#################  
-
 	return {}
 
 
@@ -99,7 +100,9 @@ def get_depends_path(kwargs):
 	return result
 
 def load_adjust_dosage_result(spark, path_adjust_dosage_result):
+#     path_adjust_dosage_result = r's3a://ph-max-auto/2020-08-11/data_matching/refactor/runs/manual__2021-03-07T15_39_53.819792+00_00/effectiveness_adjust_dosage/dosage_adjust_result'
     df_second_round = spark.read.parquet(path_adjust_dosage_result)
+#     print(df_second_round.printSchema())
     return df_second_round
 
 
@@ -111,6 +114,12 @@ def recalculation_spec_effectiveness(df_second_round):
 									.otherwise(col("EFFTIVENESS_SPEC_FIRST")))
 	return df_second_round
 
+def recalculation_spec_effectiveness_az(df_second_round):
+	df_second_round = df_second_round.withColumn("EFFTIVENESS_SPEC_FIRST", col("EFFTIVENESS_SPEC"))
+	df_second_round = df_second_round.withColumn("EFFTIVENESS_SPEC",\
+									modify_first_spec_effectiveness_az(df_second_round.SPEC_STANDARD_GROSS, df_second_round.SPEC_STANDARD_VALID,df_second_round.SPEC_GROSS, df_second_round.SPEC_VALID, df_second_round.EFFTIVENESS_SPEC_FIRST))
+	return df_second_round
+                                                 
 def select_specified_cols(df_second_round):
 
 	cols = ["SID", "ID","PACK_ID_CHECK",  "PACK_ID_STANDARD","DOSAGE","MOLE_NAME","PRODUCT_NAME","SPEC","PACK_QTY","MANUFACTURER_NAME","SPEC_ORIGINAL",
@@ -120,7 +129,7 @@ def select_specified_cols(df_second_round):
 #####cpa数据列选择 
 	cpa_cols = ["SID", "ID","PACK_ID_CHECK",  "PACK_ID_STANDARD","DOSAGE","MOLE_NAME","PRODUCT_NAME","SPEC","PACK_QTY","MANUFACTURER_NAME","SPEC_ORIGINAL",
 			"MOLE_NAME_STANDARD","PRODUCT_NAME_STANDARD","CORP_NAME_STANDARD","MANUFACTURER_NAME_STANDARD","MANUFACTURER_NAME_EN_STANDARD","DOSAGE_STANDARD","SPEC_STANDARD","PACK_QTY_STANDARD",
-			"SPEC_valid_digit_STANDARD","SPEC_valid_unit_STANDARD","SPEC_GROSS_VALUE_PURE_STANDARD","SPEC_GROSS_UNIT_PURE_STANDARD",
+			"SPEC_STANDARD_GROSS","SPEC_STANDARD_VALID","SPEC_GROSS","SPEC_VALID",
 			"EFFTIVENESS_MOLE_NAME","EFFTIVENESS_PRODUCT_NAME","EFFTIVENESS_DOSAGE","EFFTIVENESS_PACK_QTY","EFFTIVENESS_MANUFACTURER","EFFTIVENESS_SPEC"]
 	if  "CHC_GROSS_UNIT" not in df_second_round.columns:
 		df_second_round = df_second_round.select(cpa_cols)
@@ -138,5 +147,21 @@ def modify_first_spec_effectiveness(standard_valid, standard_gross, target_valid
                                       (math.isclose(float(x['standard_gross']),float(x['target_gross']), rel_tol=0, abs_tol=0 )) else x['EFFTIVENESS_SPEC_FIRST'], axis=1)
 	return df["EFFTIVENESS_SPEC"]
 
+
+@pandas_udf(DoubleType(), PandasUDFType.SCALAR)
+def modify_first_spec_effectiveness_az(standard_gross, standard_valid, target_gross, target_valid, EFFTIVENESS_SPEC_FIRST):
+
+	frame = { "standard_gross": standard_gross, "standard_valid": standard_valid, "target_gross": target_gross, "target_valid":target_valid ,"EFFTIVENESS_SPEC_FIRST" : EFFTIVENESS_SPEC_FIRST}  
+	df = pd.DataFrame(frame)
+	def adjust_spec_effectiveness(df):
+		if df.standard_gross == df.target_gross:
+			effectiveness_spec = float(0.995)
+		elif df.standard_valid == df.target_valid:
+			effectiveness_spec = float(0.9)
+		else:
+			effectiveness_spec = float(df.EFFTIVENESS_SPEC_FIRST)
+		return effectiveness_spec 
+	df["EFFTIVENESS_SPEC"] = df.apply(lambda x:adjust_spec_effectiveness(x), axis=1)
+	return df["EFFTIVENESS_SPEC"]
 ################-----------------------------------------------------################
 	
