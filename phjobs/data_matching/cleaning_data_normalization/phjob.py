@@ -52,7 +52,7 @@ def execute(**kwargs):
 
 #########--------------main function--------------------#################   
 
-    if "code" in df_cleanning.columns:
+    if "unknown" in df_cleanning.columns:
         #CHC列重命名
         df_cleanning = df_cleanning.withColumnRenamed("code","CODE")
         #DOSAGE预处理
@@ -86,14 +86,12 @@ def execute(**kwargs):
         df_cleanning = extract_spec_valid_and_gross(df_cleanning)
         #spec array转string类型
         df_cleanning = make_spec_become_string(df_cleanning)
-        df_cleanning.show(500)
         #处理pack_id
         df_cleanning = get_cpa_pack(df_cleanning)
         
         df_cleanning = get_inter(df_cleanning,df_second_interfere)
         df_cleanning = select_cpa_col(df_cleanning)
     df_cleanning.write.mode("overwrite").parquet(result_path)
-    print("ok!")
 ########------------main fuction-------------------------################
         
     return {}

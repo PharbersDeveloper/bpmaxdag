@@ -101,6 +101,7 @@ def get_depends_path(kwargs):
 
 def load_adjust_dosage_result(spark, path_adjust_dosage_result):
 #     path_adjust_dosage_result = r's3a://ph-max-auto/2020-08-11/data_matching/refactor/runs/manual__2021-03-07T15_39_53.819792+00_00/effectiveness_adjust_dosage/dosage_adjust_result'
+#     path_adjust_dosage_result = r's3a://ph-max-auto/2020-08-11/data_matching/refactor/runs/manual__2021-03-08T15_55_23.284279+00_00/effectiveness_adjust_dosage'
     df_second_round = spark.read.parquet(path_adjust_dosage_result)
 #     print(df_second_round.printSchema())
     return df_second_round
@@ -158,9 +159,9 @@ def modify_first_spec_effectiveness_az(standard_gross, standard_valid, target_gr
 			effectiveness_spec = float(0.995)
 		elif df.standard_valid == df.target_valid:
 			effectiveness_spec = float(0.995)
-		elif: df.standard_gross == df.target_valid:
+		elif df.standard_gross == df.target_valid:
 			effectiveness_spec = float(0.995)               
-		elif: df.standard_valid == df.target_gross:
+		elif df.standard_valid == df.target_gross:
 			effectiveness_spec = float(0.995)
 		else:
 			effectiveness_spec = float(df.EFFTIVENESS_SPEC_FIRST)
