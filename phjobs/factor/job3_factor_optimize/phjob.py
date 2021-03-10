@@ -158,6 +158,21 @@ def execute(**kwargs):
         
         factor = spark.read.parquet(factor_path)
         
+        @udf(StringType())
+        def city_change(name):
+            # 城市名定义
+            if name in ["福州市", "厦门市", "泉州市"]:
+                newname = "福厦泉市"
+            elif name in ["珠海市", "东莞市", "中山市", "佛山市"]:
+                newname = "珠三角市"
+            elif name in ["绍兴市", "嘉兴市", "台州市", "金华市"]:
+                newname = "浙江市"
+            elif name in ["苏州市", "无锡市"]:
+                newname = "苏锡市"
+            else:
+                newname = name
+            return newname
+        
         # 3.1 max 数据
         max_df = max_result.where(col('DOI') == market)
         max_df = max_df.join(factor, on='City', how='left')
@@ -165,10 +180,7 @@ def execute(**kwargs):
                                                         .otherwise(col('Predict_Sales'))) \
                         .withColumn('Citynew', col('City'))
         
-        max_df = max_df.withColumn('Citynew', func.when(col('City').isin("福州市","厦门市","泉州市"), func.lit('福厦泉市')) \
-                                    .otherwise(func.when(col('City').isin("佛山市","中山市","东莞市","珠海市"), func.lit('珠三角市')) \
-                                                    .otherwise(col('Citynew')))
-                                    )
+        max_df = max_df.withColumn('Citynew', city_change(col('City')))
         max_df = max_df.withColumn('Citynew', func.when(~col('Citynew').isin(ims_info.select('City').distinct().toPandas()['City'].values.tolist()), 
                                                         func.lit('other')).otherwise(col('Citynew')))
                                                         
@@ -334,6 +346,16 @@ def execute(**kwargs):
             value2 = factor2.where(col('City')=='珠三角市').select('factor2').toPandas()['factor2'][0]
             factor3 = factor3.withColumn('factor2', func.when(col('City').isin("珠海市","东莞市","中山市","佛山市"), 
                                                         func.lit(value2)).otherwise(col('factor2')))
+            
+        if "浙江市" in factor2_city:
+            value3 = factor2.where(col('City')=='浙江市').select('factor2').toPandas()['factor2'][0]
+            factor3 = factor3.withColumn('factor2', func.when(col('City').isin("绍兴市","嘉兴市","台州市","金华市"), 
+                                                        func.lit(value3)).otherwise(col('factor2')))
+        
+        if "苏锡市" in factor2_city:
+            value4 = factor2.where(col('City')=='苏锡市').select('factor2').toPandas()['factor2'][0]
+            factor3 = factor3.withColumn('factor2', func.when(col('City').isin("苏州市","无锡市"), 
+                                                        func.lit(value4)).otherwise(col('factor2')))
             
         value_other = factor2.where(col('City')=='other').select('factor2').toPandas()['factor2'][0]    
         factor3 = factor3.withColumn('factor2', func.when(col('factor2').isNull(), func.lit(value_other)) \
