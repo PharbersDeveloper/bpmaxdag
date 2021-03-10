@@ -114,24 +114,24 @@ def execute(**kwargs):
                         .join(universe.select('Panel_ID', 'Province', 'City').distinct(), 
                                 rf_out.PHA_ID == universe.Panel_ID, how='left') \
                         .where(~col('PHA_ID').isin(ID_list))
-        rf_out = rf_out.groupBy('City').agg(func.sum('final_sales').alias('Sales_rf'))
+        rf_out = rf_out.groupBy('City', 'Province').agg(func.sum('final_sales').alias('Sales_rf'))
         
         # max 非样本
         spotfire_out = max_result.where(col('DOI') == market)
         spotfire_out = spotfire_out.where(col('PANEL') != 1) \
-                                .groupBy('City').agg(func.sum('Predict_Sales').alias('Sales'))
+                                .groupBy('City', 'Province').agg(func.sum('Predict_Sales').alias('Sales'))
         
         # 计算factor 城市层面 ： rf 非样本的Sales 除以  max 非样本 的Sales                
-        factor_city = spotfire_out.join(rf_out, on='City', how='left')
+        factor_city = spotfire_out.join(rf_out, on=['City', 'Province'], how='left')
         factor_city = factor_city.withColumn('factor', col('Sales_rf')/col('Sales'))
         
         # universe join left factor_city 没有的城市factor为1
-        factor_city1 = universe.select('City').distinct() \
-                                .join(factor_city, on='City', how='left')
+        factor_city1 = universe.select('City', 'Province').distinct() \
+                                .join(factor_city, on=['City', 'Province'], how='left')
         factor_city1 = factor_city1.withColumn('factor', func.when(col('factor').isNull(), func.lit(1)) \
                                                             .otherwise(col('factor')))
          
-        factor_out = factor_city1.select('City', 'factor')
+        factor_out = factor_city1.select('City', 'Province', 'factor')
         
         factor_out = factor_out.repartition(1)
         factor_out.write.format("parquet") \
