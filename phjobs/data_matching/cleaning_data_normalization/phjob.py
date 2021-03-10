@@ -30,7 +30,7 @@ def execute(**kwargs):
     raw_data_path = kwargs["path_cleaning_data"]
     interfere_path = kwargs["path_human_interfere"]
     second_interfere_path = kwargs["path_second_human_interfere"]
-    chc_gross_unit_path = kwargs["path_chc_gross_unit"]
+    source_data_type = kwargs["source_data_type"]
 ############-----------input-------------------------###################
 
 ###########------------output------------------------###################
@@ -45,53 +45,35 @@ def execute(**kwargs):
     df_cleanning = modify_pool_cleanning_prod(spark, raw_data_path)
     df_interfere = load_interfere_mapping(spark, interfere_path)
     df_second_interfere = load_second_interfere(spark,second_interfere_path)
-    df_chc_gross_unit = load_chc_gross_unit(spark, chc_gross_unit_path)
     df_cleanning.persist()
     df_cleanning.write.mode("overwrite").parquet(origin_path)
 #########---------------load file------------------------################
 
 #########--------------main function--------------------#################   
+    #spec预处理
+    df_cleanning = make_spec_pre_treatment(df_cleanning)
 
-    if "unknown" in df_cleanning.columns:
-        #CHC列重命名
-        df_cleanning = df_cleanning.withColumnRenamed("code","CODE")
-        #DOSAGE预处理
-        df_cleanning = make_dosage_standardization(df_cleanning)
-        #添加标准总量单位
-        df_cleanning = add_chc_standard_gross_unit(df_cleanning,df_chc_gross_unit)
-        #SPEC数据预处理
-        df_cleanning = pre_to_standardize_data(df_cleanning)
-        #基于不同的总量单位进行SPEC数据提取
-        df_cleanning = extract_useful_spec_data(df_cleanning)
-        #数据提纯
-        df_cleanning = make_spec_gross_and_valid_pure(df_cleanning)
-        #单位归一化处理
-        df_cleanning = make_spec_unit_standardization(df_cleanning)
-       #组合成新SPEC
-        df_cleanning = create_new_spec_col(df_cleanning)
-        #从spec中抽取pack_id
-        df_cleanning = get_pack(df_cleanning)
-        #干预表逻辑存在问题，需要去掉！！！  
-    # 	df_cleanning = human_interfere(df_cleanning, df_interfere) 
-        df_cleanning = get_inter(df_cleanning,df_second_interfere)
-    else:
-        df_cleanning = df_cleanning.withColumn('SPEC_ORIGINAL', col("SPEC"))
-        df_cleanning = df_cleanning.withColumn("SPEC", upper(df_cleanning.SPEC))
-        #第一轮处理
-        df_cleanning = the_first_round_make_spec_become_normal(df_cleanning, input_function=remove_spec_spaces_between_values_and_units(df_cleanning.SPEC))
-        #第二轮处理
-        df_cleanning = the_second_round_make_spec_become_normal(df_cleanning,input_function=extract_spec_values_and_units_from_qiluType(df_cleanning.SPEC))
-       
-        #spec 有效性和总量拆分
-        df_cleanning = extract_spec_valid_and_gross(df_cleanning)
-        #spec array转string类型
-        df_cleanning = make_spec_become_string(df_cleanning)
-        #处理pack_id
-        df_cleanning = get_cpa_pack(df_cleanning)
-        
-        df_cleanning = get_inter(df_cleanning,df_second_interfere)
-        df_cleanning = select_cpa_col(df_cleanning)
+    #源数据判断
+    df_cleanning = judge_source_type(df_cleanning, source_data_type)
+
+    '''
+    #cpa中spec转化成结构化数据
+    df_cleanning = make_cpa_spec_become_structured(df_cleanning)
+
+    #spec停用词处理
+    df_cleanning = from_spec_remove_stopwords(df_cleanning)
+
+    #SPEC处理
+    df_cleanning = make_spec_become_normal(df_cleanning)
+
+    #处理pack_i
+    df_cleanning = get_cpa_pack(df_cleanning)
+
+    df_cleanning = get_inter(df_cleanning,df_second_interfere)
+    df_cleanning = select_cpa_col(df_cleanning)
     df_cleanning.write.mode("overwrite").parquet(result_path)
+    '''
+    
 ########------------main fuction-------------------------################
         
     return {}
@@ -148,122 +130,177 @@ def load_chc_gross_unit(spark,chc_gross_unit_path):
     df_chc_gross_unit = spark.read.parquet(chc_gross_unit_path)
     return df_chc_gross_unit
 
-def make_dosage_standardization(df_cleanning):
-    #CHC中DOSAGE干扰项剔除
-    replace_dosage_str = r'(([(（].*[)）])|(\s+))'
-    df_cleanning = df_cleanning.withColumn("DOSAGE", regexp_replace(col("DOSAGE"),replace_dosage_str,""))
-    return df_cleanning
 
-def add_chc_standard_gross_unit(df_cleanning,df_chc_gross_unit):
 
-    df_chc_gross_unit_mg = df_chc_gross_unit.select('CHC_GROSS_UNIT_MG').withColumnRenamed('CHC_GROSS_UNIT_MG','DOSAGE')\
-                                            .withColumn('CHC_GROSS_UNIT',lit('MG'))
-    df_chc_gross_unit_ml = df_chc_gross_unit.select('CHC_GROSS_UNIT_ML').withColumnRenamed('CHC_GROSS_UNIT_ML','DOSAGE')\
-                                            .withColumn('CHC_GROSS_UNIT',lit('ML'))
-    df_chc_gross_unit_cm = df_chc_gross_unit.select('CHC_GROSS_UNIT_CM').withColumnRenamed('CHC_GROSS_UNIT_CM','DOSAGE')\
-                                            .withColumn('CHC_GROSS_UNIT',lit('CM'))
-    df_chc_gross_unit_pen = df_chc_gross_unit.select('CHC_GROSS_UNIT_PEN').withColumnRenamed('CHC_GROSS_UNIT_PEN','DOSAGE')\
-                                            .withColumn('CHC_GROSS_UNIT',lit('喷'))
-
-    df_chc_gross_unit = df_chc_gross_unit_mg.union(df_chc_gross_unit_ml).union(df_chc_gross_unit_cm).union(df_chc_gross_unit_pen).filter(col('DOSAGE').isNotNull())
-    df_cleanning = df_cleanning.join(df_chc_gross_unit,df_cleanning.DOSAGE == df_chc_gross_unit.DOSAGE , 'left').drop(df_chc_gross_unit.DOSAGE)
-    return df_cleanning
-
-def pre_to_standardize_data(df_cleanning):
-    #标准表DOSAGE中干扰项剔除
-    remove_spec_str = r'(\s+)'
-    df_cleanning = df_cleanning.withColumn("SPEC", regexp_replace(col("SPEC"),remove_spec_str,""))\
-                                .withColumn("SPEC", upper(col('SPEC')))\
-                                .withColumn("SPEC", regexp_replace("SPEC", r"(万单位)", "×10MG"))\
-                                .withColumn("SPEC", regexp_replace("SPEC", r"(μ)", "U"))\
-                                .withColumn("SPEC", regexp_replace("SPEC", r"(ΜG)", "MG"))\
-                                .withColumn("SPEC", regexp_replace("SPEC" , r"(×)", "x"))\
-                                .withColumn("SPEC", regexp_replace("SPEC" , r"((IU)|(AXAI?U))", "U"))\
-                                .withColumn("SPEC", regexp_replace("SPEC" , r"(MCI)", "MC"))\
-                                .withColumn("SPEC", regexp_replace("SPEC" , r"(M1)" ,"ML"))\
-                                .withColumn("SPEC", regexp_replace("SPEC", r"(揿|掀)", "喷"))\
-                                .withColumn("SPEC", regexp_replace("SPEC", r"(CM2)", "CM"))\
-                                .withColumn("SPEC", regexp_replace("SPEC", r"(∶)", ":"))\
-                                .withColumn("SPEC", regexp_replace("SPEC" , r"(克)" ,"G"))\
-                                .withColumn("SPEC", regexp_replace("SPEC", r"(万U)","0000U"))\
-                                .withColumn("SPEC", regexp_replace("SPEC", r"(单位)","MG"))
-    return df_cleanning
-
-def extract_useful_spec_data(df_cleanning):
+#spec预处理
+def make_spec_pre_treatment(df_cleanning):
     
-    #chc总量数据的提取
-    extract_spec_value_MG = r'(\d+\.?\d*(((GM)|[MU]?G)|Y|(ΜG)|(万?单位)|(PNA)))'
-    extract_spec_value_ML = r'(\d+\.?\d*((M?L)|(PE)))'
-    extract_spec_value_U = r'(\d+\.?\d*((I?U)|(TIU)))'
-    extract_spec_value_PEN = r'(\d+\.?\d*(喷))'
-    extract_spec_value_CM = r'(\d+\.?\d*(CM)?[×:*](\d+\.?\d*(CM)?)([×*](\d+\.?\d*(CM)?))?|(\d+\.?\d*(CM)))'
-    extract_pure_spec_valid_value = r'((\d+\.?\d*)((M?L)|([MU]?G)|I?[U喷KY]|(C?M)))'
-    df_cleanning = df_cleanning.withColumn('SPEC_GROSS_VALUE', when(col('CHC_GROSS_UNIT') == 'MG' , regexp_extract(col('SPEC'), extract_spec_value_MG, 1))\
-                                           .when(col('CHC_GROSS_UNIT') == 'ML' , regexp_extract(col('SPEC'), extract_spec_value_ML, 1))\
-                                           .when(col('CHC_GROSS_UNIT') == 'U' , regexp_extract(col('SPEC'), extract_spec_value_U, 1))\
-                                           .when(col('CHC_GROSS_UNIT') == '喷' , regexp_extract(col('SPEC'), extract_spec_value_PEN, 1))\
-                                           .when(col('CHC_GROSS_UNIT') == 'CM' , regexp_extract(col('SPEC'), extract_spec_value_CM, 1)))\
-                                            .withColumn('SPEC_GROSS_VALUE', when( col('SPEC_GROSS_VALUE') == '', regexp_extract(col('SPEC'), extract_pure_spec_valid_value, 1))\
-                                            .otherwise(col('SPEC_GROSS_VALUE')))
-    print('数据总数：' + str(df_cleanning.count()))
-    print('匹配失败数据：' + ' ' + str(df_cleanning.filter(col('SPEC_GROSS_VALUE') == '').count()) ,  '匹配率:' +' ' +  str(( 1 - int(df_cleanning.filter(col('SPEC_GROSS_VALUE') == '').count()) / int(df_cleanning.count())) * 100) + '%' ) 
-    df_cleanning.filter(col('SPEC_GROSS_VALUE') == '').groupBy(col("SPEC")).agg(count(col("SPEC"))).show(200)
-    #有效性的提取
-    extract_spec_valid_value_MG = r'(([:/]\d+.?\d*[UM]?G)|(\d+.?\d*[MΜ]?G[×/](?![M]G))|(每(?!\d+.?\d*[MΜ]?G).*?(\d+.?\d*[MΜ]?G)))'
-    extract_spec_valid_value_ML = r'([:]\d+.?\d*(([UM]?G(?![:]))|U)|(\d+.?\d*ΜG/ML)|((\d+.?\d*)ML×\d{1,2})|((\d+.?\d*)ML(?![:(/,含的中)])))'
-    extract_spec_valid_value_U = r'(:?(\d+\.?\d*)((MIU)|([UKM](?![LG])U?)))'
-    extract_spec_valid_value_PEN = r'(\d+\.?\d*([MΜ]G[//]喷))'
-    extract_spec_valid_value_CM = r'(\d+\.?\d*(CM)?[×:*](\d+\.?\d*(CM)?)([×*](\d+\.?\d*(CM)?))?|(\d+\.?\d*(CM)))' 
-    df_cleanning = df_cleanning.withColumn("SPEC_VALID_VALUE", when(col('CHC_GROSS_UNIT') == 'MG' , regexp_extract(col('SPEC'), extract_spec_valid_value_MG, 1))\
-                                           .when(col('CHC_GROSS_UNIT') == 'ML' , regexp_extract(col('SPEC'), extract_spec_valid_value_ML, 1))\
-                                           .when(col('CHC_GROSS_UNIT') == 'U' , regexp_extract(col('SPEC'), extract_spec_valid_value_U, 1))\
-                                           .when(col('CHC_GROSS_UNIT') == '喷' , regexp_extract(col('SPEC'), extract_spec_valid_value_PEN, 1))\
-                                           .when(col('CHC_GROSS_UNIT') == 'CM' , regexp_extract(col('SPEC'), extract_spec_valid_value_CM, 1)))\
-                                            .withColumn('SPEC_VALID_VALUE', when(col('SPEC_VALID_VALUE') == '', col('SPEC_GROSS_VALUE')).otherwise(col('SPEC_VALID_VALUE')))
-
+    df_cleanning = df_cleanning.withColumn('SPEC_ORIGINAL', col("SPEC"))
+   
     return df_cleanning
+
+#数据源判断
+def judge_source_type(df_cleanning,source_data_type):
     
-#第一轮spec处理,正常处理模式
-def the_first_round_make_spec_become_normal(df_cleanning,input_function):
-
-    #cpa中spec转化成结构化数据
-    df_cleanning = make_cpa_spec_become_structured(df_cleanning,input_function)
-
-    #词形还原
-    df_cleanning = restore_nonstandard_data_to_normal(df_cleanning)
-    #数据单位标准化
-    df_cleanning = make_unit_standardization(df_cleanning)
-    #spec array转string类型
-    df_cleanning = make_spec_become_string(df_cleanning)
-
-    return df_cleanning
-
-#第二轮spec处理，采用齐鲁模式处理
-def the_second_round_make_spec_become_normal(df_cleanning, input_function):
-     #cpa中spec转化成结构化数据
-    df_cleanning = make_cpa_spec_become_structured(df_cleanning,input_function)
-
-    #词形还原
-    df_cleanning = restore_nonstandard_data_to_normal(df_cleanning)
-    #数据单位标准化
-    df_cleanning = make_unit_standardization(df_cleanning)
-    return df_cleanning
-
-def make_cpa_spec_become_structured(df, input_function):
+    if source_data_type.upper() == "CHC": 
+        df_cleanning = make_chc_spec_become_normal(df_cleanning)
+   
+    elif source_data_type.upper() == "AZ":
+        df_cleanning = make_az_spec_become_normal(df_cleanning)
+        print("source_data_error!")
+    elif source_data_type.upper() == "QILU":
+        df_cleanning = make_qilu_spec_become_normal(df_cleanning)
+    else:
+        print("数据源类型不匹配!")
     
-    df = df.withColumn("SPEC", input_function)
-    remove_pattern = r'([×*].*)'
-    df = df.withColumn("SPEC", regexp_replace(col("SPEC"),remove_pattern,''))
+    return df_cleanning
+
+def make_cpa_spec_become_structured(df):
+
     split_spec_str = r'(\s+)'
     df = df.withColumn("SPEC", split(col("SPEC"), split_spec_str,).cast(ArrayType(StringType())))
+
+    return df
+
+def make_chc_spec_become_normal(df_cleanning):
+         
+    remove_pattern = r'([×*].*)'
+
+    df_cleanning = df_cleanning.withColumn("SPEC", regexp_replace(col("SPEC"),remove_pattern,""))
+    df_cleanning = df_cleanning.withColumn("SPEC", regexp_replace("SPEC", r"(万单位)", "0000U"))\
+                                .withColumn("SPEC", regexp_replace("SPEC", r"(μ)", "u"))\
+                                .withColumn("SPEC", regexp_replace("SPEC", r"(μg|毫克)", "mg"))\
+                                .withColumn("SPEC", regexp_replace("SPEC" , r"(×)", "x"))\
+                                .withColumn("SPEC", regexp_replace("SPEC" , r"((iu)|(axai?u))", "u"))\
+                                .withColumn("SPEC", regexp_replace("SPEC" , r"(mci)", "mc"))\
+                                .withColumn("SPEC", regexp_replace("SPEC" , r"(m1)" ,"ml"))\
+                                .withColumn("SPEC", regexp_replace("SPEC", r"(揿|掀)", "喷"))\
+                                .withColumn("SPEC", regexp_replace("SPEC", r"(cm2)", "cm"))\
+                                .withColumn("SPEC", regexp_replace("SPEC", r"(∶)", ":"))\
+                                .withColumn("SPEC", regexp_replace("SPEC" , r"(克)" ,"g"))\
+                                .withColumn("SPEC", regexp_replace("SPEC", r"(万u)","0000u"))\
+                                .withColumn("SPEC", regexp_replace("SPEC", r"(单位)","U"))\
+                                .withColumn("SPEC", regexp_replace("SPEC", r"(ΜG)","MG"))\
+                                .withColumn("SPEC", regexp_replace("SPEC", r"((?=\d+)万)","0000"))\
+                                .withColumn("SPEC", regexp_replace("SPEC", r"(复方)","CO"))\
+                                .withColumn("SPEC", regexp_replace("SPEC", r"(微)","U"))
+    df_cleanning = df_cleanning.withColumn("SPEC", upper(df_cleanning.SPEC))
+    df_cleanning = df_cleanning.withColumn("SPEC_TEMP",extract_spec_values_and_units_from_chcType(col("SPEC")) )
+
+    df_cleanning.select("SPEC_ORIGINAL","SPEC_TEMP").distinct().show(500)
+    print(df_cleanning.printSchema())
+    print(df_cleanning.count())
+    
+    return df_cleanning
+
+def make_az_spec_become_normal(df_cleanning):
+    
+    df_cleanning = df_cleanning.withColumn("SPEC_TEMP", remove_spec_spaces_between_values_and_units(col("SPEC")))
+    
+    return df_cleanning
+
+def make_qilu_spec_become_normal(df_cleanning):
+    
+    df_cleanning = df_cleanning.withColumn("SPEC_TEMP", extract_spec_values_and_units_from_qiluType(col("SPEC")))
+    
+    return df_cleanning
+
+#spec停用词处理
+def from_spec_remove_stopwords(df):
+    
     stopwords = ['POWD','IN','SOLN','IJ','AERO','CAP','SYRP','OR','EX','PATC','GRAN','OINT','PILL','TAB','SUSP','OP','SL','NA','LSU','']
     remover = StopWordsRemover(stopWords=stopwords, inputCol="SPEC", outputCol="SPEC_TEMP")
     df = remover.transform(df)
     df = df.drop("SPEC").withColumnRenamed("SPEC_TEMP","SPEC")
     
     return df
+   
+#SPEC处理
+def make_spec_become_normal(df_cleanning):
+    
+    #词形还原
+    df_cleanning = restore_nonstandard_data_to_normal(df_cleanning)
+    #数据单位标准化
+    df_cleanning = make_unit_standardization(df_cleanning)
+           
+    #spec 有效性和总量拆分
+    df_cleanning = extract_spec_valid_and_gross(df_cleanning)
+    #spec array转string类型
+    df_cleanning = make_spec_become_string(df_cleanning)
 
-#spec采用两轮预处理，第一次用标准处理模式，第二次用齐鲁处理模式
+    return df_cleanning
+
+#处理CHC类型数据 
+@pandas_udf(StringType(),PandasUDFType.SCALAR)
+def extract_spec_values_and_units_from_chcType(origin_col):
+    frame = {"origin_col":origin_col}
+    df = pd.DataFrame(frame)
+    
+    def make_elements_of_list_into_one_string(origin_list):
+        placeholder_word = ' '
+        output_sentence = reduce(lambda x, y: x + f"{placeholder_word}" + y, origin_list)
+        return output_sentence
+
+    def add_chc_gross_and_valid(input_gross_pattern,input_valid_pattern,input_string):
+        try:
+            gross_string = re.findall(input_gross_pattern, input_string)
+            gross_data = list(map(lambda x: x[0] + x[-1], gross_string))[0]
+            valid_data = re.findall(input_valid_pattern, input_string)
+            valid_list = list(map(lambda x: x[0] + x[-1], valid_data))
+            valid_list.append(gross_data)
+            try:
+                file = make_elements_of_list_into_one_string(valid_list)
+            except:
+                file = input_string
+        except:
+            file = input_string
+        return file
+
+    def extract_chc_values_and_unit(input_string):
+
+        pattern_gross = r'(\d+(\.\d+)?)([GUMYLKAX]+):\d+'
+        pattern_gross_type2 = r'(\d+(\.\d+)?)([GUMYLKAX]+)[\(].*?:.*?\d+[GUMYLKAX]+(?=[\)])'
+        pattern_gross_type3 = r"(\d+(\.\d+)?)([GUMYLKAX]+)[\(].*?\/(?=\d+).*[GUMYLKAX]+(?=[\)])"
+        pattern_gross_type4 = r'(\d+(\.\d+)?)([GUMYLKAX]+)\(相当于.*\)'
+        pattern_gross_type5 = r'(\d+(\.\d+)?)([GUMYLKAX]+)'
+        #类型1  0.643G(0.6G:0.043G)
+        if len(re.findall(pattern_gross_type2,input_string)) != 0:
+            valid_pattern = r'\(.*?:(\d+(\.\d+)?)([GUMYLKAX]+)(?=\))'
+            output_file = add_chc_gross_and_valid(input_gross_pattern=pattern_gross_type2,input_valid_pattern=valid_pattern,input_string=input_string)
+
+        #类型2 15G:15MG
+        elif len(re.findall(pattern_gross,input_string)) != 0:
+            valid_pattern = r':(\d+(\.\d+)?)([GUMYLKAX]+)'
+
+            output_file = add_chc_gross_and_valid(input_gross_pattern=pattern_gross, input_valid_pattern=valid_pattern,
+                                              input_string=input_string)
+        #类型  3156.25MG(125MG/31.25MG)
+        elif len(re.findall(pattern_gross_type3,input_string)) != 0:
+
+            valid_pattern = r'[\(].*?\/(\d+(\.\d+)?)([GUMYLKAX]+)(?=[\)])'
+            output_file = add_chc_gross_and_valid(input_gross_pattern=pattern_gross_type3, input_valid_pattern=valid_pattern,
+                                                  input_string=input_string)
+
+        #类型4 10G(相当于原生药14G)×20袋/盒
+        elif len(re.findall(pattern_gross_type4,input_string)) != 0:
+            valid_pattern = r'\(相当于.*?(\d+(\.\d+)?)([GUMYLKAX]+)\)'
+            output_file = add_chc_gross_and_valid(input_gross_pattern=pattern_gross_type4,
+                                                  input_valid_pattern=valid_pattern,
+                                                  input_string=input_string)
+            #取所有的数值单位类型
+        elif len(re.findall(pattern_gross_type5,input_string)) != 0:
+            string_list = re.findall(pattern_gross_type5,input_string)
+            gross_string = list(map(lambda x:x[0]+x[-1],string_list))
+            output_file = make_elements_of_list_into_one_string(gross_string)
+        #否则返回原值
+        else:
+            output_file = input_string
+        return output_file
+    df['output_col'] = df.apply(lambda x:extract_chc_values_and_unit(x.origin_col) ,axis=1)
+    
+    return df['output_col']
+
+
 @pandas_udf(StringType(),PandasUDFType.SCALAR)
 def remove_spec_spaces_between_values_and_units(origin_col):
     frame = {"origin_col":origin_col}
@@ -452,7 +489,6 @@ def make_unit_standardization(df_cleanning):
     
     df_cleanning = df_cleanning.withColumn("SPEC", create_values_and_units(col("SPEC")))
     
-    
     return df_cleanning
 
 
@@ -622,54 +658,6 @@ def select_cpa_col(df_cleanning):
     df_cleanning = df_cleanning.select(cpa_cols)
     return df_cleanning
 
-def make_spec_gross_and_valid_pure(df_cleanning):
-
-    #数据提纯
-    extract_pure_spec_valid_value = r'(\d+\.?\d*)((M?L)|([MU]?G)|I?[U喷KY]|(C?M))'
-    df_cleanning = df_cleanning.withColumn("SPEC_GROSS_VALUE_PURE", regexp_extract(col("SPEC_GROSS_VALUE"),extract_pure_spec_valid_value,1))\
-                                .withColumn("SPEC_GROSS_UNIT_PURE", regexp_extract(col("SPEC_GROSS_VALUE"),extract_pure_spec_valid_value,2))\
-                                .withColumn("SPEC_VALID_VALUE_PURE", regexp_extract(col("SPEC_VALID_VALUE"),extract_pure_spec_valid_value,1))\
-                                .withColumn("SPEC_VALID_UNIT_PURE", regexp_extract(col("SPEC_VALID_VALUE"),extract_pure_spec_valid_value,2))\
-                                .drop(col("SPEC_VALID_VALUE"))
-    df_cleanning_ = df_cleanning.select(["SPEC","SPEC_GROSS_VALUE","SPEC_GROSS_VALUE_PURE","SPEC_GROSS_UNIT_PURE","SPEC_VALID_VALUE_PURE","SPEC_VALID_UNIT_PURE"]).distinct()   
-    return df_cleanning
-
-def make_spec_unit_standardization(df_cleanning):
-    df_cleanning = df_cleanning.withColumn("SPEC_GROSS_VALUE_PURE", col("SPEC_GROSS_VALUE_PURE").cast("double"))\
-                                .withColumn("SPEC_VALID_VALUE_PURE", col("SPEC_VALID_VALUE_PURE").cast("double"))
-
-#总量数值归一化
-    df_cleanning = df_cleanning.withColumn("SPEC_GROSS_VALUE_PURE",when(col("SPEC_GROSS_UNIT_PURE") == "G", col("SPEC_GROSS_VALUE_PURE")*int(1000))\
-                                           .when(col("SPEC_GROSS_UNIT_PURE") == "UG", col("SPEC_GROSS_VALUE_PURE")*int(0.001))\
-                                           .when(col("SPEC_GROSS_UNIT_PURE") == "Y", col("SPEC_GROSS_VALUE_PURE")*int(0.001))\
-                                           .when(col("SPEC_GROSS_UNIT_PURE") == "L", col("SPEC_GROSS_VALUE_PURE")*int(1000))\
-                                           .when(col("SPEC_GROSS_UNIT_PURE") == "MU", col("SPEC_GROSS_VALUE_PURE")*int(1000000))\
-                                           .when(col("SPEC_GROSS_UNIT_PURE") == "MIU", col("SPEC_GROSS_VALUE_PURE")*int(1000000))\
-                                           .when(col("SPEC_GROSS_UNIT_PURE") == "K", col("SPEC_GROSS_VALUE_PURE")*int(1000))\
-                                           .otherwise(col("SPEC_GROSS_VALUE_PURE")))
-#有效性数值归一化
-    df_cleanning = df_cleanning.withColumn("SPEC_VALID_VALUE_PURE",when(col("SPEC_VALID_UNIT_PURE") == "G", col("SPEC_VALID_VALUE_PURE")*int(1000))\
-                                           .when(col("SPEC_VALID_UNIT_PURE") == "UG", col("SPEC_VALID_VALUE_PURE")*int(0.001))\
-                                           .when(col("SPEC_VALID_UNIT_PURE") == "Y", col("SPEC_VALID_VALUE_PURE")*int(0.001))\
-                                           .when(col("SPEC_VALID_UNIT_PURE") == "L", col("SPEC_VALID_VALUE_PURE")*int(1000))\
-                                           .when(col("SPEC_VALID_UNIT_PURE") == "MU", col("SPEC_VALID_VALUE_PURE")*int(1000000))\
-                                           .when(col("SPEC_VALID_UNIT_PURE") == "MIU", col("SPEC_VALID_VALUE_PURE")*int(1000000))\
-                                           .when(col("SPEC_VALID_UNIT_PURE") == "K", col("SPEC_VALID_VALUE_PURE")*int(1000))\
-                                           .otherwise(col("SPEC_VALID_VALUE_PURE")))
-# 有效性单位归一化
-    replace_spec_value_MG = r'(((GM)|[MU]?G)|Y)'
-    df_cleanning = df_cleanning.withColumn("SPEC_VALID_UNIT_PURE", regexp_replace(col("SPEC_VALID_UNIT_PURE"),replace_spec_value_MG,'MG'))
-# 	df_cleanning.select(["SPEC","SPEC_GROSS_VALUE","SPEC_GROSS_VALUE_PURE","SPEC_GROSS_UNIT_PURE","SPEC_VALID_VALUE_PURE","SPEC_VALID_UNIT_PURE"]).distinct().show(100)
-#删除辅助列
-    df_cleanning = df_cleanning.withColumnRenamed("SPEC","SPEC_ORIGINAL").drop("SPEC_GROSS_VALUE","SPEC_GROSS_UNIT_PURE")
-    return df_cleanning
-
-def create_new_spec_col(df_cleanning):
-    df_cleanning = df_cleanning.withColumn("SPEC",concat_ws("/",col("SPEC_VALID_VALUE_PURE"),col("SPEC_VALID_UNIT_PURE"),col("SPEC_GROSS_VALUE_PURE"),col("CHC_GROSS_UNIT")))
-    col_list = ['MOLE_NAME', 'PRODUCT_NAME', 'DOSAGE', 'SPEC', 'MANUFACTURER_NAME', 'PACK_QTY', 'PACK_ID_CHECK', 'CODE', 'ID',  'SPEC_GROSS_VALUE_PURE', 'CHC_GROSS_UNIT','SPEC_VALID_VALUE_PURE', 'SPEC_VALID_UNIT_PURE', 'SPEC_ORIGINAL']
-    df_cleanning = df_cleanning.select(col_list) 
-    return df_cleanning
-
 """
 读取人工干预表
 """
@@ -731,4 +719,10 @@ def get_pack(df_cleanning):
     df_cleanning = df_cleanning.withColumn("PACK_QTY", regexp_extract(col("SPEC_ORIGINAL"), extract_pack_id, 1).cast('float'))
     df_cleanning = df_cleanning.withColumn("PACK_QTY", when(col("PACK_QTY").isNull(), col("PACK_QTY_ORIGINAL")).otherwise(col("PACK_QTY"))).drop(col("PACK_QTY_ORIGINAL"))
     return df_cleanning
+def make_dosage_standardization(df_cleanning):
+    #CHC中DOSAGE干扰项剔除
+    replace_dosage_str = r'(([(（].*[)）])|(\s+))'
+    df_cleanning = df_cleanning.withColumn("DOSAGE", regexp_replace(col("DOSAGE"),replace_dosage_str,""))
+    return df_cleanning
+
 ################----------------------functions------------------------------################
