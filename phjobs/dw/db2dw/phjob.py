@@ -74,9 +74,13 @@ def execute(**kwargs):
                 .parquet(item["dw_path"] + _version)
         else:
             reading = spark.read.jdbc(url=_postgres_uri, table=item["table_name"], properties=_postgres_properties)
-            columns = reading.drop("products").columns
-            reading \
-                .selectExpr(*list(map(camel_to_underline, columns))) \
+            df = reading.drop("products")
+            if item["table_name"] == "manufacturer":
+                df = df.withColumnRenamed("ID", "mnfId")
+                logger.info(df.columns)
+
+            df \
+                .selectExpr(*list(map(camel_to_underline, df.columns))) \
                 .withColumn("VERSION", lit(_version)) \
                 .repartition(1) \
                 .write.mode("overwrite") \
