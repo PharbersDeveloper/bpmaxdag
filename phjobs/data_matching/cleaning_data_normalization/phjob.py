@@ -55,7 +55,6 @@ def execute(**kwargs):
 
     #源数据判断
     df_cleanning = judge_source_type(df_cleanning, source_data_type)
-    '''
 
     #cpa中spec转化成结构化数据
     df_cleanning = make_cpa_spec_become_structured(df_cleanning)
@@ -72,7 +71,6 @@ def execute(**kwargs):
     df_cleanning = get_inter(df_cleanning,df_second_interfere)
     df_cleanning = select_cpa_col(df_cleanning)
     df_cleanning.write.mode("overwrite").parquet(result_path)
-    '''
     
 ########------------main fuction-------------------------################
         
@@ -106,7 +104,8 @@ def get_result_path(kwargs, run_id, job_id):
 """
 def modify_pool_cleanning_prod(spark, raw_data_path):
 #     raw_data_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/azsanofi/raw_data"
-    raw_data_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/qilu/raw_data2"
+#     raw_data_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/qilu/raw_data2"
+    raw_data_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/eia/raw_data_2"
     if raw_data_path.endswith(".csv"):
         df_cleanning = spark.read.csv(path=raw_data_path, header=True).withColumn("ID", pudf_id_generator(col("MOLE_NAME")))
     else:
@@ -187,12 +186,15 @@ def make_chc_spec_become_normal(df_cleanning):
    
     return df_cleanning
 
+#az spec处理
 def make_az_spec_become_normal(df_cleanning):
     
-    df_cleanning = df_cleanning.withColumn("SPEC_TEMP", remove_spec_spaces_between_values_and_units(col("SPEC")))
+    df_cleanning = df_cleanning.withColumn("SPEC", upper(df_cleanning.SPEC))
+    df_cleanning = df_cleanning.withColumn("SPEC", remove_spec_spaces_between_values_and_units(col("SPEC")))
     
     return df_cleanning
 
+#齐鲁spec处理
 def make_qilu_spec_become_normal(df_cleanning):
     
     df_cleanning = df_cleanning.withColumn("SPEC", upper(df_cleanning.SPEC))
@@ -203,15 +205,23 @@ def make_qilu_spec_become_normal(df_cleanning):
                                 .withColumn("SPEC", regexp_replace("SPEC", r"(复方)","CO"))\
     
     df_cleanning = df_cleanning.withColumn("SPEC", extract_spec_values_and_units_from_qiluType(col("SPEC")))
-    
-    df_cleanning.select("SPEC_ORIGINAL","SPEC").distinct().show(500)
-    print(df_cleanning.printSchema())
-    print(df_cleanning.count())
-    
+   
     return df_cleanning
 
+#卫材spec处理
 def make_eisai_spec_become_normal(df_cleanning):
+     
+    df_cleanning = df_cleanning.withColumn("SPEC", upper(df_cleanning.SPEC))
+    df_cleanning = df_cleanning.withColumn("SPEC", regexp_replace("SPEC", r"(万单位)", "0000U"))\
+                                .withColumn("SPEC", regexp_replace("SPEC", r"(单位)","U"))\
+                                .withColumn("SPEC", regexp_replace("SPEC", r"(ΜG)","MG"))\
+                                .withColumn("SPEC", regexp_replace("SPEC", r"((?=\d+)万)","0000"))\
+                                .withColumn("SPEC", regexp_replace("SPEC", r"(复方)","CO"))\
+
+    df_cleanning = df_cleanning.withColumn("SPEC", extract_spec_values_and_units_from_qiluType(col("SPEC")))
+   
     return df_cleanning
+
 #spec停用词处理
 def from_spec_remove_stopwords(df):
     
@@ -779,6 +789,7 @@ def get_pack(df_cleanning):
     df_cleanning = df_cleanning.withColumn("PACK_QTY", regexp_extract(col("SPEC_ORIGINAL"), extract_pack_id, 1).cast('float'))
     df_cleanning = df_cleanning.withColumn("PACK_QTY", when(col("PACK_QTY").isNull(), col("PACK_QTY_ORIGINAL")).otherwise(col("PACK_QTY"))).drop(col("PACK_QTY_ORIGINAL"))
     return df_cleanning
+
 def make_dosage_standardization(df_cleanning):
     #CHC中DOSAGE干扰项剔除
     replace_dosage_str = r'(([(（].*[)）])|(\s+))'

@@ -19,6 +19,7 @@ def execute(**kwargs):
     spark = kwargs["spark"]()
     
 #     az = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/azsanofi/raw_data")
+
 #     az.show(300)
 #     print(cpa_az_split.count())
 #     az_result = spark.read.csv("s3a://ph-max-auto/2020-08-11/data_matching/refactor/results/2021-03-08_09-09-15/Report",header=True)
@@ -27,8 +28,16 @@ def execute(**kwargs):
 #     pf = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/pfizer_model/0.0.2/raw_data")
 #     sh = spark.read.csv("s3a://ph-max-auto/2020-08-11/data_matching/temp/mzhang/sh_PCHC_sku",header=True,encoding="gbk")
 #     sh.write.mode("overwrite").parquet("s3a://ph-max-auto/2020-08-11/data_matching/temp/mzhang/sh_PCHC_sku")
-    qilu_result = spark.read.csv('s3a://ph-max-auto/2020-08-11/data_matching/refactor/results/2021-03-10_15-15-31/Report',header=True)
-    qilu_result.show()
-    print(qilu_result.printSchema())
-    print(qilu_result.count())
+#     qilu_result = spark.read.csv('s3a://ph-max-auto/2020-08-11/data_matching/refactor/results/2021-03-10_15-15-31/Report',header=True)
+#     qilu_result.show()
+#     print(qilu_result.printSchema())
+#     print(qilu_result.count())
+    one = float(0.765506)
+    two = one * 100 
+    a = str(round(two,2)) + '%'
+    print(a)
+    
+
+
+
     return {}

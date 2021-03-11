@@ -113,18 +113,14 @@ def execute(**kwargs):
     all_count = df_origin_data.count()
     ph_total = df_result.groupBy("ID").agg({"label": "first"}).count()
     positive_count = df_positive.count()  # 机器判断pre=1条目
-    negative_count = all_count - positive_count # - df_lost.count()  # 机器判断pre=0条目
-    matching_ratio = positive_count / ph_total       # 匹配率
+    negative_count = ph_total - positive_count # - df_lost.count()  # 机器判断pre=0条目
+    matching_ratio = str(round((float(positive_count / ph_total) * 100),2)) + '%'       # 匹配率
 
     # 7. 最终结果报告以csv形式写入s3
     report = [("data_matching_report", ),]
     report_schema = StructType([StructField('title',StringType(),True),])
     df_report = spark.createDataFrame(report, schema=report_schema).na.fill("")
-    if "CHC_GROSS_UNIT" in df_result.columns:
-        name = "CHC"
-    else:
-        name = "CPA"
-    df_report = df_report.withColumn("{}数据总数".format(name), lit(str(all_count)))
+    df_report = df_report.withColumn("数据总数", lit(str(all_count)))
     df_report = df_report.withColumn("进入匹配流程条目", lit(str(ph_total)))
     # 	df_report = df_report.withColumn("丢失条目", lit(str(df_lost.count())))
     df_report = df_report.withColumn("机器匹配条目", lit(str(positive_count)))
