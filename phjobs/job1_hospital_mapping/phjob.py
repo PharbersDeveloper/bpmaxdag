@@ -148,6 +148,16 @@ def execute(max_path, project_name, cpa_gyc, if_others, out_path, out_dir, auto_
 
     # 1.2 读取CPA与PHA的匹配关系:
     # map_cpa_pha
+    def deal_ID_length(df):
+        # ID不足7位的补足0到6位
+        # 国药诚信医院编码长度是7位数字，cpa医院编码是6位数字，其他还有包含字母的ID
+        df = df.withColumn("ID", df["ID"].cast(StringType()))
+        # 去掉末尾的.0
+        df = df.withColumn("ID", func.regexp_replace("ID", "\\.0", ""))
+        df = df.withColumn("ID", func.when(func.length(df.ID) < 7, func.lpad(df.ID, 6, "0")).otherwise(df.ID))
+        return df
+    
+    cpa_pha_mapping = deal_ID_length(cpa_pha_mapping)
     cpa_pha_mapping = cpa_pha_mapping.filter(cpa_pha_mapping["推荐版本"] == 1) \
         .withColumnRenamed("ID", "BI_hospital_code") \
         .withColumnRenamed("PHA", "PHA_ID_x") \
@@ -159,6 +169,7 @@ def execute(max_path, project_name, cpa_gyc, if_others, out_path, out_dir, auto_
 
     # 1.3 读取原始样本数据:
     # read_raw_data
+    raw_data = deal_ID_length(raw_data)
     raw_data = raw_data.withColumnRenamed("ID", "BI_Code") \
         .drop("Province", "City")
     raw_data = raw_data.join(cpa_pha_mapping.select("PHA_ID_x", "BI_hospital_code", 'Province', 'City'),
