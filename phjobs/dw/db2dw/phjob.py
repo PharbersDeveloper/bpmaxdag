@@ -74,7 +74,7 @@ def execute(**kwargs):
                 .parquet(item["dw_path"] + _version)
         else:
             reading = spark.read.jdbc(url=_postgres_uri, table=item["table_name"], properties=_postgres_properties)
-            columns = reading.drop("product").columns
+            columns = reading.drop("products").columns
             reading \
                 .selectExpr(*list(map(camel_to_underline, columns))) \
                 .withColumn("VERSION", lit(_version)) \

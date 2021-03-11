@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: export_table
+  description: "pharbers job description"
+  labels:
+    name: export_table
+    runtime: python3
+    command: submit
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    command: submit
+    timeout: 60.0
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: owner
+        value: "test"
+      - key: version
+        value: "0.0.1"
+      - key: product
+        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DIMENSION/PRODUCT_DIMENSION/
+      - key: product_rel
+        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DIMENSION/PRODUCT_RELATIONSHIP_DIMENSION/
+      - key: manufacturer
+        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DIMENSION/MNF_DIMENSION/
+      - key: product_cgy
+        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DIMENSION/PRODUCT_CATEGORY_DIMENSION/
+      - key: out_put
+        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/export/#run_id#/#owner#/asset/"
+    outputs:
+      - key: c
+        value: "abc"
+      - key: d
+        value: "abc"
+
+
+
