@@ -55,8 +55,8 @@ def execute(**kwargs):
 
     #源数据判断
     df_cleanning = judge_source_type(df_cleanning, source_data_type)
-
     '''
+
     #cpa中spec转化成结构化数据
     df_cleanning = make_cpa_spec_become_structured(df_cleanning)
 
@@ -66,7 +66,7 @@ def execute(**kwargs):
     #SPEC处理
     df_cleanning = make_spec_become_normal(df_cleanning)
 
-    #处理pack_i
+    #处理pack_id
     df_cleanning = get_cpa_pack(df_cleanning)
 
     df_cleanning = get_inter(df_cleanning,df_second_interfere)
@@ -106,7 +106,7 @@ def get_result_path(kwargs, run_id, job_id):
 """
 def modify_pool_cleanning_prod(spark, raw_data_path):
 #     raw_data_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/azsanofi/raw_data"
-#     raw_data_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/qilu/raw_data2"
+    raw_data_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/qilu/raw_data2"
     if raw_data_path.endswith(".csv"):
         df_cleanning = spark.read.csv(path=raw_data_path, header=True).withColumn("ID", pudf_id_generator(col("MOLE_NAME")))
     else:
@@ -126,11 +126,6 @@ def load_second_interfere(spark,second_interfere_path):
     df_second_interfere = spark.read.parquet(second_interfere_path)
     return df_second_interfere
  
-def load_chc_gross_unit(spark,chc_gross_unit_path):
-    df_chc_gross_unit = spark.read.parquet(chc_gross_unit_path)
-    return df_chc_gross_unit
-
-
 
 #spec预处理
 def make_spec_pre_treatment(df_cleanning):
@@ -150,6 +145,8 @@ def judge_source_type(df_cleanning,source_data_type):
         print("source_data_error!")
     elif source_data_type.upper() == "QILU":
         df_cleanning = make_qilu_spec_become_normal(df_cleanning)
+    elif source_data_type.upper() == "EISAI":
+        df_cleanning = make_eisai_spec_become_normal(df_cleanning)
     else:
         print("数据源类型不匹配!")
     
@@ -162,6 +159,7 @@ def make_cpa_spec_become_structured(df):
 
     return df
 
+#处理chc
 def make_chc_spec_become_normal(df_cleanning):
          
     remove_pattern = r'([×*].*)'
@@ -185,12 +183,8 @@ def make_chc_spec_become_normal(df_cleanning):
                                 .withColumn("SPEC", regexp_replace("SPEC", r"(复方)","CO"))\
                                 .withColumn("SPEC", regexp_replace("SPEC", r"(微)","U"))
     df_cleanning = df_cleanning.withColumn("SPEC", upper(df_cleanning.SPEC))
-    df_cleanning = df_cleanning.withColumn("SPEC_TEMP",extract_spec_values_and_units_from_chcType(col("SPEC")) )
-
-    df_cleanning.select("SPEC_ORIGINAL","SPEC_TEMP").distinct().show(500)
-    print(df_cleanning.printSchema())
-    print(df_cleanning.count())
-    
+    df_cleanning = df_cleanning.withColumn("SPEC",extract_spec_values_and_units_from_chcType(col("SPEC")) )
+   
     return df_cleanning
 
 def make_az_spec_become_normal(df_cleanning):
@@ -201,10 +195,23 @@ def make_az_spec_become_normal(df_cleanning):
 
 def make_qilu_spec_become_normal(df_cleanning):
     
-    df_cleanning = df_cleanning.withColumn("SPEC_TEMP", extract_spec_values_and_units_from_qiluType(col("SPEC")))
+    df_cleanning = df_cleanning.withColumn("SPEC", upper(df_cleanning.SPEC))
+    df_cleanning = df_cleanning.withColumn("SPEC", regexp_replace("SPEC", r"(万单位)", "0000U"))\
+                                .withColumn("SPEC", regexp_replace("SPEC", r"(单位)","U"))\
+                                .withColumn("SPEC", regexp_replace("SPEC", r"(ΜG)","MG"))\
+                                .withColumn("SPEC", regexp_replace("SPEC", r"((?=\d+)万)","0000"))\
+                                .withColumn("SPEC", regexp_replace("SPEC", r"(复方)","CO"))\
+    
+    df_cleanning = df_cleanning.withColumn("SPEC", extract_spec_values_and_units_from_qiluType(col("SPEC")))
+    
+    df_cleanning.select("SPEC_ORIGINAL","SPEC").distinct().show(500)
+    print(df_cleanning.printSchema())
+    print(df_cleanning.count())
     
     return df_cleanning
 
+def make_eisai_spec_become_normal(df_cleanning):
+    return df_cleanning
 #spec停用词处理
 def from_spec_remove_stopwords(df):
     
@@ -258,32 +265,32 @@ def extract_spec_values_and_units_from_chcType(origin_col):
 
     def extract_chc_values_and_unit(input_string):
 
-        pattern_gross = r'(\d+(\.\d+)?)([GUMYLKAX]+):\d+'
-        pattern_gross_type2 = r'(\d+(\.\d+)?)([GUMYLKAX]+)[\(].*?:.*?\d+[GUMYLKAX]+(?=[\)])'
-        pattern_gross_type3 = r"(\d+(\.\d+)?)([GUMYLKAX]+)[\(].*?\/(?=\d+).*[GUMYLKAX]+(?=[\)])"
-        pattern_gross_type4 = r'(\d+(\.\d+)?)([GUMYLKAX]+)\(相当于.*\)'
-        pattern_gross_type5 = r'(\d+(\.\d+)?)([GUMYLKAX]+)'
+        pattern_gross = r'(\d+(\.\d+)?)([GUMYLIKAX]+):\d+'
+        pattern_gross_type2 = r'(\d+(\.\d+)?)([IGUMYLKAX]+)[\(].*?:.*?\d+[GUMYLKAX]+(?=[\)])'
+        pattern_gross_type3 = r"(\d+(\.\d+)?)([IGUMYLKAX]+)[\(].*?\/(?=\d+).*[GUMYLKAX]+(?=[\)])"
+        pattern_gross_type4 = r'(\d+(\.\d+)?)([IGUMYLKAX]+)\(相当于.*\)'
+        pattern_gross_type5 = r'(\d+(\.\d+)?)([IGUMYLKAX]+)'
         #类型1  0.643G(0.6G:0.043G)
         if len(re.findall(pattern_gross_type2,input_string)) != 0:
-            valid_pattern = r'\(.*?:(\d+(\.\d+)?)([GUMYLKAX]+)(?=\))'
+            valid_pattern = r'\(.*?:(\d+(\.\d+)?)([IGUMYLKAX]+)(?=\))'
             output_file = add_chc_gross_and_valid(input_gross_pattern=pattern_gross_type2,input_valid_pattern=valid_pattern,input_string=input_string)
 
         #类型2 15G:15MG
         elif len(re.findall(pattern_gross,input_string)) != 0:
-            valid_pattern = r':(\d+(\.\d+)?)([GUMYLKAX]+)'
+            valid_pattern = r':(\d+(\.\d+)?)([GUMYLIKAX]+)'
 
             output_file = add_chc_gross_and_valid(input_gross_pattern=pattern_gross, input_valid_pattern=valid_pattern,
                                               input_string=input_string)
         #类型  3156.25MG(125MG/31.25MG)
         elif len(re.findall(pattern_gross_type3,input_string)) != 0:
 
-            valid_pattern = r'[\(].*?\/(\d+(\.\d+)?)([GUMYLKAX]+)(?=[\)])'
+            valid_pattern = r'[\(].*?\/(\d+(\.\d+)?)([IGUMYLKAX]+)(?=[\)])'
             output_file = add_chc_gross_and_valid(input_gross_pattern=pattern_gross_type3, input_valid_pattern=valid_pattern,
                                                   input_string=input_string)
 
         #类型4 10G(相当于原生药14G)×20袋/盒
         elif len(re.findall(pattern_gross_type4,input_string)) != 0:
-            valid_pattern = r'\(相当于.*?(\d+(\.\d+)?)([GUMYLKAX]+)\)'
+            valid_pattern = r'\(相当于.*?(\d+(\.\d+)?)([GIUMYLKAX]+)\)'
             output_file = add_chc_gross_and_valid(input_gross_pattern=pattern_gross_type4,
                                                   input_valid_pattern=valid_pattern,
                                                   input_string=input_string)
@@ -330,21 +337,74 @@ def extract_spec_values_and_units_from_qiluType(origin_col):
     frame = {"origin_col":origin_col}
     df = pd.DataFrame(frame)
     
-    def make_elements_of_list_into_one_string(input_list):
+    def make_elements_of_list_into_one_string(origin_list):
         placeholder_word = ' '
-        output_sentence = reduce(lambda x,y: str(x).upper() + f"{placeholder_word}" + str(y).upper() ,input_list)
+        output_sentence = reduce(lambda x, y: x + f"{placeholder_word}" + y, origin_list)
         return output_sentence
-     
-    def remove_spaces_between_values_and_units(input_sentence):
-        remove_space = r'(\d+(\.\d+)?)(\w+)(?!\w+)'
-        data_list = re.findall(remove_space,input_sentence)
-        if len(data_list) == 0:
-            output_sentence = input_sentence
+    
+    def extract_all_qilu_spec_data(pattern_gross_type,input_string):
+        try:
+            string_list = re.findall(pattern_gross_type,input_string)
+            gross_string = list(map(lambda x: x[0] + x[-1], string_list))
+            output_file = make_elements_of_list_into_one_string(gross_string)
+        except:
+            output_file = input_string
+        return output_file
+
+    def add_qilu_gross_and_valid(gross_pattern,valid_split_pattern,valid_pattern,input_string):
+        try:
+            gross_string = re.findall(gross_pattern, input_string)
+            gross_data = list(map(lambda x: x[0] + x[-1], gross_string))[0]
+            valid_string = re.split(valid_split_pattern,input_string)[-1]
+            valid_data_list = re.findall(valid_pattern, valid_string)
+            output_data_list = list(map(lambda x: x[0] + x[-1], valid_data_list))
+            output_data_list.append(gross_data)
+            try:
+                file = make_elements_of_list_into_one_string(output_data_list)
+            except:
+                file = input_string
+        except:
+            file = input_string
+        return file
+
+    def extract_qilu_values_and_unit(input_string):
+
+        pattern_gross = r'(\d+(\.\d+)?)(\w+).*[(].*[)]'
+        pattern_gross_type2 = r'(\d+(\.\d+)?)(\w+)[∶]'
+        pattern_gross_type3 = r"(\d+(\.\d+)?)[万]U"
+        pattern_gross_type4 = r'(\d+(\.\d+)?)([GUMYLKAX]+)'
+        
+        #类型一 50ml∶单硝酸异山梨酯20mg,葡萄糖12.5g 、 1ml：0.1mg
+        if len(re.findall(pattern_gross_type2,input_string)) != 0:
+            valid_split_pattern = r'∶'
+            valid_pattern = r'(\d+(\.\d+)?)([GUMYLKAX]+)'
+            output_file = add_qilu_gross_and_valid(gross_pattern=pattern_gross_type2, valid_split_pattern=valid_split_pattern,\
+                                                   valid_pattern=valid_pattern, input_string=input_string)
+        #类型二 1.5g(头孢哌酮0.75g，舒巴坦0.75g)
+        elif len(re.findall(pattern_gross,input_string)) != 0:
+            valid_split_pattern = r'\('
+            valid_pattern = r'(\d+(\.\d+)?)([GUMYLKAX]+)'
+            output_file = add_qilu_gross_and_valid(gross_pattern=pattern_gross, valid_split_pattern=valid_split_pattern,\
+                                                   valid_pattern=valid_pattern, input_string=input_string)
+
+        #类型三 50万U
+        elif len(re.findall(pattern_gross_type3,input_string)) != 0:
+            try:
+                output_string = re.sub('万','0000',input_string)
+                output_file = extract_all_qilu_spec_data(pattern_gross_type=pattern_gross_type4, input_string=output_string)
+            except:
+                output_file = input_string
+
+        #取所有的数值单位类型
+        elif len(re.findall(pattern_gross_type4,input_string)) != 0:
+            output_file =extract_all_qilu_spec_data(pattern_gross_type=pattern_gross_type4, input_string=input_string)
+
+         #否则返回原值
         else:
-            output_list = list(map(lambda x: x[0]+ x[-1], data_list))
-            output_sentence = make_elements_of_list_into_one_string(output_list)   
-        return output_sentence
-    df['output_col'] = df.apply(lambda x: remove_spaces_between_values_and_units(x.origin_col), axis =1)
+            output_file = input_string
+        return output_file
+
+    df['output_col'] = df.apply(lambda x: extract_qilu_values_and_unit(x.origin_col), axis=1)
     return df['output_col']
 
 @pandas_udf(ArrayType(StringType()),PandasUDFType.SCALAR)
@@ -369,12 +429,12 @@ def restore_nonstandard_data_to_normal(df_cleanning):
 @pandas_udf(ArrayType(StringType()), PandasUDFType.SCALAR)
 def make_nonstandard_data_become_normal_addType(origin_col):
     def judge_nonstandard_data(word):
-        data_extraction_rule = r'(\d+(\.\d+)?)(\w+(?=\+))'
+        data_extraction_rule = r'(\d+(\.\d+)?)([GIUMYLKAX]+(?=\+))'
         if len(re.findall(data_extraction_rule, word)) != 0:
             the_first_data = re.findall(data_extraction_rule, word)[0]
             the_first_data_value = the_first_data[0]
             the_first_data_unit = the_first_data[-1]
-            the_test_of_data_extract_rule = r'\+(\d+(\.\d+)?)(\w+)' 
+            the_test_of_data_extract_rule = r'\+(\d+(\.\d+)?)([GIUMYLKAX]+)' 
             the_rest_of_data = re.findall(the_test_of_data_extract_rule, word)
             the_rest_of_data_values = list(map(lambda x : x[0], the_rest_of_data))
             the_rest_of_data_units = list(map(lambda x: x[-1], the_rest_of_data))
@@ -409,7 +469,7 @@ def make_nonstandard_data_become_normal_percent_or_rateType(origin_col):
         remove_placeholder = ''
         if len(re.findall(percent_extract_pattern, sentence)) != 0:
             sentence = re.sub(percent_extract_pattern,remove_placeholder,sentence)
-        gross_data_pattern = r'[\+]?(\d+(\.\d+)?)(?!\d+)(\w+)'
+        gross_data_pattern = r'[\+]?(\d+(\.\d+)?)(?!\d+)([GIUMYLKAX]+)'
         try:
             if len(re.findall(gross_data_pattern, sentence)) == 0:
                 gross_data = sentence
@@ -426,7 +486,7 @@ def make_nonstandard_data_become_normal_percent_or_rateType(origin_col):
             gross_data = sentence
         return gross_data
     def extract_value_and_unit(word):
-        gross_data_pattern = r'[\+]?(\d+(\.\d+)?)(\w+)'
+        gross_data_pattern = r'[\+]?(\d+(\.\d+)?)([GIUMYLKAX]+)'
         try:
             if len(re.findall(gross_data_pattern,word)) == 0:
                 return None
@@ -524,10 +584,10 @@ def create_values_and_units(origin_col):
         #分割字符
     def split_int_word(word):
         
-        pattern_decimal = r'(\d+\.\d+)(\w+)$'
+        pattern_decimal = r'(\d+\.\d+)([GIUMYLKAX]+)$'
         try:
             if re.match(pattern_decimal, word) == None:
-                pattern_decimal = r'(\d+)(\w+)$'
+                pattern_decimal = r'(\d+)([GIUMYLKAX]+)$'
             s = re.findall(pattern_decimal,word)[0]
             value = str(float(s[0]) * float(conversion_dict[s[1]]))
             unit = str(unit_data_dict[s[1]])
@@ -577,7 +637,7 @@ def make_spec_gross_data(spec):
         remove_placeholder = ''
         if len(re.findall(percent_extract_pattern, sentence)) != 0:
             sentence = re.sub(percent_extract_pattern,remove_placeholder,sentence)
-        gross_data_pattern = r'[\+]?(\d+(\.\d+)?)(?!\d+)(\w+)'
+        gross_data_pattern = r'[\+]?(\d+(\.\d+)?)(?!\d+)([GIUMYLKAX]+)'
         try:
             if len(re.findall(gross_data_pattern, sentence)) == 0:
                 gross_data = sentence

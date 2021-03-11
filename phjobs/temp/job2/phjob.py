@@ -27,7 +27,7 @@ def execute(**kwargs):
 #     pf = spark.read.parquet("s3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/pfizer_model/0.0.2/raw_data")
 #     sh = spark.read.csv("s3a://ph-max-auto/2020-08-11/data_matching/temp/mzhang/sh_PCHC_sku",header=True,encoding="gbk")
 #     sh.write.mode("overwrite").parquet("s3a://ph-max-auto/2020-08-11/data_matching/temp/mzhang/sh_PCHC_sku")
-    qilu_result = spark.read.csv("s3a://ph-max-auto/2020-08-11/data_matching/refactor/results/2021-03-10_03-17-32/Report",header=True)
+    qilu_result = spark.read.csv('s3a://ph-max-auto/2020-08-11/data_matching/refactor/results/2021-03-10_15-15-31/Report',header=True)
     qilu_result.show()
     print(qilu_result.printSchema())
     print(qilu_result.count())
