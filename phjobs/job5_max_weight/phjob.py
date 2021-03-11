@@ -292,8 +292,14 @@ all_models, universe_choice, if_others, out_path, out_dir, need_test, use_d_weig
         # factor = spark.read.parquet(factor_path)
         if "factor" not in factor.columns:
             factor = factor.withColumnRenamed("factor_new", "factor")
-        factor = factor.select('City', 'factor')
-        universe_factor_panel = universe.join(factor, on="City", how="left").cache() # TEST
+            
+        if 'Province' in factor.columns:
+            factor = factor.select('City', 'factor', 'Province').distinct()
+            universe_factor_panel = universe.join(factor, on=["City", 'Province'], how="left").cache() # TEST
+        else:
+            factor = factor.select('City', 'factor').distinct()
+            universe_factor_panel = universe.join(factor, on=["City"], how="left").cache() # TEST
+            
         universe_factor_panel = universe_factor_panel \
             .withColumn("factor", func.when(func.isnull(universe_factor_panel.factor), func.lit(1)).otherwise(universe_factor_panel.factor)) \
             .where(universe_factor_panel.PANEL == 0) \
