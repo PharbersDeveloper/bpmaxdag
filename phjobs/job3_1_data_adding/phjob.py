@@ -85,6 +85,7 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
 
     # 输出
     price_path = out_path_dir + "/price"
+    price_city_path = out_path_dir + "/price_city"
     growth_rate_path = out_path_dir + "/growth_rate"
     adding_data_path =  out_path_dir + "/adding_data"
     raw_data_adding_path =  out_path_dir + "/raw_data_adding"
@@ -167,11 +168,20 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
     price = price.withColumn("Price", func.when(func.isnull(price.Price), func.lit(0)).
                              otherwise(price.Price)) \
         .drop("Price2")
+    
+    # 城市层面
+    price_city = raw_data.groupBy("min2", "year_month", 'City', 'Province') \
+                        .agg((func.sum("Sales") / func.sum("Units")).alias("Price"))
+    price_city = price_city.where(~price_city.Price.isNull())
 
     # 输出price
     price = price.repartition(2)
     price.write.format("parquet") \
         .mode("overwrite").save(price_path)
+    
+    price_city = price_city.repartition(2)
+    price_city.write.format("parquet") \
+        .mode("overwrite").save(price_city_path)
 
     logger.info("输出 price：" + price_path)
 

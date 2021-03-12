@@ -81,6 +81,7 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
 
     # 输出
     price_path = out_path_dir + "/price"
+    price_city_path = out_path_dir + "/price_city"
     growth_rate_path = out_path_dir + "/growth_rate"
     adding_data_path =  out_path_dir + "/adding_data"
     raw_data_adding_path =  out_path_dir + "/raw_data_adding"
@@ -136,8 +137,14 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
                                    otherwise(raw_data.S_Molecule))
 
     price = spark.read.parquet(price_path)
+    price = price.withColumnRenamed('Price', 'Price_tier')
+    
     growth_rate = spark.read.parquet(growth_rate_path)
     growth_rate.persist()
+    
+    price_city = spark.read.parquet(price_city_path)
+    price_city = price_city.withColumnRenamed('Price', 'Price_city')
+    
 
     # raw_data 处理
     if monthly_update == "False":
@@ -237,7 +244,13 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
             current_adding_data = current_adding_data.withColumn("year_month", current_adding_data["year_month"].cast(DoubleType()))
     
             current_adding_data = current_adding_data.withColumnRenamed("CITYGROUP", "City_Tier_2010") \
-                .join(price, on=["min2", "year_month", "City_Tier_2010"], how="inner")
+                .join(price, on=["min2", "year_month", "City_Tier_2010"], how="inner") \
+                .join(price_city, on=["min2", "year_month", "City", "Province"], how="left")
+        
+            current_adding_data = current_adding_data.withColumn('Price', func.when(current_adding_data.Price_city.isNull(), 
+                                                                                    current_adding_data.Price_tier) \
+                                                                             .otherwise(current_adding_data.Price_city))
+            
             current_adding_data = current_adding_data.withColumn("Units", func.when(current_adding_data.Sales == 0, 0).
                                                          otherwise(current_adding_data.Sales / current_adding_data.Price)) \
                 .na.fill({'Units': 0})
