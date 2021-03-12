@@ -16,7 +16,7 @@ spec:
     code: phmain.py
     config: phconf.yaml
     args:
-      - key: owner
+      - key: owner_id
         value: "test"
       - key: version
         value: "0.0.1"
@@ -29,7 +29,7 @@ spec:
       - key: product_cgy
         value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DIMENSION/PRODUCT_CATEGORY_DIMENSION/
       - key: out_put
-        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/export/#run_id#/#owner#/asset/"
+        value: "s3a://general.pharbers.com/public/export/#run_id#/#owner#/asset/"
     outputs:
       - key: c
         value: "abc"
