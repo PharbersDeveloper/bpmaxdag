@@ -162,9 +162,9 @@ def execute(**kwargs):
         def city_change(name):
             # 城市名定义
             if name in ["福州市", "厦门市", "泉州市"]:
-                newname = "福厦泉市"
+                newname = "福厦泉"
             elif name in ["珠海市", "东莞市", "中山市", "佛山市"]:
-                newname = "珠三角市"
+                newname = "珠三角"
             elif name in ["绍兴市", "嘉兴市", "台州市", "金华市"]:
                 newname = "浙江市"
             elif name in ["苏州市", "无锡市"]:
@@ -337,13 +337,13 @@ def execute(**kwargs):
         
         factor2_city = factor2.select('City').distinct().toPandas()['City'].values.tolist()
         
-        if "福厦泉市" in factor2_city:
-            value = factor2.where(col('City')=='福厦泉市').select('factor2').toPandas()['factor2'][0]
+        if "福厦泉" in factor2_city:
+            value = factor2.where(col('City')=='福厦泉').select('factor2').toPandas()['factor2'][0]
             factor3 = factor3.withColumn('factor2', func.when(col('City').isin("福州市","厦门市","泉州市"), func.lit(value)) \
                                                         .otherwise(col('factor2')))
         
-        if "珠三角市" in factor2_city:
-            value2 = factor2.where(col('City')=='珠三角市').select('factor2').toPandas()['factor2'][0]
+        if "珠三角" in factor2_city:
+            value2 = factor2.where(col('City')=='珠三角').select('factor2').toPandas()['factor2'][0]
             factor3 = factor3.withColumn('factor2', func.when(col('City').isin("珠海市","东莞市","中山市","佛山市"), 
                                                         func.lit(value2)).otherwise(col('factor2')))
             
