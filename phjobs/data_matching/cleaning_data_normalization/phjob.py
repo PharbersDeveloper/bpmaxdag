@@ -105,7 +105,7 @@ def get_result_path(kwargs, run_id, job_id):
 def modify_pool_cleanning_prod(spark, raw_data_path):
 #     raw_data_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/azsanofi/raw_data"
 #     raw_data_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/qilu/raw_data2"
-    raw_data_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/eia/raw_data_2"
+#     raw_data_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/eia/raw_data_2"
     if raw_data_path.endswith(".csv"):
         df_cleanning = spark.read.csv(path=raw_data_path, header=True).withColumn("ID", pudf_id_generator(col("MOLE_NAME")))
     else:
@@ -141,13 +141,12 @@ def judge_source_type(df_cleanning,source_data_type):
    
     elif source_data_type.upper() == "AZ":
         df_cleanning = make_az_spec_become_normal(df_cleanning)
-        print("source_data_error!")
     elif source_data_type.upper() == "QILU":
         df_cleanning = make_qilu_spec_become_normal(df_cleanning)
     elif source_data_type.upper() == "EISAI":
         df_cleanning = make_eisai_spec_become_normal(df_cleanning)
     else:
-        print("数据源类型不匹配!")
+        print("source_data_error!")
     
     return df_cleanning
 
