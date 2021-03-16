@@ -22,7 +22,7 @@ spec:
     - name: job1_hospital_mapping
     - name: job2_product_mapping
     - name: job3_1_data_adding
-    - name: job3_2_data_adding
+    - name: Max.job3_2_data_adding
     - name: job4_panel
     - name: job5_max_weight
     - name: Max.job6_max_city
@@ -32,7 +32,7 @@ spec:
     - name: Max.delivery
     - name: Rawdata.delivery
   linkage:
-    - "job1_hospital_mapping >> job2_product_mapping >> job3_1_data_adding >> job3_2_data_adding >> job4_panel >> job5_max_weight >> Max.job6_max_city >> [Max.check, job7_max_standard, job7_raw_standard]"
+    - "job1_hospital_mapping >> job2_product_mapping >> job3_1_data_adding >> Max.job3_2_data_adding >> job4_panel >> job5_max_weight >> Max.job6_max_city >> [Max.check, job7_max_standard, job7_raw_standard]"
     - "job7_max_standard >> Max.delivery"
     - "job7_raw_standard >> Rawdata.delivery"
 
