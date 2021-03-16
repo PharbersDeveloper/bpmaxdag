@@ -90,10 +90,12 @@ def execute(**kwargs):
     
     # 2. product_map 文件处理
     product_map = spark.read.parquet(product_map_path)
-    if project_name == "Sanofi" or project_name == "AZ":
-        product_map = product_map.withColumnRenamed(product_map.columns[21], "pfc")
-    if project_name == "Eisai":
-        product_map = product_map.withColumnRenamed(product_map.columns[22], "pfc")
+    #if project_name == "Sanofi" or project_name == "AZ":
+    #    if "pfc" not in product_map.columns:
+    #        product_map = product_map.withColumnRenamed([i for i in product_map.columns if 'pfc' in i][0], "pfc")
+    #if project_name == "Eisai":
+    #    if "pfc" not in product_map.columns:
+    #        product_map = product_map.withColumnRenamed([i for i in product_map.columns if 'pfc' in i][0], "pfc")
     for i in product_map.columns:
         if i in ["标准通用名", "通用名_标准", "药品名称_标准", "S_Molecule_Name"]:
             product_map = product_map.withColumnRenamed(i, "通用名")
