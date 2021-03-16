@@ -189,7 +189,7 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
     if monthly_update == "False":
         raw_data = raw_data.where(raw_data.Year < ((model_month_right // 100) + 1))
         if project_name == "Sanofi" or project_name == "AZ":
-            raw_data = raw_data.where((raw_data.Year > 2016) & (raw_data.Year < 2020))
+            raw_data = raw_data.where(raw_data.Year > 2016)
     elif monthly_update == "True":
         if project_name == "Sanofi" or project_name == "AZ":
             raw_data = raw_data.where(raw_data.Year > 2016)
