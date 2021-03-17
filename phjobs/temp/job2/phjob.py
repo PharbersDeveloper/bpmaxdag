@@ -30,16 +30,22 @@ def execute(**kwargs):
 #     sh.write.mode("overwrite").parquet("s3a://ph-max-auto/2020-08-11/data_matching/temp/mzhang/sh_PCHC_sku")
 #     az_result = spark.read.csv('s3a://ph-max-auto/2020-08-11/data_matching/refactor/results/2021-03-10_03-17-32/Predictions/',header=True)
 
-    qilu_result = spark.read.csv('s3a://ph-max-auto/2020-08-11/data_matching/refactor/results/2021-03-11_08-16-33/Predictions/',header=True)
-    qilu_result.select("label","prediction").show()
-    print(qilu_result.printSchema())
-    print(qilu_result.count())
-    a = qilu_result.filter(col("label")==col("prediction")).count()
-    all_count = qilu_result.count()
-    rate = round(int(a)/int(all_count) * 100 ,2)  
-    print(rate)
+#     qilu_result = spark.read.csv('s3a://ph-max-auto/2020-08-11/data_matching/refactor/results/2021-03-15_14-53-17/Predictions',header=True)
+# #     qilu_result.select("label","prediction").show()
+# #     print(qilu_result.printSchema())
+# #     print(qilu_result.count())
+#     a = qilu_result.filter(col("label")==col("prediction")).count()
+#     all_count = qilu_result.count()
+#     rate = str(round(int(a)/int(all_count) * 100 ,2)) + '%'  
+#     print("CHC准确率:",rate)
     
+#     word_dict = spark.read.csv("s3a://ph-max-auto/2020-08-11/data_matching/temp/mzhang/test_run_data/chc/0.01",header=True,encoding='gbk')
+#     print(word_dict.printSchema())
+#     word_dict.write.mode("overwrite").parquet("s3a://ph-max-auto/2020-08-11/data_matching/temp/mzhang/test_run_data/chc/0.01")
+#     print('ok!')
 
+#     chc_new_0315 = spark.read.csv("s3a://ph-max-auto/2020-08-11/data_matching/refactor/results/2021-03-15_14-53-17/Report",header=True)
+#     chc_new_0315.show()
 
 
     return {}

@@ -414,8 +414,8 @@ def make_spec_valid_data(spec,spec_gross_data):
 
 def make_spec_become_string(df_standard):
     df_standard = df_standard.withColumn("SPEC_STANDARD", make_spec_from_array_into_string(col("SPEC_STANDARD")))
-    df_standard.select("SPEC_STANDARD_ORIGINAL","SPEC_STANDARD","SPEC_STANDARD_GROSS","SPEC_STANDARD_VALID").distinct().show(500)
-    print(df_standard.printSchema())
+#     df_standard.select("SPEC_STANDARD_ORIGINAL","SPEC_STANDARD","SPEC_STANDARD_GROSS","SPEC_STANDARD_VALID").distinct().show(500)
+#     print(df_standard.printSchema())
     return df_standard
 
 @pandas_udf(StringType(), PandasUDFType.SCALAR)

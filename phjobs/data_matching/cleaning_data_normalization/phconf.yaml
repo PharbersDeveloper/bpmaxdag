@@ -26,7 +26,7 @@ spec:
       - key: path_second_human_interfere
         value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DF_CONF/0.3
       - key: source_data_type
-        value: qilu 
+        value: chc 
     outputs:
       - key: cleaning_result
         value: cleaning_result
