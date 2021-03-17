@@ -18,26 +18,24 @@ spec:
     args:
       - key: provider
         value: NTM
-      - key: JobID
+      - key: proposal_id
         value: "1234"
-      - key: proposalId
+      - key: project_id
         value: "1234"
-      - key: projectId
-        value: "1234"
-      - key: periodId
+      - key: period_id
         value: "1234"
       - key: phase
         value: "1234"
       - key: weight_path
-        value: "1234"
+        value: s3://ph-max-auto/2020-08-11/NTM/data/Weightages.csv
       - key: curves_path
-        value: "1234"
+        value: s3a://ph-max-auto/2020-08-11/NTM/data/Curves.csv
       - key: manage_path
         value: "1234"
       - key: standard_time_path
-        value: "1234"
+        value: s3://ph-max-auto/2020-08-11/NTM/data/Standard_Time.csv
       - key: level_data_path
-        value: "1234"
+        value: s3://ph-max-auto/2020-08-11/NTM/data/Level.csv
     outputs:
       - key: c
         value: "abc"
