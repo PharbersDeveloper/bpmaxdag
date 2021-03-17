@@ -41,9 +41,7 @@ def execute(**kwargs):
 
 ########################--------------main function--------------------#################
     df_result = choose_max_effectiveness(df_mnf_adjusted,df_spec_adjusted)
-    '''
     df_result.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
-    '''
 ######################--------------main function--------------------#################   
     return {}
 
@@ -85,12 +83,10 @@ def get_depends_path(kwargs):
     return result
 
 def load_df_mnf_adjusted(spark, path_mnf_adjust):
-    path_mnf_adjust = r's3a://ph-max-auto/2020-08-11/data_matching/refactor/runs/manual__2021-03-15T10_56_50.568613+00_00/effectiveness_adjust_mnf/mnf_adjust_result'
     df_mnf_adjusted = spark.read.parquet(path_mnf_adjust)
     return df_mnf_adjusted
 
 def load_df_spec_adjusted(spark, path_spec_adjust):
-    path_spec_adjust = r's3a://ph-max-auto/2020-08-11/data_matching/refactor/runs/manual__2021-03-15T10_56_50.568613+00_00/effectiveness_adjust_spec/spec_adjust_result'
     df_spec_adjusted = spark.read.parquet(path_spec_adjust)
     return df_spec_adjusted  
 

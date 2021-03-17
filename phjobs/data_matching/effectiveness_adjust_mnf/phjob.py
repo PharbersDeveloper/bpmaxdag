@@ -60,7 +60,8 @@ def execute(**kwargs):
 #########--------------main function--------------------#################  
     #进行分词处理
     df_cleanning =  deal_with_word_segmentation_mnf(df_cleanning, mnf_lexicon, mnf_stopwords)
-#     df_cleanning = mnf_encoding_index(df_cleanning, df_encode)
+    
+    df_cleanning.repartition(g_repartition_shared).write.mode("overwrite").parquet(mid_path)
     
     #mnf分词映射成编码
     df_cleanning = make_mnf_word_segmentation_convert_into_code(df_cleanning,mnf_mapping_code_dict)
@@ -70,11 +71,6 @@ def execute(**kwargs):
     #mnf有效性计算
     df_cleanning = get_mnf_efftiveness(df_cleanning)
     
-    df_cleanning = second_round_with_col_recalculate(df_cleanning)
-    
-    df_cleanning.repartition(g_repartition_shared).write.mode("overwrite").parquet(mid_path)
-    #选取指定的列用于和adjust_spec job 进行union操作
-    df_cleanning = select_specified_cols(df_cleanning)
 
     df_cleanning.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
 #########--------------main function--------------------#################  
@@ -87,6 +83,7 @@ def get_run_id(kwargs):
     run_id = kwargs["run_id"]
     if not run_id:
         run_id = "runid_" + "alfred_runner_test"
+    print(run_id)
     return run_id
 
 def get_job_id(kwargs):
@@ -281,15 +278,15 @@ def second_round_with_col_recalculate(df_cleanning):
     df_cleanning.persist()
     return df_cleanning
     
-def select_specified_cols(df_cleanning):
+# def select_specified_cols(df_cleanning):
 
-    cols = ["SID", "ID","PACK_ID_CHECK",  "PACK_ID_STANDARD","DOSAGE","MOLE_NAME","PRODUCT_NAME","SPEC","PACK_QTY","MANUFACTURER_NAME","SPEC_ORIGINAL",
-                "MOLE_NAME_STANDARD","PRODUCT_NAME_STANDARD","CORP_NAME_STANDARD","MANUFACTURER_NAME_STANDARD","MANUFACTURER_NAME_EN_STANDARD","DOSAGE_STANDARD","SPEC_STANDARD","PACK_QTY_STANDARD",
-                "SPEC_STANDARD_GROSS","SPEC_STANDARD_VALID","SPEC_GROSS","SPEC_VALID",
-                "EFFTIVENESS_MOLE_NAME","EFFTIVENESS_PRODUCT_NAME","EFFTIVENESS_DOSAGE","EFFTIVENESS_PACK_QTY","EFFTIVENESS_MANUFACTURER","EFFTIVENESS_SPEC"]
-    df_cleanning = df_cleanning.select(cols)
+#     cols = ["SID", "ID","PACK_ID_CHECK",  "PACK_ID_STANDARD","DOSAGE","MOLE_NAME","PRODUCT_NAME","SPEC","PACK_QTY","MANUFACTURER_NAME","SPEC_ORIGINAL",
+#                 "MOLE_NAME_STANDARD","PRODUCT_NAME_STANDARD","CORP_NAME_STANDARD","MANUFACTURER_NAME_STANDARD","MANUFACTURER_NAME_EN_STANDARD","DOSAGE_STANDARD","SPEC_STANDARD","PACK_QTY_STANDARD",
+#                 "SPEC_STANDARD_GROSS","SPEC_STANDARD_VALID","SPEC_GROSS","SPEC_VALID",
+#                 "EFFTIVENESS_MOLE_NAME","EFFTIVENESS_PRODUCT_NAME","EFFTIVENESS_DOSAGE","EFFTIVENESS_PACK_QTY","EFFTIVENESS_MANUFACTURER","EFFTIVENESS_SPEC"]
+#     df_cleanning = df_cleanning.select(cols)
     
-    return df_cleanning
+#     return df_cleanning
 
 @pandas_udf(ArrayType(IntegerType()), PandasUDFType.GROUPED_AGG)
 def word_index_to_array(v):
@@ -336,15 +333,15 @@ def mnf_index_word_cosine_similarity(o, v):
     df["RESULT"] = df.apply(lambda x: cosine_distance(x["CLENNING_FEATURE"], x["STANDARD_FEATURE"]), axis=1)
     return df["RESULT"]
 
-@pandas_udf(DoubleType(), PandasUDFType.SCALAR)
-def prod_name_replace(eff_mole_name, eff_mnf_name, eff_product_name, mole_name, prod_name_standard):
-    frame = { "EFFTIVENESS_MOLE_NAME": eff_mole_name, "EFFTIVENESS_MANUFACTURER_SE": eff_mnf_name, "EFFTIVENESS_PRODUCT_NAME": eff_product_name,
-            "MOLE_NAME": mole_name, "PRODUCT_NAME_STANDARD": prod_name_standard, }
-    df = pd.DataFrame(frame)
+# @pandas_udf(DoubleType(), PandasUDFType.SCALAR)
+# def prod_name_replace(eff_mole_name, eff_mnf_name, eff_product_name, mole_name, prod_name_standard):
+#     frame = { "EFFTIVENESS_MOLE_NAME": eff_mole_name, "EFFTIVENESS_MANUFACTURER_SE": eff_mnf_name, "EFFTIVENESS_PRODUCT_NAME": eff_product_name,
+#             "MOLE_NAME": mole_name, "PRODUCT_NAME_STANDARD": prod_name_standard, }
+#     df = pd.DataFrame(frame)
 
-    df["EFFTIVENESS_PROD"] = df.apply(lambda x: max((0.5* x["EFFTIVENESS_MOLE_NAME"] + 0.5* x["EFFTIVENESS_MANUFACTURER_SE"]), \
-                                (x["EFFTIVENESS_PRODUCT_NAME"]), \
-                                (jaro_winkler_similarity(x["MOLE_NAME"], x["PRODUCT_NAME_STANDARD"]))), axis=1)
+#     df["EFFTIVENESS_PROD"] = df.apply(lambda x: max((0.5* x["EFFTIVENESS_MOLE_NAME"] + 0.5* x["EFFTIVENESS_MANUFACTURER_SE"]), \
+#                                 (x["EFFTIVENESS_PRODUCT_NAME"]), \
+#                                 (jaro_winkler_similarity(x["MOLE_NAME"], x["PRODUCT_NAME_STANDARD"]))), axis=1)
 
-    return df["EFFTIVENESS_PROD"]
+#     return df["EFFTIVENESS_PROD"]
 ################-----------------------------------------------------################
