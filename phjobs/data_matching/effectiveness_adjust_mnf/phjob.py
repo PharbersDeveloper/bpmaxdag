@@ -263,7 +263,6 @@ def get_mnf_efftiveness(df_cleanning):
     df_cleanning = df_cleanning.withColumn("EFFTIVENESS_MANUFACTURER_SE", \
                                     when(df_cleanning.MNF_COSINE_SIMILARITY >= df_cleanning.EFFTIVENESS_MANUFACTURER,\
                                          df_cleanning.MNF_COSINE_SIMILARITY).otherwise(df_cleanning.EFFTIVENESS_MANUFACTURER))
-    
     return df_cleanning
 
 def second_round_with_col_recalculate(df_cleanning):

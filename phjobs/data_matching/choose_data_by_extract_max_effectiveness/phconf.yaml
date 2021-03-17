@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: choose_data_by_extract_max_effectiveness 
+  description: "pharbers job description"
+  labels:
+    name: choose_data_by_extract_max_effectiveness 
+    runtime: python3
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    code: phmain.py
+    config: phconf.yaml
+    command: submit
+    timeout: 800
+    args:
+      - key: job_name
+        value: choose_data_by_extract_max_effectiveness 
+      - key: path_prefix
+        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs
+      - key: depend_job_names_keys
+        value: 
+          - effectiveness_adjust_mnf#mnf_adjust_result#mnf_adjust
+          - effectiveness_adjust_spec#spec_adjust_result#spec_adjust
+      - key: g_repartition_shared
+        value: 10
+    outputs:
+      - key: max_effectiveness_job_result
+        value: max_effectiveness_job_result

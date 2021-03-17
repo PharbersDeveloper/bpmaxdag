@@ -104,13 +104,9 @@ def choose_max_effectiveness(df_mnf_adjusted,df_spec_adjusted):
 						max(df_result.EFFTIVENESS_PACK_QTY).alias("EFFTIVENESS_PACK_QTY"),
 						max(df_result.EFFTIVENESS_MANUFACTURER).alias("EFFTIVENESS_MANUFACTURER"),
 					)  
-	cols = ['SID', 'ID', 'PACK_ID_CHECK', 'PACK_ID_STANDARD', 'DOSAGE', 'MOLE_NAME', 'PRODUCT_NAME', 'SPEC', 'PACK_QTY', 'MANUFACTURER_NAME', 'SPEC_ORIGINAL', 'MOLE_NAME_STANDARD', 'PRODUCT_NAME_STANDARD', 'CORP_NAME_STANDARD', 'MANUFACTURER_NAME_STANDARD', 'MANUFACTURER_NAME_EN_STANDARD', 'DOSAGE_STANDARD', 'SPEC_STANDARD', 'PACK_QTY_STANDARD', 'SPEC_valid_digit_STANDARD', 'SPEC_valid_unit_STANDARD', 'SPEC_GROSS_VALUE_PURE_STANDARD', 'SPEC_GROSS_UNIT_PURE_STANDARD', 'SPEC_GROSS_VALUE_PURE', 'CHC_GROSS_UNIT', 'SPEC_VALID_VALUE_PURE', 'SPEC_VALID_UNIT_PURE']
-#cpa 数据列
+
 	cpa_cols = ['SID', 'ID', 'PACK_ID_CHECK', 'PACK_ID_STANDARD', 'DOSAGE', 'MOLE_NAME', 'PRODUCT_NAME', 'SPEC', 'PACK_QTY', 'MANUFACTURER_NAME', 'SPEC_ORIGINAL', 'MOLE_NAME_STANDARD', 'PRODUCT_NAME_STANDARD', 'CORP_NAME_STANDARD', 'MANUFACTURER_NAME_STANDARD', 'MANUFACTURER_NAME_EN_STANDARD', 'DOSAGE_STANDARD', 'SPEC_STANDARD', 'PACK_QTY_STANDARD', 'SPEC_STANDARD_GROSS', 'SPEC_STANDARD_VALID', 'SPEC_GROSS', 'SPEC_VALID']
-	if "CHC_GROSS_UNIT" not in df_mnf_adjusted.columns:
-		df_mnf_distinct_col = df_mnf_adjusted.select(cpa_cols)      
-	else: 
-		df_mnf_distinct_col = df_mnf_adjusted.select(cols)
+	df_mnf_distinct_col = df_mnf_adjusted.select(cols)
 	df_result = df_result.join(df_mnf_distinct_col, on=["SID","ID"], how="left")
 	return df_result
 
