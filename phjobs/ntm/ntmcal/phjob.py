@@ -38,8 +38,7 @@ def execute(**kwargs):
 	job_id = get_job_id(kwargs)
 	run_id = get_run_id(kwargs)
 	result_path_prefix = get_result_path(kwargs, run_id, job_id)
-	# result_path = result_path_prefix + kwargs["cross_result"]
-# 	drop_path = result_path_prefix + kwargs["cross_drop"]
+	result_path = result_path_prefix + kwargs["cal_result"]
 ###############----------------output--------------##################
 
 	curves = curves.withColumn(curves.x.cast("double").alias("x"))
@@ -140,14 +139,15 @@ def execute(**kwargs):
 	cal_data = cal_data.withColumn(cal_data, "offer_attractiveness", 
 				cal_data.sales_performance * cal_data.sales_performance_w + \
 				cal_data.customer_relationship * cal_data.customer_relationship_w)
-    
+	
 	cal_data = cal_curves_result(cal_data, ["curve28"])
 	cal_data = cal_data.withColumn(cal_data, "share_delta_factor", cal_curves_result(cal_data.offer_attractiveness))
 	
 	cal_data = cal_data.withColumn(cal_data, "share", cal_data.p_share * (1.0 + cal_data.share_delta_factor))
 	cal_data.persist()
-	
 	cal_data.show()
+	
+	cal_data.write.mode("overwrite").parquet(cal_result)
 
 	return {}
 
@@ -203,6 +203,30 @@ def cal_curves_result_prepare(df, curves, adjust_col, condi = []):
 	return df
 
 @pandas_udf(ArrayType(DoubleType()), PandasUDFType.SCALAR)
-def cal_curves_result(mo, ms, po, ps):
+def cal_curves_result(cn, s):
+	frame = {
+		"cn": cn,
+		"source", s
+	}
+	df = pd.DataFrame(frame)
 
+	def curve_func(cn, input):
+		curve_data = curves["name" == cn] 
+		if input < min(curve_data.x):
+			return curve_data[which.min(curve_data.x), 2]
+		
+		if input > max(curve_data.x):
+			return curve_data[which.max(curve_data.x), 2]
+
+		left = curve_data[which.min(abs(input - curve_data.x)), ]    
+		tmp = curve_data[-which.min(abs(input - curve_data.x)), ]    
+		right = tmp[which.min(abs(input - tmp.x)), ]
+
+		if left.x <= right.x:
+			return (1.0 - (input - left.x) / (right.x - left.x)) * left.y + (1.0 - (right.x - input) / (right.x - left.x)) * right.y
+		else:
+			return (1.0 - (input - right.x) / (left$x - right.x)) * right.y + (1.0 - (left.x - input) / (left.x - right.x)) * left.y)
+
+	df["result"] = df.apply(lambda x: curve_func(x["cn"], x["source"]), axis=1)
+	return df["result"]
 ################--------------------- functions ---------------------################

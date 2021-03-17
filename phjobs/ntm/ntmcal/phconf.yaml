@@ -37,10 +37,5 @@ spec:
       - key: level_data_path
         value: s3://ph-max-auto/2020-08-11/NTM/data/Level.csv
     outputs:
-      - key: c
-        value: "abc"
-      - key: d
-        value: "abc"
-
-
-
+      - key: cal_result
+        value: cal_result
