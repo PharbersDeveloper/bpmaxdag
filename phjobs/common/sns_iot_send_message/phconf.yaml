@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: sns_iot_send_message
+  description: "pharbers job description"
+  labels:
+    name: sns_iot_send_message
+    runtime: python3
+    command: script
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    command: script
+    timeout: 10.0
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: a
+        value: "abc"
+      - key: b
+        value: "abc"
+    outputs:
+      - key: c
+        value: "abc"
+      - key: d
+        value: "abc"
+
+
+
