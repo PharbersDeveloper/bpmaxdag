@@ -58,163 +58,163 @@ def execute(**kwargs):
 	weigthages.show()
 	standard_time.show()
 
-	cal_data = cal_data.withColumn(cal_data, "level_factor", 
+	cal_data = cal_data.withColumn("level_factor", 
 				0.8 * (cal_data.potential / cal_data.total_potential) + 0.2 * (cal_data.p_sales / cal_data.total_p_sales))
-	cal_data = cal_data.withColumn(cal_data, "work_motivation", 
+	cal_data = cal_data.withColumn("work_motivation", 
 				cal_data.p_work_motivation + 0.15 * (10 - cal_data.p_work_motivation) * (cal_data.performance_review + cal_data.career_development_guide)
-	cal_data = cal_data.withColumn(cal_data, "territory_management_ability", 
+	cal_data = cal_data.withColumn("territory_management_ability", 
 				cal_data.p_territory_management_ability + 0.3 * (10 - cal_data.p_territory_management_ability) * cal_data.territory_management_training)
-	cal_data = cal_data.withColumn(cal_data, "sales_skills", 
+	cal_data = cal_data.withColumn("sales_skills", 
 				cal_data.p_sales_skills + 0.3 * (10 - cal_data.p_sales_skills) * cal_data.sales_skills_training)
-	cal_data = cal_data.withColumn(cal_data, "product_knowledge", 
+	cal_data = cal_data.withColumn("product_knowledge", 
 				cal_data.p_product_knowledge + 0.3 * (10 - cal_data.p_product_knowledge) * cal_data.product_knowledge_training)
-	cal_data = cal_data.withColumn(cal_data, "quota_growth", 
+	cal_data = cal_data.withColumn("quota_growth", 
 				cal_data.quota/cal_data.p_quota)
-	cal_data = cal_data.withColumn(cal_data, "budget_prop", 
+	cal_data = cal_data.withColumn("budget_prop", 
 				(cal_data.budget_factor * cal_data.budget_factor_w + cal_data.meeting_attendance_factor * cal_data.meeting_attendance_factor_w) * 100)
-	cal_data = cal_data.withColumn(cal_data, "level", when(cal_data.level_factor > 0.15, 3).otherwise(when(cal_data.level_factor <= 0.05, 1).otherwise(2)))
+	cal_data = cal_data.withColumn("level", when(cal_data.level_factor > 0.15, 3).otherwise(when(cal_data.level_factor <= 0.05, 1).otherwise(2)))
 	
 	cal_data = cal_curves_result_prepare(cal_data, ["curve09"])
-	cal_data = cal_data.withColumn(cal_data, "behavior_efficiency_factor", cal_curves_result(cal_data.one_on_one_coaching))
+	cal_data = cal_data.withColumn("behavior_efficiency_factor", cal_curves_result(cal_data.one_on_one_coaching))
 	
 	cal_data = cal_curves_result(cal_data, ["curve10", "curve11", "curve12"], "level", [1, 2, 3])
-	cal_data = cal_data.withColumn(cal_data, "call_time_index", cal_curves_result(cal_data.call_time))
+	cal_data = cal_data.withColumn("call_time_index", cal_curves_result(cal_data.call_time))
 	
 	cal_data = cal_curves_result(cal_data, ["curve14"])
-	cal_data = cal_data.withColumn(cal_data, "quota_restriction_index", cal_curves_result(cal_data.quota_restriction_factor))
+	cal_data = cal_data.withColumn("quota_restriction_index", cal_curves_result(cal_data.quota_restriction_factor))
 	
 	cal_data = cal_curves_result(cal_data, ["curve16"])
-	cal_data = cal_data.withColumn(cal_data, "field_work_index", cal_curves_result(cal_data.field_work))
+	cal_data = cal_data.withColumn("field_work_index", cal_curves_result(cal_data.field_work))
 	
 	cal_data = cal_curves_result(cal_data, ["curve18"])
-	cal_data = cal_data.withColumn(cal_data, "business_strategy_planning_index", cal_curves_result(cal_data.business_strategy_planning))
+	cal_data = cal_data.withColumn("business_strategy_planning_index", cal_curves_result(cal_data.business_strategy_planning))
 	
 	cal_data = cal_curves_result(cal_data, ["curve18"])
-	cal_data = cal_data.withColumn(cal_data, "admin_work_index", cal_curves_result(cal_data.admin_work))
+	cal_data = cal_data.withColumn("admin_work_index", cal_curves_result(cal_data.admin_work))
 	
 	cal_data = cal_curves_result(cal_data, ["curve18"])
-	cal_data = cal_data.withColumn(cal_data, "employee_kpi_and_compliance_check_index", cal_curves_result(cal_data.employee_kpi_and_compliance_check))
+	cal_data = cal_data.withColumn("employee_kpi_and_compliance_check_index", cal_curves_result(cal_data.employee_kpi_and_compliance_check))
 	
 	cal_data = cal_curves_result(cal_data, ["curve18"])
-	cal_data = cal_data.withColumn(cal_data, "team_meeting_index", cal_curves_result(cal_data.team_meeting))
+	cal_data = cal_data.withColumn("team_meeting_index", cal_curves_result(cal_data.team_meeting))
 	
 	cal_data = cal_curves_result(cal_data, ["curve18"])
-	cal_data = cal_data.withColumn(cal_data, "kol_management_index", cal_curves_result(cal_data.kol_management))
+	cal_data = cal_data.withColumn("kol_management_index", cal_curves_result(cal_data.kol_management))
 	
 	cal_data = cal_curves_result(cal_data, ["curve02", "curve03", "curve04"], "level", [1, 2, 3])
-	cal_data = cal_data.withColumn(cal_data, "budget_factor", cal_curves_result(cal_data.budget_prop))
+	cal_data = cal_data.withColumn("budget_factor", cal_curves_result(cal_data.budget_prop))
 	
 	cal_data = cal_curves_result(cal_data, ["curve05", "curve06", "curve07"], "level", [1, 2, 3])
-	cal_data = cal_data.withColumn(cal_data, "meeting_attendance_factor", cal_curves_result(cal_data.meeting_attendance))
+	cal_data = cal_data.withColumn("meeting_attendance_factor", cal_curves_result(cal_data.meeting_attendance))
 	cal_data.persist()
 
-	cal_data = cal_data.withColumn(cal_data, "behavior_efficiency", 
+	cal_data = cal_data.withColumn("behavior_efficiency", 
 				cal_data.p_behavior_efficiency + 0.3 * (10 - cal_data.p_behavior_efficiency) * cal_data.behavior_efficiency_factor)
-	cal_data = cal_data.withColumn(cal_data, "deployment_quality", 
+	cal_data = cal_data.withColumn("deployment_quality", 
 				cal_data.business_strategy_planning_index * cal_data.business_strategy_planning_index_w + \
 				cal_data.admin_work_index * cal_data.admin_work_index_w + \
 				cal_data.employee_kpi_and_compliance_check_index * cal_data.employee_kpi_and_compliance_check_index_w + \
 				cal_data.kol_management_index * cal_data.kol_management_index_w + \
 				cal_data.team_meeting_index * cal_data.team_meeting_index_w)
-	cal_data = cal_data.withColumn(cal_data, "customer_relationship", 
+	cal_data = cal_data.withColumn("customer_relationship", 
 				(cal_data.budget_factor * cal_data.budget_factor_w + cal_data.meeting_attendance_factor * cal_data.meeting_attendance_factor_w) * 100)
 				
-	cal_data = cal_data.withColumn(cal_data, "general_ability", 
+	cal_data = cal_data.withColumn("general_ability", 
 				10 * (cal_data.territory_management_ability * cal_data.territory_management_ability_w + \
 					cal_data.sales_skills * cal_data.sales_skills_w + \
 					cal_data.product_knowledge * cal_data.product_knowledge_w + \
 					cal_data.behavior_efficiency * cal_data.behavior_efficiency_w + \
 					cal_data.work_motivation * cal_data.work_motivation_w))
 
-	cal_data = cal_data.withColumn(cal_data, "rep_ability_efficiency", 
+	cal_data = cal_data.withColumn("rep_ability_efficiency", 
 				(cal_data.general_ability * cal_data.general_ability_w + \
 				cal_data.call_time_index * cal_data.call_time_index_w + \
 				cal_data.quota_restriction_index * cal_data.quota_restriction_index_w))
 	
-	cal_data = cal_data.withColumn(cal_data, "sales_performance", 
+	cal_data = cal_data.withColumn("sales_performance", 
 				cal_data.rep_ability_efficiency * cal_data.rep_ability_efficiency_w + \
 				cal_data.field_work_index * cal_data.field_work_index_w + \
 				cal_data.deployment_quality * cal_data.deployment_quality_w)
 				
-	cal_data = cal_data.withColumn(cal_data, "offer_attractiveness", 
+	cal_data = cal_data.withColumn("offer_attractiveness", 
 				cal_data.sales_performance * cal_data.sales_performance_w + \
 				cal_data.customer_relationship * cal_data.customer_relationship_w)
 	
 	cal_data = cal_curves_result(cal_data, ["curve28"])
-	cal_data = cal_data.withColumn(cal_data, "share_delta_factor", cal_curves_result(cal_data.offer_attractiveness))
+	cal_data = cal_data.withColumn("share_delta_factor", cal_curves_result(cal_data.offer_attractiveness))
 	
-	cal_data = cal_data.withColumn(cal_data, "share", cal_data.p_share * (1.0 + cal_data.share_delta_factor))
-	cal_data = cal_data.withColumn(cal_data, "sales", cal_data.potential / 4 * cal_data.share)
+	cal_data = cal_data.withColumn("share", cal_data.p_share * (1.0 + cal_data.share_delta_factor))
+	cal_data = cal_data.withColumn("sales", cal_data.potential / 4 * cal_data.share)
 	cal_data.persist()
 	cal_data.show()
 	
 	cal_data_res = cal_data.groupBy("representative_id").agg(sum(cal_data.sales).alias("rep_sales"), sum(cal_data.quota).alias("rep_quota"))
 	cal_data = cal_data.join(cal_data_res, on="representative_id", how="inner")
 
-	cal_data = cal_data.withColumn(cal_data, "rep_quota_achv", cal_data.rep_sales / cal_data.rep_quota) \
-						.withColumn(cal_data, "target", cal_data.p_target) \
-						.withColumn(cal_data, "target_coverage", cal_data.p_target_coverage)
+	cal_data = cal_data.withColumn("rep_quota_achv", cal_data.rep_sales / cal_data.rep_quota) \
+						.withColumn("target", cal_data.p_target) \
+						.withColumn("target_coverage", cal_data.p_target_coverage)
 
-	cal_data = cal_data.withColumn(cal_data, "work_motivation", 
+	cal_data = cal_data.withColumn("work_motivation", 
 									when((cal_data.rep_quota_achv >= 0.9 & cal_data.rep_quota_achv <= 1.2), 
 											cal_data.work_motivation + 0.2 * (10 - cal_data.work_motivation))
 											.otherwise(cal_data.work_motivation))
 											
-	cal_data = cal_data.withColumn(cal_data, "class1", when((cal_data.behavior_efficiency >= 0 & cal_data.behavior_efficiency < 3), 1)
+	cal_data = cal_data.withColumn("class1", when((cal_data.behavior_efficiency >= 0 & cal_data.behavior_efficiency < 3), 1)
 									.otherwise(when((cal_data.behavior_efficiency <=3 & cal_data.behavior_efficiency < 6), 2)
 									.otherwise(when((cal_data.behavior_efficiency >= 6 & cal_data.behavior_efficiency < 8), 3)
 									.otherwise(4))))
-	cal_data = cal_data.withColumn(cal_data, "class2", when((cal_data.behavior_efficiency >= 0 & cal_data.behavior_efficiency < 3), 1)
+	cal_data = cal_data.withColumn("class2", when((cal_data.behavior_efficiency >= 0 & cal_data.behavior_efficiency < 3), 1)
 									.otherwise(when((cal_data.behavior_efficiency <=3 & cal_data.behavior_efficiency < 6), 2)
 									.otherwise(when((cal_data.behavior_efficiency >= 6 & cal_data.behavior_efficiency < 8), 3)
 									.otherwise(4))))
 
-	cal_data = cal_data.withColumn(cal_data, "target_coverage", when(cal_data.class1 == 1, cal_data.target_coverage - rand() * 5 + 5)
+	cal_data = cal_data.withColumn("target_coverage", when(cal_data.class1 == 1, cal_data.target_coverage - rand() * 5 + 5)
 																.otherwise(when(cal_data.class1 == 2, cal_data.target_coverage = rand() * 5)
 																.otherwise(when(cal_data.class1 == 3, cal_data.target_coverage = rand() * 5)
 																.otherwise(cal_data.target_coverage + rand() * 5))))
 
-	cal_data = cal_data.withColumn(cal_data, "high_target_m", when(cal_data.class1 == 1, rand() + 13)
+	cal_data = cal_data.withColumn("high_target_m", when(cal_data.class1 == 1, rand() + 13)
 																.otherwise(when(cal_data.class1 == 2, rand() + 14)
 																.otherwise(when(cal_data.class1 == 3, 2 * rand() + 16)
 																.otherwise(rand() * 3 + 19))))
 
-	cal_data = cal_data.withColumn(cal_data, "middle_target_m", when(cal_data.class1 == 1, rand() + 13)
+	cal_data = cal_data.withColumn("middle_target_m", when(cal_data.class1 == 1, rand() + 13)
 																.otherwise(when(cal_data.class1 == 2, rand() + 13)
 																.otherwise(when(cal_data.class1 == 3, rand() + 12)
 																.otherwise(rand() + 12))))
 
-	cal_data = cal_data.withColumn(cal_data, "low_target_m", when(cal_data.class1 == 1, rand() + 13)
+	cal_data = cal_data.withColumn("low_target_m", when(cal_data.class1 == 1, rand() + 13)
 																.otherwise(when(cal_data.class1 == 2, rand() + 13)
 																.otherwise(when(cal_data.class1 == 3, rand() + 12)
 																.otherwise(rand() + 11))))
 
-	cal_data = cal_data.withColumn(cal_data, "high_target", when(cal_data.class2 == 1, cal_data.high_target_m - (rand() + 1))
+	cal_data = cal_data.withColumn("high_target", when(cal_data.class2 == 1, cal_data.high_target_m - (rand() + 1))
 																.otherwise(when(cal_data.class2 == 2, cal_data.high_target_m - rand())
 																.otherwise(when(cal_data.class2 == 3, cal_data.high_target_m + rand())
 																.otherwise(cal_data.high_target_m + 1))))
 
-	cal_data = cal_data.withColumn(cal_data, "middle_target", when(cal_data.class2 == 1, cal_data.middle_target_m - 2)
+	cal_data = cal_data.withColumn("middle_target", when(cal_data.class2 == 1, cal_data.middle_target_m - 2)
 																.otherwise(when(cal_data.class2 == 2, cal_data.middle_target_m - 1)
 																.otherwise(when(cal_data.class2 == 3, cal_data.middle_target_m + rand())
 																.otherwise(cal_data.middle_target_m + 1))))
 
-	cal_data = cal_data.withColumn(cal_data, "low_target", when(cal_data.class2 == 1, cal_data.low_target_m - 2)
+	cal_data = cal_data.withColumn("low_target", when(cal_data.class2 == 1, cal_data.low_target_m - 2)
 																.otherwise(when(cal_data.class2 == 2, cal_data.low_target_m - 1)
 																.otherwise(when(cal_data.class2 == 3, cal_data.low_target_m + rand())
 																.otherwise(cal_data.low_target_m + 1))))
 	
 
 	cal_data = cal_data.select("hospital", "hospital_level", "budget", "meeting_attendance", "product", "quota", "call_time",
-                       "one_on_one_coaching", "field_work", "performance_review", "product_knowledge_training",
-                       "territory_management_training", "representative", "sales_skills_training", "career_development_guide",
-                       "employee_kpi_and_compliance_check", "admin_work", "kol_management", "business_strategy_planning",
-                       "team_meeting", "potential", "p_sales", "p_quota", "p_share", "life_cycle", "representative_time",
-                       "p_territory_management_ability", "p_sales_skills", "p_product_knowledge", "p_behavior_efficiency",
-                       "p_work_motivation", "total_potential", "total_p_sales", "total_quota", "total_place", "manager_time", 
-                       "work_motivation", "territory_management_ability", "sales_skills", 
-                       "product_knowledge", "behavior_efficiency", "general_ability", "target", "target_coverage", 
-                       "high_target", "middle_target", "low_target", "share", "sales")	
+								"one_on_one_coaching", "field_work", "performance_review", "product_knowledge_training",
+								"territory_management_training", "representative", "sales_skills_training", "career_development_guide",
+								"employee_kpi_and_compliance_check", "admin_work", "kol_management", "business_strategy_planning",
+								"team_meeting", "potential", "p_sales", "p_quota", "p_share", "life_cycle", "representative_time",
+								"p_territory_management_ability", "p_sales_skills", "p_product_knowledge", "p_behavior_efficiency",
+								"p_work_motivation", "total_potential", "total_p_sales", "total_quota", "total_place", "manager_time", 
+								"work_motivation", "territory_management_ability", "sales_skills", 
+								"product_knowledge", "behavior_efficiency", "general_ability", "target", "target_coverage", 
+								"high_target", "middle_target", "low_target", "share", "sales")	
 	
 	cal_data.write.mode("overwrite").parquet(cal_result)
 

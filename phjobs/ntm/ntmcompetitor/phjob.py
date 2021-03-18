@@ -42,12 +42,12 @@ def execute(**kwargs):
 	cal_data = spark.read.parquet(cal_path)
 	competitor_data = spark.read.parquet(competitor_path)
 	
-	competitor_data = competitor_data.withColumn(competitor_data, "p_share", cast(competitor_data.p_share))
-	competitor_data = competitor_data.withColumn(competitor_data, "total_potential", lit(g_total_potential))
-	competitor_data = competitor_data.withColumn(competitor_data, "p_sales", competitor_data.total_potential / 4.0 * competitor_data.p_share)
-	competitor_data = competitor_data.withColumn(competitor_data, "share", competitor_data.p_share * (rand() / 5 + 0.9))
-	competitor_data = competitor_data.withColumn(competitor_data, "sales", competitor_data.total_potential / 4 * competitor_data.share)
-	competitor_data = competitor_data.withColumn(competitor_data, "sales_growth", competitor_data.sales / competitor_data.p_sales - 1)
+	competitor_data = competitor_data.withColumn("p_share", cast(competitor_data.p_share))
+	competitor_data = competitor_data.withColumn("total_potential", lit(g_total_potential))
+	competitor_data = competitor_data.withColumn("p_sales", competitor_data.total_potential / 4.0 * competitor_data.p_share)
+	competitor_data = competitor_data.withColumn("share", competitor_data.p_share * (rand() / 5 + 0.9))
+	competitor_data = competitor_data.withColumn("sales", competitor_data.total_potential / 4 * competitor_data.share)
+	competitor_data = competitor_data.withColumn("sales_growth", competitor_data.sales / competitor_data.p_sales - 1)
 	competitor_data = competitor_data.select("product", "sales", "share", "sales_growth")
 
 	competitor_data.persist()
