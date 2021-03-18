@@ -14,20 +14,19 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--owner')
 @click.option('--run_id')
 @click.option('--job_id')
+@click.option('--job_name')
+@click.option('--path_prefix')
 @click.option('--provider')
 @click.option('--proposal_id')
 @click.option('--project_id')
 @click.option('--period_id')
 @click.option('--phase')
-@click.option('--weight_path')
-@click.option('--curves_path')
-@click.option('--manage_path')
-@click.option('--standard_time_path')
-@click.option('--level_data_path')
-@click.option('--cal_result')
+@click.option('--competitor_path')
+@click.option('--depend_job_names_keys')
+@click.option('--competitor_result')
 def debug_execute(**kwargs):
     try:
-        args = {"name": "ntmcal"}
+        args = {"name": "ntmcompetitor"}
         outputs = ["c", "d"]
 
         args.update(kwargs)

@@ -15,7 +15,11 @@ spec:
     timeout: 10.0
     code: phmain.py
     config: phconf.yaml
-    args:
+    args:      
+      - key: job_name
+        value: ntmcal
+      - key: path_prefix
+        value: s3://ph-max-auto/2020-08-11/NTM/runs
       - key: provider
         value: NTM
       - key: proposal_id
@@ -36,6 +40,8 @@ spec:
         value: s3://ph-max-auto/2020-08-11/NTM/data/Standard_Time.csv
       - key: level_data_path
         value: s3://ph-max-auto/2020-08-11/NTM/data/Level.csv
+      - key: cal_path
+        value: s3://ph-max-auto/2020-08-11/NTM/data/cal_path
     outputs:
       - key: cal_result
         value: cal_result
