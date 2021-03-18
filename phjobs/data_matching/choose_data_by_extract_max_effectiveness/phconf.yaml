@@ -23,6 +23,7 @@ spec:
         value: 
           - effectiveness_adjust_mnf#mnf_adjust_result#mnf_adjust
           - effectiveness_adjust_spec#spec_adjust_result#spec_adjust
+          - effectiveness_adjust_prod#prod_adjust_result#prod_adjust
       - key: g_repartition_shared
         value: 10
     outputs:

@@ -47,10 +47,8 @@ def execute(**kwargs):
 
 
 ###################--------------main function------------------------#################  
-	if  "CHC_GROSS_UNIT"in df_second_round.columns:
-		df_second_round = recalculation_spec_effectiveness(df_second_round)
-	else:
-		df_second_round = recalculation_spec_effectiveness_az(df_second_round)
+
+	df_second_round = recalculation_spec_effectiveness(df_second_round)
 	df_second_round.repartition(g_repartition_shared).write.mode("overwrite").parquet(mid_path)
     #选取指定的列用于和adjust_mnf job 进行union操作
 	df_second_round = select_specified_cols(df_second_round)
@@ -106,51 +104,23 @@ def load_adjust_dosage_result(spark, path_adjust_dosage_result):
 #     print(df_second_round.printSchema())
     return df_second_round
 
-
 def recalculation_spec_effectiveness(df_second_round):
 	df_second_round = df_second_round.withColumn("EFFTIVENESS_SPEC_FIRST", col("EFFTIVENESS_SPEC"))
 	df_second_round = df_second_round.withColumn("EFFTIVENESS_SPEC",\
-									when((col("CHC_GROSS_UNIT")==col("SPEC_GROSS_UNIT_PURE_STANDARD"))&(col("SPEC_VALID_UNIT_PURE")==col("SPEC_valid_unit_STANDARD")),\
-									modify_first_spec_effectiveness(df_second_round.SPEC_valid_digit_STANDARD, df_second_round.SPEC_GROSS_VALUE_PURE_STANDARD,df_second_round.SPEC_VALID_VALUE_PURE, df_second_round.SPEC_GROSS_VALUE_PURE, df_second_round.EFFTIVENESS_SPEC_FIRST))\
-									.otherwise(col("EFFTIVENESS_SPEC_FIRST")))
-	return df_second_round
-
-def recalculation_spec_effectiveness_az(df_second_round):
-	df_second_round = df_second_round.withColumn("EFFTIVENESS_SPEC_FIRST", col("EFFTIVENESS_SPEC"))
-	df_second_round = df_second_round.withColumn("EFFTIVENESS_SPEC",\
-									modify_first_spec_effectiveness_az(df_second_round.SPEC_STANDARD_GROSS, df_second_round.SPEC_STANDARD_VALID,df_second_round.SPEC_GROSS, df_second_round.SPEC_VALID, df_second_round.EFFTIVENESS_SPEC_FIRST))
+									modify_first_spec_effectiveness(df_second_round.SPEC_STANDARD_GROSS, df_second_round.SPEC_STANDARD_VALID,df_second_round.SPEC_GROSS, df_second_round.SPEC_VALID, df_second_round.EFFTIVENESS_SPEC_FIRST))
 	return df_second_round
                                                  
 def select_specified_cols(df_second_round):
 
 	cols = ["SID", "ID","PACK_ID_CHECK",  "PACK_ID_STANDARD","DOSAGE","MOLE_NAME","PRODUCT_NAME","SPEC","PACK_QTY","MANUFACTURER_NAME","SPEC_ORIGINAL",
 			"MOLE_NAME_STANDARD","PRODUCT_NAME_STANDARD","CORP_NAME_STANDARD","MANUFACTURER_NAME_STANDARD","MANUFACTURER_NAME_EN_STANDARD","DOSAGE_STANDARD","SPEC_STANDARD","PACK_QTY_STANDARD",
-			"SPEC_valid_digit_STANDARD","SPEC_valid_unit_STANDARD","SPEC_GROSS_VALUE_PURE_STANDARD","SPEC_GROSS_UNIT_PURE_STANDARD","SPEC_GROSS_VALUE_PURE","CHC_GROSS_UNIT","SPEC_VALID_VALUE_PURE",
-			"SPEC_VALID_UNIT_PURE","EFFTIVENESS_MOLE_NAME","EFFTIVENESS_PRODUCT_NAME","EFFTIVENESS_DOSAGE","EFFTIVENESS_PACK_QTY","EFFTIVENESS_MANUFACTURER","EFFTIVENESS_SPEC"]
-#####cpa数据列选择 
-	cpa_cols = ["SID", "ID","PACK_ID_CHECK",  "PACK_ID_STANDARD","DOSAGE","MOLE_NAME","PRODUCT_NAME","SPEC","PACK_QTY","MANUFACTURER_NAME","SPEC_ORIGINAL",
-			"MOLE_NAME_STANDARD","PRODUCT_NAME_STANDARD","CORP_NAME_STANDARD","MANUFACTURER_NAME_STANDARD","MANUFACTURER_NAME_EN_STANDARD","DOSAGE_STANDARD","SPEC_STANDARD","PACK_QTY_STANDARD",
 			"SPEC_STANDARD_GROSS","SPEC_STANDARD_VALID","SPEC_GROSS","SPEC_VALID",
 			"EFFTIVENESS_MOLE_NAME","EFFTIVENESS_PRODUCT_NAME","EFFTIVENESS_DOSAGE","EFFTIVENESS_PACK_QTY","EFFTIVENESS_MANUFACTURER","EFFTIVENESS_SPEC"]
-	if  "CHC_GROSS_UNIT" not in df_second_round.columns:
-		df_second_round = df_second_round.select(cpa_cols)
-	else:
-		df_second_round = df_second_round.select(cols)
+	df_second_round = df_second_round.select(cols)
 	return df_second_round
 
-
 @pandas_udf(DoubleType(), PandasUDFType.SCALAR)
-def modify_first_spec_effectiveness(standard_valid, standard_gross, target_valid, target_gross, EFFTIVENESS_SPEC_FIRST):
-
-	frame = { "standard_valid": standard_valid, "standard_gross": standard_gross, "target_valid": target_valid, "target_gross":target_gross ,"EFFTIVENESS_SPEC_FIRST" : EFFTIVENESS_SPEC_FIRST}  
-	df = pd.DataFrame(frame)
-	df["EFFTIVENESS_SPEC"] = df.apply(lambda x : 0.995 if (math.isclose(float(x['standard_valid']),float(x['target_valid']), rel_tol=0, abs_tol=0 ))|\
-                                      (math.isclose(float(x['standard_gross']),float(x['target_gross']), rel_tol=0, abs_tol=0 )) else x['EFFTIVENESS_SPEC_FIRST'], axis=1)
-	return df["EFFTIVENESS_SPEC"]
-
-
-@pandas_udf(DoubleType(), PandasUDFType.SCALAR)
-def modify_first_spec_effectiveness_az(standard_gross, standard_valid, target_gross, target_valid, EFFTIVENESS_SPEC_FIRST):
+def modify_first_spec_effectiveness(standard_gross, standard_valid, target_gross, target_valid, EFFTIVENESS_SPEC_FIRST):
 
 	frame = { "standard_gross": standard_gross, "standard_valid": standard_valid, "target_gross": target_gross, "target_valid":target_valid ,"EFFTIVENESS_SPEC_FIRST" : EFFTIVENESS_SPEC_FIRST}  
 	df = pd.DataFrame(frame)

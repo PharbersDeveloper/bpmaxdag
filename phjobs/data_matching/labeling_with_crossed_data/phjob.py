@@ -22,7 +22,7 @@ def execute(**kwargs):
 
 ##############-----------input------------##############
 	depends = get_depends_path(kwargs)
-	path_adjust_prod = depends["input"]
+	path_max_eff = depends["max_eff_result"]
 #############------------input-------------##############
 
 #############------------output-----------##############
@@ -33,7 +33,7 @@ def execute(**kwargs):
 ############-------------output------------#############
 
 ###########----------loading files-------------############
-	df_result = load_adjust_prod(spark, path_adjust_prod)
+	df_result = load_df_max_eff(spark, path_max_eff)
 ##########-----------loading files--------############
 
 ###########---------mian functions ----------######################
@@ -86,8 +86,8 @@ def get_depends_path(kwargs):
 		result[depends_name] = get_depends_file_path(kwargs, depends_job, depends_key)
 	return result
 
-def load_adjust_prod(spark, path_adjust_prod):
-	df_result = spark.read.parquet(path_adjust_prod)
+def load_df_max_eff(spark, path_max_result):
+	df_result = spark.read.parquet(path_max_result)
 	return df_result
 
 def make_label(df_result):

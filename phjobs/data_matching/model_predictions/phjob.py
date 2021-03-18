@@ -72,11 +72,11 @@ def execute(**kwargs):
     df_predictions = similarity(df_predictions, shareholds)
     df_predictions = df_predictions.na.fill("").drop("features")
     df_predictions.persist()
-    print(df_predictions.count())
-    print(df_predictions.select("ID").distinct().count())
-    print(df_predictions.where((df_predictions.label == 1)).count())
-    print(df_predictions.where((df_predictions.prediction == 1) & (df_predictions.RANK == 1)).count())
-    print(df_predictions.where((df_predictions.prediction == 1) & (df_predictions.label == 1) & (df_predictions.RANK == 1)).count())
+#     print(df_predictions.count())
+#     print(df_predictions.select("ID").distinct().count())
+#     print(df_predictions.where((df_predictions.label == 1)).count())
+#     print(df_predictions.where((df_predictions.prediction == 1) & (df_predictions.RANK == 1)).count())
+#     print(df_predictions.where((df_predictions.prediction == 1) & (df_predictions.label == 1) & (df_predictions.RANK == 1)).count())
     df_predictions.write.mode("overwrite").parquet(prediction_path)
     df_predictions.repartition(1).write.mode("overwrite").option("header", "true").csv(final_predictions)
 
@@ -115,6 +115,10 @@ def execute(**kwargs):
     positive_count = df_positive.count()  # 机器判断pre=1条目
     negative_count = ph_total - positive_count # - df_lost.count()  # 机器判断pre=0条目
     matching_ratio = str(round((float(positive_count / ph_total) * 100),2)) + '%'       # 匹配率
+    accuracy_num = df_predictions.filter(col("label")==col("prediction")).count()
+    prediction_count = df_predictions.count()
+    Accuracy = str(round(int(accuracy_num)/int(prediction_count) * 100 ,2)) + '%'  
+    print("CHC准确率:",Accuracy)
 
     # 7. 最终结果报告以csv形式写入s3
     report = [("data_matching_report", ),]
@@ -126,6 +130,7 @@ def execute(**kwargs):
     df_report = df_report.withColumn("机器匹配条目", lit(str(positive_count)))
     df_report = df_report.withColumn("机器无法匹配条目", lit(str(negative_count)))
     df_report = df_report.withColumn("匹配率", lit(str(matching_ratio)))
+    df_report = df_report.withColumn("准确率", lit(str(Accuracy)))
     df_report.show()
     df_report.repartition(1).write.mode("overwrite").option("header", "true").csv(final_report_path)
     logger.warn("final report csv文件写入完成")
@@ -175,6 +180,7 @@ def get_depends_path(kwargs):
 
 def load_label_result(spark, label_result_path):
     df_result = spark.read.parquet(label_result_path) 
+    print(df_result.printSchema())
     return df_result  
 
 def load_origin_data(spark, origin_data_path):

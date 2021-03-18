@@ -69,6 +69,10 @@ def execute(**kwargs):
     df_cleanning = choose_correct_pack_id(df_cleanning,source_data_type)
 
     df_cleanning = get_inter(df_cleanning,df_second_interfere)
+    
+    #处理产品名称
+    df_cleanning = make_production_col(df_cleanning)
+    
     df_cleanning = select_cpa_col(df_cleanning)
     df_cleanning.write.mode("overwrite").parquet(result_path)
     
@@ -106,7 +110,7 @@ def modify_pool_cleanning_prod(spark, raw_data_path):
 #     raw_data_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/qilu/raw_data2"
 #     raw_data_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/eia/raw_data_2"
 #     raw_data_path = 's3a://ph-max-auto/2020-08-11/data_matching/refactor/data/CHC/*'
-    raw_data_path = r's3a://ph-max-auto/2020-08-11/data_matching/temp/mzhang/test_run_data/chc/0.01'
+#     raw_data_path = r's3a://ph-max-auto/2020-08-11/data_matching/temp/mzhang/test_run_data/chc/0.01'
     if raw_data_path.endswith(".csv"):
         df_cleanning = spark.read.csv(path=raw_data_path, header=True).withColumn("ID", pudf_id_generator(col("MOLE_NAME")))
     else:
@@ -742,6 +746,13 @@ def extract_chc_pack_id_from_spec(spec_original, pack_qty):
     df['pack_id'] = df.apply(lambda x: str(extract_regex_pack_id(x.spec_original, x.pack_qty)), axis=1)
     
     return df['pack_id']
+
+#处理产品名
+def make_production_col(df_cleanning):
+    
+    df_cleanning = df_cleanning.withColumn("PRODUCT_NAME", concat_ws(' ', col("MOLE_NAME"), col("DOSAGE")))
+    
+    return df_cleanning
 
 def get_cpa_pack(df_cleanning):
     extract_pack_id = r'[×*](\d+)'

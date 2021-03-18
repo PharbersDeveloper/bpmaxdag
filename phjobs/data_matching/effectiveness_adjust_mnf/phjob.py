@@ -72,7 +72,7 @@ def execute(**kwargs):
     df_cleanning = get_mnf_efftiveness(df_cleanning)
     
 
-    df_cleanning.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
+#     df_cleanning.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
 #########--------------main function--------------------#################  
     return {}
 ################--------------------- functions ---------------------################
@@ -83,7 +83,6 @@ def get_run_id(kwargs):
     run_id = kwargs["run_id"]
     if not run_id:
         run_id = "runid_" + "alfred_runner_test"
-    print(run_id)
     return run_id
 
 def get_job_id(kwargs):
@@ -113,7 +112,6 @@ def get_depends_path(kwargs):
     return result
 
 def load_effective_result(spark, path_effective_result):
-    path_effective_result = r's3a://ph-max-auto/2020-08-11/data_matching/refactor/runs/manual__2021-03-11T23_02_47.745378+00_00/effectiveness_with_jws/effective_result'
     df_cleanning = spark.read.parquet(path_effective_result)
     return df_cleanning
 
@@ -252,31 +250,33 @@ def mnf_encoding_cosine(df_cleanning):
     df_cleanning = df_cleanning.withColumn("MNF_COSINE_SIMILARITY", \
                                 mnf_index_word_cosine_similarity(df_cleanning.MANUFACTURER_NAME_CLEANNING_WORDS_CODE,\
                                                                  df_cleanning.MANUFACTURER_NAME_STANDARD_WORDS_CODE))
+    df_cleanning.select("MANUFACTURER_NAME","MANUFACTURER_NAME_STANDARD").distinct().show(200)
     return df_cleanning
 
 #mnf有效性计算
 def get_mnf_efftiveness(df_cleanning):
     
-    df_cleanning = df_cleanning.withColumn("EFFTIVENESS_MANUFACTURER_SE", \
+    df_cleanning = df_cleanning.withColumn("EFFTIVENESS_MANUFACTURER", \
                                     when(df_cleanning.MNF_COSINE_SIMILARITY >= df_cleanning.EFFTIVENESS_MANUFACTURER,\
                                          df_cleanning.MNF_COSINE_SIMILARITY).otherwise(df_cleanning.EFFTIVENESS_MANUFACTURER))
+    print(df_cleanning.printSchema())
     return df_cleanning
 
-def second_round_with_col_recalculate(df_cleanning):
+# def second_round_with_col_recalculate(df_cleanning):
    
-    df_cleanning = df_cleanning.withColumn("EFFTIVENESS_PRODUCT_NAME_SE", \
-                                    prod_name_replace(df_cleanning.EFFTIVENESS_MOLE_NAME, df_cleanning.EFFTIVENESS_MANUFACTURER_SE, \
-                                    df_cleanning.EFFTIVENESS_PRODUCT_NAME, df_cleanning.MOLE_NAME, \
-                                    df_cleanning.PRODUCT_NAME_STANDARD))
+#     df_cleanning = df_cleanning.withColumn("EFFTIVENESS_PRODUCT_NAME_SE", \
+#                                     prod_name_replace(df_cleanning.EFFTIVENESS_MOLE_NAME, df_cleanning.EFFTIVENESS_MANUFACTURER_SE, \
+#                                     df_cleanning.EFFTIVENESS_PRODUCT_NAME, df_cleanning.MOLE_NAME, \
+#                                     df_cleanning.PRODUCT_NAME_STANDARD))
         
-    df_cleanning = df_cleanning.withColumnRenamed("EFFTIVENESS_PRODUCT_NAME", "EFFTIVENESS_PRODUCT_NAME_FIRST") \
-                    .withColumnRenamed("EFFTIVENESS_MANUFACTURER", "EFFTIVENESS_MANUFACTURER_FIRST") \
-                    .withColumnRenamed("EFFTIVENESS_DOSAGE_SE", "EFFTIVENESS_DOSAGE") \
-                    .withColumnRenamed("EFFTIVENESS_MANUFACTURER_SE", "EFFTIVENESS_MANUFACTURER") \
-                    .withColumnRenamed("EFFTIVENESS_PRODUCT_NAME_SE", "EFFTIVENESS_PRODUCT_NAME")
-								# .withColumnRenamed("EFFTIVENESS_DOSAGE", "EFFTIVENESS_DOSAGE_FIRST") \
-    df_cleanning.persist()
-    return df_cleanning
+#     df_cleanning = df_cleanning.withColumnRenamed("EFFTIVENESS_PRODUCT_NAME", "EFFTIVENESS_PRODUCT_NAME_FIRST") \
+#                     .withColumnRenamed("EFFTIVENESS_MANUFACTURER", "EFFTIVENESS_MANUFACTURER_FIRST") \
+#                     .withColumnRenamed("EFFTIVENESS_DOSAGE_SE", "EFFTIVENESS_DOSAGE") \
+#                     .withColumnRenamed("EFFTIVENESS_MANUFACTURER_SE", "EFFTIVENESS_MANUFACTURER") \
+#                     .withColumnRenamed("EFFTIVENESS_PRODUCT_NAME_SE", "EFFTIVENESS_PRODUCT_NAME")
+# 								# .withColumnRenamed("EFFTIVENESS_DOSAGE", "EFFTIVENESS_DOSAGE_FIRST") \
+#     df_cleanning.persist()
+#     return df_cleanning
     
 # def select_specified_cols(df_cleanning):
 

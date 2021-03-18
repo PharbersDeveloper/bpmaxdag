@@ -21,6 +21,7 @@ def execute(**kwargs):
 
 #######################---------------input-------------#######################	
     depends = get_depends_path(kwargs)
+    path_prod_adjust = depends["prod_adjust"]
     path_mnf_adjust = depends["mnf_adjust"]
     path_spec_adjust = depends["spec_adjust"]
     g_repartition_shared = int(kwargs["g_repartition_shared"])
@@ -35,12 +36,13 @@ def execute(**kwargs):
 
 
 ###################--------loading files--------------########################
+    df_prod_adjusted = loda_df_prod_adjusted(spark, path_prod_adjust)
     df_mnf_adjusted = load_df_mnf_adjusted(spark, path_mnf_adjust)
     df_spec_adjusted = load_df_spec_adjusted(spark, path_spec_adjust)
 ##################--------loading files----------------########################
 
 ########################--------------main function--------------------#################
-    df_result = choose_max_effectiveness(df_mnf_adjusted,df_spec_adjusted)
+    df_result = choose_max_effectiveness(df_mnf_adjusted,df_spec_adjusted,df_prod_adjusted)
     df_result.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
 ######################--------------main function--------------------#################   
     return {}
@@ -82,6 +84,11 @@ def get_depends_path(kwargs):
         result[depends_name] = get_depends_file_path(kwargs, depends_job, depends_key)
     return result
 
+def loda_df_prod_adjusted(spark, path_prod_adjust):
+    
+    df_prod_adjust = spark.read.parquet(path_prod_adjust)
+    return df_prod_adjust
+
 def load_df_mnf_adjusted(spark, path_mnf_adjust):
     df_mnf_adjusted = spark.read.parquet(path_mnf_adjust)
     return df_mnf_adjusted
@@ -90,9 +97,16 @@ def load_df_spec_adjusted(spark, path_spec_adjust):
     df_spec_adjusted = spark.read.parquet(path_spec_adjust)
     return df_spec_adjusted  
 
-def choose_max_effectiveness(df_mnf_adjusted,df_spec_adjusted):
+def choose_max_effectiveness(df_mnf_adjusted,df_spec_adjusted,df_prod_adjusted ):
+    eff_cols = ["SID","ID","EFFTIVENESS_MOLE_NAME","EFFTIVENESS_PRODUCT_NAME","EFFTIVENESS_DOSAGE",\
+                "EFFTIVENESS_SPEC","EFFTIVENESS_PACK_QTY","EFFTIVENESS_MANUFACTURER"]
+    df_mnf_eff = df_mnf_adjusted.select(eff_cols)
+    df_spec_eff = df_spec_adjusted.select(eff_cols)
+    df_prod_eff = df_spec_adjusted.select(eff_cols)
     
-    df_result = df_mnf_adjusted.union(df_spec_adjusted)
+    
+    df_result = df_mnf_eff.union(df_spec_eff).union(df_prod_eff)
+    
     df_result = df_result.groupBy("SID","ID") \
                         .agg(
                         max(df_result.EFFTIVENESS_MOLE_NAME).alias("EFFTIVENESS_MOLE_NAME"),
@@ -104,8 +118,9 @@ def choose_max_effectiveness(df_mnf_adjusted,df_spec_adjusted):
     )  
 
     cols = ['SID', 'ID', 'PACK_ID_CHECK', 'PACK_ID_STANDARD', 'DOSAGE', 'MOLE_NAME', 'PRODUCT_NAME', 'SPEC', 'PACK_QTY', 'MANUFACTURER_NAME', 'SPEC_ORIGINAL', 'MOLE_NAME_STANDARD', 'PRODUCT_NAME_STANDARD', 'CORP_NAME_STANDARD', 'MANUFACTURER_NAME_STANDARD', 'MANUFACTURER_NAME_EN_STANDARD', 'DOSAGE_STANDARD', 'SPEC_STANDARD', 'PACK_QTY_STANDARD', 'SPEC_STANDARD_GROSS', 'SPEC_STANDARD_VALID', 'SPEC_GROSS', 'SPEC_VALID']
-    df_mnf_distinct_col = df_mnf_adjusted.select(cols)
-    df_result = df_result.join(df_mnf_distinct_col, on=["SID","ID"], how="left")
+    df_spec_distinct_col = df_spec_adjusted.select(cols)
+    df_result = df_result.join(df_spec_distinct_col, on=["SID","ID"], how="left")
+   
     return df_result
 
 ################---------------functions--------------------################

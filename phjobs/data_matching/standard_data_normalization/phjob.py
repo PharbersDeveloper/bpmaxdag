@@ -61,6 +61,10 @@ def execute(**kwargs):
     df_standard = extract_spec_valid_and_gross(df_standard)
     #spec array转string类型
     df_standard = make_spec_become_string(df_standard)
+    
+    #凑产品名称
+    df_standard = make_product_col(df_standard)
+    
     df_standard.write.mode("overwrite").parquet(result_path)
 #########--------------main function--------------------################# 
     return {}
@@ -431,4 +435,14 @@ def make_spec_from_array_into_string(spec_standard):
         return output_sentence
     df['out_put_col'] = df.apply(lambda x: make_elements_of_list_into_one_string(x.spec_standard), axis=1)
     return df['out_put_col']
+
+
+#凑产品名
+def make_product_col(df_standard):
+    
+#     df_standard.select("MOLE_NAME_STANDARD","DOSAGE_STANDARD","PRODUCT_NAME_STANDARD").distinct().show(300)
+#     print(df_standard.printSchema())
+    df_standard = df_standard.withColumnRenamed("PRODUCT_NAME_STANDARD","PRODUCT_NAME_STANDARD_ORIGINAL")
+    df_standard = df_standard.withColumn("PRODUCT_NAME_STANDARD", concat_ws(' ',col("MOLE_NAME_STANDARD"),col("DOSAGE_STANDARD")))
+    return df_standard
 ################-----------------------functions---------------------------################

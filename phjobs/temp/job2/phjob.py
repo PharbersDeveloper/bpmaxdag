@@ -46,6 +46,10 @@ def execute(**kwargs):
 
 #     chc_new_0315 = spark.read.csv("s3a://ph-max-auto/2020-08-11/data_matching/refactor/results/2021-03-15_14-53-17/Report",header=True)
 #     chc_new_0315.show()
+    path_df = r"s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs/manual__2021-03-15T10_56_50.568613+00_00/cross_join_cutting/cross_result"
 
+    df_cut = spark.read.parquet(path_df)
+    print(df_cut.printSchema())
+    df_cut.select("PRODUCT_NAME","PRODUCT_NAME_STANDARD").distinct().show(500)
 
     return {}
