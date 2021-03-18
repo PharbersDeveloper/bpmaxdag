@@ -7,7 +7,7 @@ This is job template for Pharbers Max Job
 from phcli.ph_logs.ph_logs import phs3logger, LOG_DEBUG_LEVEL
 import pandas as pd
 from pyspark.sql.types import *
-from pyspark.sql.functions import cast
+from pyspark.sql.functions import cast, sum, rand
 from pyspark.sql.functions import udf, pandas_udf, PandasUDFType
 
 
@@ -144,8 +144,77 @@ def execute(**kwargs):
 	cal_data = cal_data.withColumn(cal_data, "share_delta_factor", cal_curves_result(cal_data.offer_attractiveness))
 	
 	cal_data = cal_data.withColumn(cal_data, "share", cal_data.p_share * (1.0 + cal_data.share_delta_factor))
+	cal_data = cal_data.withColumn(cal_data, "sales", cal_data.potential / 4 * cal_data.share)
 	cal_data.persist()
 	cal_data.show()
+	
+	cal_data_res = cal_data.groupBy("representative_id").agg(sum(cal_data.sales).alias("rep_sales"), sum(cal_data.quota).alias("rep_quota"))
+	cal_data = cal_data.join(cal_data_res, on="representative_id", how="inner")
+
+	cal_data = cal_data.withColumn(cal_data, "rep_quota_achv", cal_data.rep_sales / cal_data.rep_quota) \
+						.withColumn(cal_data, "target", cal_data.p_target) \
+						.withColumn(cal_data, "target_coverage", cal_data.p_target_coverage)
+
+	cal_data = cal_data.withColumn(cal_data, "work_motivation", 
+									when((cal_data.rep_quota_achv >= 0.9 & cal_data.rep_quota_achv <= 1.2), 
+											cal_data.work_motivation + 0.2 * (10 - cal_data.work_motivation))
+											.otherwise(cal_data.work_motivation))
+											
+	cal_data = cal_data.withColumn(cal_data, "class1", when((cal_data.behavior_efficiency >= 0 & cal_data.behavior_efficiency < 3), 1)
+									.otherwise(when((cal_data.behavior_efficiency <=3 & cal_data.behavior_efficiency < 6), 2)
+									.otherwise(when((cal_data.behavior_efficiency >= 6 & cal_data.behavior_efficiency < 8), 3)
+									.otherwise(4))))
+	cal_data = cal_data.withColumn(cal_data, "class2", when((cal_data.behavior_efficiency >= 0 & cal_data.behavior_efficiency < 3), 1)
+									.otherwise(when((cal_data.behavior_efficiency <=3 & cal_data.behavior_efficiency < 6), 2)
+									.otherwise(when((cal_data.behavior_efficiency >= 6 & cal_data.behavior_efficiency < 8), 3)
+									.otherwise(4))))
+
+	cal_data = cal_data.withColumn(cal_data, "target_coverage", when(cal_data.class1 == 1, cal_data.target_coverage - rand() * 5 + 5)
+																.otherwise(when(cal_data.class1 == 2, cal_data.target_coverage = rand() * 5)
+																.otherwise(when(cal_data.class1 == 3, cal_data.target_coverage = rand() * 5)
+																.otherwise(cal_data.target_coverage + rand() * 5))))
+
+	cal_data = cal_data.withColumn(cal_data, "high_target_m", when(cal_data.class1 == 1, rand() + 13)
+																.otherwise(when(cal_data.class1 == 2, rand() + 14)
+																.otherwise(when(cal_data.class1 == 3, 2 * rand() + 16)
+																.otherwise(rand() * 3 + 19))))
+
+	cal_data = cal_data.withColumn(cal_data, "middle_target_m", when(cal_data.class1 == 1, rand() + 13)
+																.otherwise(when(cal_data.class1 == 2, rand() + 13)
+																.otherwise(when(cal_data.class1 == 3, rand() + 12)
+																.otherwise(rand() + 12))))
+
+	cal_data = cal_data.withColumn(cal_data, "low_target_m", when(cal_data.class1 == 1, rand() + 13)
+																.otherwise(when(cal_data.class1 == 2, rand() + 13)
+																.otherwise(when(cal_data.class1 == 3, rand() + 12)
+																.otherwise(rand() + 11))))
+
+	cal_data = cal_data.withColumn(cal_data, "high_target", when(cal_data.class2 == 1, cal_data.high_target_m - (rand() + 1))
+																.otherwise(when(cal_data.class2 == 2, cal_data.high_target_m - rand())
+																.otherwise(when(cal_data.class2 == 3, cal_data.high_target_m + rand())
+																.otherwise(cal_data.high_target_m + 1))))
+
+	cal_data = cal_data.withColumn(cal_data, "middle_target", when(cal_data.class2 == 1, cal_data.middle_target_m - 2)
+																.otherwise(when(cal_data.class2 == 2, cal_data.middle_target_m - 1)
+																.otherwise(when(cal_data.class2 == 3, cal_data.middle_target_m + rand())
+																.otherwise(cal_data.middle_target_m + 1))))
+
+	cal_data = cal_data.withColumn(cal_data, "low_target", when(cal_data.class2 == 1, cal_data.low_target_m - 2)
+																.otherwise(when(cal_data.class2 == 2, cal_data.low_target_m - 1)
+																.otherwise(when(cal_data.class2 == 3, cal_data.low_target_m + rand())
+																.otherwise(cal_data.low_target_m + 1))))
+	
+
+	cal_data = cal_data.select("hospital", "hospital_level", "budget", "meeting_attendance", "product", "quota", "call_time",
+                       "one_on_one_coaching", "field_work", "performance_review", "product_knowledge_training",
+                       "territory_management_training", "representative", "sales_skills_training", "career_development_guide",
+                       "employee_kpi_and_compliance_check", "admin_work", "kol_management", "business_strategy_planning",
+                       "team_meeting", "potential", "p_sales", "p_quota", "p_share", "life_cycle", "representative_time",
+                       "p_territory_management_ability", "p_sales_skills", "p_product_knowledge", "p_behavior_efficiency",
+                       "p_work_motivation", "total_potential", "total_p_sales", "total_quota", "total_place", "manager_time", 
+                       "work_motivation", "territory_management_ability", "sales_skills", 
+                       "product_knowledge", "behavior_efficiency", "general_ability", "target", "target_coverage", 
+                       "high_target", "middle_target", "low_target", "share", "sales")	
 	
 	cal_data.write.mode("overwrite").parquet(cal_result)
 

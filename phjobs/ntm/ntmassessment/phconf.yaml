@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: ntmassessment
+  description: "pharbers job description"
+  labels:
+    name: ntmassessment
+    runtime: python3
+    command: submit
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    command: submit
+    timeout: 10.0
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: job_name
+        value: cross_join_cutting
+      - key: path_prefix
+        value: s3://ph-max-auto/2020-08-11/NTM/runs
+      - key: depend_job_names_keys
+        value: 
+          - ntmcal#cal_result#cal_path
+          - ntmcompetitor#competitor_result#competitor_path
+      - key: provider
+        value: NTM
+      - key: proposal_id
+        value: "1234"
+      - key: project_id
+        value: "1234"
+      - key: period_id
+        value: "1234"
+      - key: phase
+        value: "1234"
+    outputs:
+      - key: assessment_result
+        value: assessment_result
