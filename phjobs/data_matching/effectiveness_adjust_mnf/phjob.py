@@ -72,7 +72,8 @@ def execute(**kwargs):
     df_cleanning = get_mnf_efftiveness(df_cleanning)
     
 
-#     df_cleanning.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
+#     result_path = r's3a://ph-max-auto/2020-08-11/data_matching/refactor/runs/manual__2021-03-18T11_33_30.008512+00_00/effectiveness_adjust_mnf/mnf_adjust_result'
+    df_cleanning.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
 #########--------------main function--------------------#################  
     return {}
 ################--------------------- functions ---------------------################
@@ -112,7 +113,8 @@ def get_depends_path(kwargs):
     return result
 
 def load_effective_result(spark, path_effective_result):
-    df_cleanning = spark.read.parquet(path_effective_result)
+    path_effective_result = r's3a://ph-max-auto/2020-08-11/data_matching/refactor/runs/manual__2021-03-18T11_33_30.008512+00_00/effectiveness_with_jws/effective_result'
+    df_cleanning = spark.read.parquet(path_effective_result).limit(1000)
     return df_cleanning
 
 def load_mnf_stopwords(spark, mnf_stopwords_path):
@@ -259,7 +261,7 @@ def get_mnf_efftiveness(df_cleanning):
     df_cleanning = df_cleanning.withColumn("EFFTIVENESS_MANUFACTURER", \
                                     when(df_cleanning.MNF_COSINE_SIMILARITY >= df_cleanning.EFFTIVENESS_MANUFACTURER,\
                                          df_cleanning.MNF_COSINE_SIMILARITY).otherwise(df_cleanning.EFFTIVENESS_MANUFACTURER))
-    print(df_cleanning.printSchema())
+#     print(df_cleanning.printSchema())
     return df_cleanning
 
 # def second_round_with_col_recalculate(df_cleanning):

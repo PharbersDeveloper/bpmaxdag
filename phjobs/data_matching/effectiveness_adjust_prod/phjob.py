@@ -49,7 +49,7 @@ def execute(**kwargs):
     
     df_cleanning = make_prod_col(df_jws)
     
-#     df_cleanning.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
+    df_cleanning.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
 ######################--------------main function--------------------#################   
     return {}
 
