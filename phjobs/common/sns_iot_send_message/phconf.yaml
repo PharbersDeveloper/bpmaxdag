@@ -16,10 +16,10 @@ spec:
     code: phmain.py
     config: phconf.yaml
     args:
-      - key: a
-        value: "abc"
-      - key: b
-        value: "abc"
+      - key: topic
+        value: "test/1"
+      - key: message
+        value: "eyJrZXkxMTIzIjogInZhbHVlMTEyMyJ9"
     outputs:
       - key: c
         value: "abc"
