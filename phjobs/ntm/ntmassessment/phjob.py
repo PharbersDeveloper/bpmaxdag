@@ -20,6 +20,8 @@ def execute(**kwargs):
 	logger = phs3logger(kwargs["job_id"])
 	spark = kwargs["spark"]()
 	logger.info(kwargs)
+	standard_time = spark.read.csv(kwargs["standard_time_path"], header="true")
+	level_data = spark.read.csv(kwargs["level_data_path"], header="true")
 #####################=============configure===============#################
 
 

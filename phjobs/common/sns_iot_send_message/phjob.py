@@ -16,23 +16,23 @@ def execute(kwargs):
     phsts = PhSts().assume_role(
         base64.b64decode(dv.ASSUME_ROLE_ARN).decode(),
         dv.ASSUME_ROLE_EXTERNAL_ID
-    )        
-    
-    dict_message = eval(kwargs['message'])
-    json_message = json.dumps(dict_message)
+    )
+    # dict_message = eval(kwargs)
+    sns_message = {}
+    sns_message['topic'] = kwargs['topic']
+    sns_message['message'] = kwargs['message']
+    json_message = json.dumps(sns_message)
+    print(json_message)
     sns_client = boto3.client('sns', **phsts.get_cred())
     sns_client.publish(
-        TopicArn= defalut_sns_arn_prefix + kwargs['sns_topic_name'],
+        TopicArn=defalut_sns_arn_prefix + 'PH_NOTICE_IOT',
         Message=json_message
     )
 
 
 if __name__ == '__main__':
     kwargs = {
-        'message' : {
-            "topic": "test/1",
-            "message": "{\"key11\": \"value11\"}"
-        },
-        'sns_topic_name' : 'PH_NOTICE_IOT' 
+        "topic": "test/1",
+        "message": "{\"key1123\": \"value1123\"}"
     }
     execute(kwargs)

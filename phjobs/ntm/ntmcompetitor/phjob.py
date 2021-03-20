@@ -6,8 +6,9 @@ This is job template for Pharbers Max Job
 
 from phcli.ph_logs.ph_logs import phs3logger, LOG_DEBUG_LEVEL
 import pandas as pd
+import uuid
 from pyspark.sql.types import *
-from pyspark.sql.functions import cast, rand
+from pyspark.sql.functions import rand, lit
 from pyspark.sql.functions import udf, pandas_udf, PandasUDFType
 
 
@@ -26,7 +27,7 @@ def execute(**kwargs):
 #################-----------input---------------################
 	depends = get_depends_path(kwargs)
 	cal_path = depends["cal_path"]
-	g_total_potential = long(kwargs["total_potential"])
+	competitor_path = depends["competitor_path"]
 ################------------input----------------################
 
 
@@ -39,21 +40,21 @@ def execute(**kwargs):
 ###############----------------output--------------##################
 
 	
-	cal_data = spark.read.parquet(cal_path)
+	tp = spark.read.parquet(cal_path).select("total_potential").take(1)[0]["total_potential"]
 	competitor_data = spark.read.parquet(competitor_path)
 	
-	competitor_data = competitor_data.withColumn("p_share", cast(competitor_data.p_share))
-	competitor_data = competitor_data.withColumn("total_potential", lit(g_total_potential))
+	competitor_data = competitor_data.withColumn("p_share", competitor_data.p_share.cast("double"))
+	competitor_data = competitor_data.withColumn("total_potential", lit(tp))
 	competitor_data = competitor_data.withColumn("p_sales", competitor_data.total_potential / 4.0 * competitor_data.p_share)
 	competitor_data = competitor_data.withColumn("share", competitor_data.p_share * (rand() / 5 + 0.9))
 	competitor_data = competitor_data.withColumn("sales", competitor_data.total_potential / 4 * competitor_data.share)
 	competitor_data = competitor_data.withColumn("sales_growth", competitor_data.sales / competitor_data.p_sales - 1)
 	competitor_data = competitor_data.select("product", "sales", "share", "sales_growth")
 
-	competitor_data.persist()
-	competitor_data.show()
+	# competitor_data.persist()
+	# competitor_data.show()
 	
-	competitor_data.write.mode("overwrite").parquet(competitor_result)
+	competitor_data.repartition(1).write.mode("overwrite").parquet(competitor_result)
  
 	return {}
 

@@ -21,7 +21,6 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--project_id')
 @click.option('--period_id')
 @click.option('--phase')
-@click.option('--competitor_path')
 @click.option('--depend_job_names_keys')
 @click.option('--competitor_result')
 def debug_execute(**kwargs):

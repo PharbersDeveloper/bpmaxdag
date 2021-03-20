@@ -25,6 +25,7 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--postgres_user')
 @click.option('--postgres_pass')
 @click.option('--pull_result')
+@click.option('--competitor_result')
 def debug_execute(**kwargs):
 	try:
 		args = {"name": "ntmpull"}
