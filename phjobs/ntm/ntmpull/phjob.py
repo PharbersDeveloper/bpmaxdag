@@ -192,7 +192,10 @@ def execute(**kwargs):
 						.join(products, on="goods_id", how="left") \
 						.join(resources, on="representative_id", how="left")
 
-	cal_data.repartition(1).write.mode("overwrite").parquet(result_path)
+	cal_data.withColumn("proposal_id", lit("g_proposal_id")) \
+			.withColumn("project_id", lit("g_project_id")) \
+			.withColumn("period_id", lit("g_period_id")) \
+			.repartition(1).write.mode("overwrite").parquet(result_path)
 
 	competitors = presets.where(presets.category == 16.0)
 	competitors = competitors.select("product", "lastShare") \
@@ -200,7 +203,10 @@ def execute(**kwargs):
 							.withColumnRenamed("lastShare", "p_share")
 							
 	competitors = competitors.join(products, on="goods_id", how="left")
-	competitors.repartition(1).write.mode("overwrite").parquet(competitor_result)
+	competitors.withColumn("proposal_id", lit("g_proposal_id")) \
+			.withColumn("project_id", lit("g_project_id")) \
+			.withColumn("period_id", lit("g_period_id")) \
+			.repartition(1).write.mode("overwrite").parquet(competitor_result)
 	
 	return {}
 
