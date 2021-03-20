@@ -46,3 +46,5 @@ spec:
     outputs:
       - key: report_result
         value: report_result
+      - key: final_result
+        value: final_result

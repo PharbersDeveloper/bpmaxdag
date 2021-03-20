@@ -62,6 +62,7 @@ def execute(**kwargs):
 	depends = get_depends_path(kwargs)
 	cal_path = depends["cal_path"]
 	competitor_path = depends["competitor_path"]
+	assessment_path = depends["assessment_path"]
 ################------------input----------------################
 
 
@@ -70,13 +71,13 @@ def execute(**kwargs):
 	run_id = get_run_id(kwargs)
 	result_path_prefix = get_result_path(kwargs, run_id, job_id)
 	report_path = result_path_prefix + kwargs["report_result"]
-	# competitor_result = result_path_prefix + kwargs["competitor_result"]
+	final_result = result_path_prefix + kwargs["final_result"]
 ###############----------------output--------------##################
 
 	cal_data = spark.read.parquet(cal_path)
 	# competitor_data = spark.read.parquet(competitor_path)
 
-	cal_data = cal_data.select("dest_id", "representative_id", "goods_id", "potential", "sales", "total_sales", "quota", "total_quota")
+	cal_data = cal_data.select("dest_id", "representative_id", "goods_id", "potential", "sales", "total_sales", "quota", "total_quota", "total_budget")
 	
 	cal_data = cal_data.withColumnRenamed("dest_id", "hospital") \
 						.withColumnRenamed("representative_id", "resource")	\
@@ -123,7 +124,8 @@ def execute(**kwargs):
 							.withColumn("periodReports", lit(g_period_id)).na.fill("")
 	cal_report = cal_report.withColumn("id", general_report_id(cal_report.projectId))
 	
-	cal_report.show(100)
+	cal_report.persist()
+	cal_report.repartition(1).write.mode("overwrite").parquet(report_path)
 	if g_is_push is 1:
 		cal_report.write.format("jdbc") \
 				.option("url", g_postgres_uri) \
@@ -133,9 +135,44 @@ def execute(**kwargs):
 				.option("driver", "org.postgresql.Driver") \
 				.mode("append") \
 				.save()
-	else:
-		cal_report.show()
+	
+	row_tmp = cal_data.select("total_sales", "total_quota", "total_budget").take(1)[0]
+	total_sales = row_tmp["total_sales"]
+	total_quota = row_tmp["total_quota"]
+	total_budget = row_tmp["total_budget"]
+	
+	assessments = spark.read.parquet(assessment_path)
+	assessments.show()
+	
+	final = assessments.withColumn("id", general_report_id(assessments.general_performance)) \
+						.withColumn("sales", lit(total_sales)) \
+						.withColumn("quota", lit(total_quota)) \
+						.withColumn("budget", lit(total_budget)) \
+						.withColumn("projectFinals", lit(g_project_id)) \
+						.withColumn("roi", lit(0.0)) \
+						.withColumn("newAccount", lit(0.0)) \
+						.withColumn("salesForceProductivity", lit(0.0))
 
+	final = final.withColumn("quotaAchv", final.sales / final.quota) \
+				.withColumnRenamed("general_performance", "generalPerformance") \
+				.withColumnRenamed("resource_assigns", "resourceAssigns") \
+				.withColumnRenamed("region_division", "regionDivision") \
+				.withColumnRenamed("target_assigns", "targetAssigns") \
+				.withColumnRenamed("manage_time", "manageTime") \
+				.withColumnRenamed("manage_team", "manageTeam")
+
+	final.persist()
+	final.repartition(1).write.mode("overwrite").parquet(final_result)
+	if g_is_push is 1:
+		final.write.format("jdbc") \
+				.option("url", g_postgres_uri) \
+				.option("dbtable", "final") \
+				.option("user", g_postgres_user) \
+				.option("password", g_postgres_pass) \
+				.option("driver", "org.postgresql.Driver") \
+				.mode("append") \
+				.save()
+	
 	return {}
 
 

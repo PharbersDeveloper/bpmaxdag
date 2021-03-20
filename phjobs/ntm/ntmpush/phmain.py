@@ -27,10 +27,11 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--depend_job_names_keys')
 @click.option('--g_is_push')
 @click.option('--report_result')
+@click.option('--final_result')
 def debug_execute(**kwargs):
     try:
         args = {"name": "ntmpush"}
-        outputs = ["report_result"]
+        outputs = ["report_result", "final_result"]
 
         args.update(kwargs)
         result = exec_before(**args)
