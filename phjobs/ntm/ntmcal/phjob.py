@@ -233,10 +233,13 @@ def execute(**kwargs):
 								"employee_kpi_and_compliance_check", "admin_work", "kol_management", "business_strategy_planning",
 								"team_meeting", "potential", "p_sales", "p_quota", "p_share", "life_cycle", "representative_time",
 								"p_territory_management_ability", "p_sales_skills", "p_product_knowledge", "p_behavior_efficiency",
-								"p_work_motivation", "total_potential", "total_p_sales", "total_quota", "total_place", "manager_time", 
+								"p_work_motivation", "total_potential", "total_p_sales", "total_quota", "total_place", "manager_time", "total_budget",
 								"work_motivation", "territory_management_ability", "sales_skills", 
 								"product_knowledge", "behavior_efficiency", "general_ability", "target", "target_coverage", 
-								"high_target", "middle_target", "low_target", "share", "sales")	
+								"high_target", "middle_target", "low_target", "share", "sales")
+	cal_data.persist()
+	cal_data_ts = cal_data.selectExpr("sum(sales) as total_sales")
+	cal_data = cal_data.crossJoin(cal_data_ts)
 	
 	cal_data.repartition(1).write.mode("overwrite").parquet(cal_result)
 
@@ -281,8 +284,6 @@ def get_depends_path(kwargs):
 		depends_name = tmp_lst[2]
 		result[depends_name] = get_depends_file_path(kwargs, depends_job, depends_key)
 	return result
-	
-
 
 
 def cal_curves_result_prepare(df, curves, adjust_col="", condi = []):

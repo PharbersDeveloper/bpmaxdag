@@ -24,7 +24,7 @@ spec:
         value: 
           - ntmcal#cal_result#cal_path
           - ntmcompetitor#competitor_result#competitor_path
-       - key: provider
+      - key: provider
         value: NTM
       - key: proposal_id
         value: 60505e4b81ef2c5db38b4699
@@ -37,7 +37,7 @@ spec:
       - key: standard_time_path
         value: s3a://ph-max-auto/2020-08-11/NTM/data/Standard_Time.csv
       - key: level_data_path
-        value: s3a://ph-max-auto/2020-08-11/NTM/data/Level.csv4"
+        value: s3a://ph-max-auto/2020-08-11/NTM/data/Level.csv
     outputs:
       - key: assessment_result
         value: assessment_result

@@ -14,10 +14,17 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--owner')
 @click.option('--run_id')
 @click.option('--job_id')
-@click.option('--a')
-@click.option('--b')
-@click.option('--c')
-@click.option('--d')
+@click.option('--job_name')
+@click.option('--path_prefix')
+@click.option('--depend_job_names_keys')
+@click.option('--provider')
+@click.option('--proposal_id')
+@click.option('--project_id')
+@click.option('--period_id')
+@click.option('--phase')
+@click.option('--standard_time_path')
+@click.option('--level_data_path')
+@click.option('--assessment_result')
 def debug_execute(**kwargs):
     try:
         args = {"name": "ntmassessment"}
