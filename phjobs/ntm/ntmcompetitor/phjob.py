@@ -49,7 +49,7 @@ def execute(**kwargs):
 	competitor_data = competitor_data.withColumn("share", competitor_data.p_share * (rand() / 5 + 0.9))
 	competitor_data = competitor_data.withColumn("sales", competitor_data.total_potential / 4 * competitor_data.share)
 	competitor_data = competitor_data.withColumn("sales_growth", competitor_data.sales / competitor_data.p_sales - 1)
-	competitor_data = competitor_data.select("product", "sales", "share", "sales_growth")
+	competitor_data = competitor_data.select("goods_id", "product", "sales", "share", "sales_growth")
 
 	# competitor_data.persist()
 	# competitor_data.show()

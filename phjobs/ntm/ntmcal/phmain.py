@@ -28,7 +28,7 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 def debug_execute(**kwargs):
     try:
         args = {"name": "ntmcal"}
-        outputs = ["c", "d"]
+        outputs = ["cal_result"]
 
         args.update(kwargs)
         result = exec_before(**args)
