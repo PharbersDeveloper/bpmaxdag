@@ -227,7 +227,7 @@ def execute(**kwargs):
 	
 
 	# cal_data.printSchema()
-	cal_data = cal_data.select("hospital", "hospital_level", "budget", "meeting_attendance", "product", "quota", "call_time",
+	cal_data = cal_data.select("dest_id", "representative_id", "goods_id", "hospital", "hospital_level", "budget", "meeting_attendance", "product", "quota", "call_time",
 								"one_on_one_coaching", "field_work", "performance_review", "product_knowledge_training",
 								"territory_management_training", "representative", "sales_skills_training", "career_development_guide",
 								"employee_kpi_and_compliance_check", "admin_work", "kol_management", "business_strategy_planning",

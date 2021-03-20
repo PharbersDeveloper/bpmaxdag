@@ -30,10 +30,13 @@ def execute(**kwargs):
 	depends = get_depends_path(kwargs)
 	cal_path = depends["cal_path"]
 	competitor_path = depends["competitor_path"]
+	g_proposal_id = kwargs["proposal_id"]
+	g_project_id = kwargs["project_id"]
+	g_period_id = kwargs["period_id"]
 ################------------input----------------################
 
 
-###############----------------output-------------################
+###############----------------output--:-----------################
 	job_id = get_job_id(kwargs)
 	run_id = get_run_id(kwargs)
 	result_path_prefix = get_result_path(kwargs, run_id, job_id)
@@ -203,7 +206,10 @@ def execute(**kwargs):
 	""")
 	summary_data.show()
 	summary_data.drop("index", "level")
-	summary_data.write.mode("overwrite").parquet(assessment_result)
+	summary_data.withColumn("proposal_id", lit("g_proposal_id")) \
+			.withColumn("project_id", lit("g_project_id")) \
+			.withColumn("period_id", lit("g_period_id")) \
+			.repartition(1).write.mode("overwrite").parquet(assessment_result)
 	
 	return {}
 
