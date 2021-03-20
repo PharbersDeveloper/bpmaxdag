@@ -17,9 +17,9 @@ spec:
     config: phconf.yaml
     args:
       - key: job_name
-        value: cross_join_cutting
+        value: ntmassessment
       - key: path_prefix
-        value: s3://ph-max-auto/2020-08-11/NTM/runs
+        value: s3a://ph-max-auto/2020-08-11/NTM/runs
       - key: depend_job_names_keys
         value: 
           - ntmcal#cal_result#cal_path
@@ -27,13 +27,17 @@ spec:
       - key: provider
         value: NTM
       - key: proposal_id
-        value: "1234"
+        value: 60505e4b81ef2c5db38b4699
       - key: project_id
-        value: "1234"
+        value: rR9lwp8e55q9izZdHdQZ
       - key: period_id
-        value: "1234"
+        value: o8mpVPkJTVrUFfgk6KR-
       - key: phase
-        value: "1234"
+        value: 1         
+      - key: standard_time_path
+        value: s3a://ph-max-auto/2020-08-11/NTM/data/Standard_Time.csv
+      - key: level_data_path
+        value: s3a://ph-max-auto/2020-08-11/NTM/data/Level.csv
     outputs:
       - key: assessment_result
         value: assessment_result

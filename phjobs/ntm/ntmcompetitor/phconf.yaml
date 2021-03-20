@@ -17,26 +17,23 @@ spec:
     config: phconf.yaml
     args:
       - key: job_name
-        value: cross_join_cutting
+        value: ntmcompetitor
       - key: path_prefix
-        value: s3://ph-max-auto/2020-08-11/NTM/runs
+        value: s3a://ph-max-auto/2020-08-11/NTM/runs
       - key: depend_job_names_keys
         value: 
           - ntmcal#cal_result#cal_path
-      - key: competitor_path
-        value: s3://ph-max-auto/2020-08-11/NTM/data/competitor_path
+          - ntmpull#competitor_result#competitor_path
       - key: provider
         value: NTM
       - key: proposal_id
-        value: "1234"
+        value: 60505e4b81ef2c5db38b4699
       - key: project_id
-        value: "1234"
+        value: rR9lwp8e55q9izZdHdQZ
       - key: period_id
-        value: "1234"
+        value: o8mpVPkJTVrUFfgk6KR-
       - key: phase
-        value: "1234"
-      - key: g_total_potential
-        value: 12345
+        value: 1
     outputs:
       - key: competitor_result
         value: competitor_result
