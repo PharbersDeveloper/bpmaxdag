@@ -19,7 +19,11 @@ spec:
       - key: topic
         value: "test/1"
       - key: message
-        value: "eyJrZXkxMTIzIjogInZhbHVlMTEyMyJ9"
+        value: "eyJ1dWlkIjogInV1aWQiLCAiYWNjb3VudElkIjogImFjY291bnRfaWQiLCAic3RhdHVzIjogIiQoc3RhdHVzKSIsICJtZXNzYWdlIjogIlx1OGJhMVx1N2I5N1x1NWI4Y1x1NjIxMCIsICJlcnJvck1zZyI6ICJcdThiYTFcdTdiOTdcdTk1MTlcdThiZWZcdWZmMGNcdTk1MTlcdThiZWZcdTUzOWZcdTU2ZTBcdTRlM2E6ICQoZXJyb3JNc2cpIn0="
+      - key: pres_job_status
+        value: "error"
+      - key: job_error_msg
+        value: "job计算失败"
     outputs:
       - key: c
         value: "abc"

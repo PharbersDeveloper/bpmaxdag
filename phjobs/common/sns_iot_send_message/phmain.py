@@ -16,6 +16,8 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--job_id')
 @click.option('--topic')
 @click.option('--message')
+@click.option('--pres_job_status')
+@click.option('--job_error_msg')
 @click.option('--c')
 @click.option('--d')
 def debug_execute(**kwargs):
