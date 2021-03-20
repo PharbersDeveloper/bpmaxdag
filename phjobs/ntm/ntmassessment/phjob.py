@@ -36,7 +36,7 @@ def execute(**kwargs):
 ################------------input----------------################
 
 
-###############----------------output-------------################
+###############----------------output--:-----------################
 	job_id = get_job_id(kwargs)
 	run_id = get_run_id(kwargs)
 	result_path_prefix = get_result_path(kwargs, run_id, job_id)
@@ -209,7 +209,7 @@ def execute(**kwargs):
 	summary_data.withColumn("proposal_id", lit("g_proposal_id")) \
 			.withColumn("project_id", lit("g_project_id")) \
 			.withColumn("period_id", lit("g_period_id")) \
-			repartition(1).write.mode("overwrite").parquet(assessment_result)
+			.repartition(1).write.mode("overwrite").parquet(assessment_result)
 	
 	return {}
 

@@ -26,7 +26,7 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 def debug_execute(**kwargs):
     try:
         args = {"name": "ntmcompetitor"}
-        outputs = ["c", "d"]
+        outputs = ["competitor_result"]
 
         args.update(kwargs)
         result = exec_before(**args)

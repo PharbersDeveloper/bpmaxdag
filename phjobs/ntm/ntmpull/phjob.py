@@ -67,6 +67,7 @@ def execute(**kwargs):
 	result_path = result_path_prefix + kwargs["pull_result"]
 	competitor_result = result_path_prefix + kwargs["competitor_result"]
 ###############----------------output--------------##################
+
 	hospital_table = """(select id,name,level from hospital) hospital"""
 	hospitals = spark.read.format("jdbc") \
 					.option("url", g_postgres_uri) \
