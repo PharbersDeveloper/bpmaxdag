@@ -21,31 +21,32 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--project_id')
 @click.option('--period_id')
 @click.option('--phase')
-@click.option('--depend_job_names_keys')
+@click.option('--postgres_uri')
+@click.option('--postgres_user')
+@click.option('--postgres_pass')
+@click.option('--pull_result')
 @click.option('--competitor_result')
 def debug_execute(**kwargs):
-    try:
-        args = {"name": "ntmcompetitor"}
-        outputs = ["c", "d"]
+	try:
+		args = {"name": "ntmpull"}
+		outputs = ["c", "d"]
 
-        args.update(kwargs)
-        result = exec_before(**args)
+		args.update(kwargs)
+		result = exec_before(**args)
 
-        args.update(result if isinstance(result, dict) else {})
-        result = execute(**args)
+		args.update(result if isinstance(result, dict) else {})
+		result = execute(**args)
 
-        args.update(result if isinstance(result, dict) else {})
-        result = exec_after(outputs=outputs, **args)
+		args.update(result if isinstance(result, dict) else {})
+		result = exec_after(outputs=outputs, **args)
 
-        return result
-    except Exception as e:
-        logger = phs3logger(kwargs["job_id"])
-        logger.error(traceback.format_exc())
-        print(traceback.format_exc())
-        raise e
+		return result
+	except Exception as e:
+		logger = phs3logger(kwargs["job_id"])
+		logger.error(traceback.format_exc())
+		print(traceback.format_exc())
+		raise e
 
 
 if __name__ == '__main__':
-    debug_execute()
-
-
+	debug_execute()

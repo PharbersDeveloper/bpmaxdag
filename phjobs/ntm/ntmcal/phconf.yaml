@@ -19,29 +19,24 @@ spec:
       - key: job_name
         value: ntmcal
       - key: path_prefix
-        value: s3://ph-max-auto/2020-08-11/NTM/runs
+        value: s3a://ph-max-auto/2020-08-11/NTM/runs
       - key: provider
         value: NTM
       - key: proposal_id
-        value: "1234"
+        value: 60505e4b81ef2c5db38b4699
       - key: project_id
-        value: "1234"
+        value: rR9lwp8e55q9izZdHdQZ
       - key: period_id
-        value: "1234"
+        value: o8mpVPkJTVrUFfgk6KR-
       - key: phase
-        value: "1234"
+        value: 1
       - key: weight_path
-        value: s3://ph-max-auto/2020-08-11/NTM/data/Weightages.csv
+        value: s3a://ph-max-auto/2020-08-11/NTM/data/Weightages.csv
       - key: curves_path
         value: s3a://ph-max-auto/2020-08-11/NTM/data/Curves.csv
-      - key: manage_path
-        value: "1234"
-      - key: standard_time_path
-        value: s3://ph-max-auto/2020-08-11/NTM/data/Standard_Time.csv
-      - key: level_data_path
-        value: s3://ph-max-auto/2020-08-11/NTM/data/Level.csv
-      - key: cal_path
-        value: s3://ph-max-auto/2020-08-11/NTM/data/cal_path
+      - key: depend_job_names_keys
+        value: 
+          - ntmpull#pull_result#cal_path
     outputs:
       - key: cal_result
         value: cal_result
