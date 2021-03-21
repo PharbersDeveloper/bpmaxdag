@@ -9,6 +9,9 @@ from pyspark.sql import SparkSession
 from pyspark.sql.types import *
 from pyspark.sql.functions import pandas_udf, PandasUDFType
 from pyspark.sql.functions import broadcast, lit, sum
+import psycopg2
+import psycopg2.extras
+from urllib.parse import urlparse
 import pandas as pd
 import os
 import uuid
@@ -25,7 +28,7 @@ def execute(**kwargs):
 
 	spark = SparkSession.builder \
 		.master("yarn") \
-		.appName("ntm pull data from db") \
+		.appName("ntm push data to db from s3") \
 		.config("spark.driver.memory", "1g") \
 		.config("spark.executor.cores", "1") \
 		.config("spark.executor.instance", "1") \
@@ -72,7 +75,7 @@ def execute(**kwargs):
 	result_path_prefix = get_result_path(kwargs, run_id, job_id)
 	report_path = result_path_prefix + kwargs["report_result"]
 	final_result = result_path_prefix + kwargs["final_result"]
-###############----------------output--------------##################
+###############----------------output--------------###############
 
 	cal_data = spark.read.parquet(cal_path)
 	# competitor_data = spark.read.parquet(competitor_path)
@@ -106,7 +109,6 @@ def execute(**kwargs):
 									.withColumn("hospital", lit(""))
 
 	cal_report = cal_report.union(competitor_data)
-	
 	cal_report = cal_report.withColumn("patientNum", lit(0)) \
 						.withColumn("drugEntrance", lit("已准入")) \
 						.withColumn("quotaGrowthMOM", lit(0.0)) \
@@ -119,7 +121,7 @@ def execute(**kwargs):
 	cal_report = cal_report.withColumn("proposalId", lit(g_proposal_id)) \
 							.withColumn("projectId", lit(g_project_id)) \
 							.withColumn("periodId", lit(g_period_id)) \
-							.withColumn("phase", lit(1)) \
+							.withColumn("phase", lit(0)) \
 							.withColumn("region", lit("")) \
 							.withColumn("periodReports", lit(g_period_id)).na.fill("")
 	cal_report = cal_report.withColumn("id", general_report_id(cal_report.projectId))
@@ -144,7 +146,10 @@ def execute(**kwargs):
 	assessments = spark.read.parquet(assessment_path)
 	assessments.show()
 	
-	final = assessments.withColumn("id", general_report_id(assessments.general_performance)) \
+	final = assessments.drop("proposal_id") \
+						.drop("project_id") \
+						.drop("period_id") \
+						.withColumn("id", general_report_id(assessments.general_performance)) \
 						.withColumn("sales", lit(total_sales)) \
 						.withColumn("quota", lit(total_quota)) \
 						.withColumn("budget", lit(total_budget)) \
@@ -162,6 +167,28 @@ def execute(**kwargs):
 				.withColumnRenamed("manage_team", "manageTeam")
 
 	final.persist()
+	final.show()
+	
+	###############---------------- write relevance final_id for project table -------------################
+	if g_is_push is 1:
+		pg_connection = connect_pg(g_postgres_uri, g_postgres_user, g_postgres_pass)
+		cursor = pg_connection.cursor(cursor_factory=psycopg2.extras.DictCursor)
+		
+		final_id = final.take(1)[0]['id']
+		
+		cursor.execute("SELECT * FROM project WHERE id ='{id}'".format(id=g_project_id))
+		finals = cursor.fetchone()['finals']
+		finals.append(final_id)
+		
+		cursor.execute("UPDATE project SET finals = '{finals}' WHERE id = '{id}'".format(
+			finals="{" + ",".join(finals) + "}", id=g_project_id)
+		)
+		pg_connection.commit()
+		
+		cursor.close()
+		pg_connection.close()
+	###############---------------- write relevance final_id for project table -------------################
+	
 	final.repartition(1).write.mode("overwrite").parquet(final_result)
 	if g_is_push is 1:
 		final.write.format("jdbc") \
@@ -185,6 +212,7 @@ def get_run_id(kwargs):
 	if not run_id:
 		run_id = "runid_" + "alfred_runner_test"
 	return run_id
+
 
 def get_job_id(kwargs):
 	job_name = kwargs["job_name"]
@@ -259,5 +287,18 @@ def general_report_id(a):
 	df["result"] = df["a"].apply(lambda x: general_report_id_acc(x))
 	return df["result"]
 	
+
+def connect_pg(url, postgres_user, postgres_pass):
+	username = postgres_user
+	password = postgres_pass
+	hostname = url.split("/")[-2]
+	database = url.split("/")[-1]
+	connection = psycopg2.connect(
+	    database = database,
+	    user = username,
+	    password = password,
+	    host = hostname
+	)
+	return connection
 
 ################--------------------- functions ---------------------################
