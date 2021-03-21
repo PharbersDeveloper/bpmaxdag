@@ -113,8 +113,8 @@ def get_depends_path(kwargs):
     return result
 
 def load_effective_result(spark, path_effective_result):
-    path_effective_result = r's3a://ph-max-auto/2020-08-11/data_matching/refactor/runs/manual__2021-03-18T11_33_30.008512+00_00/effectiveness_with_jws/effective_result'
-    df_cleanning = spark.read.parquet(path_effective_result).limit(1000)
+#     path_effective_result = r's3a://ph-max-auto/2020-08-11/data_matching/refactor/runs/manual__2021-03-18T11_33_30.008512+00_00/effectiveness_with_jws/effective_result'
+    df_cleanning = spark.read.parquet(path_effective_result)
     return df_cleanning
 
 def load_mnf_stopwords(spark, mnf_stopwords_path):
@@ -206,6 +206,9 @@ def make_mnf_word_segmentation_convert_into_code(df_cleanning,mnf_mapping_code_d
 #                         "MANUFACTURER_NAME_CLEANNING_WORDS",\
 #                         "MANUFACTURER_NAME_CLEANNING_WORDS_CODE").distinct().show(500)
 #     print(df_cleanning.printSchema())
+    eff_cols = ["SID","ID","EFFTIVENESS_MOLE_NAME","EFFTIVENESS_PRODUCT_NAME","EFFTIVENESS_DOSAGE",\
+                "EFFTIVENESS_SPEC","EFFTIVENESS_PACK_QTY","EFFTIVENESS_MANUFACTURER"]
+    df_cleanning = df_cleanning.select(eff_cols)
     
     return df_cleanning
 
