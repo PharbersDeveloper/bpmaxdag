@@ -50,7 +50,7 @@ def execute(**kwargs):
 
     df_sim_spec = calulate_spec_similarity(df_seg_spec)
     
-    df_sim_spec = extract_max_similarity(df_seg_spec)
+    df_sim_spec = extract_max_similarity(df_sim_spec)
 
 ############# == main functions == #####################
     df_sim_spec.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
@@ -148,7 +148,7 @@ def calulate_spec_similarity(df_seg_spec):
     return df_seg_spec
 
 
-def extract_max_similarity(df_seg_spec):
+def extract_max_similarity(df_sim_spec):
     
     window_spec = Window.partitionBy("ID")
 
@@ -159,4 +159,4 @@ def extract_max_similarity(df_seg_spec):
     df_sim_spec.show(500)
     print(df_sim_spec.count())
     
-    return df_seg_spec
+    return df_sim_spec

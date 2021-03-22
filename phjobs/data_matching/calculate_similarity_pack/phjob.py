@@ -8,7 +8,7 @@ from phcli.ph_logs.ph_logs import phs3logger, LOG_DEBUG_LEVEL
 import uuid
 import pandas as pd
 import numpy as np
-import pyspark.sql import Window
+from pyspark.sql import Window
 from pyspark.sql.types import DoubleType 
 from pyspark.sql.functions import pandas_udf, PandasUDFType
 from pyspark.sql import functions as F  
@@ -98,6 +98,7 @@ def get_depends_path(kwargs):
 
 #### == loding files == ###
 def load_seg_pack_result(spark, path_segmentation_pack):
+    path_segmentation_pack = r's3a://ph-max-auto/2020-08-11/data_matching/refactor/runs/manual__2021-03-19T08_05_34.344972+00_00/cross_join_cutting/cross_result'
     df_seg_pack = spark.read.parquet(path_segmentation_pack)
     df_seg_pack = df_seg_pack.select("ID","PACK_QTY","PACK_QTY_STANDARD")
     return df_seg_pack  
