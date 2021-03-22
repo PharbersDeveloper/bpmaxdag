@@ -94,7 +94,7 @@ def execute(**kwargs):
 	cal_prod_data = cal_report_meta(cal_data, "Product", "product")
 
 	# cal_report = cal_hosp_data.unionByName(cal_res_data, allowMissingColumns=True).unionByName(cal_prod_data, allowMissingColumns=True)
-	cal_report = cal_hosp_data.union(cal_res_data).union(cal_prod_data)
+	cal_report = cal_hosp_data.unionByName(cal_res_data).unionByName(cal_prod_data)
 	cal_report = cal_report.drop("total_sales", "total_quota")
 	
 	competitor_data = spark.read.parquet(competitor_path)
