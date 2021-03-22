@@ -3,6 +3,7 @@
 
 This is job template for Pharbers Max Job
 """
+import os
 from phcli.ph_logs.ph_logs import phs3logger
 from pyspark.sql.functions import max 
 import uuid
@@ -21,9 +22,12 @@ def execute(**kwargs):
 
 #######################---------------input-------------#######################	
     depends = get_depends_path(kwargs)
-    path_prod_adjust = depends["prod_adjust"]
-    path_mnf_adjust = depends["mnf_adjust"]
-    path_spec_adjust = depends["spec_adjust"]
+    path_sim_dosage = depends["input_sim_dosage"]
+    path_sim_mnf = depends["input_sim_mnf"]
+    path_sim_mole = depends["input_sim_mole"]
+    path_sim_pack = depends["input_sim_pack"]
+    path_sim_prod = depends["input_sim_prod"]
+    path_sim_spec = depends["input_sim_spec"]
     g_repartition_shared = int(kwargs["g_repartition_shared"])
 #######################---------------input-------------#######################	
 
@@ -36,15 +40,24 @@ def execute(**kwargs):
 
 
 ###################--------loading files--------------########################
-    df_prod_adjusted = loda_df_prod_adjusted(spark, path_prod_adjust)
-    df_mnf_adjusted = load_df_mnf_adjusted(spark, path_mnf_adjust)
-    df_spec_adjusted = load_df_spec_adjusted(spark, path_spec_adjust)
+    df_sim_dosage = loading_files(spark, path_sim_dosage)
+    df_sim_mnf = loading_files(spark, path_sim_mnf)
+    df_sim_mole = loading_files(spark, path_sim_mole)
+    df_sim_pack = loading_files(spark, path_sim_pack)
+    df_sim_prod = loading_files(spark, path_sim_prod)
+    df_sim_spec = loading_files(spark, path_sim_spec)
 ##################--------loading files----------------########################
 
 ########################--------------main function--------------------#################
-    df_result = choose_max_effectiveness(df_mnf_adjusted,df_spec_adjusted,df_prod_adjusted)
-    df_result.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
+    df_max_effectiveness = collect_similarity_data(df_sim_dosage,df_sim_mnf,df_sim_mole,df_sim_pack,df_sim_prod,df_sim_spec)
+    df_max_effectiveness = choose_max_effectiveness(df_max_effectiveness)
 ######################--------------main function--------------------#################   
+
+############# == RESULT == ####################
+
+#     df_result.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
+############ == RESULT == #####################
+
     return {}
 
 
@@ -84,43 +97,35 @@ def get_depends_path(kwargs):
         result[depends_name] = get_depends_file_path(kwargs, depends_job, depends_key)
     return result
 
-def loda_df_prod_adjusted(spark, path_prod_adjust):
-    
-    df_prod_adjust = spark.read.parquet(path_prod_adjust)
-    return df_prod_adjust
 
-def load_df_mnf_adjusted(spark, path_mnf_adjust):
-    df_mnf_adjusted = spark.read.parquet(path_mnf_adjust)
-    return df_mnf_adjusted
-
-def load_df_spec_adjusted(spark, path_spec_adjust):
-    df_spec_adjusted = spark.read.parquet(path_spec_adjust)
-    return df_spec_adjusted  
-
-def choose_max_effectiveness(df_mnf_adjusted,df_spec_adjusted,df_prod_adjusted ):
-    eff_cols = ["SID","ID","EFFTIVENESS_MOLE_NAME","EFFTIVENESS_PRODUCT_NAME","EFFTIVENESS_DOSAGE",\
-                "EFFTIVENESS_SPEC","EFFTIVENESS_PACK_QTY","EFFTIVENESS_MANUFACTURER"]
-    df_mnf_eff = df_mnf_adjusted.select(eff_cols)
-    df_spec_eff = df_spec_adjusted.select(eff_cols)
-    df_prod_eff = df_spec_adjusted.select(eff_cols)
+##### == LOADING FILES == ######
+def loading_files(spark,input_path):
     
-    
-    df_result = df_mnf_eff.union(df_spec_eff).union(df_prod_eff)
-    
-    df_result = df_result.groupBy("SID","ID") \
-                        .agg(
-                        max(df_result.EFFTIVENESS_MOLE_NAME).alias("EFFTIVENESS_MOLE_NAME"),
-                        max(df_result.EFFTIVENESS_PRODUCT_NAME).alias("EFFTIVENESS_PRODUCT_NAME"),
-                        max(df_result.EFFTIVENESS_DOSAGE).alias("EFFTIVENESS_DOSAGE"),
-                        max(df_result.EFFTIVENESS_SPEC).alias("EFFTIVENESS_SPEC"),
-                        max(df_result.EFFTIVENESS_PACK_QTY).alias("EFFTIVENESS_PACK_QTY"),
-                        max(df_result.EFFTIVENESS_MANUFACTURER).alias("EFFTIVENESS_MANUFACTURER"),
-    )  
+    df = spark.read.parquet(input_path)
+        
+    return df
 
-    cols = ['SID', 'ID', 'PACK_ID_CHECK', 'PACK_ID_STANDARD', 'DOSAGE', 'MOLE_NAME', 'PRODUCT_NAME', 'SPEC', 'PACK_QTY', 'MANUFACTURER_NAME', 'SPEC_ORIGINAL', 'MOLE_NAME_STANDARD', 'PRODUCT_NAME_STANDARD', 'CORP_NAME_STANDARD', 'MANUFACTURER_NAME_STANDARD', 'MANUFACTURER_NAME_EN_STANDARD', 'DOSAGE_STANDARD', 'SPEC_STANDARD', 'PACK_QTY_STANDARD', 'SPEC_STANDARD_GROSS', 'SPEC_STANDARD_VALID', 'SPEC_GROSS', 'SPEC_VALID']
-    df_spec_distinct_col = df_spec_adjusted.select(cols)
-    df_result = df_result.join(df_spec_distinct_col, on=["SID","ID"], how="left")
-   
-    return df_result
+def collect_similarity_data(df_sim_dosage,df_sim_mnf,df_sim_mole,df_sim_pack,df_sim_prod,df_sim_spec):
+    
+    df_max_effectiveness = df_sim_dosage.join(df_sim_mnf,df_sim_dosage.ID == df_sim_mnf.ID,"left")\
+                                        .join(df_sim_mole,df_sim_dosage.ID == df_sim_mole.ID,"left")\
+                                        .join(df_sim_pack,df_sim_dosage.ID == df_sim_pack.ID,"left")\
+                                        .join(df_sim_prod,df_sim_dosage.ID == df_sim_prod.ID,"left")\
+                                        .join(df_sim_spec,df_sim_dosage.ID == df_sim_spec.ID,"left")\
+                                        .drop(df_sim_mnf.ID)\
+                                        .drop(df_sim_mole.ID)\
+                                        .drop(df_sim_pack.ID)\
+                                        .drop(df_sim_prod.ID)\
+                                        .drop(df_sim_spec.ID)
+    
+    print(df_max_effectiveness.printSchema())
+    
+    return df_max_effectiveness  
+
+def choose_max_effectiveness(df_max_effectiveness):
+    
+    df_max_effectiveness = df_max_effectiveness.reduceBykey("ID")
+    
+    return df_max_effectiveness
 
 ################---------------functions--------------------################

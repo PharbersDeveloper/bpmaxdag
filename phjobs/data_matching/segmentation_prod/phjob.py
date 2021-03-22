@@ -53,6 +53,7 @@ def execute(**kwargs):
 ###################=======main functions==========#################
     df_seg_prod = cut_prod_word(df_seg_prod,prod_lexicon,prod_stopwords)
 ###################=======main functions==========#################
+    df_seg_prod.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
     return {}
 
 

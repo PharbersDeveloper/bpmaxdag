@@ -28,7 +28,7 @@ spec:
         value:
           - cross_join_cutting#cross_result#input_cross_result
       - key: g_repartition_shared
-        value: 10
+        value: 16
     outputs:
       - key: segmentation_prod_result
         value: segmentation_prod_result

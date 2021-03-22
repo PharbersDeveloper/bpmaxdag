@@ -53,6 +53,7 @@ def execute(**kwargs):
 ###################=======main functions==========#################
     df_seg_dosage = cut_dosage_word(df_seg_dosage,dosage_lexicon,dosage_stopwords)
 ###################=======main functions==========#################
+    df_seg_dosage.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
     return {}
 
 

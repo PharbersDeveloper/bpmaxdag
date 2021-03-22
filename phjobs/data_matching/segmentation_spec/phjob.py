@@ -53,6 +53,11 @@ def execute(**kwargs):
 ###################=======main functions==========#################
     df_seg_spec = cut_spec_word(df_seg_spec,spec_lexicon,spec_stopwords)
 ###################=======main functions==========#################
+
+#################### == RESUTT == #####################
+    df_seg_spec.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
+#################### == RESUTT == #####################
+
     return {}
 
 

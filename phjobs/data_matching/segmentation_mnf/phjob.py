@@ -53,6 +53,7 @@ def execute(**kwargs):
 ###################=======main functions==========#################
     df_seg_mnf = cut_mnf_word(df_seg_mnf,mnf_lexicon,mnf_stopwords)
 ###################=======main functions==========#################
+    df_seg_mnf.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
     return {}
 
 

@@ -21,11 +21,14 @@ spec:
         value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs
       - key: depend_job_names_keys
         value: 
-          - effectiveness_adjust_mnf#mnf_adjust_result#mnf_adjust
-          - effectiveness_adjust_spec#spec_adjust_result#spec_adjust
-          - effectiveness_adjust_prod#prod_adjust_result#prod_adjust
+          - calculate_similarity_dosage#similarity_dosage_result#input_sim_dosage
+          - calculate_similarity_mnf#similarity_mnf_result#input_sim_mnf
+          - calculate_similarity_mole#similarity_mole_result#input_sim_mole
+          - calculate_similarity_pack#similarity_pack_result#input_sim_pack
+          - calculate_similarity_prod#similarity_prod_result#input_sim_prod
+          - calculate_similarity_spec#similarity_spec_result#input_sim_spec
       - key: g_repartition_shared
-        value: 10
+        value: 16
     outputs:
       - key: max_effectiveness_job_result
         value: max_effectiveness_job_result

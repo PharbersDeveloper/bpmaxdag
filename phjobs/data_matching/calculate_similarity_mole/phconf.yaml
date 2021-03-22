@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: PhJob
 metadata:
-  name: segmentation_dosage
+  name: calculate_similarity_mole
   description: "pharbers job description"
   labels:
-    name: segmentation_dosage
+    name: calculate_similarity_mole
     runtime: python3
     command: submit
 spec:
@@ -16,22 +16,18 @@ spec:
     code: phmain.py
     config: phconf.yaml
     args:
-      - key: job_name 
-        value: segmentation_dosage
+      - key: job_name
+        value: calculate_similarity_mole
       - key: path_prefix
         value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs
-      - key: dosage_lexicon_path
-        value: None
-      - key: dosage_stopwords_path
-        value: None
       - key: depend_job_names_keys
         value:
-          - cross_join_cutting#cross_result#input_cross_result
+        - segmentation_mole#segmentation_mole_result#input_seg_mole
       - key: g_repartition_shared
         value: 16
     outputs:
-      - key: segmentation_dosage_result
-        value: segmentation_dosage_result
+      - key: similarity_mole_result
+        value: similarity_mole_result
 
 
 

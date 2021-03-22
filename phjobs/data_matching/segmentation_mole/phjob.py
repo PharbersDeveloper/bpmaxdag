@@ -53,6 +53,7 @@ def execute(**kwargs):
 ###################=======main functions==========#################
     df_seg_mole = cut_mole_word(df_seg_mole,mole_lexicon,mole_stopwords)
 ###################=======main functions==========#################
+    df_seg_mole.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
     return {}
 
 
@@ -110,6 +111,7 @@ def load_cross_result(spark,path_cross_result):
     path_cross_result = r"s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs/manual__2021-03-19T08_05_34.344972+00_00/cross_join_cutting/cross_result"
     df_seg_mole = spark.read.parquet(path_cross_result)
     df_seg_mole = df_seg_mole.select("ID","MOLE_NAME","MOLE_NAME_STANDARD")
+    df_seg_mole.persist()
     
     return df_seg_mole 
 
