@@ -89,12 +89,16 @@ def execute(**kwargs):
 						.withColumnRenamed("quota", "salesQuota")
 	cal_data.persist()	
 	
-	cal_hosp_data = cal_report_meta(cal_data, "Hospital", "hospital")
-	cal_res_data = cal_report_meta(cal_data, "Resource", "resource")
-	cal_prod_data = cal_report_meta(cal_data, "Product", "product")
+	cal_hosp_data = cal_report_meta(cal_data, "Hospital", ["hospital", "resource", "product"])
+	cal_hosp_data.show()
+	cal_res_data = cal_report_meta(cal_data, "Resource", ["product", "resource"])
+	cal_res_data.show()
+	cal_prod_data = cal_report_meta(cal_data, "Product", ["product"])
+	cal_prod_data.show()
 
 	# cal_report = cal_hosp_data.unionByName(cal_res_data, allowMissingColumns=True).unionByName(cal_prod_data, allowMissingColumns=True)
 	cal_report = cal_hosp_data.unionByName(cal_res_data).unionByName(cal_prod_data)
+	cal_report.show()
 	cal_report = cal_report.drop("total_sales", "total_quota")
 	
 	competitor_data = spark.read.parquet(competitor_path)
@@ -244,8 +248,9 @@ def get_depends_path(kwargs):
 	return result
 
 
-def cal_report_meta(df, cat, gp_col):
-	df = df.groupBy(gp_col, "total_sales", "total_quota").agg(
+def cal_report_meta(df, cat, gp_cols):
+	cols = gp_cols + ["total_sales", "total_quota"]
+	df = df.groupBy(cols).agg(
 						sum(df.sales).alias("sales"),
 						sum(df.salesQuota).alias("salesQuota")
 					)
@@ -255,7 +260,7 @@ def cal_report_meta(df, cat, gp_col):
 			.withColumn("achievements", df.sales / df.salesQuota)
 			
 	cols = ["hospital", "resource", "product"]
-	cols = [n for n in cols if n != gp_col]
+	cols = [n for n in cols if n not in gp_cols]
 	for item in cols:
 		df = df.withColumn(item, lit(""))
 			
