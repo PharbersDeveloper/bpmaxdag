@@ -47,13 +47,18 @@ def execute(**kwargs):
 ###################=======loading files==========#################
     df_seg_dosage = load_cross_result(spark,path_cross_result)
     dosage_lexicon = load_dosage_lexicon(spark, path_dosage_lexicon)
-    dosage_stopwords = load_dosage_stopwords(spark, path_dosage_lexicon)
-###################=======loading files==========#################
+    dosage_stopwords = load_dosage_stopwords(spark, path_dosage_stopwords)
+####################=======loading files==========#################
 
-###################=======main functions==========#################
+####################=======main functions==========#################
     df_seg_dosage = cut_dosage_word(df_seg_dosage,dosage_lexicon,dosage_stopwords)
-###################=======main functions==========#################
+####################=======main functions==========#################
+
+####################### == RESULT == #####################
+
     df_seg_dosage.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
+    
+####################### == RESULT == #####################
     return {}
 
 
@@ -105,12 +110,13 @@ def load_dosage_stopwords(spark, path_dosage_stopwords):
         return None
     else:
         dosage_stopwords = spark.csv(path_dosage_stopwords,header=True)
+        dosage_stopwords = dosage_stopwords.rdd.map(lambda x : x.STOPWORDS).collect()
         return dosage_stopwords
 
 def load_cross_result(spark,path_cross_result):
     path_cross_result = r"s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs/manual__2021-03-19T08_05_34.344972+00_00/cross_join_cutting/cross_result"
     df_seg_dosage = spark.read.parquet(path_cross_result)
-    df_seg_dosage = df_seg_dosage.select("ID","DOSAGE","DOSAGE_STANDARD")
+    df_seg_dosage = df_seg_dosage.select("ID","DOSAGE","DOSAGE_STANDARD","PACK_ID_CHECK","PACK_ID_STANDARD")
     
     return df_seg_dosage 
 
@@ -139,8 +145,8 @@ def phcleanning_dosage_seg(df, df_lexicon, stopwords, inputCol, outputCol):
     if stopwords is None:
         pass
     else:
-        remover = StopWordsRemover(stopWords=stopwords, inputCol=inputCol, outputCol=outputCol)
-        df = remover.transform(df) #.drop(inputCol)
+        remover = StopWordsRemover(stopWords=stopwords, inputCol=outputCol, outputCol=outputCol)
+        df = remover.transform(df)# .drop("temp_col")
     return df
 ########  分词逻辑  ############
 

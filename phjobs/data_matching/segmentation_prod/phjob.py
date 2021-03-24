@@ -47,7 +47,7 @@ def execute(**kwargs):
 ###################=======loading files==========#################
     df_seg_prod = load_cross_result(spark,path_cross_result)
     prod_lexicon = load_prod_lexicon(spark, path_prod_lexicon)
-    prod_stopwords = load_prod_stopwords(spark, path_prod_lexicon)
+    prod_stopwords = load_prod_stopwords(spark, path_prod_stopwords)
 ###################=======loading files==========#################
 
 ###################=======main functions==========#################
@@ -105,6 +105,7 @@ def load_prod_stopwords(spark, path_prod_stopwords):
         return None
     else:
         prod_stopwords = spark.csv(path_prod_stopwords,header=True)
+        prod_stopwords = spark.rdd.map(lambda x: x.STOPWORDS).collect()
         return prod_stopwords
 
 def load_cross_result(spark,path_cross_result):
@@ -139,8 +140,8 @@ def phcleanning_prod_seg(df, df_lexicon, stopwords, inputCol, outputCol):
     if stopwords is None:
         pass
     else:
-        remover = StopWordsRemover(stopWords=stopwords, inputCol=inputCol, outputCol=outputCol)
-        df = remover.transform(df) #.drop(inputCol)
+        remover = StopWordsRemover(stopWords=stopwords, inputCol=outputCol, outputCol=outputCol)
+        df = remover.transform(df)#.drop("temp_col")
     return df
 ########  分词逻辑  ############
 

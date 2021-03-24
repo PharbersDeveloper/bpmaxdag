@@ -47,7 +47,7 @@ def execute(**kwargs):
 ###################=======loading files==========#################
     df_seg_mnf = load_cross_result(spark,path_cross_result)
     mnf_lexicon = load_mnf_lexicon(spark, path_mnf_lexicon)
-    mnf_stopwords = load_mnf_stopwords(spark, path_mnf_lexicon)
+    mnf_stopwords = load_mnf_stopwords(spark, path_mnf_stopwords)
 ###################=======loading files==========#################
 
 ###################=======main functions==========#################
@@ -104,7 +104,8 @@ def load_mnf_stopwords(spark, path_mnf_stopwords):
     if path_mnf_stopwords == "None":
         return None
     else:
-        mnf_stopwords = spark.csv(path_mnf_stopwords,header=True)
+        mnf_stopwords = spark.read.csv(path_mnf_stopwords,header=True)
+        mnf_stopwords = mnf_stopwords.rdd.map(lambda x : x.STOPWORDS).collect()
         return mnf_stopwords
 
 def load_cross_result(spark,path_cross_result):
@@ -138,8 +139,8 @@ def phcleanning_mnf_seg(df, df_lexicon, stopwords, inputCol, outputCol):
     if stopwords is None:
         pass
     else:
-        remover = StopWordsRemover(stopWords=stopwords, inputCol=inputCol, outputCol=outputCol)
-        df = remover.transform(df) #.drop(inputCol)
+        remover = StopWordsRemover(stopWords=stopwords, inputCol=outputCol, outputCol=outputCol)
+        df = remover.transform(df)
     return df
 ########  分词逻辑  ############
 

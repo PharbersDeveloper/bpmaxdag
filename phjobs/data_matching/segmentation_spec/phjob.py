@@ -47,7 +47,7 @@ def execute(**kwargs):
 ###################=======loading files==========#################
     df_seg_spec = load_cross_result(spark,path_cross_result)
     spec_lexicon = load_spec_lexicon(spark, path_spec_lexicon)
-    spec_stopwords = load_spec_stopwords(spark, path_spec_lexicon)
+    spec_stopwords = load_spec_stopwords(spark, path_spec_stopwords)
 ###################=======loading files==========#################
 
 ###################=======main functions==========#################
@@ -109,6 +109,7 @@ def load_spec_stopwords(spark, path_spec_stopwords):
         return None
     else:
         spec_stopwords = spark.csv(path_spec_stopwords,header=True)
+        spec_stopwords = spec_stopwords.rdd.map(lambda x: x.STOPWORDS).collect()
         return spec_stopwords
 
 def load_cross_result(spark,path_cross_result):
@@ -143,7 +144,7 @@ def phcleanning_spec_seg(df, df_lexicon, stopwords, inputCol, outputCol):
     if stopwords is None:
         pass
     else:
-        remover = StopWordsRemover(stopWords=stopwords, inputCol=inputCol, outputCol=outputCol)
+        remover = StopWordsRemover(stopWords=stopwords, inputCol=outputCol, outputCol=outputCol)
         df = remover.transform(df) #.drop(inputCol)
     return df
 ########  分词逻辑  ############

@@ -50,7 +50,7 @@ def execute(**kwargs):
 
     df_sim_mole = calulate_mole_similarity(df_seg_mole)
     
-    df_sim_mole = extract_max_similaritey(df_sim_mole)
+    df_sim_mole = extract_max_similarity(df_sim_mole)
 
 ############# == main functions == #####################
 
@@ -152,7 +152,7 @@ def calulate_mole_similarity(df_seg_mole):
     return df_seg_mole
 
 
-def extract_max_similaritey(df_sim_mole):
+def extract_max_similarity(df_sim_mole):
     
     window_mole = Window.partitionBy("ID")
 

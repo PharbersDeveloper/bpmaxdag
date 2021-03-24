@@ -18,10 +18,10 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--path_prefix')
 @click.option('--depend_job_names_keys')
 @click.option('--g_repartition_shared')
-@click.option('--max_effectiveness_job_result')
+@click.option('--combine_cols_job_result')
 def debug_execute(**kwargs):
     try:
-        args = {'name': 'choose_data_by_extract_max_effectiveness'}
+        args = {'name': 'combine_similarity_columns'}
 
         args.update(kwargs)
         result = exec_before(**args)

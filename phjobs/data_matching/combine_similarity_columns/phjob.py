@@ -4,8 +4,12 @@
 This is job template for Pharbers Max Job
 """
 import os
+import pandas as pd
+from functools import reduce
 from phcli.ph_logs.ph_logs import phs3logger
-from pyspark.sql.functions import max 
+from pyspark.sql.types import StringType
+from pyspark.sql.functions import pandas_udf, PandasUDFType
+from pyspark.sql import functions as F 
 import uuid
 
 
@@ -35,7 +39,7 @@ def execute(**kwargs):
     job_id = get_job_id(kwargs)
     run_id = get_run_id(kwargs)
     result_path_prefix = get_result_path(kwargs, run_id, job_id)
-    result_path = result_path_prefix + kwargs["max_effectiveness_job_result"]
+    result_path = result_path_prefix + kwargs["combine_cols_job_result"]
 #######################--------------output--------------########################
 
 
@@ -50,12 +54,15 @@ def execute(**kwargs):
 
 ########################--------------main function--------------------#################
     df_max_effectiveness = collect_similarity_data(df_sim_dosage,df_sim_mnf,df_sim_mole,df_sim_pack,df_sim_prod,df_sim_spec)
-    df_max_effectiveness = choose_max_effectiveness(df_max_effectiveness)
+    
+    df_max_effectiveness = Array_tranform_into_string(df_max_effectiveness)
+    
 ######################--------------main function--------------------#################   
 
 ############# == RESULT == ####################
 
-#     df_result.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
+    df_max_effectiveness.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
+    
 ############ == RESULT == #####################
 
     return {}
@@ -118,14 +125,33 @@ def collect_similarity_data(df_sim_dosage,df_sim_mnf,df_sim_mole,df_sim_pack,df_
                                         .drop(df_sim_prod.ID)\
                                         .drop(df_sim_spec.ID)
     
-    print(df_max_effectiveness.printSchema())
-    
     return df_max_effectiveness  
 
-def choose_max_effectiveness(df_max_effectiveness):
+#####  == array transform string == ###
+def Array_tranform_into_string(df_max_effectiveness):
     
-    df_max_effectiveness = df_max_effectiveness.reduceBykey("ID")
-    
+    df_max_effectiveness = df_max_effectiveness.withColumn("DOSAGE_CUT_WORDS",array_transform_string(df_max_effectiveness.DOSAGE_CUT_WORDS))
+    df_max_effectiveness = df_max_effectiveness.withColumn("DOSAGE_CUT_STANDARD_WORDS",array_transform_string(df_max_effectiveness.DOSAGE_CUT_STANDARD_WORDS))
+    df_max_effectiveness = df_max_effectiveness.withColumn("MANUFACTURER_NAME_CUT_WORDS",array_transform_string(df_max_effectiveness.MANUFACTURER_NAME_CUT_WORDS))
+    df_max_effectiveness = df_max_effectiveness.withColumn("MANUFACTURER_NAME_STANDARD_CUT_STANDARD_WORDS",array_transform_string(df_max_effectiveness.MANUFACTURER_NAME_STANDARD_CUT_STANDARD_WORDS))
+    df_max_effectiveness = df_max_effectiveness.withColumn("MOLE_CUT_WORDS",array_transform_string(df_max_effectiveness.MOLE_CUT_WORDS))
+    df_max_effectiveness = df_max_effectiveness.withColumn("MOLE_CUT_STANDARD_WORDS",array_transform_string(df_max_effectiveness.MOLE_CUT_STANDARD_WORDS))
+    df_max_effectiveness = df_max_effectiveness.withColumn("PRODUCT_NAME_CUT_WORDS",array_transform_string(df_max_effectiveness.PRODUCT_NAME_CUT_WORDS))
+    df_max_effectiveness = df_max_effectiveness.withColumn("SPEC_CUT_WORDS",array_transform_string(df_max_effectiveness.SPEC_CUT_WORDS))
+    df_max_effectiveness = df_max_effectiveness.withColumn("SPEC_CUT_STANDARD_WORDS",array_transform_string(df_max_effectiveness.SPEC_CUT_STANDARD_WORDS))
+    df_max_effectiveness = df_max_effectiveness.withColumn("PRODUCT_CUT_STANDARD_WORDS",array_transform_string(df_max_effectiveness.PRODUCT_CUT_STANDARD_WORDS))
     return df_max_effectiveness
+
+@pandas_udf(StringType(),PandasUDFType.SCALAR)
+def array_transform_string(input_col):
+    frame = {"input_col": input_col}
+    df = pd.DataFrame(frame)
+    
+    def make_elements_of_list_into_one_string(origin_list):
+        placeholder_word = ' '
+        output_sentence = reduce(lambda x, y: x + f"{placeholder_word}" + y, origin_list)
+        return output_sentence
+    df['output_col'] = df.apply(lambda x: make_elements_of_list_into_one_string(x.input_col), axis=1)
+    return df['output_col']
 
 ################---------------functions--------------------################

@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: PhJob
 metadata:
-  name: choose_data_by_extract_max_effectiveness 
+  name: combine_similarity_columns 
   description: "pharbers job description"
   labels:
-    name: choose_data_by_extract_max_effectiveness 
+    name: combine_similarity_columns   
     runtime: python3
 spec:
   containers:
@@ -16,7 +16,7 @@ spec:
     timeout: 800
     args:
       - key: job_name
-        value: choose_data_by_extract_max_effectiveness 
+        value: combine_similarity_columns     
       - key: path_prefix
         value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs
       - key: depend_job_names_keys
@@ -30,5 +30,5 @@ spec:
       - key: g_repartition_shared
         value: 16
     outputs:
-      - key: max_effectiveness_job_result
-        value: max_effectiveness_job_result
+      - key: combine_cols_job_result
+        value: combine_cols_job_result
