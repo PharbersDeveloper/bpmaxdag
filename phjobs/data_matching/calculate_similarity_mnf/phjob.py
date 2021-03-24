@@ -56,7 +56,7 @@ def execute(**kwargs):
 ############# == main functions == #####################
 
 ############ == RESULT == ##########
-#     df_sim_mnf.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
+    df_sim_mnf.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
 ############ == RESULT == ##########
     return {}
 

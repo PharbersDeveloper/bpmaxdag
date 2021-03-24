@@ -109,6 +109,7 @@ def get_depends_path(kwargs):
 def loading_files(spark,input_path):
     
     df = spark.read.parquet(input_path)
+
         
     return df
 
@@ -140,6 +141,8 @@ def Array_tranform_into_string(df_max_effectiveness):
     df_max_effectiveness = df_max_effectiveness.withColumn("SPEC_CUT_WORDS",array_transform_string(df_max_effectiveness.SPEC_CUT_WORDS))
     df_max_effectiveness = df_max_effectiveness.withColumn("SPEC_CUT_STANDARD_WORDS",array_transform_string(df_max_effectiveness.SPEC_CUT_STANDARD_WORDS))
     df_max_effectiveness = df_max_effectiveness.withColumn("PRODUCT_CUT_STANDARD_WORDS",array_transform_string(df_max_effectiveness.PRODUCT_CUT_STANDARD_WORDS))
+    
+    print(df_max_effectiveness.printSchema())
     return df_max_effectiveness
 
 @pandas_udf(StringType(),PandasUDFType.SCALAR)
@@ -149,7 +152,10 @@ def array_transform_string(input_col):
     
     def make_elements_of_list_into_one_string(origin_list):
         placeholder_word = ' '
-        output_sentence = reduce(lambda x, y: x + f"{placeholder_word}" + y, origin_list)
+        try:
+            output_sentence = reduce(lambda x, y: x + f"{placeholder_word}" + y, origin_list)
+        except:
+            output_sentence = ''
         return output_sentence
     df['output_col'] = df.apply(lambda x: make_elements_of_list_into_one_string(x.input_col), axis=1)
     return df['output_col']
