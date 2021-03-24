@@ -115,8 +115,7 @@ def load_spec_stopwords(spark, path_spec_stopwords):
 def load_cross_result(spark,path_cross_result):
     path_cross_result = r"s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs/manual__2021-03-19T08_05_34.344972+00_00/cross_join_cutting/cross_result"
     df_seg_spec = spark.read.parquet(path_cross_result)
-    df_seg_spec = df_seg_spec.select("ID","SPEC","SPEC_STANDARD")
-    
+    df_seg_spec = df_seg_spec.select("ID","SPEC","SPEC_STANDARD","SPEC_VALID","SPEC_GROSS","SPEC_STANDARD_VALID","SPEC_STANDARD_GROSS")
     return df_seg_spec 
 
 

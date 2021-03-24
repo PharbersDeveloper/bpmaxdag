@@ -10,8 +10,8 @@ import pandas as pd
 import numpy as np
 from pyspark.sql import Window
 from pyspark.sql.types import DoubleType 
-from pyspark.sql.functions import pandas_udf, PandasUDFType
-from pyspark.sql import functions as F
+from pyspark.sql.functions import pandas_udf, PandasUDFType, when, col
+from pyspark.sql.functions import max as sparkmax
 from itertools import product
 from nltk.metrics.distance import jaro_winkler_similarity
 
@@ -50,7 +50,13 @@ def execute(**kwargs):
 
     df_sim_spec = calulate_spec_similarity(df_seg_spec)
     
+    df_sim_spec = calulate_Long_spec_similarity(df_sim_spec)
+    
+    df_sim_spec = get_maximum_similarity(df_sim_spec)
+    
     df_sim_spec = extract_max_similarity(df_sim_spec)
+    
+    
 
 ############# == main functions == #####################
     df_sim_spec.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
@@ -142,18 +148,78 @@ def calulate_spec_similarity_after_seg(raw_spec,standard_spec):
 ##### == calulate_similarity == #######
 def calulate_spec_similarity(df_seg_spec):
     
-    df_seg_spec = df_seg_spec.withColumn("eff_spec",calulate_spec_similarity_after_seg(df_seg_spec.SPEC_CUT_WORDS,df_seg_spec.SPEC_CUT_STANDARD_WORDS))
-    df_seg_spec.show(500)
-    print(df_seg_spec.printSchema())
-    return df_seg_spec
+    df_sim_spec = df_seg_spec.withColumn("eff_spec",calulate_spec_similarity_after_seg(df_seg_spec.SPEC_CUT_WORDS,df_seg_spec.SPEC_CUT_STANDARD_WORDS))
+    df_sim_spec = df_sim_spec.withColumn("eff_spec",\
+                                         modify_first_spec_effectiveness(df_sim_spec.SPEC_STANDARD_GROSS,\
+                                                                         df_sim_spec.SPEC_STANDARD_VALID,\
+                                                                        df_sim_spec.SPEC_GROSS,\
+                                                                        df_sim_spec.SPEC_VALID,\
+                                                                        df_sim_spec.eff_spec))
+    return df_sim_spec
+
+#### == 计算分词前文本相似度 == #####
+def calulate_Long_spec_similarity(df_sim_spec):
+    
+    df_sim_spec = df_sim_spec.withColumn("spec_before_cut", get_similarity_of_notCut(df_sim_spec.SPEC,df_sim_spec.SPEC_STANDARD))
+                                         
+    return df_sim_spec
+
+@pandas_udf(DoubleType(), PandasUDFType.SCALAR)
+def get_similarity_of_notCut(raw,standard):
+    frame = {"raw":raw,
+            "standard":standard}
+    df = pd.DataFrame(frame)
+    def get_similarity(s1,s2):
+        sim_value = jaro_winkler_similarity(s1,s2)
+        return sim_value
+    df['output_similarity'] = df.apply(lambda x: get_similarity(x.raw,x.standard), axis=1)
+    return df['output_similarity']
+
+def get_maximum_similarity(df_sim_spec):
+    
+    df_sim_spec = df_sim_spec.withColumn("eff_spec",get_max_sim_from_both(df_sim_spec.spec_before_cut,df_sim_spec.eff_spec))
+    
+    return df_sim_spec 
+
+@pandas_udf(DoubleType(), PandasUDFType.SCALAR)
+def get_max_sim_from_both(raw_eff,cutting_eff):
+    frame = {"raw_eff":raw_eff,
+            "cutting_eff":cutting_eff}
+    df = pd.DataFrame(frame)
+    df['output_col'] = df.apply(lambda x: max(x.raw_eff,x.cutting_eff), axis=1)
+    return df['output_col']
+
+####  == 二轮 eff spec 计算 ###
+
+@pandas_udf(DoubleType(), PandasUDFType.SCALAR)
+def modify_first_spec_effectiveness(standard_gross, standard_valid, target_gross, target_valid, EFFTIVENESS_SPEC_FIRST):
+
+    frame = { "standard_gross": standard_gross, "standard_valid": standard_valid, "target_gross": target_gross, "target_valid":target_valid ,"EFFTIVENESS_SPEC_FIRST" : EFFTIVENESS_SPEC_FIRST}  
+    df = pd.DataFrame(frame)
+    def adjust_spec_effectiveness(df):
+        if df.standard_gross == df.target_gross:
+            effectiveness_spec = float(0.995)
+        elif df.standard_valid == df.target_valid:
+            effectiveness_spec = float(0.995)
+        elif df.standard_gross == df.target_valid:
+            effectiveness_spec = float(0.995)               
+        elif df.standard_valid == df.target_gross:
+            effectiveness_spec = float(0.995)
+        else:
+            effectiveness_spec = float(df.EFFTIVENESS_SPEC_FIRST)
+        effectiveness_spec = float(max(effectiveness_spec,df.EFFTIVENESS_SPEC_FIRST))
+        return effectiveness_spec 
+    df["EFFTIVENESS_SPEC"] = df.apply(lambda x:adjust_spec_effectiveness(x), axis=1)
+    return df["EFFTIVENESS_SPEC"]
+
 
 
 def extract_max_similarity(df_sim_spec):
     
     window_spec = Window.partitionBy("ID")
 
-    df_sim_spec = df_sim_spec.withColumn("max_eff",F.max("eff_spec").over(window_spec))\
-                                .where(F.col("eff_spec") == F.col("max_eff"))\
+    df_sim_spec = df_sim_spec.withColumn("max_eff",sparkmax("eff_spec").over(window_spec))\
+                                .where(col("eff_spec") == col("max_eff"))\
                                 .drop("max_eff")\
                                 .drop_duplicates(["ID"])
     df_sim_spec.show(500)

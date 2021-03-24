@@ -56,7 +56,7 @@ def execute(**kwargs):
 ############# == main functions == #####################
 
 ########## === RESULT === ##############
-    df_sim_dosage.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
+#     df_sim_dosage.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
 ########## === RESULT === ##############
 
     return {}
@@ -161,5 +161,4 @@ def extract_max_similaritey(df_sim_dosage):
     df_sim_dosage.show(500)
     print(df_sim_dosage.count())
     
-#     df_sim_dosage.groupBy("ID","SID").agg(max(df_sim_dosage.eff_dosage)).show(500)
     return df_sim_dosage
