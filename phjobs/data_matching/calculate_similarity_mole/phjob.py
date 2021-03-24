@@ -126,7 +126,7 @@ def calulate_mole_similarity_after_seg(raw_mole,standard_mole):
             all_possible_sim_value = list(map(lambda x: jaro_winkler_similarity(x[0],x[-1]), all_possible_result))
             all_possible_array_value = np.array(all_possible_sim_value)
             all_possible_matrix_value = all_possible_array_value.reshape(int(len(input_raw)),int(len(input_standard)))
-            max_similarity_value = list(map(lambda x: max(x), all_possible_matrix_value))
+            max_similarity_value = list(map(lambda x: max(x,default=0.0), all_possible_matrix_value))
         return max_similarity_value
     
     def handle_sim_value_data(raw_sentence, standard_sentence):

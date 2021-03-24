@@ -10,8 +10,8 @@ import pandas as pd
 import numpy as np
 from pyspark.sql import Window
 from pyspark.sql.types import DoubleType 
-from pyspark.sql.functions import pandas_udf, PandasUDFType
-from pyspark.sql import functions as F
+from pyspark.sql.functions import pandas_udf, PandasUDFType, col
+from pyspark.sql.functions import max as sparkmax
 from itertools import product
 from nltk.metrics.distance import jaro_winkler_similarity
 
@@ -56,7 +56,7 @@ def execute(**kwargs):
 ############# == main functions == #####################
 
 ############ == RESULT == ##########
-    df_sim_mnf.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
+#     df_sim_mnf.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
 ############ == RESULT == ##########
     return {}
 
@@ -128,7 +128,7 @@ def calulate_mnf_similarity_after_seg(raw_mnf,standard_mnf):
             all_possible_sim_value = list(map(lambda x: jaro_winkler_similarity(x[0],x[-1]), all_possible_result))
             all_possible_array_value = np.array(all_possible_sim_value)
             all_possible_matrix_value = all_possible_array_value.reshape(int(len(input_raw)),int(len(input_standard)))
-            max_similarity_value = list(map(lambda x: max(x), all_possible_matrix_value))
+            max_similarity_value = list(map(lambda x: max(x,default=0.0), all_possible_matrix_value))
         return max_similarity_value
     
     def handle_sim_value_data(raw_sentence, standard_sentence):
@@ -148,14 +148,15 @@ def calulate_mnf_similarity_after_seg(raw_mnf,standard_mnf):
 ##### == calulate_similarity == #######
 def calulate_mnf_similarity(df_seg_mnf):
     
-    df_seg_mnf = df_seg_mnf.withColumn("eff_mnf",calulate_mnf_similarity_after_seg(df_seg_mnf.MANUFACTURER_NAME_CUT_WORDS,df_seg_mnf.MANUFACTURER_NAME_STANDARD_CUT_STANDARD_WORDS))
-    return df_seg_mnf
+    df_sim_mnf = df_seg_mnf.withColumn("eff_mnf",calulate_mnf_similarity_after_seg(df_seg_mnf.MANUFACTURER_NAME_CUT_WORDS,df_seg_mnf.MANUFACTURER_NAME_STANDARD_CUT_STANDARD_WORDS))
+    df_sim_mnf.show()
+    return df_sim_mnf
 
 def extract_max_similaritey(df_sim_mnf):
     
     window_mnf = Window.partitionBy("ID")
-    df_sim_mnf = df_sim_mnf.withColumn("max_eff",F.max("eff_mnf").over(window_mnf))\
-                            .where(F.col("eff_mnf")==F.col("max_eff"))\
+    df_sim_mnf = df_sim_mnf.withColumn("max_eff", sparkmax("eff_mnf").over(window_mnf))\
+                            .where(col("eff_mnf")==col("max_eff"))\
                             .drop("max_eff")\
                             .drop_duplicates(["ID"])
     df_sim_mnf.show(500)
