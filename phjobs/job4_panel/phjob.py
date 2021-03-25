@@ -269,7 +269,10 @@ paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_uni
         # unpublished文件
         # unpublished 列表创建：published_left中有而published_right没有的ID列表，然后重复12次，时间为current_year*100 + i
         published_left = spark.read.csv(published_left_path, header=True)
+        published_left = published_left.select('ID').distinct()
+        
         published_right = spark.read.csv(published_right_path, header=True)
+        published_right = published_right.select('ID').distinct()
         
         unpublished_ID=published_left.subtract(published_right).toPandas()['ID'].values.tolist()
         unpublished_ID_num=len(unpublished_ID)

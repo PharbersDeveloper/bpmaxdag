@@ -287,7 +287,11 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
             
     elif monthly_update == "True":
         published_left = spark.read.csv(published_left_path, header=True)
+        published_left = published_left.select('ID').distinct()
+        
         published_right = spark.read.csv(published_right_path, header=True)
+        published_right = published_right.select('ID').distinct()
+        
         not_arrived =  spark.read.csv(not_arrived_path, header=True)
        
         for index, month in enumerate(range(first_month, current_month + 1)):
