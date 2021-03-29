@@ -36,9 +36,7 @@ def execute(**kwargs):
     g_repartition_shared = int(kwargs["g_repartition_shared"])
     word_dict_encode_path = kwargs["word_dict_encode_path"]
     mnf_lexicon_path = kwargs["mnf_lexicon_path"]
-    mole_lexicon_path = kwargs["mole_lexicon_path"]
     mnf_stopwords_path = kwargs["mnf_stopwords_path"]
-    mole_stopwords_path = kwargs["mole_stopwords_path"]
 ############-----------input-------------------------###################
 
 ###########------------output------------------------###################
@@ -51,25 +49,30 @@ def execute(**kwargs):
 
 ###############--------loading files --------------##################
     mnf_lexicon = load_mnf_lexicon(spark, mnf_lexicon_path)
-    mole_lexicon = load_mole_lexicon(spark,  mole_lexicon_path)
     mnf_stopwords = load_mnf_stopwords(spark, mnf_stopwords_path)
-    mole_stopwords = load_mole_stopwords(spark, mole_stopwords_path)
     df_cleanning  = load_effective_result(spark, path_effective_result)
     df_encode = load_word_dict_encode(spark, word_dict_encode_path)
+    #mnf硬编码字典
+    mnf_mapping_code_dict = make_mnf_segmentation_mapping_code(df_encode)
 ###############--------loading files----------------#################
 
 
 #########--------------main function--------------------#################  
     #进行分词处理
-    df_cleanning =  deal_with_word_segmentation(df_cleanning, mole_lexicon, mnf_lexicon, mole_stopwords, mnf_stopwords)
+    df_cleanning =  deal_with_word_segmentation_mnf(df_cleanning, mnf_lexicon, mnf_stopwords)
     
-    df_cleanning = mnf_encoding_index(df_cleanning, df_encode)
-    df_cleanning = mnf_encoding_cosine(df_cleanning)
-    df_cleanning = second_round_with_col_recalculate(df_cleanning, df_encode)
     df_cleanning.repartition(g_repartition_shared).write.mode("overwrite").parquet(mid_path)
-    #选取指定的列用于和adjust_spec job 进行union操作
-    df_cleanning = select_specified_cols(df_cleanning)
+    
+    #mnf分词映射成编码
+    df_cleanning = make_mnf_word_segmentation_convert_into_code(df_cleanning,mnf_mapping_code_dict)
+    
+    df_cleanning = mnf_encoding_cosine(df_cleanning)
+    
+    #mnf有效性计算
+    df_cleanning = get_mnf_efftiveness(df_cleanning)
+    
 
+#     result_path = r's3a://ph-max-auto/2020-08-11/data_matching/refactor/runs/manual__2021-03-18T11_33_30.008512+00_00/effectiveness_adjust_mnf/mnf_adjust_result'
     df_cleanning.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
 #########--------------main function--------------------#################  
     return {}
@@ -110,6 +113,7 @@ def get_depends_path(kwargs):
     return result
 
 def load_effective_result(spark, path_effective_result):
+#     path_effective_result = r's3a://ph-max-auto/2020-08-11/data_matching/refactor/runs/manual__2021-03-18T11_33_30.008512+00_00/effectiveness_with_jws/effective_result'
     df_cleanning = spark.read.parquet(path_effective_result)
     return df_cleanning
 
@@ -117,28 +121,12 @@ def load_mnf_stopwords(spark, mnf_stopwords_path):
     mnf_stopwords = spark.read.csv(mnf_stopwords_path, header=True)
     mnf_stopwords = mnf_stopwords.rdd.map(lambda x : x.STOPWORDS).collect()
     return mnf_stopwords
-
-def load_mole_stopwords(spark, mole_stopwords_path):
-    if mole_stopwords_path == 'None':
-        return None
-    else:
-        mole_stopwords = spark.read.csv(mole_stopwords_path, header=True)
-        return mole_stopwords
-
-def load_mole_lexicon(spark, mole_lexicon_path):
-    if mole_lexicon_path == 'None':
-        return None
-    else:
-        mole_lexicon = spark.read.csv(mole_lexicon_path, header=True)
-        return mole_lexicon
     
 """
 读取生产企业配置表
 """
 def load_word_dict_encode(spark, word_dict_encode_path):
     df_encode = spark.read.parquet(word_dict_encode_path)
-    df_encode.show()
-    print(df_encode.printSchema())
     return df_encode
 
 def load_mnf_lexicon(spark, mnf_lexicon_path):
@@ -146,7 +134,7 @@ def load_mnf_lexicon(spark, mnf_lexicon_path):
     return mnf_lexicon
     
 '''
-分词处理
+mnf分词逻辑
 '''
 def phcleanning_mnf_seg(df, df_lexicon, stopwords, inputCol, outputCol):
     if df_lexicon is None: 
@@ -165,73 +153,145 @@ def phcleanning_mnf_seg(df, df_lexicon, stopwords, inputCol, outputCol):
         return df["be_cut_col"]
     
     # 3. 中文的分词
-    df = df.withColumn("to_be_cut_col", manifacture_name_pseg_cut(col(inputCol)))
+    df = df.withColumn(inputCol, manifacture_name_pseg_cut(col(inputCol)))
     # 4. 分词之后构建词库编码
     # 4.1 stop word remover 去掉不需要的词
     if stopwords is None:
         pass
     else:
-        remover = StopWordsRemover(stopWords=stopwords, inputCol="to_be_cut_col", outputCol=outputCol)
-        df = remover.transform(df).drop("to_be_cut_col")
+        remover = StopWordsRemover(stopWords=stopwords, inputCol=inputCol, outputCol=outputCol)
+        df = remover.transform(df) #.drop(inputCol)
     return df
 
-def deal_with_word_segmentation(df_cleanning, mole_lexicon, mnf_lexicon, mole_stopwords, mnf_stopwords):
+def deal_with_word_segmentation_mnf(df_cleanning, mnf_lexicon,mnf_stopwords):
+    
     df_cleanning = phcleanning_mnf_seg(df=df_cleanning, df_lexicon=mnf_lexicon, stopwords=mnf_stopwords, inputCol="MANUFACTURER_NAME_STANDARD", outputCol="MANUFACTURER_NAME_STANDARD_WORDS")
     df_cleanning = phcleanning_mnf_seg(df=df_cleanning, df_lexicon=mnf_lexicon, stopwords=mnf_stopwords, inputCol="MANUFACTURER_NAME", outputCol="MANUFACTURER_NAME_CLEANNING_WORDS")
-    df_cleanning = phcleanning_mnf_seg(df=df_cleanning, df_lexicon=mole_lexicon, stopwords=mole_stopwords, inputCol="MOLE_NAME_STANDARD", outputCol="MOLE_NAME_STANDARD_WORDS")
-    df_cleanning = phcleanning_mnf_seg(df=df_cleanning, df_lexicon=mole_lexicon, stopwords=mole_stopwords, inputCol="MOLE_NAME", outputCol="MOLE_NAME_CLEANNING_WORDS")
+
     return df_cleanning
 
-def words_to_reverse_index(df_cleanning, df_encode, inputCol, outputCol):
-    df_cleanning = df_cleanning.withColumn("tid", monotonically_increasing_id())
-    df_indexing = df_cleanning.withColumn("MANUFACTURER_NAME_STANDARD_WORD_LIST", explode(col(inputCol)))
-    df_indexing = df_indexing.join(df_encode, df_indexing.MANUFACTURER_NAME_STANDARD_WORD_LIST == df_encode.WORD, how="left").na.fill(8999)
-    df_indexing = df_indexing.groupBy("tid").agg(word_index_to_array(df_indexing.ENCODE).alias("INDEX_ENCODE"))
-
-    df_cleanning = df_cleanning.join(df_indexing, on="tid", how="left")
-    df_cleanning = df_cleanning.withColumn(outputCol, df_cleanning.INDEX_ENCODE)
-    df_cleanning = df_cleanning.drop("tid", "INDEX_ENCODE", "MANUFACTURER_NAME_STANDARD_WORD_LIST")
-    return df_cleanning
-
-def mnf_encoding_index(df_cleanning, df_encode):
-    df_cleanning = df_cleanning.withColumn("MANUFACTURER_NAME_STANDARD_WORDS_SEG", df_cleanning.MANUFACTURER_NAME_STANDARD_WORDS)
-    df_cleanning = df_cleanning.withColumn("MANUFACTURER_NAME_CLEANNING_WORDS_SEG", df_cleanning.MANUFACTURER_NAME_CLEANNING_WORDS)
-    df_cleanning = words_to_reverse_index(df_cleanning, df_encode, "MANUFACTURER_NAME_STANDARD_WORDS", "MANUFACTURER_NAME_STANDARD_WORDS")
-    df_cleanning = words_to_reverse_index(df_cleanning, df_encode, "MANUFACTURER_NAME_CLEANNING_WORDS", "MANUFACTURER_NAME_CLEANNING_WORDS")
-    df_cleanning = df_cleanning.withColumn("MANUFACTURER_NAME_STANDARD_WORDS", array_distinct(df_cleanning.MANUFACTURER_NAME_STANDARD_WORDS))
-    df_cleanning = df_cleanning.withColumn("MANUFACTURER_NAME_CLEANNING_WORDS", array_distinct(df_cleanning.MANUFACTURER_NAME_CLEANNING_WORDS))
-    return df_cleanning
-
-def mnf_encoding_cosine(df_cleanning):
-    df_cleanning = df_cleanning.withColumn("COSINE_SIMILARITY", \
-                                mnf_index_word_cosine_similarity(df_cleanning.MANUFACTURER_NAME_CLEANNING_WORDS, df_cleanning.MANUFACTURER_NAME_STANDARD_WORDS))
-    return df_cleanning
-
-def second_round_with_col_recalculate(df_cleanning, df_encode):
-    df_cleanning = df_cleanning.withColumn("EFFTIVENESS_MANUFACTURER_SE", \
-                                    when(df_cleanning.COSINE_SIMILARITY >= df_cleanning.EFFTIVENESS_MANUFACTURER, df_cleanning.COSINE_SIMILARITY) \
-                                    .otherwise(df_cleanning.EFFTIVENESS_MANUFACTURER))
-    df_cleanning = df_cleanning.withColumn("EFFTIVENESS_PRODUCT_NAME_SE", \
-                                    prod_name_replace(df_cleanning.EFFTIVENESS_MOLE_NAME, df_cleanning.EFFTIVENESS_MANUFACTURER_SE, \
-                                    df_cleanning.EFFTIVENESS_PRODUCT_NAME, df_cleanning.MOLE_NAME, \
-                                    df_cleanning.PRODUCT_NAME_STANDARD))
-        
-    df_cleanning = df_cleanning.withColumnRenamed("EFFTIVENESS_PRODUCT_NAME", "EFFTIVENESS_PRODUCT_NAME_FIRST") \
-                    .withColumnRenamed("EFFTIVENESS_MANUFACTURER", "EFFTIVENESS_MANUFACTURER_FIRST") \
-                    .withColumnRenamed("EFFTIVENESS_DOSAGE_SE", "EFFTIVENESS_DOSAGE") \
-                    .withColumnRenamed("EFFTIVENESS_MANUFACTURER_SE", "EFFTIVENESS_MANUFACTURER") \
-                    .withColumnRenamed("EFFTIVENESS_PRODUCT_NAME_SE", "EFFTIVENESS_PRODUCT_NAME")
-								# .withColumnRenamed("EFFTIVENESS_DOSAGE", "EFFTIVENESS_DOSAGE_FIRST") \
-    df_cleanning.persist()
-    return df_cleanning
+# def words_to_reverse_index(df_cleanning, df_encode, inputCol, outputCol):
     
-def select_specified_cols(df_cleanning):
-    cols = ["SID", "ID","PACK_ID_CHECK",  "PACK_ID_STANDARD","DOSAGE","MOLE_NAME","PRODUCT_NAME","SPEC","PACK_QTY","MANUFACTURER_NAME","SPEC_ORIGINAL",
-"MOLE_NAME_STANDARD","PRODUCT_NAME_STANDARD","CORP_NAME_STANDARD","MANUFACTURER_NAME_STANDARD","MANUFACTURER_NAME_EN_STANDARD","DOSAGE_STANDARD","SPEC_STANDARD","PACK_QTY_STANDARD",
-"SPEC_valid_digit_STANDARD","SPEC_valid_unit_STANDARD","SPEC_GROSS_VALUE_PURE_STANDARD","SPEC_GROSS_UNIT_PURE_STANDARD","SPEC_GROSS_VALUE_PURE","CHC_GROSS_UNIT","SPEC_VALID_VALUE_PURE",
-"SPEC_VALID_UNIT_PURE","EFFTIVENESS_MOLE_NAME","EFFTIVENESS_PRODUCT_NAME","EFFTIVENESS_DOSAGE","EFFTIVENESS_PACK_QTY","EFFTIVENESS_MANUFACTURER","EFFTIVENESS_SPEC"]
-    df_cleanning = df_cleanning.select(cols)  
+#     df_cleanning = df_cleanning.withColumn("tid", monotonically_increasing_id())
+#     df_indexing = df_cleanning.withColumn("MANUFACTURER_NAME_STANDARD_WORD_LIST", explode(col(inputCol)))
+    
+#     df_indexing = df_indexing.join(df_encode, df_indexing.MANUFACTURER_NAME_STANDARD_WORD_LIST == df_encode.WORD, how="left").na.fill(8999)
+    
+#     df_indexing = df_indexing.groupBy("tid").agg(word_index_to_array(df_indexing.ENCODE).alias("INDEX_ENCODE"))
+    
+
+#     df_cleanning = df_cleanning.join(df_indexing, on="tid", how="left")
+    
+#     df_cleanning = df_cleanning.withColumn(outputCol, df_cleanning.INDEX_ENCODE)
+#     df_cleanning = df_cleanning.drop("tid", "INDEX_ENCODE", "MANUFACTURER_NAME_STANDARD_WORD_LIST")
+    
+#     return df_cleanning
+
+#分词余弦处理优化逻辑
+def make_mnf_segmentation_mapping_code(df):
+    list_word = df.rdd.map(lambda x: x.WORD).collect()
+    list_encode = df.rdd.map(lambda x: x.ENCODE).collect()
+    mnf_mapping_code_dict = dict(zip(list_word,list_encode))
+    return mnf_mapping_code_dict 
+
+#mnf分词映射成编码
+def make_mnf_word_segmentation_convert_into_code(df_cleanning,mnf_mapping_code_dict):
+    
+    df_cleanning = make_mnf_word_into_code(df_cleanning,mnf_mapping_code_dict,\
+                                           df_cleanning.MANUFACTURER_NAME_STANDARD_WORDS,output_col="MANUFACTURER_NAME_STANDARD_WORDS_CODE")
+    df_cleanning = make_mnf_word_into_code(df_cleanning,mnf_mapping_code_dict,\
+                                           df_cleanning.MANUFACTURER_NAME_CLEANNING_WORDS,output_col="MANUFACTURER_NAME_CLEANNING_WORDS_CODE")
+#     df_cleanning.select("MANUFACTURER_NAME_STANDARD_WORDS",\
+#                         "MANUFACTURER_NAME_STANDARD_WORDS_CODE",\
+#                         "MANUFACTURER_NAME_CLEANNING_WORDS",\
+#                         "MANUFACTURER_NAME_CLEANNING_WORDS_CODE").distinct().show(500)
+#     print(df_cleanning.printSchema())
+    eff_cols = ["SID","ID","EFFTIVENESS_MOLE_NAME","EFFTIVENESS_PRODUCT_NAME","EFFTIVENESS_DOSAGE",\
+                "EFFTIVENESS_SPEC","EFFTIVENESS_PACK_QTY","EFFTIVENESS_MANUFACTURER"]
+    df_cleanning = df_cleanning.select(eff_cols)
+    
     return df_cleanning
+
+def make_mnf_word_into_code(df_cleanning,mnf_mapping_code_dict,input_col,output_col):
+    mnf_mapping_code_dict = mnf_mapping_code_dict
+    @pandas_udf(ArrayType(IntegerType()),PandasUDFType.SCALAR)
+    def make_string_convert_into_code(input_col):
+        frame = {"input_col":input_col}
+        df = pd.DataFrame(frame)
+        nonlocal mnf_mapping_code_dict
+        def execute_string_into_code(s):
+            if s in mnf_mapping_code_dict.keys():
+                value = mnf_mapping_code_dict[s]
+                if value != None:
+                    value = int(value)
+                else:
+                    value = int(8999)
+            else:
+                value = int(8999)
+            return value 
+
+        df['output_col'] = df.apply(lambda x: np.array(list(map(execute_string_into_code,x.input_col))), axis=1)
+        return df['output_col']
+    df_cleanning = df_cleanning.withColumn(output_col,make_string_convert_into_code(input_col))
+    return df_cleanning
+
+
+# def mnf_encoding_index(df_cleanning, df_encode):
+    
+#     df_cleanning = df_cleanning.withColumn("MANUFACTURER_NAME_STANDARD_WORDS_SEG", df_cleanning.MANUFACTURER_NAME_STANDARD_WORDS)
+#     df_cleanning = df_cleanning.withColumn("MANUFACTURER_NAME_CLEANNING_WORDS_SEG", df_cleanning.MANUFACTURER_NAME_CLEANNING_WORDS)
+    
+#     df_cleanning = words_to_reverse_index(df_cleanning, df_encode, "MANUFACTURER_NAME_STANDARD_WORDS", "MANUFACTURER_NAME_STANDARD_WORDS")
+    
+#     df_cleanning = words_to_reverse_index(df_cleanning, df_encode, "MANUFACTURER_NAME_CLEANNING_WORDS", "MANUFACTURER_NAME_CLEANNING_WORDS")
+    
+#     df_cleanning = df_cleanning.withColumn("MANUFACTURER_NAME_STANDARD_WORDS", array_distinct(df_cleanning.MANUFACTURER_NAME_STANDARD_WORDS))
+#     df_cleanning = df_cleanning.withColumn("MANUFACTURER_NAME_CLEANNING_WORDS", array_distinct(df_cleanning.MANUFACTURER_NAME_CLEANNING_WORDS))
+    
+#     return df_cleanning
+
+#余弦相似度
+def mnf_encoding_cosine(df_cleanning):
+    df_cleanning = df_cleanning.withColumn("MNF_COSINE_SIMILARITY", \
+                                mnf_index_word_cosine_similarity(df_cleanning.MANUFACTURER_NAME_CLEANNING_WORDS_CODE,\
+                                                                 df_cleanning.MANUFACTURER_NAME_STANDARD_WORDS_CODE))
+    df_cleanning.select("MANUFACTURER_NAME","MANUFACTURER_NAME_STANDARD").distinct().show(200)
+    return df_cleanning
+
+#mnf有效性计算
+def get_mnf_efftiveness(df_cleanning):
+    
+    df_cleanning = df_cleanning.withColumn("EFFTIVENESS_MANUFACTURER", \
+                                    when(df_cleanning.MNF_COSINE_SIMILARITY >= df_cleanning.EFFTIVENESS_MANUFACTURER,\
+                                         df_cleanning.MNF_COSINE_SIMILARITY).otherwise(df_cleanning.EFFTIVENESS_MANUFACTURER))
+#     print(df_cleanning.printSchema())
+    return df_cleanning
+
+# def second_round_with_col_recalculate(df_cleanning):
+   
+#     df_cleanning = df_cleanning.withColumn("EFFTIVENESS_PRODUCT_NAME_SE", \
+#                                     prod_name_replace(df_cleanning.EFFTIVENESS_MOLE_NAME, df_cleanning.EFFTIVENESS_MANUFACTURER_SE, \
+#                                     df_cleanning.EFFTIVENESS_PRODUCT_NAME, df_cleanning.MOLE_NAME, \
+#                                     df_cleanning.PRODUCT_NAME_STANDARD))
+        
+#     df_cleanning = df_cleanning.withColumnRenamed("EFFTIVENESS_PRODUCT_NAME", "EFFTIVENESS_PRODUCT_NAME_FIRST") \
+#                     .withColumnRenamed("EFFTIVENESS_MANUFACTURER", "EFFTIVENESS_MANUFACTURER_FIRST") \
+#                     .withColumnRenamed("EFFTIVENESS_DOSAGE_SE", "EFFTIVENESS_DOSAGE") \
+#                     .withColumnRenamed("EFFTIVENESS_MANUFACTURER_SE", "EFFTIVENESS_MANUFACTURER") \
+#                     .withColumnRenamed("EFFTIVENESS_PRODUCT_NAME_SE", "EFFTIVENESS_PRODUCT_NAME")
+# 								# .withColumnRenamed("EFFTIVENESS_DOSAGE", "EFFTIVENESS_DOSAGE_FIRST") \
+#     df_cleanning.persist()
+#     return df_cleanning
+    
+# def select_specified_cols(df_cleanning):
+
+#     cols = ["SID", "ID","PACK_ID_CHECK",  "PACK_ID_STANDARD","DOSAGE","MOLE_NAME","PRODUCT_NAME","SPEC","PACK_QTY","MANUFACTURER_NAME","SPEC_ORIGINAL",
+#                 "MOLE_NAME_STANDARD","PRODUCT_NAME_STANDARD","CORP_NAME_STANDARD","MANUFACTURER_NAME_STANDARD","MANUFACTURER_NAME_EN_STANDARD","DOSAGE_STANDARD","SPEC_STANDARD","PACK_QTY_STANDARD",
+#                 "SPEC_STANDARD_GROSS","SPEC_STANDARD_VALID","SPEC_GROSS","SPEC_VALID",
+#                 "EFFTIVENESS_MOLE_NAME","EFFTIVENESS_PRODUCT_NAME","EFFTIVENESS_DOSAGE","EFFTIVENESS_PACK_QTY","EFFTIVENESS_MANUFACTURER","EFFTIVENESS_SPEC"]
+#     df_cleanning = df_cleanning.select(cols)
+    
+#     return df_cleanning
 
 @pandas_udf(ArrayType(IntegerType()), PandasUDFType.GROUPED_AGG)
 def word_index_to_array(v):
@@ -278,15 +338,15 @@ def mnf_index_word_cosine_similarity(o, v):
     df["RESULT"] = df.apply(lambda x: cosine_distance(x["CLENNING_FEATURE"], x["STANDARD_FEATURE"]), axis=1)
     return df["RESULT"]
 
-@pandas_udf(DoubleType(), PandasUDFType.SCALAR)
-def prod_name_replace(eff_mole_name, eff_mnf_name, eff_product_name, mole_name, prod_name_standard):
-    frame = { "EFFTIVENESS_MOLE_NAME": eff_mole_name, "EFFTIVENESS_MANUFACTURER_SE": eff_mnf_name, "EFFTIVENESS_PRODUCT_NAME": eff_product_name,
-            "MOLE_NAME": mole_name, "PRODUCT_NAME_STANDARD": prod_name_standard, }
-    df = pd.DataFrame(frame)
+# @pandas_udf(DoubleType(), PandasUDFType.SCALAR)
+# def prod_name_replace(eff_mole_name, eff_mnf_name, eff_product_name, mole_name, prod_name_standard):
+#     frame = { "EFFTIVENESS_MOLE_NAME": eff_mole_name, "EFFTIVENESS_MANUFACTURER_SE": eff_mnf_name, "EFFTIVENESS_PRODUCT_NAME": eff_product_name,
+#             "MOLE_NAME": mole_name, "PRODUCT_NAME_STANDARD": prod_name_standard, }
+#     df = pd.DataFrame(frame)
 
-    df["EFFTIVENESS_PROD"] = df.apply(lambda x: max((0.5* x["EFFTIVENESS_MOLE_NAME"] + 0.5* x["EFFTIVENESS_MANUFACTURER_SE"]), \
-                                (x["EFFTIVENESS_PRODUCT_NAME"]), \
-                                (jaro_winkler_similarity(x["MOLE_NAME"], x["PRODUCT_NAME_STANDARD"]))), axis=1)
+#     df["EFFTIVENESS_PROD"] = df.apply(lambda x: max((0.5* x["EFFTIVENESS_MOLE_NAME"] + 0.5* x["EFFTIVENESS_MANUFACTURER_SE"]), \
+#                                 (x["EFFTIVENESS_PRODUCT_NAME"]), \
+#                                 (jaro_winkler_similarity(x["MOLE_NAME"], x["PRODUCT_NAME_STANDARD"]))), axis=1)
 
-    return df["EFFTIVENESS_PROD"]
+#     return df["EFFTIVENESS_PROD"]
 ################-----------------------------------------------------################

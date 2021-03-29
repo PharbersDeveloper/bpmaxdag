@@ -1,0 +1,34 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: combine_similarity_columns 
+  description: "pharbers job description"
+  labels:
+    name: combine_similarity_columns   
+    runtime: python3
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    code: phmain.py
+    config: phconf.yaml
+    command: submit
+    timeout: 800
+    args:
+      - key: job_name
+        value: combine_similarity_columns     
+      - key: path_prefix
+        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs
+      - key: depend_job_names_keys
+        value: 
+          - calculate_similarity_dosage#similarity_dosage_result#input_sim_dosage
+          - calculate_similarity_mnf#similarity_mnf_result#input_sim_mnf
+          - calculate_similarity_mole#similarity_mole_result#input_sim_mole
+          - calculate_similarity_pack#similarity_pack_result#input_sim_pack
+          - calculate_similarity_prod#similarity_prod_result#input_sim_prod
+          - calculate_similarity_spec#similarity_spec_result#input_sim_spec
+      - key: g_repartition_shared
+        value: 16
+    outputs:
+      - key: combine_cols_job_result
+        value: combine_cols_job_result

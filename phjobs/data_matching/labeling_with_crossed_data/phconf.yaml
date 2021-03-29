@@ -21,7 +21,7 @@ spec:
         value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs
       - key: depend_job_names_keys
         value: 
-          - effectiveness_adjust_prod#prod_adjust_result#input
+          - combine_similarity_columns#combine_cols_job_result#input_combine_Cols
     outputs:
       - key: label_result
         value: label_result

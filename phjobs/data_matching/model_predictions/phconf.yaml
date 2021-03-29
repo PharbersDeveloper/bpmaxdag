@@ -40,6 +40,7 @@ spec:
           - cleaning_data_model_training#model_result#model
           - labeling_with_crossed_data#label_result#data
           - cross_join_cutting#cross_drop#lost
+          - cleaning_data_normalization#cleaning_origin#origin_data
     outputs:
       - key: prediction_result
         value: prediction_result

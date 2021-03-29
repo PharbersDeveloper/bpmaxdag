@@ -6,3 +6,5 @@ phcombines/*
 demo/*
 **/.ipynb_checkpoints/
 dags/*
+phjobs/temp/*
+phjobs/new_data_matching/*
