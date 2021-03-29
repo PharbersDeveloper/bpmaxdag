@@ -22,7 +22,7 @@ def execute(**kwargs):
     logger.info("当前 run_id 为 " + str(kwargs["run_id"]))
     logger.info("当前 job_id 为 " + str(kwargs["job_id"]))
 
-    _inputs = kwargs["inputs"].split(',')
+    _inputs = kwargs["inputs"].replace(" ", "").split(',')
     _output = kwargs["output"]
 
     spark = kwargs["spark"]()
