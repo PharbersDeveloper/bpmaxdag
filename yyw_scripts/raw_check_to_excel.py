@@ -34,7 +34,7 @@ if access_key:
 '''
 合并s3上的raw_data_check/.csv 为excel
 '''
-project_name = '神州'
+project_name = 'Takeda'
 outdir = '202012'
 outdir_local = "/home/ywyuan/tmp_file"
 
