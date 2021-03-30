@@ -152,6 +152,5 @@ def cut_spec_word(df_seg_spec,spec_lexicon,spec_stopwords):
     
     df_seg_spec =phcleanning_spec_seg(df=df_seg_spec,df_lexicon=spec_lexicon,stopwords=spec_stopwords,inputCol="SPEC",outputCol="SPEC_CUT_WORDS")
     df_seg_spec =phcleanning_spec_seg(df=df_seg_spec,df_lexicon=spec_lexicon,stopwords=spec_stopwords,inputCol="SPEC_STANDARD",outputCol="SPEC_CUT_STANDARD_WORDS")
-    df_seg_spec.select("ID","SPEC","SPEC_CUT_WORDS","SPEC_STANDARD","SPEC_CUT_STANDARD_WORDS").show(100)
     return df_seg_spec
 

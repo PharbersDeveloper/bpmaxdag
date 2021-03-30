@@ -109,7 +109,6 @@ def load_mnf_stopwords(spark, path_mnf_stopwords):
         return mnf_stopwords
 
 def load_cross_result(spark,path_cross_result):
-    path_cross_result = r's3a://ph-max-auto/2020-08-11/data_matching/refactor/runs/manual__2021-03-29T09_12_43.930388+00_00/cross_join_cutting/cross_result'
     df_seg_mnf = spark.read.parquet(path_cross_result)
     df_seg_mnf = df_seg_mnf.select("ID","MANUFACTURER_NAME","MANUFACTURER_NAME_STANDARD","MANUFACTURER_NAME_EN_STANDARD")
     return df_seg_mnf 

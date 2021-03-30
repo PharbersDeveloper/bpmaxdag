@@ -150,6 +150,5 @@ def cut_mole_word(df_seg_mole,mole_lexicon,mole_stopwords):
     
     df_seg_mole =phcleanning_mole_seg(df=df_seg_mole,df_lexicon=mole_lexicon,stopwords=mole_stopwords,inputCol="MOLE_NAME",outputCol="MOLE_CUT_WORDS")
     df_seg_mole =phcleanning_mole_seg(df=df_seg_mole,df_lexicon=mole_lexicon,stopwords=mole_stopwords,inputCol="MOLE_NAME_STANDARD",outputCol="MOLE_CUT_STANDARD_WORDS")
-    df_seg_mole.select("ID","MOLE_NAME","MOLE_CUT_WORDS","MOLE_NAME_STANDARD","MOLE_CUT_STANDARD_WORDS").show(100)
     return df_seg_mole
 

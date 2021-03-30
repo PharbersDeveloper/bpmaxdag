@@ -97,7 +97,6 @@ def get_depends_path(kwargs):
 ##################  中间文件与结果文件路径  ######################
 
 def load_cross_result(spark,path_cross_result):
-    path_cross_result = r's3a://ph-max-auto/2020-08-11/data_matching/refactor/runs/manual__2021-03-29T09_12_43.930388+00_00/cross_join_cutting/cross_result'
     df_seg_dosage = spark.read.parquet(path_cross_result)
     df_seg_dosage = df_seg_dosage.select("ID","DOSAGE","DOSAGE_STANDARD","PACK_ID_CHECK","PACK_ID_STANDARD")
     
@@ -115,8 +114,6 @@ def join_maping_table(df_cross_dosage, df_mapping_dosage):
     df_mapping_dosage = df_mapping_dosage.withColumnRenamed("DOSAGE","MAPPING_DOSAGE")
     
     df_dosage = df_cross_dosage.join(df_mapping_dosage, df_cross_dosage.DOSAGE==df_mapping_dosage.MAPPING_DOSAGE, how="left").na.fill("").drop("MAPPING_DOSAGE")
-#     df_dosage = df_second_round.withColumn("MASTER_DOSAGE", when(df_second_round.MASTER_DOSAGE.isNull(), df_second_round.JACCARD_DISTANCE).otherwise(df_second_round.MASTER_DOSAGE))
-#     df_second_round = df_second_round.withColumn("EFFTIVENESS_DOSAGE_SE", dosage_replace(df_second_round.MASTER_DOSAGE , df_second_round.DOSAGE_STANDARD, df_second_round.EFFTIVENESS_DOSAGE))
-
+    
     return df_dosage
 

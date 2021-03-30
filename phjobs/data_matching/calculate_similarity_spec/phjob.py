@@ -222,6 +222,7 @@ def extract_max_similarity(df_sim_spec):
     df_sim_spec = df_sim_spec.withColumn("max_eff",sparkmax("eff_spec").over(window_spec))\
                                 .where(col("eff_spec") == col("max_eff"))\
                                 .drop("max_eff")\
+                                .drop_duplicates(["ID"])
     return df_sim_spec
 
 def let_array_become_string(df_sim_spec):

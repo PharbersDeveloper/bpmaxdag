@@ -53,13 +53,11 @@ def execute(**kwargs):
 ########################--------------main function--------------------#################
     df_max_effectiveness = collect_similarity_data(df_sim_dosage,df_sim_mnf,df_sim_mole,df_sim_pack,df_sim_spec)
     
-#     df_max_effectiveness = Array_tranform_into_string(df_max_effectiveness)
-    
 ######################--------------main function--------------------#################   
 
 ############# == RESULT == ####################
 
-#     df_max_effectiveness.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
+    df_max_effectiveness.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
     
 ############ == RESULT == #####################
 
@@ -120,26 +118,7 @@ def collect_similarity_data(df_sim_dosage,df_sim_mnf,df_sim_mole,df_sim_pack,df_
                                         .drop(df_sim_mole.ID)\
                                         .drop(df_sim_pack.ID)\
                                         .drop(df_sim_spec.ID)
-    df_max_effectiveness.show(200)
     
     return df_sim_dosage  
-
-#####  == array transform string == ###
-def Array_tranform_into_string(df_max_effectiveness):
-    
-    df_max_effectiveness = df_max_effectiveness.withColumn("DOSAGE_CUT_WORDS",array_join(df_max_effectiveness.DOSAGE_CUT_WORDS,delimiter=''))
-    df_max_effectiveness = df_max_effectiveness.withColumn("DOSAGE_CUT_STANDARD_WORDS",array_transform_string(df_max_effectiveness.DOSAGE_CUT_STANDARD_WORDS))
-    df_max_effectiveness = df_max_effectiveness.withColumn("MANUFACTURER_NAME_CUT_WORDS",array_transform_string(df_max_effectiveness.MANUFACTURER_NAME_CUT_WORDS))
-    df_max_effectiveness = df_max_effectiveness.withColumn("MANUFACTURER_NAME_STANDARD_CUT_STANDARD_WORDS",array_transform_string(df_max_effectiveness.MANUFACTURER_NAME_STANDARD_CUT_STANDARD_WORDS))
-    df_max_effectiveness = df_max_effectiveness.withColumn("MOLE_CUT_WORDS",array_transform_string(df_max_effectiveness.MOLE_CUT_WORDS))
-    df_max_effectiveness = df_max_effectiveness.withColumn("MOLE_CUT_STANDARD_WORDS",array_transform_string(df_max_effectiveness.MOLE_CUT_STANDARD_WORDS))
-    df_max_effectiveness = df_max_effectiveness.withColumn("PRODUCT_NAME_CUT_WORDS",array_transform_string(df_max_effectiveness.PRODUCT_NAME_CUT_WORDS))
-    df_max_effectiveness = df_max_effectiveness.withColumn("SPEC_CUT_WORDS",array_transform_string(df_max_effectiveness.SPEC_CUT_WORDS))
-    df_max_effectiveness = df_max_effectiveness.withColumn("SPEC_CUT_STANDARD_WORDS",array_transform_string(df_max_effectiveness.SPEC_CUT_STANDARD_WORDS))
-    df_max_effectiveness = df_max_effectiveness.withColumn("PRODUCT_CUT_STANDARD_WORDS",array_transform_string(df_max_effectiveness.PRODUCT_CUT_STANDARD_WORDS))
-    
-    print(df_max_effectiveness.printSchema())
-    return df_max_effectiveness
-
 
 ################---------------functions--------------------################

@@ -96,13 +96,13 @@ def get_depends_path(kwargs):
 
 
 #### == loding files == ###
-def load_seg_prod_result(spark, path_segmentation_prod):
-    df_seg_prod = spark.read.parquet(path_segmentation_prod)
-    return df_seg_prod  
+def load_combine_result(spark, path_combine):
+    df_prod = spark.read.parquet(path_combine)
+    return df_prod  
 
 #### 相似性计算 ########
 @pandas_udf(DoubleType(),PandasUDFType.SCALAR)
-def get_prod_similarity(eff_mole,eff_dosage)
+def get_prod_similarity(eff_mole,eff_dosage):
     frame ={"eff_mole":eff_mole,
              "eff_dosage":eff_dosage} 
     df = pd.DataFrame(frame)
@@ -113,5 +113,6 @@ def get_prod_similarity(eff_mole,eff_dosage)
 def calulate_prod_similarity(df_prod):
     
     df_prod = df_prod.withColumn('eff_prod',get_prod_similarity(df_prod.eff_mole,df_prod.eff_dosage))
-    return df_seg_prod
+    
+    return df_prod
 

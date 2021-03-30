@@ -151,7 +151,6 @@ def calulate_mnf_similarity_after_seg(raw_mnf,standard_mnf):
 def calulate_mnf_similarity(df_seg_mnf):
     
     df_sim_mnf = df_seg_mnf.withColumn("eff_mnf",calulate_mnf_similarity_after_seg(df_seg_mnf.MANUFACTURER_NAME_CUT_WORDS,df_seg_mnf.MANUFACTURER_NAME_STANDARD_CUT_STANDARD_WORDS))
-    df_sim_mnf.show()
     return df_sim_mnf
 
 def extract_max_similaritey(df_sim_mnf):

@@ -98,7 +98,6 @@ def get_depends_path(kwargs):
 
 #### == loding files == ###
 def load_seg_pack_result(spark, path_segmentation_pack):
-    path_segmentation_pack = r's3a://ph-max-auto/2020-08-11/data_matching/refactor/runs/manual__2021-03-19T08_05_34.344972+00_00/cross_join_cutting/cross_result'
     df_seg_pack = spark.read.parquet(path_segmentation_pack)
     df_seg_pack = df_seg_pack.select("ID","PACK_QTY","PACK_QTY_STANDARD")
     return df_seg_pack  
@@ -168,6 +167,4 @@ def extract_max_similarity(df_sim_pack):
                                 .where(F.col("eff_pack") == F.col("max_eff"))\
                                 .drop("max_eff")\
                                 .drop_duplicates(["ID"])
-    df_sim_pack.show(500)
-    print(df_sim_pack.count())
     return df_sim_pack

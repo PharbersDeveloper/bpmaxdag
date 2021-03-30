@@ -22,7 +22,7 @@ def execute(**kwargs):
 
 ##############-----------input------------##############
     depends = get_depends_path(kwargs)
-    path_combine_Cols = depends["input_combine_Cols"]
+    path_combine_Cols = depends["input_prod"]
 #############------------input-------------##############
 
 #############------------output-----------##############
