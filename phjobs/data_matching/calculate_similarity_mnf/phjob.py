@@ -10,7 +10,7 @@ import pandas as pd
 import numpy as np
 from pyspark.sql import Window
 from pyspark.sql.types import DoubleType 
-from pyspark.sql.functions import pandas_udf, PandasUDFType, col
+from pyspark.sql.functions import pandas_udf, PandasUDFType, col ,array_join
 from pyspark.sql.functions import max as sparkmax
 from itertools import product
 from nltk.metrics.distance import jaro_winkler_similarity
@@ -51,6 +51,8 @@ def execute(**kwargs):
     df_sim_mnf = calulate_mnf_similarity(df_seg_mnf)
     
     df_sim_mnf = extract_max_similaritey(df_sim_mnf)
+    
+    df_sim_mnf = let_array_become_string(df_sim_mnf)
         
 
 ############# == main functions == #####################
@@ -159,6 +161,13 @@ def extract_max_similaritey(df_sim_mnf):
                             .where(col("eff_mnf")==col("max_eff"))\
                             .drop("max_eff")\
                             .drop_duplicates(["ID"])
-    df_sim_mnf.show(500)
-    print(df_sim_mnf.count())
+    return df_sim_mnf
+
+
+def let_array_become_string(df_sim_mnf):
+    
+    df_sim_mnf = df_sim_mnf.withColumn("MANUFACTURER_NAME_CUT_WORDS", array_join(df_sim_mnf.MANUFACTURER_NAME_CUT_WORDS,delimiter=''))
+    df_sim_mnf = df_sim_mnf.withColumn("MANUFACTURER_NAME_STANDARD_CUT_STANDARD_WORDS", array_join(df_sim_mnf.MANUFACTURER_NAME_STANDARD_CUT_STANDARD_WORDS,delimiter=''))
+    
+    df_sim_mnf.show(200)
     return df_sim_mnf

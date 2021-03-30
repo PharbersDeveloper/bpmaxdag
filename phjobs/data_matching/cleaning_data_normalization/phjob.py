@@ -106,11 +106,6 @@ def get_result_path(kwargs, run_id, job_id):
 更高的并发数
 """
 def modify_pool_cleanning_prod(spark, raw_data_path):
-#     raw_data_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/azsanofi/raw_data"
-#     raw_data_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/qilu/raw_data2"
-#     raw_data_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/eia/raw_data_2"
-#     raw_data_path = 's3a://ph-max-auto/2020-08-11/data_matching/refactor/data/CHC/*'
-#     raw_data_path = r's3a://ph-max-auto/2020-08-11/data_matching/temp/mzhang/test_run_data/chc/0.01'
     if raw_data_path.endswith(".csv"):
         df_cleanning = spark.read.csv(path=raw_data_path, header=True).withColumn("ID", pudf_id_generator(col("MOLE_NAME")))
     else:

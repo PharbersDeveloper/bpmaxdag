@@ -10,7 +10,7 @@ import pandas as pd
 import numpy as np
 from pyspark.sql import Window
 from pyspark.sql.types import DoubleType 
-from pyspark.sql.functions import pandas_udf, PandasUDFType, when, col
+from pyspark.sql.functions import pandas_udf, PandasUDFType, when, col, array_join
 from pyspark.sql.functions import max as sparkmax
 from itertools import product
 from nltk.metrics.distance import jaro_winkler_similarity
@@ -56,6 +56,7 @@ def execute(**kwargs):
     
     df_sim_spec = extract_max_similarity(df_sim_spec)
     
+    df_sim_spec = let_array_become_string(df_sim_spec)
     
 
 ############# == main functions == #####################
@@ -221,8 +222,11 @@ def extract_max_similarity(df_sim_spec):
     df_sim_spec = df_sim_spec.withColumn("max_eff",sparkmax("eff_spec").over(window_spec))\
                                 .where(col("eff_spec") == col("max_eff"))\
                                 .drop("max_eff")\
-                                .drop_duplicates(["ID"])
-    df_sim_spec.show(500)
-    print(df_sim_spec.count())
+    return df_sim_spec
+
+def let_array_become_string(df_sim_spec):
+    
+    df_sim_spec = df_sim_spec.withColumn("SPEC_CUT_WORDS",array_join(df_sim_spec.SPEC_CUT_WORDS,delimiter=' '))
+    df_sim_spec = df_sim_spec.withColumn("SPEC_CUT_STANDARD_WORDS",array_join(df_sim_spec.SPEC_CUT_STANDARD_WORDS,delimiter=' '))
     
     return df_sim_spec

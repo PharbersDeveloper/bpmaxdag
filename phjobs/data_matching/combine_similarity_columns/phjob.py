@@ -8,7 +8,7 @@ import pandas as pd
 from functools import reduce
 from phcli.ph_logs.ph_logs import phs3logger
 from pyspark.sql.types import StringType
-from pyspark.sql.functions import pandas_udf, PandasUDFType
+from pyspark.sql.functions import pandas_udf, PandasUDFType, array_join
 from pyspark.sql import functions as F 
 import uuid
 
@@ -30,7 +30,6 @@ def execute(**kwargs):
     path_sim_mnf = depends["input_sim_mnf"]
     path_sim_mole = depends["input_sim_mole"]
     path_sim_pack = depends["input_sim_pack"]
-    path_sim_prod = depends["input_sim_prod"]
     path_sim_spec = depends["input_sim_spec"]
     g_repartition_shared = int(kwargs["g_repartition_shared"])
 #######################---------------input-------------#######################	
@@ -48,20 +47,19 @@ def execute(**kwargs):
     df_sim_mnf = loading_files(spark, path_sim_mnf)
     df_sim_mole = loading_files(spark, path_sim_mole)
     df_sim_pack = loading_files(spark, path_sim_pack)
-    df_sim_prod = loading_files(spark, path_sim_prod)
     df_sim_spec = loading_files(spark, path_sim_spec)
 ##################--------loading files----------------########################
 
 ########################--------------main function--------------------#################
-    df_max_effectiveness = collect_similarity_data(df_sim_dosage,df_sim_mnf,df_sim_mole,df_sim_pack,df_sim_prod,df_sim_spec)
+    df_max_effectiveness = collect_similarity_data(df_sim_dosage,df_sim_mnf,df_sim_mole,df_sim_pack,df_sim_spec)
     
-    df_max_effectiveness = Array_tranform_into_string(df_max_effectiveness)
+#     df_max_effectiveness = Array_tranform_into_string(df_max_effectiveness)
     
 ######################--------------main function--------------------#################   
 
 ############# == RESULT == ####################
 
-    df_max_effectiveness.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
+#     df_max_effectiveness.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
     
 ############ == RESULT == #####################
 
@@ -109,29 +107,27 @@ def get_depends_path(kwargs):
 def loading_files(spark,input_path):
     
     df = spark.read.parquet(input_path)
-
         
     return df
 
-def collect_similarity_data(df_sim_dosage,df_sim_mnf,df_sim_mole,df_sim_pack,df_sim_prod,df_sim_spec):
+def collect_similarity_data(df_sim_dosage,df_sim_mnf,df_sim_mole,df_sim_pack,df_sim_spec):
     
     df_max_effectiveness = df_sim_dosage.join(df_sim_mnf,df_sim_dosage.ID == df_sim_mnf.ID,"left")\
                                         .join(df_sim_mole,df_sim_dosage.ID == df_sim_mole.ID,"left")\
                                         .join(df_sim_pack,df_sim_dosage.ID == df_sim_pack.ID,"left")\
-                                        .join(df_sim_prod,df_sim_dosage.ID == df_sim_prod.ID,"left")\
                                         .join(df_sim_spec,df_sim_dosage.ID == df_sim_spec.ID,"left")\
                                         .drop(df_sim_mnf.ID)\
                                         .drop(df_sim_mole.ID)\
                                         .drop(df_sim_pack.ID)\
-                                        .drop(df_sim_prod.ID)\
                                         .drop(df_sim_spec.ID)
+    df_max_effectiveness.show(200)
     
-    return df_max_effectiveness  
+    return df_sim_dosage  
 
 #####  == array transform string == ###
 def Array_tranform_into_string(df_max_effectiveness):
     
-    df_max_effectiveness = df_max_effectiveness.withColumn("DOSAGE_CUT_WORDS",array_transform_string(df_max_effectiveness.DOSAGE_CUT_WORDS))
+    df_max_effectiveness = df_max_effectiveness.withColumn("DOSAGE_CUT_WORDS",array_join(df_max_effectiveness.DOSAGE_CUT_WORDS,delimiter=''))
     df_max_effectiveness = df_max_effectiveness.withColumn("DOSAGE_CUT_STANDARD_WORDS",array_transform_string(df_max_effectiveness.DOSAGE_CUT_STANDARD_WORDS))
     df_max_effectiveness = df_max_effectiveness.withColumn("MANUFACTURER_NAME_CUT_WORDS",array_transform_string(df_max_effectiveness.MANUFACTURER_NAME_CUT_WORDS))
     df_max_effectiveness = df_max_effectiveness.withColumn("MANUFACTURER_NAME_STANDARD_CUT_STANDARD_WORDS",array_transform_string(df_max_effectiveness.MANUFACTURER_NAME_STANDARD_CUT_STANDARD_WORDS))
@@ -145,19 +141,5 @@ def Array_tranform_into_string(df_max_effectiveness):
     print(df_max_effectiveness.printSchema())
     return df_max_effectiveness
 
-@pandas_udf(StringType(),PandasUDFType.SCALAR)
-def array_transform_string(input_col):
-    frame = {"input_col": input_col}
-    df = pd.DataFrame(frame)
-    
-    def make_elements_of_list_into_one_string(origin_list):
-        placeholder_word = ' '
-        try:
-            output_sentence = reduce(lambda x, y: x + f"{placeholder_word}" + y, origin_list)
-        except:
-            output_sentence = ''
-        return output_sentence
-    df['output_col'] = df.apply(lambda x: make_elements_of_list_into_one_string(x.input_col), axis=1)
-    return df['output_col']
 
 ################---------------functions--------------------################

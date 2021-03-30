@@ -10,7 +10,7 @@ import pandas as pd
 import numpy as np
 from pyspark.sql import Window
 from pyspark.sql.types import DoubleType 
-from pyspark.sql.functions import pandas_udf, PandasUDFType
+from pyspark.sql.functions import pandas_udf, PandasUDFType, array_join
 from pyspark.sql import functions as F
 from itertools import product
 from nltk.metrics.distance import jaro_winkler_similarity
@@ -28,7 +28,7 @@ def execute(**kwargs):
     
 ############# ------- input ----------- #####################
     depends = get_depends_path(kwargs)
-    path_segmentation_prod = depends["input_seg_prod"]
+    path_combine = depends["input_combine"]
     
 ############# ------- input ------------ ####################
 
@@ -42,18 +42,17 @@ def execute(**kwargs):
 
 ############# == loading files == #####################
 
-    df_seg_prod = load_seg_prod_result(spark, path_segmentation_prod)
+    df_prod = load_combine_result(spark, path_combine)
     
 ############# == loading files == #####################
 
 ############# == main functions == #####################
 
-    df_sim_prod = calulate_prod_similarity(df_seg_prod)
+    df_prod = calulate_prod_similarity(df_prod)
     
-    df_sim_prod = extract_max_similarity(df_sim_prod)
 
 ############# == main functions == #####################
-    df_sim_prod.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
+    df_prod.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
 
     return {}
 
@@ -101,63 +100,18 @@ def load_seg_prod_result(spark, path_segmentation_prod):
     df_seg_prod = spark.read.parquet(path_segmentation_prod)
     return df_seg_prod  
 
-
-
 #### 相似性计算 ########
 @pandas_udf(DoubleType(),PandasUDFType.SCALAR)
-def calulate_prod_similarity_after_seg(raw_prod,standard_prod):
-    frame = {"raw_prod":raw_prod,
-            "standard_prod":standard_prod}
+def get_prod_similarity(eff_mole,eff_dosage)
+    frame ={"eff_mole":eff_mole,
+             "eff_dosage":eff_dosage} 
     df = pd.DataFrame(frame)
+    df['eff_prod'] = df.apply(lambda x: max(x.eff_mole,x.eff_dosage),axis=1)
+    return df['eff_prod']
     
-    def sure_sim(s1,s2):
-        if s1 == s2:
-            value = 1.0
-        else:
-            value = 0.0
-        return value
-    
-    def Get_sim_value_data(input_raw, input_standard):
-        all_possible_result = list(product(input_raw, input_standard))
-        if len(all_possible_result) == 1:
-            max_similarity_value = list(map(lambda x: sure_sim(x[0],x[-1]),all_possible_result))
-        else:
-            all_possible_sim_value = list(map(lambda x: jaro_winkler_similarity(x[0],x[-1]), all_possible_result))
-            all_possible_array_value = np.array(all_possible_sim_value)
-            all_possible_matrix_value = all_possible_array_value.reshape(int(len(input_raw)),int(len(input_standard)))
-            max_similarity_value = list(map(lambda x: max(x,default=0.0), all_possible_matrix_value))
-        return max_similarity_value
-    
-    def handle_sim_value_data(raw_sentence, standard_sentence):
-        max_similarity_value = Get_sim_value_data(raw_sentence, standard_sentence)
-        high_similarity_data = list(filter(lambda x: x >= 0.5, max_similarity_value))
-        low_similarity_data = [x for x in max_similarity_value if x not in high_similarity_data]
-        high_similarity_rate = len(high_similarity_data) / len(max_similarity_value)
-        if high_similarity_rate >= 0.5:
-            similarity_value = np.mean(high_similarity_data)
-        else:
-            similarity_value = np.mean(low_similarity_data)
-        return similarity_value
-    
-    df['output_similarity_value'] = df.apply(lambda x: float(handle_sim_value_data(x.raw_prod,x.standard_prod)), axis=1)
-    return df['output_similarity_value']
-
 ##### == calulate_similarity == #######
-def calulate_prod_similarity(df_seg_prod):
+def calulate_prod_similarity(df_prod):
     
-    df_seg_prod = df_seg_prod.withColumn("eff_prod",calulate_prod_similarity_after_seg(df_seg_prod.PRODUCT_NAME_CUT_WORDS,df_seg_prod.PRODUCT_CUT_STANDARD_WORDS))
+    df_prod = df_prod.withColumn('eff_prod',get_prod_similarity(df_prod.eff_mole,df_prod.eff_dosage))
     return df_seg_prod
 
-
-def extract_max_similarity(df_sim_prod):
-    
-    window_prod = Window.partitionBy("ID")
-
-    df_sim_prod = df_sim_prod.withColumn("max_eff",F.max("eff_prod").over(window_prod))\
-                                .where(F.col("eff_prod") == F.col("max_eff"))\
-                                .drop("max_eff")\
-                                .drop_duplicates(["ID"])
-    df_sim_prod.show(500)
-    print(df_sim_prod.count())
-
-    return df_sim_prod

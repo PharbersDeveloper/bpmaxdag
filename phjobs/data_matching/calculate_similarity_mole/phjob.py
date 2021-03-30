@@ -10,7 +10,7 @@ import pandas as pd
 import numpy as np
 from pyspark.sql import Window
 from pyspark.sql.types import DoubleType 
-from pyspark.sql.functions import pandas_udf, PandasUDFType
+from pyspark.sql.functions import pandas_udf, PandasUDFType, array_join
 from pyspark.sql import functions as F
 from itertools import product
 from nltk.metrics.distance import jaro_winkler_similarity
@@ -51,6 +51,8 @@ def execute(**kwargs):
     df_sim_mole = calulate_mole_similarity(df_seg_mole)
     
     df_sim_mole = extract_max_similarity(df_sim_mole)
+    
+    df_sim_mole = let_array_become_string(df_sim_mole)
 
 ############# == main functions == #####################
 
@@ -147,8 +149,6 @@ def calulate_mole_similarity_after_seg(raw_mole,standard_mole):
 def calulate_mole_similarity(df_seg_mole):
     
     df_seg_mole = df_seg_mole.withColumn("eff_mole",calulate_mole_similarity_after_seg(df_seg_mole.MOLE_CUT_WORDS,df_seg_mole.MOLE_CUT_STANDARD_WORDS))
-    df_seg_mole.show(500)
-    print(df_seg_mole.printSchema())
     return df_seg_mole
 
 
@@ -160,7 +160,13 @@ def extract_max_similarity(df_sim_mole):
                                 .where(F.col("eff_mole") == F.col("max_eff"))\
                                 .drop("max_eff")\
                                 .drop_duplicates(["ID"])
-    df_sim_mole.show(500)
-    print(df_sim_mole.count())
 
+    return df_sim_mole
+
+def let_array_become_string(df_sim_mole):
+    
+    df_sim_mole = df_sim_mole.withColumn("MOLE_CUT_WORDS",array_join(df_sim_mole.MOLE_CUT_WORDS,delimiter=' '))
+    df_sim_mole = df_sim_mole.withColumn("MOLE_CUT_STANDARD_WORDS",array_join(df_sim_mole.MOLE_CUT_STANDARD_WORDS,delimiter=' '))
+    
+    df_sim_mole.show(200)
     return df_sim_mole

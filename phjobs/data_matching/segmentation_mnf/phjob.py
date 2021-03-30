@@ -109,7 +109,7 @@ def load_mnf_stopwords(spark, path_mnf_stopwords):
         return mnf_stopwords
 
 def load_cross_result(spark,path_cross_result):
-    path_cross_result = r"s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs/manual__2021-03-19T08_05_34.344972+00_00/cross_join_cutting/cross_result"
+    path_cross_result = r's3a://ph-max-auto/2020-08-11/data_matching/refactor/runs/manual__2021-03-29T09_12_43.930388+00_00/cross_join_cutting/cross_result'
     df_seg_mnf = spark.read.parquet(path_cross_result)
     df_seg_mnf = df_seg_mnf.select("ID","MANUFACTURER_NAME","MANUFACTURER_NAME_STANDARD","MANUFACTURER_NAME_EN_STANDARD")
     return df_seg_mnf 
@@ -117,10 +117,7 @@ def load_cross_result(spark,path_cross_result):
 
 ######## 分词逻辑 ##########
 def phcleanning_mnf_seg(df, df_lexicon, stopwords, inputCol, outputCol):
-    if df_lexicon is None: 
-        lexicon = None 
-    else:
-        lexicon = df_lexicon.rdd.map(lambda x: x.lexicon).collect()
+    lexicon = df_lexicon.rdd.map(lambda x: x.lexicon).collect()
     seg = pkuseg.pkuseg(user_dict=lexicon)
     @pandas_udf(ArrayType(StringType()), PandasUDFType.SCALAR)
     def manifacture_name_pseg_cut(inputCol):
@@ -132,23 +129,15 @@ def phcleanning_mnf_seg(df, df_lexicon, stopwords, inputCol, outputCol):
         df["be_cut_col"] = df["inputCol_name"].apply(lambda x: seg.cut(x))
         return df["be_cut_col"]
     
-    # 3. 中文的分词
-    df = df.withColumn(outputCol, manifacture_name_pseg_cut(col(inputCol)))
-    # 4. 分词之后构建词库编码
-    # 4.1 stop word remover 去掉不需要的词
-    if stopwords is None:
-        pass
-    else:
-        remover = StopWordsRemover(stopWords=stopwords, inputCol=outputCol, outputCol=outputCol)
-        df = remover.transform(df)
+    df = df.withColumn("temp_col", manifacture_name_pseg_cut(col(inputCol)))
+    remover = StopWordsRemover(stopWords=stopwords, inputCol="temp_col", outputCol=outputCol)
+    df = remover.transform(df).drop("temp_col")
     return df
-########  分词逻辑  ############
 
 ######  进行分词 ########
 def cut_mnf_word(df_seg_mnf,mnf_lexicon,mnf_stopwords):
     
     df_seg_mnf =phcleanning_mnf_seg(df=df_seg_mnf,df_lexicon=mnf_lexicon,stopwords=mnf_stopwords,inputCol="MANUFACTURER_NAME",outputCol="MANUFACTURER_NAME_CUT_WORDS")
     df_seg_mnf =phcleanning_mnf_seg(df=df_seg_mnf,df_lexicon=mnf_lexicon,stopwords=mnf_stopwords,inputCol="MANUFACTURER_NAME_STANDARD",outputCol="MANUFACTURER_NAME_STANDARD_CUT_STANDARD_WORDS")
-    df_seg_mnf.select("ID","MANUFACTURER_NAME","MANUFACTURER_NAME_CUT_WORDS","MANUFACTURER_NAME_STANDARD","MANUFACTURER_NAME_STANDARD_CUT_STANDARD_WORDS").show(100)
     return df_seg_mnf
 
