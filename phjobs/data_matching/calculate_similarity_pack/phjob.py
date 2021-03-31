@@ -50,7 +50,7 @@ def execute(**kwargs):
 
     df_sim_pack = calulate_pack_similarity(df_seg_pack)
     
-    df_sim_pack = extract_max_similarity(df_sim_pack)
+#     df_sim_pack = extract_max_similarity(df_sim_pack)
 
 ############# == main functions == #####################
     df_sim_pack.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
@@ -99,9 +99,8 @@ def get_depends_path(kwargs):
 #### == loding files == ###
 def load_seg_pack_result(spark, path_segmentation_pack):
     df_seg_pack = spark.read.parquet(path_segmentation_pack)
-    df_seg_pack = df_seg_pack.select("ID","PACK_QTY","PACK_QTY_STANDARD")
+    df_seg_pack = df_seg_pack.select("ID","INDEX","PACK_QTY","PACK_QTY_STANDARD")
     return df_seg_pack  
-
 
 
 #计算相似性
@@ -158,13 +157,13 @@ def calulate_pack_similarity(df_seg_pack):
     return df_seg_pack
 
 
-##### == 取最大相似性 == #########
-def extract_max_similarity(df_sim_pack):
+# ##### == 取最大相似性 == #########
+# def extract_max_similarity(df_sim_pack):
     
-    window_pack = Window.partitionBy("ID")
+#     window_pack = Window.partitionBy("ID")
 
-    df_sim_pack = df_sim_pack.withColumn("max_eff",F.max("eff_pack").over(window_pack))\
-                                .where(F.col("eff_pack") == F.col("max_eff"))\
-                                .drop("max_eff")\
-                                .drop_duplicates(["ID"])
-    return df_sim_pack
+#     df_sim_pack = df_sim_pack.withColumn("max_eff",F.max("eff_pack").over(window_pack))\
+#                                 .where(F.col("eff_pack") == F.col("max_eff"))\
+#                                 .drop("max_eff")\
+#                                 .drop_duplicates(["ID"])
+#     return df_sim_pack

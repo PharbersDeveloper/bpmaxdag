@@ -94,23 +94,17 @@ def get_depends_path(kwargs):
 ##################  中间文件与结果文件路径  ######################
 
 def load_mnf_lexicon(spark, path_mnf_lexicon):
-    if path_mnf_lexicon == 'None':
-        return None
-    else:
-        mnf_lexicon = spark.read.csv(path_mnf_lexicon,header=True) 
-        return mnf_lexicon
+    mnf_lexicon = spark.read.csv(path_mnf_lexicon,header=True) 
+    return mnf_lexicon
 
 def load_mnf_stopwords(spark, path_mnf_stopwords):
-    if path_mnf_stopwords == "None":
-        return None
-    else:
-        mnf_stopwords = spark.read.csv(path_mnf_stopwords,header=True)
-        mnf_stopwords = mnf_stopwords.rdd.map(lambda x : x.STOPWORDS).collect()
-        return mnf_stopwords
+    mnf_stopwords = spark.read.csv(path_mnf_stopwords,header=True)
+    mnf_stopwords = mnf_stopwords.rdd.map(lambda x : x.STOPWORDS).collect()
+    return mnf_stopwords
 
 def load_cross_result(spark,path_cross_result):
     df_seg_mnf = spark.read.parquet(path_cross_result)
-    df_seg_mnf = df_seg_mnf.select("ID","MANUFACTURER_NAME","MANUFACTURER_NAME_STANDARD","MANUFACTURER_NAME_EN_STANDARD")
+    df_seg_mnf = df_seg_mnf.select("ID","INDEX","MANUFACTURER_NAME","MANUFACTURER_NAME_STANDARD","MANUFACTURER_NAME_EN_STANDARD")
     return df_seg_mnf 
 
 

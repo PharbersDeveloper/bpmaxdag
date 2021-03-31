@@ -16,13 +16,12 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--job_id')
 @click.option('--job_name')
 @click.option('--path_prefix')
-@click.option('--path_master_prod')
-@click.option('--path_for_replace_standard_dosage')
-@click.option('--standard_result')
-@click.option('--standard_origin')
+@click.option('--depend_job_names_keys')
+@click.option('--g_repartition_shared')
+@click.option('--max_sim_job_result')
 def debug_execute(**kwargs):
     try:
-        args = {'name': 'standard_data_normalization'}
+        args = {'name': 'choose_max_similarity'}
 
         args.update(kwargs)
         result = exec_before(**args)

@@ -1,33 +1,29 @@
 apiVersion: v1
 kind: PhJob
 metadata:
-  name: calculate_similarity_prod
+  name: choose_max_similarity 
   description: "pharbers job description"
   labels:
-    name: calculate_similarity_prod
+    name: choose_max_similarity     
     runtime: python3
-    command: submit
 spec:
   containers:
     repository: local
     runtime: python3
-    command: submit
-    timeout: 1200.0
     code: phmain.py
     config: phconf.yaml
+    command: submit
+    timeout: 800
     args:
       - key: job_name
-        value: calculate_similarity_prod
+        value: choose_max_similarity     
       - key: path_prefix
         value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs
       - key: depend_job_names_keys
-        value:
-        - choose_max_similarity#max_sim_job_result#input_max_sim
+        value: 
+          - combine_similarity_columns#combine_cols_job_result#input_combine
       - key: g_repartition_shared
         value: 16
     outputs:
-      - key: similarity_prod_result
-        value: similarity_prod_result
-
-
-
+      - key: max_sim_job_result
+        value: max_sim_job_result

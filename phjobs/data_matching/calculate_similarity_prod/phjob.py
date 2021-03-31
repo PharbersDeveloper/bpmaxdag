@@ -28,7 +28,7 @@ def execute(**kwargs):
     
 ############# ------- input ----------- #####################
     depends = get_depends_path(kwargs)
-    path_combine = depends["input_combine"]
+    path_max_sim = depends["input_max_sim"]
     
 ############# ------- input ------------ ####################
 
@@ -42,7 +42,7 @@ def execute(**kwargs):
 
 ############# == loading files == #####################
 
-    df_prod = load_combine_result(spark, path_combine)
+    df_prod = load_combine_result(spark, path_max_sim)
     
 ############# == loading files == #####################
 

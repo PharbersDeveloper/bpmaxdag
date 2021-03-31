@@ -52,7 +52,7 @@ def execute(**kwargs):
 
     df_sim_dosage = calculate_dosage_similarity(df_mapping_dosage)
     
-    df_sim_dosage = extract_max_similaritey(df_sim_dosage)
+#     df_sim_dosage = extract_max_similaritey(df_sim_dosage)
     
     df_sim_dosage = let_array_become_string(df_sim_dosage)
 
@@ -136,16 +136,7 @@ def calculate_dosage_similarity(df_mapping_dosage):
     
     return df_sim_dosage
 
-def extract_max_similaritey(df_sim_dosage):
-    
-    window_dosage = Window.partitionBy("ID")
-    
-    df_sim_dosage = df_sim_dosage.withColumn("max_eff",F.max("eff_dosage").over(window_dosage))\
-                                .where(F.col("eff_dosage") == F.col("max_eff"))\
-                                .drop("max_eff")\
-                                .drop_duplicates(["ID"])
-    
-    return df_sim_dosage
+
 
 def let_array_become_string(df_sim_dosage):
     

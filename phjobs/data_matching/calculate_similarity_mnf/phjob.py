@@ -50,7 +50,7 @@ def execute(**kwargs):
 
     df_sim_mnf = calulate_mnf_similarity(df_seg_mnf)
     
-    df_sim_mnf = extract_max_similaritey(df_sim_mnf)
+#     df_sim_mnf = extract_max_similaritey(df_sim_mnf)
     
     df_sim_mnf = let_array_become_string(df_sim_mnf)
         
@@ -153,14 +153,14 @@ def calulate_mnf_similarity(df_seg_mnf):
     df_sim_mnf = df_seg_mnf.withColumn("eff_mnf",calulate_mnf_similarity_after_seg(df_seg_mnf.MANUFACTURER_NAME_CUT_WORDS,df_seg_mnf.MANUFACTURER_NAME_STANDARD_CUT_STANDARD_WORDS))
     return df_sim_mnf
 
-def extract_max_similaritey(df_sim_mnf):
+# def extract_max_similaritey(df_sim_mnf):
     
-    window_mnf = Window.partitionBy("ID")
-    df_sim_mnf = df_sim_mnf.withColumn("max_eff", sparkmax("eff_mnf").over(window_mnf))\
-                            .where(col("eff_mnf")==col("max_eff"))\
-                            .drop("max_eff")\
-                            .drop_duplicates(["ID"])
-    return df_sim_mnf
+#     window_mnf = Window.partitionBy("ID")
+#     df_sim_mnf = df_sim_mnf.withColumn("max_eff", sparkmax("eff_mnf").over(window_mnf))\
+#                             .where(col("eff_mnf")==col("max_eff"))\
+#                             .drop("max_eff")\
+#                             .drop_duplicates(["ID"])
+#     return df_sim_mnf
 
 
 def let_array_become_string(df_sim_mnf):
@@ -168,5 +168,4 @@ def let_array_become_string(df_sim_mnf):
     df_sim_mnf = df_sim_mnf.withColumn("MANUFACTURER_NAME_CUT_WORDS", array_join(df_sim_mnf.MANUFACTURER_NAME_CUT_WORDS,delimiter=''))
     df_sim_mnf = df_sim_mnf.withColumn("MANUFACTURER_NAME_STANDARD_CUT_STANDARD_WORDS", array_join(df_sim_mnf.MANUFACTURER_NAME_STANDARD_CUT_STANDARD_WORDS,delimiter=''))
     
-    df_sim_mnf.show(200)
     return df_sim_mnf

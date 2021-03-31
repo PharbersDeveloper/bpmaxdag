@@ -28,7 +28,6 @@ def execute(**kwargs):
 
 ###############----------input--------------------################
     path_master_prod = kwargs["path_master_prod"]
-    path_standard_gross_unit = kwargs["path_standard_gross_unit"]
     path_for_replace_standard_dosage = kwargs["path_for_replace_standard_dosage"]
 ###############----------input--------------------################
 
@@ -43,7 +42,6 @@ def execute(**kwargs):
 ###########--------------load file----------------------- ################
     df_standard = load_standard_prod(spark, path_master_prod)
     df_standard.write.mode("overwrite").parquet(origin_path)
-    df_standard_gross_unit  = load_standard_gross_unit(spark,path_standard_gross_unit)
     df_replace_standard_dosage  = load_replace_standard_dosage(spark,path_for_replace_standard_dosage) 
 ###########--------------load file----------------------- ################
 
@@ -118,9 +116,6 @@ def load_standard_prod(spark, standard_prod_path):
 
     return df_standard
 
-def load_standard_gross_unit(spark,path_standard_gross_unit):
-    df_standard_gross_unit = spark.read.parquet(path_standard_gross_unit)
-    return df_standard_gross_unit
     
 def load_replace_standard_dosage(spark,path_for_replace_standard_dosage):
     df_replace_standard_dosage = spark.read.parquet(path_for_replace_standard_dosage)

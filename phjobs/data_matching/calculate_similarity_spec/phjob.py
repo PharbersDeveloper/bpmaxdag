@@ -54,7 +54,7 @@ def execute(**kwargs):
     
     df_sim_spec = get_maximum_similarity(df_sim_spec)
     
-    df_sim_spec = extract_max_similarity(df_sim_spec)
+#     df_sim_spec = extract_max_similarity(df_sim_spec)
     
     df_sim_spec = let_array_become_string(df_sim_spec)
     
@@ -215,15 +215,15 @@ def modify_first_spec_effectiveness(standard_gross, standard_valid, target_gross
 
 
 
-def extract_max_similarity(df_sim_spec):
+# def extract_max_similarity(df_sim_spec):
     
-    window_spec = Window.partitionBy("ID")
+#     window_spec = Window.partitionBy("ID")
 
-    df_sim_spec = df_sim_spec.withColumn("max_eff",sparkmax("eff_spec").over(window_spec))\
-                                .where(col("eff_spec") == col("max_eff"))\
-                                .drop("max_eff")\
-                                .drop_duplicates(["ID"])
-    return df_sim_spec
+#     df_sim_spec = df_sim_spec.withColumn("max_eff",sparkmax("eff_spec").over(window_spec))\
+#                                 .where(col("eff_spec") == col("max_eff"))\
+#                                 .drop("max_eff")\
+#                                 .drop_duplicates(["ID"])
+#     return df_sim_spec
 
 def let_array_become_string(df_sim_spec):
     

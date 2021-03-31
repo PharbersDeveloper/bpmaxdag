@@ -50,7 +50,7 @@ def execute(**kwargs):
 
     df_sim_mole = calulate_mole_similarity(df_seg_mole)
     
-    df_sim_mole = extract_max_similarity(df_sim_mole)
+#     df_sim_mole = extract_max_similarity(df_sim_mole)
     
     df_sim_mole = let_array_become_string(df_sim_mole)
 
@@ -152,21 +152,20 @@ def calulate_mole_similarity(df_seg_mole):
     return df_seg_mole
 
 
-def extract_max_similarity(df_sim_mole):
+# def extract_max_similarity(df_sim_mole):
     
-    window_mole = Window.partitionBy("ID")
+#     window_mole = Window.partitionBy("ID")
 
-    df_sim_mole = df_sim_mole.withColumn("max_eff",F.max("eff_mole").over(window_mole))\
-                                .where(F.col("eff_mole") == F.col("max_eff"))\
-                                .drop("max_eff")\
-                                .drop_duplicates(["ID"])
+#     df_sim_mole = df_sim_mole.withColumn("max_eff",F.max("eff_mole").over(window_mole))\
+#                                 .where(F.col("eff_mole") == F.col("max_eff"))\
+#                                 .drop("max_eff")\
+#                                 .drop_duplicates(["ID"])
 
-    return df_sim_mole
+#     return df_sim_mole
 
 def let_array_become_string(df_sim_mole):
     
     df_sim_mole = df_sim_mole.withColumn("MOLE_CUT_WORDS",array_join(df_sim_mole.MOLE_CUT_WORDS,delimiter=' '))
     df_sim_mole = df_sim_mole.withColumn("MOLE_CUT_STANDARD_WORDS",array_join(df_sim_mole.MOLE_CUT_STANDARD_WORDS,delimiter=' '))
     
-    df_sim_mole.show(200)
     return df_sim_mole

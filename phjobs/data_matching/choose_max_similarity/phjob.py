@@ -6,9 +6,12 @@ This is job template for Pharbers Max Job
 import os
 import pandas as pd
 from functools import reduce
+import numpy as np
+import pandas as pd
+from pyspark.sql import Window
 from phcli.ph_logs.ph_logs import phs3logger
-from pyspark.sql.types import StringType
-from pyspark.sql.functions import pandas_udf, PandasUDFType, array_join
+from pyspark.sql.types import StringType, DoubleType
+from pyspark.sql.functions import pandas_udf, PandasUDFType, array
 from pyspark.sql import functions as F 
 import uuid
 
@@ -26,11 +29,7 @@ def execute(**kwargs):
 
 #######################---------------input-------------#######################	
     depends = get_depends_path(kwargs)
-    path_sim_dosage = depends["input_sim_dosage"]
-    path_sim_mnf = depends["input_sim_mnf"]
-    path_sim_mole = depends["input_sim_mole"]
-    path_sim_pack = depends["input_sim_pack"]
-    path_sim_spec = depends["input_sim_spec"]
+    path_combine = depends["input_combine"]
     g_repartition_shared = int(kwargs["g_repartition_shared"])
 #######################---------------input-------------#######################	
 
@@ -38,26 +37,27 @@ def execute(**kwargs):
     job_id = get_job_id(kwargs)
     run_id = get_run_id(kwargs)
     result_path_prefix = get_result_path(kwargs, run_id, job_id)
-    result_path = result_path_prefix + kwargs["combine_cols_job_result"]
+    result_path = result_path_prefix + kwargs["max_sim_job_result"]
 #######################--------------output--------------########################
 
 
 ###################--------loading files--------------########################
-    df_sim_dosage = loading_files(spark, path_sim_dosage)
-    df_sim_mnf = loading_files(spark, path_sim_mnf)
-    df_sim_mole = loading_files(spark, path_sim_mole)
-    df_sim_pack = loading_files(spark, path_sim_pack)
-    df_sim_spec = loading_files(spark, path_sim_spec)
+    df_max_sim = loading_files(spark, path_combine)
 ##################--------loading files----------------########################
 
 ########################--------------main function--------------------#################
-    df_combine = collect_similarity_data(df_sim_dosage,df_sim_mnf,df_sim_mole,df_sim_pack,df_sim_spec)
+
+    df_max_sim = combine_similarity_cols(df_max_sim)
+
+    df_max_sim = get_max_similarity(df_max_sim)
+    
+    df_max_sim = extract_max_similaritey(df_max_sim)
     
 ######################--------------main function--------------------#################   
 
 ############# == RESULT == ####################
 
-    df_combine.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
+    df_max_sim.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
     
 ############ == RESULT == #####################
 
@@ -108,21 +108,36 @@ def loading_files(spark,input_path):
         
     return df
 
-def collect_similarity_data(df_sim_dosage,df_sim_mnf,df_sim_mole,df_sim_pack,df_sim_spec):
+def combine_similarity_cols(df_max_sim):
     
-    df_combine = df_sim_dosage.join(df_sim_mnf,df_sim_dosage.INDEX == df_sim_mnf.INDEX,"left")\
-                                        .join(df_sim_mole,df_sim_dosage.INDEX == df_sim_mole.INDEX,"left")\
-                                        .join(df_sim_pack,df_sim_dosage.INDEX == df_sim_pack.INDEX,"left")\
-                                        .join(df_sim_spec,df_sim_dosage.INDEX == df_sim_spec.INDEX,"left")\
-                                        .drop(df_sim_mnf.INDEX)\
-                                        .drop(df_sim_mole.INDEX)\
-                                        .drop(df_sim_pack.INDEX)\
-                                        .drop(df_sim_spec.INDEX)\
-                                        .drop(df_sim_mnf.ID)\
-                                        .drop(df_sim_mole.ID)\
-                                        .drop(df_sim_pack.ID)\
-                                        .drop(df_sim_spec.ID)
+    df_max_sim = df_max_sim.withColumn("array_sim", array(df_max_sim.eff_dosage,df_max_sim.eff_mnf,\
+                                                          df_max_sim.eff_mole,df_max_sim.eff_spec,\
+                                                         df_max_sim.eff_pack))
     
-    return df_combine 
+    return df_max_sim
+
+@pandas_udf(DoubleType(),PandasUDFType.SCALAR)
+def get_array_max_value(inputCol):
+    frame = {"inputCol":inputCol}
+    df = pd.DataFrame(frame)
+    df['output'] = df.apply(lambda x: np.sum(x.inputCol), axis=1)
+    return df['output']
+
+def get_max_similarity(df_max_sim):
+    
+    df_max_sim = df_max_sim.withColumn("array_sim", get_array_max_value(df_max_sim.array_sim))
+    
+    return df_max_sim
+
+
+def extract_max_similaritey(df_max_sim):
+    
+    window_max = Window.partitionBy("ID")
+    
+    df_max_sim = df_max_sim.withColumn("max_eff",F.max("array_sim").over(window_max))\
+                                .where(F.col("array_sim") == F.col("max_eff"))\
+                                .drop("max_eff")
+    
+    return df_max_sim
 
 ################---------------functions--------------------################

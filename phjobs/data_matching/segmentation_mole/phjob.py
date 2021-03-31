@@ -110,7 +110,7 @@ def load_mole_stopwords(spark, path_mole_stopwords):
 
 def load_cross_result(spark,path_cross_result):
     df_seg_mole = spark.read.parquet(path_cross_result)
-    df_seg_mole = df_seg_mole.select("ID","MOLE_NAME","MOLE_NAME_STANDARD")
+    df_seg_mole = df_seg_mole.select("ID","INDEX","MOLE_NAME","MOLE_NAME_STANDARD")
     df_seg_mole.persist()
     
     return df_seg_mole 
