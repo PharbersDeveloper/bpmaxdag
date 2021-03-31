@@ -7,7 +7,7 @@ This is job template for Pharbers Max Job
 import random
 import string
 from phcli.ph_logs.ph_logs import phs3logger, LOG_DEBUG_LEVEL
-from pyspark.sql.functions import lit, udf, col, collect_list, array_distinct, when, array, reverse
+from pyspark.sql.functions import lit, udf, col, collect_list, array_distinct, when, array, reverse, size, split
 from pyspark.sql import Window
 from functools import reduce
 from pyspark.sql.types import StringType
@@ -102,7 +102,11 @@ def execute(**kwargs):
                 reverse(array_distinct(collect_list("OUTP_DIAG_TIME"))).alias("OUTP_DIAG_TIMES"),
                 reverse(array_distinct(collect_list("REPRODUCT"))).alias("REPRODUCTS"),
             )
-    df.printSchema()
+    df.selectExpr(*list(map(lambda x: x + "[0]" + " as " + x[:-1] if x != "PHA_ID" else x, df.columns))) \
+        .withColumn("LOCATION", split(col("LOCATION"), ",")) \
+        .repartition(1) \
+        .write.mode("overwrite") \
+        .parquet(_output)
     
     
     
