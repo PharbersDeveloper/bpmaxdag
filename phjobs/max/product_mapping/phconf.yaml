@@ -1,41 +1,52 @@
 apiVersion: v1
 kind: PhJob
 metadata:
-  name: alfred
+  name: product_mapping
   description: "pharbers job description"
   labels:
-    name: alfred
+    name: product_mapping
+    runtime: python3
+    command: submit
 spec:
   containers:
     repository: local
     runtime: python3
-    command: "submit"
+    command: submit
     timeout: 720.0
     code: phmain.py
     config: phconf.yaml
     args:
+      - key: g_project_name
+        value: 贝达
+      - key: g_minimum_product_columns
+        value: BRAND, FORM, SPECIFICATIONS, PACK_NUMBER, MANUFACTURER
+      - key: g_minimum_product_sep
+        value: |
+      - key: g_minimum_product_newname
+        value: MIN1
+      - key: g_need_cleaning_cols
+        value: MOLECULE, BRAND, FORM, SPECIFICATIONS, PACK_NUMBER, MANUFACTURER, MIN1, ROUTE, CORP
+      - key: g_out_dir
+        value: 202012
+      - key: depend_job_names_keys
+        value: ["hospital_mapping#hospital_mapping_out#hospital_mapping_out"]
       - key: max_path
-        value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
-      - key: project_name
-        value: "Empty"
-      - key: minimum_product_columns
-        value: "Brand, Form, Specifications, Pack_Number, Manufacturer"
-      - key: minimum_product_sep
-        value: "|"
-      - key: minimum_product_newname
-        value: "min1"
-      - key: need_cleaning_cols
-        value: "Molecule, Brand, Form, Specifications, Pack_Number, Manufacturer, min1, Route, Corp"
+        value: s3a://ph-max-auto/v0.0.1-2020-06-08/
       - key: if_others
-        value: "False"
+        value: False
       - key: out_path
-        value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
-      - key: out_dir
-        value: "Empty"  
+        value: s3a://ph-max-auto/v0.0.1-2020-06-08/
       - key: need_test
         value: 0
+      - key: dag_name
+        value: Max
+      - key: run_id
+        value: max_test_beida_202012
     outputs:
-      - key: a
-        value: abcde
-      - key: b
-        value: 6789
+      - key: g_product_mapping_out
+        value: product_mapping_out
+      - key: g_need_cleaning_out
+        value: need_cleaning_out
+
+
+

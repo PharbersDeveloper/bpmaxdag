@@ -1,24 +1,54 @@
-from phjob import execute
+# -*- coding: utf-8 -*-
+"""alfredyang@pharbers.com.
+
+This is job template for Pharbers Max Job
+"""
 import click
+import traceback
+from phjob import execute
+from phcli.ph_logs.ph_logs import phs3logger
+from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 
 
 @click.command()
 @click.option('--owner')
+@click.option('--dag_name')
 @click.option('--run_id')
+@click.option('--job_full_name')
 @click.option('--job_id')
+@click.option('--g_project_name')
+@click.option('--g_out_dir')
 @click.option('--max_path')
-@click.option('--project_name')
-@click.option('--cpa_gyc')
 @click.option('--if_others')
 @click.option('--out_path')
-@click.option('--out_dir')
 @click.option('--auto_max')
 @click.option('--need_test')
-@click.option('--a')
-@click.option('--b')
-def debug_execute(owner, run_id, job_id, a, b, max_path, project_name, cpa_gyc, if_others, out_path, out_dir, auto_max, need_test):
-    execute(max_path, project_name, cpa_gyc, if_others, out_path, out_dir, auto_max, need_test)
+@click.option('--dag_name')
+@click.option('--run_id')
+@click.option('--g_hospital_mapping_out')
+def debug_execute(**kwargs):
+    try:
+        args = {"name": "hospital_mapping"}
+        outputs = ["g_hospital_mapping_out"]
+
+        args.update(kwargs)
+        result = exec_before(**args)
+
+        args.update(result if isinstance(result, dict) else {})
+        result = execute(**args)
+
+        args.update(result if isinstance(result, dict) else {})
+        result = exec_after(outputs=outputs, **args)
+
+        return result
+    except Exception as e:
+        logger = phs3logger(kwargs["job_id"])
+        logger.error(traceback.format_exc())
+        print(traceback.format_exc())
+        raise e
 
 
 if __name__ == '__main__':
     debug_execute()
+
+
