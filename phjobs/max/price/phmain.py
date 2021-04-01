@@ -25,7 +25,7 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--g_price_city')
 def debug_execute(**kwargs):
     try:
-        args = {"name": "growth_price"}
+        args = {"name": "price"}
         outputs = ["g_price", "g_price_city"]
 
         args.update(kwargs)

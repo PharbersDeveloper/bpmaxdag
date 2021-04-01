@@ -48,7 +48,6 @@ def execute(**kwargs):
     # 输出
     p_price = result_path_prefix + g_price
     p_price_city = result_path_prefix + g_price_city
-    p_growth_rate = result_path_prefix + g_growth_rate
 
     # =========== 数据准备，测试用 =============
     df_products_of_interest = spark.read.csv(products_of_interest_path, header=True)
@@ -95,7 +94,7 @@ def execute(**kwargs):
     logger.debug("输出 price：" + p_price)
     logger.debug("输出 price_city：" + p_price_city)
 
-
+    df_price_city
 
     #df_price.agg(func.sum('PRICE')).show()
 

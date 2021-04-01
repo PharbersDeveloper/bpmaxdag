@@ -149,7 +149,7 @@ def execute(**kwargs):
     # 输出
     df_growth_rate_month = df_growth_rate_month.repartition(1)
     df_growth_rate_month.write.format("parquet") \
-        .mode("append").save(p_growth_rate)
+        .mode("overwrite").save(p_growth_rate)
 
 
 

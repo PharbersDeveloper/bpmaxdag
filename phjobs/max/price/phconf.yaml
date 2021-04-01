@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: PhJob
 metadata:
-  name: growth_price
+  name: price
   description: "pharbers job description"
   labels:
-    name: growth_price
+    name: price
     runtime: python3
     command: submit
 spec:
