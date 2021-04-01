@@ -41,10 +41,10 @@ def execute(**kwargs):
     
     company = "奥鸿"
     date = "2021-04-01"
-    tp = "dim"
+    # tp = "dim"
     
     _input = kwargs["input"]
-    _output = kwargs["output"] + "/" + date + "/" + company + "/" + tp
+    _output = kwargs["output"]
 
     # TODO 提出参数化
     custom_columns = {
@@ -138,21 +138,26 @@ def execute(**kwargs):
     select_str = "PANEL_ID,HOSP_NAME,PROVINCE,CITY,REGION".split(",")
     select_str.extend(completion_column(df.schema.names))
     cond = reduce(lambda x,y:x if y in x else x + [y], [[], ] + select_str)
-    df = df.selectExpr(*cond).withColumn("ID", gid()).withColumn("COMPANY", lit(company)).withColumn("VERSION", lit("0.0.1"))
+    df = df.selectExpr(*cond) \
+        .withColumn("ID", gid()) \
+        .withColumn("COMPANY", lit(company)) \
+        .withColumn("TIME", lit(date)) \
+        .withColumn("VERSION", lit("0.0.1"))
     cond.insert(0, "ID")
     cond.append("COMPANY")
+    cond.append("TIME")
     cond.append("VERSION")
     df = df.selectExpr(*cond)
-    # df.show()
-    
-    # df.repartition(1) \
-    #     .write.mode("overwrite") \
-    #     .parquet(_output)
+    df.repartition(3) \
+        .write \
+        .partitionBy("TIME", "COMPANY") \
+        .mode("overwrite") \
+        .parquet(_output)
     
     
     
     # 生成Fact Table
-    dim = spark.read.parquet(_output)
+    dim = spark.read.parquet(_output + "/" + "TIME=" + date + "/" + "COMPANY=" + company)
     hosp_mapping = spark.read.parquet("s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DIMENSION/MAPPING/MAX/HOSPITAL_UNIVERS/")
     fact_mapping = [
         {
@@ -208,7 +213,7 @@ def execute(**kwargs):
         {
             "CATEGORY": "AREASIZE",
             "TAG": "COVER",
-            "COLUMN": "COVER"
+            "COLUMN": "AREA_STRUCT"
         },
         {
             "CATEGORY": "BEDCAPACITY",
@@ -315,30 +320,31 @@ def execute(**kwargs):
             "TAG": "MEDICINE_DISTRICT",
             "COLUMN": "COUNTY_HOSP_WST_DRUG_INCOME"
         }
-        
     ]
     
-    
     def fact_table(item):
-        # dim.selectExpr("ID as HOSPITAL_ID", "PANEL_ID").show()
         fact = dim.selectExpr("ID as HOSPITAL_ID", "PANEL_ID") \
             .join(hosp_mapping, [col("PANEL_ID") == col("PHA_ID")], "left_outer") \
             .selectExpr("HOSPITAL_ID", "PANEL_ID", "PHA_ID", item["COLUMN"]) \
-            .withColumn("CATEGORY", lit("EMPLOYEES")) \
+            .withColumn("CATEGORY", lit(item["CATEGORY"])) \
             .withColumn("TAG", lit(item["TAG"])) \
             .withColumn("VALUE", col(item["COLUMN"])) \
             .withColumn("COMPANY", lit(company)) \
+            .withColumn("TIME", lit(date)) \
             .withColumn("VERSION", lit("0.0.1")) \
             .drop(item["COLUMN"])
-        fact.show()
-        print(fact.count())
         return fact
         
     
-    list(map(fact_table, fact_mapping))
+    fact_un_all = reduce(lambda x, y: x.union(y), list(map(fact_table, fact_mapping)))
+    fact_un_all.show()
+    print(fact_un_all.count())
     
-    
-    
+    fact_un_all.repartition(3) \
+        .write \
+        .partitionBy("TIME", "COMPANY") \
+        .mode("overwrite") \
+        .parquet("s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/FACT/HOSPITAL_FACT")
     
     
     return {}
