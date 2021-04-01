@@ -17,8 +17,6 @@ def execute(**kwargs):
     g_project_name = kwargs['g_project_name']
     g_out_dir = kwargs['g_out_dir']
     depend_job_names_keys = kwargs['depend_job_names_keys']
-    out_path = kwargs['out_path']
-    max_path = kwargs['max_path']
     dag_name = kwargs['dag_name']
     run_id = kwargs['run_id']
     ### input args ###
@@ -26,7 +24,6 @@ def execute(**kwargs):
     ### output args ###
     g_price = kwargs['g_price']
     g_price_city = kwargs['g_price_city']
-    g_growth_rate = kwargs['g_growth_rate']
     ### output args ###
 
     import pandas as pd
@@ -34,6 +31,11 @@ def execute(**kwargs):
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
     from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col
+
+    # 测试用
+    max_path = 's3a://ph-max-auto/v0.0.1-2020-06-08/'
+    g_project_name = '贝达'
+    g_out_dir = '202012'
 
     logger.debug('价格计算')
     
@@ -66,6 +68,7 @@ def execute(**kwargs):
     # 1.1 CITY_TIER 层面的价格
     df_price = df_raw_data.groupBy("MIN2", "YEAR_MONTH", "CITY_TIER") \
                             .agg((func.sum("SALES") / func.sum("UNITS")).alias("PRICE"))
+    
     df_price2 = df_raw_data.groupBy("MIN2", "YEAR_MONTH") \
                             .agg((func.sum("SALES") / func.sum("UNITS")).alias("PRICE2"))
     
@@ -94,19 +97,15 @@ def execute(**kwargs):
 
 
 
-    df_price.count()
+    #df_price.agg(func.sum('PRICE')).show()
 
-    df_price.agg(func.sum('PRICE')).show()
+    #df_price_city.agg(func.sum('PRICE')).show()
 
-    df_price_city.agg(func.sum('PRICE')).show()
+    #df=spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012/price/')
+    #df.agg(func.sum('Price')).show()
 
-    df=spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012/price/')
-    df.agg(func.sum('Price')).show()
-
-    df.count()
-
-    df=spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012/price_city/')
-    df.agg(func.sum('Price')).show()
+    #df=spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012/price_city/')
+    #df.agg(func.sum('Price')).show()
 
 
 

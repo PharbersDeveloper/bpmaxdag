@@ -17,16 +17,17 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--job_full_name')
 @click.option('--job_id')
 @click.option('--g_project_name')
-@click.option('--g_out_dir')
+@click.option('--model_month_right')
+@click.option('--max_month')
+@click.option('--year_missing')
 @click.option('--depend_job_names_keys')
 @click.option('--dag_name')
 @click.option('--run_id')
-@click.option('--g_price')
-@click.option('--g_price_city')
+@click.option('--g_growth_rate')
 def debug_execute(**kwargs):
     try:
-        args = {"name": "growth_price"}
-        outputs = ["g_price", "g_price_city"]
+        args = {"name": "growth_model"}
+        outputs = ["g_growth_rate"]
 
         args.update(kwargs)
         result = exec_before(**args)
