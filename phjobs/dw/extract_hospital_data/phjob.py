@@ -148,7 +148,7 @@ def execute(**kwargs):
     cond.append("TIME")
     cond.append("VERSION")
     df = df.selectExpr(*cond)
-    df.repartition(3) \
+    df \
         .write \
         .partitionBy("TIME", "COMPANY") \
         .mode("overwrite") \
@@ -337,10 +337,8 @@ def execute(**kwargs):
         
     
     fact_un_all = reduce(lambda x, y: x.union(y), list(map(fact_table, fact_mapping)))
-    fact_un_all.show()
-    print(fact_un_all.count())
     
-    fact_un_all.repartition(3) \
+    fact_un_all \
         .write \
         .partitionBy("TIME", "COMPANY") \
         .mode("overwrite") \
