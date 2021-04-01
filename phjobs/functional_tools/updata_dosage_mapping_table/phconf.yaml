@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: upload_dosage_mapping_table
+  description: "pharbers job description"
+  labels:
+    name: upload_dosage_mapping_table
+    runtime: python3
+    command: submit
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    command: submit
+    timeout: 10.0
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: path_dosage_mapping_original
+        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DOSAGE_MAPPING/CHC/V0.0.3
+      - key: path_dosage_mapping_negative
+        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/results/2021-04-01_02-15-18/Negative_Predictions
+    outputs:
+      - key: path_write_file
+        value: None
+
+
+

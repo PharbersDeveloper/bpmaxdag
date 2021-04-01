@@ -126,14 +126,6 @@ def make_dosage_standardization(df_standard,df_replace_standard_dosage):
     replace_dosage_str = r'(([(（].*[)）])|(\s+))'
     df_standard = df_standard.withColumn("DOSAGE_STANDARD", regexp_replace(col("DOSAGE_STANDARD"),replace_dosage_str,""))\
     .dropna(subset="DOSAGE_STANDARD")
-    df_standard = df_standard.withColumn("DOSAGE_STANDARD", when(col("DOSAGE_STANDARD") == "鼻喷剂","鼻用喷雾剂")\
-                                         .when(col("DOSAGE_STANDARD") == "胶囊","胶囊剂")\
-                                         .when(col("DOSAGE_STANDARD") == "阴道洗剂","洗剂")\
-                                         .when(col("DOSAGE_STANDARD") == "混悬剂","干混悬剂")\
-                                         .when(col("DOSAGE_STANDARD") == "颗粒","颗粒剂")\
-                                         .when(col("DOSAGE_STANDARD") == "糖浆","糖浆剂")\
-                                         .when(col("DOSAGE_STANDARD") == "泡腾颗粒","泡腾颗粒剂")\
-                                         .otherwise(col("DOSAGE_STANDARD")))  
 
     return df_standard
 

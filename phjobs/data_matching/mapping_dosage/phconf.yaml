@@ -21,7 +21,7 @@ spec:
       - key: path_prefix
         value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs
       - key: dosage_mapping_path
-        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DOSAGE_MAPPING/CHC/V0.0.3
+        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DOSAGE_MAPPING/CHC/V0.0.4
       - key: depend_job_names_keys
         value:
           - cross_join_cutting#cross_result#input_cross_result
