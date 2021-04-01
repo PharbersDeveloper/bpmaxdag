@@ -17,7 +17,6 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--job_name')
 @click.option('--path_prefix')
 @click.option('--path_master_prod')
-@click.option('--path_standard_gross_unit')
 @click.option('--path_for_replace_standard_dosage')
 @click.option('--standard_result')
 @click.option('--standard_origin')

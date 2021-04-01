@@ -28,7 +28,6 @@ def execute(**kwargs):
 
 ###############----------input--------------------################
     path_master_prod = kwargs["path_master_prod"]
-    path_standard_gross_unit = kwargs["path_standard_gross_unit"]
     path_for_replace_standard_dosage = kwargs["path_for_replace_standard_dosage"]
 ###############----------input--------------------################
 
@@ -43,7 +42,6 @@ def execute(**kwargs):
 ###########--------------load file----------------------- ################
     df_standard = load_standard_prod(spark, path_master_prod)
     df_standard.write.mode("overwrite").parquet(origin_path)
-    df_standard_gross_unit  = load_standard_gross_unit(spark,path_standard_gross_unit)
     df_replace_standard_dosage  = load_replace_standard_dosage(spark,path_for_replace_standard_dosage) 
 ###########--------------load file----------------------- ################
 
@@ -61,6 +59,10 @@ def execute(**kwargs):
     df_standard = extract_spec_valid_and_gross(df_standard)
     #spec array转string类型
     df_standard = make_spec_become_string(df_standard)
+    
+    #凑产品名称
+    df_standard = make_product_col(df_standard)
+    
     df_standard.write.mode("overwrite").parquet(result_path)
 #########--------------main function--------------------################# 
     return {}
@@ -114,9 +116,6 @@ def load_standard_prod(spark, standard_prod_path):
 
     return df_standard
 
-def load_standard_gross_unit(spark,path_standard_gross_unit):
-    df_standard_gross_unit = spark.read.parquet(path_standard_gross_unit)
-    return df_standard_gross_unit
     
 def load_replace_standard_dosage(spark,path_for_replace_standard_dosage):
     df_replace_standard_dosage = spark.read.parquet(path_for_replace_standard_dosage)
@@ -127,14 +126,6 @@ def make_dosage_standardization(df_standard,df_replace_standard_dosage):
     replace_dosage_str = r'(([(（].*[)）])|(\s+))'
     df_standard = df_standard.withColumn("DOSAGE_STANDARD", regexp_replace(col("DOSAGE_STANDARD"),replace_dosage_str,""))\
     .dropna(subset="DOSAGE_STANDARD")
-    df_standard = df_standard.withColumn("DOSAGE_STANDARD", when(col("DOSAGE_STANDARD") == "鼻喷剂","鼻用喷雾剂")\
-                                         .when(col("DOSAGE_STANDARD") == "胶囊","胶囊剂")\
-                                         .when(col("DOSAGE_STANDARD") == "阴道洗剂","洗剂")\
-                                         .when(col("DOSAGE_STANDARD") == "混悬剂","干混悬剂")\
-                                         .when(col("DOSAGE_STANDARD") == "颗粒","颗粒剂")\
-                                         .when(col("DOSAGE_STANDARD") == "糖浆","糖浆剂")\
-                                         .when(col("DOSAGE_STANDARD") == "泡腾颗粒","泡腾颗粒剂")\
-                                         .otherwise(col("DOSAGE_STANDARD")))  
 
     return df_standard
 
@@ -414,8 +405,8 @@ def make_spec_valid_data(spec,spec_gross_data):
 
 def make_spec_become_string(df_standard):
     df_standard = df_standard.withColumn("SPEC_STANDARD", make_spec_from_array_into_string(col("SPEC_STANDARD")))
-    df_standard.select("SPEC_STANDARD_ORIGINAL","SPEC_STANDARD","SPEC_STANDARD_GROSS","SPEC_STANDARD_VALID").distinct().show(500)
-    print(df_standard.printSchema())
+#     df_standard.select("SPEC_STANDARD_ORIGINAL","SPEC_STANDARD","SPEC_STANDARD_GROSS","SPEC_STANDARD_VALID").distinct().show(500)
+#     print(df_standard.printSchema())
     return df_standard
 
 @pandas_udf(StringType(), PandasUDFType.SCALAR)
@@ -431,4 +422,14 @@ def make_spec_from_array_into_string(spec_standard):
         return output_sentence
     df['out_put_col'] = df.apply(lambda x: make_elements_of_list_into_one_string(x.spec_standard), axis=1)
     return df['out_put_col']
+
+
+#凑产品名
+def make_product_col(df_standard):
+    
+#     df_standard.select("MOLE_NAME_STANDARD","DOSAGE_STANDARD","PRODUCT_NAME_STANDARD").distinct().show(300)
+#     print(df_standard.printSchema())
+    df_standard = df_standard.withColumnRenamed("PRODUCT_NAME_STANDARD","PRODUCT_NAME_STANDARD_ORIGINAL")
+    df_standard = df_standard.withColumn("PRODUCT_NAME_STANDARD", concat_ws(' ',col("MOLE_NAME_STANDARD"),col("DOSAGE_STANDARD")))
+    return df_standard
 ################-----------------------functions---------------------------################
