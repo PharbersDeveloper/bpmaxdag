@@ -18,22 +18,16 @@ spec:
     args:
       - key: g_project_name
         value: 贝达
+      - key: dag_name
+        value: Max
+      - key: run_id
+        value: max_test_beida_202012
       - key: g_out_dir
         value: 202012
       - key: max_path
         value: s3a://ph-max-auto/v0.0.1-2020-06-08/
       - key: if_others
         value: False
-      - key: out_path
-        value: s3a://ph-max-auto/v0.0.1-2020-06-08/
-      - key: auto_max
-        value: True
-      - key: need_test
-        value: 0
-      - key: dag_name
-        value: Max
-      - key: run_id
-        value: max_test_beida_202012
     outputs:
       - key: g_hospital_mapping_out
         value: hospital_mapping_out

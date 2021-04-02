@@ -17,12 +17,12 @@ spec:
     config: phconf.yaml
     args:
       - key: g_project_name
-        value: Empty
-      - key: model_month_right
+        value: 贝达
+      - key: g_model_month_right
+        value: 201912
+      - key: g_max_month
         value: 0
-      - key: max_month
-        value: 0
-      - key: year_missing
+      - key: g_year_missing
         value: 0
       - key: depend_job_names_keys
         value: ["product_mapping#product_mapping_out#product_mapping_out"]
@@ -32,7 +32,7 @@ spec:
         value: max_test_beida_202012
     outputs:
       - key: g_growth_rate
-        value: growth_rate_model
+        value: growth_rate
 
 
 

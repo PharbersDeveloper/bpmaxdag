@@ -17,21 +17,19 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--job_full_name')
 @click.option('--job_id')
 @click.option('--g_project_name')
-@click.option('--g_max_month')
+@click.option('--g_model_month_right')
 @click.option('--g_month')
 @click.option('--g_year')
+@click.option('--if_add_data')
 @click.option('--depend_job_names_keys')
 @click.option('--dag_name')
 @click.option('--run_id')
-@click.option('--max_path')
-@click.option('--not_arrived_path')
-@click.option('--published_path')
-@click.option('--current_month')
-@click.option('--g_growth_rate')
+@click.option('--g_adding_data')
+@click.option('--g_raw_data_adding_final')
 def debug_execute(**kwargs):
     try:
-        args = {"name": "growth_monthly_update"}
-        outputs = ["g_growth_rate"]
+        args = {"name": "data_adding_monthly"}
+        outputs = ["g_adding_data", "g_raw_data_adding_final"]
 
         args.update(kwargs)
         result = exec_before(**args)

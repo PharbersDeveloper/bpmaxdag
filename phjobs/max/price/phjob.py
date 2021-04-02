@@ -19,6 +19,7 @@ def execute(**kwargs):
     depend_job_names_keys = kwargs['depend_job_names_keys']
     dag_name = kwargs['dag_name']
     run_id = kwargs['run_id']
+    max_path = kwargs['max_path']
     ### input args ###
     
     ### output args ###
@@ -32,13 +33,7 @@ def execute(**kwargs):
     from pyspark.sql import functions as func
     from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col
 
-    # 测试用
-    max_path = 's3a://ph-max-auto/v0.0.1-2020-06-08/'
-    g_project_name = '贝达'
-    g_out_dir = '202012'
-
-    logger.debug('价格计算')
-    
+    logger.debug('数据执行-start:价格计算')
     # 测试输入
     products_of_interest_path = max_path + "/" + g_project_name + "/poi.csv"
     
@@ -54,7 +49,6 @@ def execute(**kwargs):
     df_products_of_interest = df_products_of_interest.withColumnRenamed('poi', 'POI')
 
     # =========== 数据执行 =============
-    logger.debug('数据执行-start')
     df_raw_data = spark.read.parquet(p_product_mapping_out)
     
     g_products_of_interest = df_products_of_interest.toPandas()["POI"].values.tolist()
@@ -93,8 +87,6 @@ def execute(**kwargs):
     
     logger.debug("输出 price：" + p_price)
     logger.debug("输出 price_city：" + p_price_city)
-
-    df_price_city
 
     #df_price.agg(func.sum('PRICE')).show()
 

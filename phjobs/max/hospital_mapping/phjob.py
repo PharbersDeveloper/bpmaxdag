@@ -15,14 +15,11 @@ def execute(**kwargs):
     
     ### input args ###
     g_project_name = kwargs['g_project_name']
+    dag_name = kwargs['dag_name']
+    run_id = kwargs['run_id']
     g_out_dir = kwargs['g_out_dir']
     max_path = kwargs['max_path']
     if_others = kwargs['if_others']
-    out_path = kwargs['out_path']
-    auto_max = kwargs['auto_max']
-    need_test = kwargs['need_test']
-    dag_name = kwargs['dag_name']
-    run_id = kwargs['run_id']
     ### input args ###
     
     ### output args ###
@@ -36,10 +33,7 @@ def execute(**kwargs):
 
     logger.debug('job1_hospital_mapping')
     # 输入
-    if if_others != "False" and if_others != "True":
-        logger.error('wrong input: if_others, False or True') 
-        raise ValueError('wrong input: if_others, False or True')
-        
+    # 测试用
     universe_path = max_path + "/" + g_project_name + "/universe_base"
     cpa_pha_mapping_path = max_path + "/" + g_project_name + "/cpa_pha_mapping"
     if if_others == "True":
@@ -47,10 +41,7 @@ def execute(**kwargs):
     else:
         raw_data_path = max_path + "/" + g_project_name + "/" + g_out_dir + "/raw_data"
         
-    # 输出
-    if if_others == "True":
-        g_out_dir = g_out_dir + "/others_box/"
-        
+    # 输出    
     p_hospital_mapping_out = result_path_prefix + g_hospital_mapping_out
 
     # =========== 数据准备 测试用=============
@@ -112,14 +103,14 @@ def execute(**kwargs):
     df_raw_data
 
     # =========== 数据执行 =============
-    logger.debug('数据执行-start')
+    logger.debug('数据执行-start：hospital_mapping')
     # df_universe
     df_universe = df_universe.select('PHA', 'CITY', 'PROVINCE', 'CITY_TIER').distinct()
         
     # df_cpa_pha_mapping
     df_cpa_pha_mapping = df_cpa_pha_mapping.where(col('COMMEND') == 1).select("ID", "PHA").distinct()
                                     
-    # df_raw_data
+    # df_raw_data 信息匹配与处理
     df_raw_data = df_raw_data.join(df_cpa_pha_mapping, on='ID', how='left') \
                         .join(df_universe, on='PHA', how='left')
     

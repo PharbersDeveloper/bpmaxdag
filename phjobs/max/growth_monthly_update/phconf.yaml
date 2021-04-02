@@ -17,19 +17,27 @@ spec:
     config: phconf.yaml
     args:
       - key: g_project_name
-        value: Empty
-      - key: max_month
+        value: 贝达
+      - key: g_max_month
         value: 0
       - key: g_month
-        value: Empty
+        value: 12
       - key: g_year
-        value: Empty
+        value: 2020
       - key: depend_job_names_keys
         value: ["product_mapping#product_mapping_out#product_mapping_out"]
       - key: dag_name
         value: Max
       - key: run_id
         value: max_test_beida_202012
+      - key: max_path
+        value: s3a://ph-max-auto/v0.0.1-2020-06-08/
+      - key: not_arrived_path
+        value: Empty
+      - key: published_path
+        value: Empty
+      - key: current_month
+        value: 12
     outputs:
       - key: g_growth_rate
         value: growth_rate
