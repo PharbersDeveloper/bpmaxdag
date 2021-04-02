@@ -49,7 +49,12 @@ def execute(**kwargs):
 ####################=======loading files==========#################
 
 ####################=======main functions==========#################
-    df_dosage = join_maping_table(df_cross_dosage, df_mapping_dosage)
+
+    df_dosage = join_maping_table(df_cross_dosage=df_cross_dosage,\
+                                  df_mapping_dosage=df_mapping_dosage,\
+                                 left_key="DOSAGE_STANDARD",
+                                 right_key="DOSAGE_STANDARD")
+    
 # ####################=======main functions==========#################
 
 # ####################### == RESULT == #####################
@@ -110,10 +115,16 @@ def loading_files(spark, input_path):
 
 
 ##### == mapping == #####
-def join_maping_table(df_cross_dosage, df_mapping_dosage):
-    df_mapping_dosage = df_mapping_dosage.withColumnRenamed("DOSAGE","MAPPING_DOSAGE")
+def join_maping_table(df_cross_dosage, df_mapping_dosage,left_key,right_key):
+
     
-    df_dosage = df_cross_dosage.join(df_mapping_dosage, df_cross_dosage.DOSAGE==df_mapping_dosage.MAPPING_DOSAGE, how="left").na.fill("").drop("MAPPING_DOSAGE")
+    df_cross_dosage = df_cross_dosage.withColumnRenamed(left_key,"left_col")
+    df_mapping_dosage = df_mapping_dosage.withColumnRenamed(right_key,"right_col")
+
+    df_dosage = df_cross_dosage.join(df_mapping_dosage,df_cross_dosage.left_col == df_mapping_dosage.right_col, how="left")
+
+    df_dosage = df_dosage.withColumnRenamed("left_col",left_key).drop("right_col")
+
     
     return df_dosage
 

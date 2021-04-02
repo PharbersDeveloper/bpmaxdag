@@ -22,7 +22,7 @@ spec:
         value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs
       - key: depend_job_names_keys
         value:
-        - segmentation_mnf#segmentation_mnf_result#input_seg_mnf
+        - mapping_mnf#mapping_mnf_result#input_mapping_mnf
       - key: g_repartition_shared
         value: 16
     outputs:

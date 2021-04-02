@@ -51,13 +51,13 @@ def execute(**kwargs):
 ####################=======main functions==========#################
     df_mnf = join_maping_table(df_cross_mnf=df_cross_mnf,\
                                df_mapping_mnf=df_mapping_mnf,\
-                               left_key="MANUFACTURER_NAME",\
-                               right_key="MANUFACTURER_NAME")
-# ####################=======main functions==========#################
+                               left_key="MANUFACTURER_NAME_STANDARD",\
+                               right_key="MANUFACTURER_NAME_STANDARD")
+# # ####################=======main functions==========#################
 
 # ####################### == RESULT == #####################
 
-#     df_mnf.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
+    df_mnf.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
     
 ####################### == RESULT == #####################
     return {}
@@ -101,10 +101,8 @@ def get_depends_path(kwargs):
 
 def load_cross_result(spark,path_cross_result):
     
-    path_cross_result = r"s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs/manual__2021-04-01T10_02_41.348386+00_00/cross_join_cutting/cross_result/"
     df_seg_mnf = spark.read.parquet(path_cross_result)
     df_seg_mnf = df_seg_mnf.select("ID","INDEX","MANUFACTURER_NAME","MANUFACTURER_NAME_STANDARD")
-    print(df_seg_mnf.printSchema())
     
     return df_seg_mnf 
 
@@ -112,7 +110,6 @@ def load_cross_result(spark,path_cross_result):
 ######## == 下载文件 == ########
 def loading_files(spark, input_path):
     files = spark.read.parquet(input_path)
-    print(files.printSchema())
     return files
 
 
@@ -122,12 +119,10 @@ def join_maping_table(df_cross_mnf,df_mapping_mnf,left_key,right_key):
     df_cross_mnf = df_cross_mnf.withColumnRenamed(left_key,"left_col")
     df_mapping_mnf = df_mapping_mnf.withColumnRenamed(right_key,"right_col")
     
-    df_mnf = df_cross_mnf.join(df_mapping_mnf,df_cross_mnf.left_col == df_mapping_mnf.right_col, how="left")\
-                        .na.fill("")
-                         
+    df_mnf = df_cross_mnf.join(df_mapping_mnf,df_cross_mnf.left_col == df_mapping_mnf.right_col, how="left")
     
-    df_mnf.show(100)
-    print(df_mnf.printSchema())
+    df_mnf = df_mnf.withColumnRenamed("left_col",left_key).drop("right_col")
+    
     
     return df_mnf
 
