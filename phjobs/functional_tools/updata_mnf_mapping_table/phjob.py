@@ -47,7 +47,7 @@ def execute(**kwargs):
     ########### == main function == #########
      
     df_mnf_mapping_original = get_mnf_mapping_elements(input_dataframe=df_mnf_mapping_original,\
-                                                             input_mnf="MANUFACTURER_NAME",\
+                                                             input_mnf="MANUFACTURER_NAME_STANDARD",\
                                                              input_master="MASTER_MANUFACTURE")
     
     df_mnf_mapping_prediction =  get_prediction_mnf_mapping_elements(input_dataframe=df_mnf_mapping_prediction\
@@ -59,7 +59,7 @@ def execute(**kwargs):
                                                input_dataframe_prediction=df_mnf_mapping_prediction)
 
     
-    wirte_files(df,path_output)
+#     wirte_files(df,path_output)
    
     
     ########### == main function == #########
@@ -127,16 +127,16 @@ def get_prediction_mnf_mapping_elements(input_dataframe,input_mnf,input_standard
     
         input_dataframe = input_dataframe.withColumn(input_master, split(col(input_master), pattern=' '))
         
-        input_dataframe= input_dataframe.withColumn(input_standard_mnf,array(col(input_mnf),col(input_standard_mnf)))\
-                    .withColumn(input_standard_mnf,array_distinct(array_union(col(input_standard_mnf),col(input_master))))\
-                    .withColumn(input_standard_mnf, array_remove(col(input_standard_mnf),""))
+        input_dataframe= input_dataframe.withColumn(input_mnf,array(col(input_mnf),col(input_standard_mnf)))\
+                    .withColumn(input_mnf,array_distinct(array_union(col(input_mnf),col(input_master))))\
+                    .withColumn(input_mnf, array_remove(col(input_mnf),""))
     else:
-        input_dataframe= input_dataframe.withColumn(input_standard_mnf,array(col(input_mnf),col(input_standard_mnf)))\
-                .withColumn(input_standard_mnf,array_distinct(col(input_standard_mnf)))\
-                .withColumn(input_standard_mnf, array_remove(col(input_standard_mnf),""))
+        input_dataframe= input_dataframe.withColumn(input_mnf,array(col(input_mnf),col(input_standard_mnf)))\
+                .withColumn(input_mnf,array_distinct(col(input_mnf)))\
+                .withColumn(input_mnf, array_remove(col(input_mnf),""))
         
-    input_dataframe = input_dataframe.withColumn(input_standard_mnf,explode(col(input_standard_mnf)))
-    data_frame =  input_dataframe.groupBy(col(input_mnf)).agg(collect_set(col(input_standard_mnf)).alias(input_master))
+    input_dataframe = input_dataframe.withColumn(input_mnf,explode(col(input_mnf)))
+    data_frame =  input_dataframe.groupBy(col(input_standard_mnf)).agg(collect_set(col(input_mnf)).alias(input_master))
     data_frame.show(300)
     
     return data_frame
@@ -149,6 +149,6 @@ def get_available_mnf_mapping_elements(input_dataframe_oringal, input_dataframe_
     else:
         data_frame = input_dataframe_oringal.union(input_dataframe_prediction)
         data_frame = get_mnf_mapping_elements(input_dataframe=data_frame\
-                                                 ,input_mnf="MANUFACTURER_NAME",\
+                                                 ,input_mnf="MANUFACTURER_NAME_STANDARD",\
                                                  input_master="MASTER_MANUFACTURE")
     return data_frame
