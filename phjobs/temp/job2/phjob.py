@@ -47,9 +47,9 @@ def execute(**kwargs):
 #     chc_new_0315 = spark.read.csv("s3a://ph-max-auto/2020-08-11/data_matching/refactor/results/2021-03-15_14-53-17/Report",header=True)
 #     chc_new_0315.show()
 
-    path_df = r"s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs/manual__2021-01-22T10_34_38.936916+00_00/cleaning_data_model_training/model_result/stages/2_DecisionTreeClassifier_652b08cb72a1/data/"
+    path_df = r"s3a://ph-max-auto/2020-08-11/data_matching/refactor/results/2021-04-02_07-08-12/Report/"
 
-    df_cut = spark.read.parquet(path_df)
+    df_cut = spark.read.csv(path_df,header=True)
     df_cut.show(100)
 
     return {}

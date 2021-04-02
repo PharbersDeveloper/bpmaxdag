@@ -31,7 +31,6 @@ def execute(**kwargs):
 ###################=======input==========#################
     depends = get_depends_path(kwargs)
     path_cross_result = depends["input_cross_result"]
-    path_mole_lexicon = kwargs["mole_lexicon_path"]
     path_mole_stopwords = kwargs["mole_stopwords_path"]
     g_repartition_shared = int(kwargs["g_repartition_shared"])
     
@@ -46,12 +45,11 @@ def execute(**kwargs):
 
 ###################=======loading files==========#################
     df_seg_mole = load_cross_result(spark,path_cross_result)
-    mole_lexicon = load_mole_lexicon(spark, path_mole_lexicon)
     mole_stopwords = load_mole_stopwords(spark, path_mole_stopwords)
 ###################=======loading files==========#################
 
 ###################=======main functions==========#################
-    df_seg_mole = cut_mole_word(df_seg_mole,mole_lexicon,mole_stopwords)
+    df_seg_mole = cut_mole_word(df_seg_mole,mole_stopwords)
 ###################=======main functions==========#################
     df_seg_mole.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
     return {}
@@ -93,13 +91,6 @@ def get_depends_path(kwargs):
     return result
 ##################  中间文件与结果文件路径  ######################
 
-def load_mole_lexicon(spark, path_mole_lexicon):
-    if path_mole_lexicon == 'None':
-        return None
-    else:
-        mole_lexicon = spark.read.csv(path_mole_lexicon,header=True) 
-        return mole_lexicon
-
 def load_mole_stopwords(spark, path_mole_stopwords):
     if path_mole_stopwords == "None":
         return None
@@ -117,11 +108,8 @@ def load_cross_result(spark,path_cross_result):
 
 
 ######## 分词逻辑 ##########
-def phcleanning_mole_seg(df, df_lexicon, stopwords, inputCol, outputCol):
-    if df_lexicon is None: 
-        lexicon = None 
-    else:
-        lexicon = df_lexicon.rdd.map(lambda x: x.lexicon).collect()
+def phcleanning_mole_seg(df,stopwords, inputCol, outputCol):
+    lexicon = df.rdd.map(lambda x: x.MOLE_NAME_STANDARD).distinct().collect()
     seg = pkuseg.pkuseg(user_dict=lexicon)
     @pandas_udf(ArrayType(StringType()), PandasUDFType.SCALAR)
     def manifacture_name_pseg_cut(inputCol):
@@ -146,9 +134,8 @@ def phcleanning_mole_seg(df, df_lexicon, stopwords, inputCol, outputCol):
 ########  分词逻辑  ############
 
 ######  进行分词 ########
-def cut_mole_word(df_seg_mole,mole_lexicon,mole_stopwords):
+def cut_mole_word(df_seg_mole,mole_stopwords):
     
-    df_seg_mole =phcleanning_mole_seg(df=df_seg_mole,df_lexicon=mole_lexicon,stopwords=mole_stopwords,inputCol="MOLE_NAME",outputCol="MOLE_CUT_WORDS")
-    df_seg_mole =phcleanning_mole_seg(df=df_seg_mole,df_lexicon=mole_lexicon,stopwords=mole_stopwords,inputCol="MOLE_NAME_STANDARD",outputCol="MOLE_CUT_STANDARD_WORDS")
+    df_seg_mole =phcleanning_mole_seg(df=df_seg_mole,stopwords=mole_stopwords,inputCol="MOLE_NAME",outputCol="MOLE_CUT_WORDS")
     return df_seg_mole
 
