@@ -131,7 +131,7 @@ def execute_calculate_dosage_similarity(dosage,master_dosage,dosage_standard):
 ##### == calculate_similarity == #######
 def calculate_dosage_similarity(df_mapping_dosage):
     
-    df_sim_dosage = df_mapping_dosage.withColumn("eff_mnf", execute_calculate_dosage_similarity(df_mapping_dosage.DOSAGE,\
+    df_sim_dosage = df_mapping_dosage.withColumn("eff_dosage", execute_calculate_dosage_similarity(df_mapping_dosage.DOSAGE,\
                                                                                        df_mapping_dosage.MASTER_DOSAGE,\
                                                                                       df_mapping_dosage.DOSAGE_STANDARD))
     
