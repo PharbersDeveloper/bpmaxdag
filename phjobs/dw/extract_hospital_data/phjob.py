@@ -14,21 +14,6 @@ from pyspark.sql import SparkSession
 
 
 def execute(**kwargs):
-    # def general_id():
-    #     charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' + \
-    #                 'abcdefghijklmnopqrstuvwxyz' + \
-    #                 '0123456789-_'
-        
-    #     charsetLength = len(charset)
-        
-    #     keyLength = 3 * 5
-        
-    #     result = ["H"]
-    #     for _ in range(keyLength):
-    #         result.append(charset[random.randint(0, charsetLength - 1)])
-        
-    #     return "".join(result)
-        
     """
         please input your code below
         get spark session: spark = kwargs["spark"]()
@@ -42,11 +27,9 @@ def execute(**kwargs):
     _companys = str(kwargs["companys"]).replace(" ", "").split(",")
     _base_path = str(kwargs["base_path"]).replace(" ", "")
     _time = str(kwargs["time"])
-    _output = str(kwargs["output"])
+    _output = str(kwargs["clean_output"]) + _time
     _drop_matchers = str(kwargs["drop_matchers"]).split(",")
     _hosp_name_mapping = str(kwargs["hosp_name_mapping"])
-    
-
 
     # TODO 提出参数化
     custom_columns = {
@@ -109,232 +92,11 @@ def execute(**kwargs):
         select_str.extend(completion_column(df.schema.names))
         cond = reduce(lambda x,y:x if y in x else x + [y], [[], ] + select_str)
         df = df.selectExpr(*cond)
-        df.show()
-        return { "path": path, "df": df }
+        out = _output + "/" + company
+        df.write.mode("overwrite").parquet(out)
+        return { "path": out}
     
     li = list(map(get_df, _companys))
     print(len(li))
-    
-    
-    # un_all = reduce(lambda x, y: x.union(y), li).distinct()
-    # un_all.show()
-    # print(un_all.count())
-    
-    # gid = udf(general_id, StringType())
-    
-    # reading = spark.read.parquet(_input)
-    # old_columns = reading.schema.names
-    # new_columns = list(map(convert_upper_columns, old_columns))
-    # df = drop_other_columns(reduce(lambda reading, idx: reading.withColumnRenamed(old_columns[idx], new_columns[idx]), range(len(old_columns)), reading))
-    # df = check_hospital_name(df)
-    # select_str = "PANEL_ID,HOSP_NAME,PROVINCE,CITY,REGION".split(",")
-    # select_str.extend(completion_column(df.schema.names))
-    # cond = reduce(lambda x,y:x if y in x else x + [y], [[], ] + select_str)
-    # df = df.selectExpr(*cond) \
-    #     .withColumn("ID", gid()) \
-    #     .withColumn("COMPANY", lit(company)) \
-    #     .withColumn("TIME", lit(date)) \
-    #     .withColumn("VERSION", lit("0.0.1"))
-    # cond.insert(0, "ID")
-    # cond.append("COMPANY")
-    # cond.append("TIME")
-    # cond.append("VERSION")
-    # df = df.selectExpr(*cond)
-    # df \
-    #     .write \
-    #     .partitionBy("TIME", "COMPANY") \
-    #     .mode("overwrite") \
-    #     .parquet(_output)
-    
-    
-    
-    # 生成Fact Table
-    # dim = spark.read.parquet(_output + "/" + "TIME=" + date + "/" + "COMPANY=" + company)
-    # hosp_mapping = spark.read.parquet("s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DIMENSION/MAPPING/MAX/HOSPITAL_UNIVERS/")
-    # fact_mapping = [
-    #     {
-    #         "CATEGORY": "EMPLOYEES",
-    #         "TAG": "TOTAL",
-    #         "COLUMN": "EMPLOYEES_NUM"
-    #     },
-    #     {
-    #         "CATEGORY": "EMPLOYEES",
-    #         "TAG": "DOCTOR",
-    #         "COLUMN": "DOCTORS_NUM"
-    #     },
-    #     {
-    #         "CATEGORY": "PATIENT",
-    #         "TAG": "IN_RESIDENCE",
-    #         "COLUMN": "ADMIS_TIME"
-    #     },
-    #     {
-    #         "CATEGORY": "PATIENT",
-    #         "TAG": "ANNUALLY",
-    #         "COLUMN": "ANNU_DIAG_TIME"
-    #     },
-    #     {
-    #         "CATEGORY": "PATIENT",
-    #         "TAG": "PHYSICIAN",
-    #         "COLUMN": "INTERNAL_DIAG_TIME"
-    #     },
-    #     {
-    #         "CATEGORY": "PATIENT",
-    #         "TAG": "OPD",
-    #         "COLUMN": "OUTP_DIAG_TIME"
-    #     },
-    #     {
-    #         "CATEGORY": "PATIENT",
-    #         "TAG": "SURGERY",
-    #         "COLUMN": "SURG_DIAG_TIME"
-    #     },
-    #     {
-    #         "CATEGORY": "PATIENT",
-    #         "TAG": "SURGERY_IN_RESIDENCE",
-    #         "COLUMN": "SURG_TIME"
-    #     },
-    #     {
-    #         "CATEGORY": "AREASIZE",
-    #         "TAG": "GROSS",
-    #         "COLUMN": "AREA_SQ_M"
-    #     },
-    #     {
-    #         "CATEGORY": "AREASIZE",
-    #         "TAG": "GROSS_CH",
-    #         "COLUMN": "AREA_MU"
-    #     },
-    #     {
-    #         "CATEGORY": "AREASIZE",
-    #         "TAG": "COVER",
-    #         "COLUMN": "AREA_STRUCT"
-    #     },
-    #     {
-    #         "CATEGORY": "BEDCAPACITY",
-    #         "TAG": "TOTAL",
-    #         "COLUMN": "BED_NUM"
-    #     },
-    #     {
-    #         "CATEGORY": "BEDCAPACITY",
-    #         "TAG": "COMPILING",
-    #         "COLUMN": "AUTH_BED_NUM"
-    #     },
-    #     {
-    #         "CATEGORY": "BEDCAPACITY",
-    #         "TAG": "GENERAL",
-    #         "COLUMN": "GENERAL_BED_NUM"
-    #     },
-    #     {
-    #         "CATEGORY": "BEDCAPACITY",
-    #         "TAG": "PHYSICIAN",
-    #         "COLUMN": "INTERNAL_BED_NUM"
-    #     },
-    #     {
-    #         "CATEGORY": "BEDCAPACITY",
-    #         "TAG": "OPENNESS",
-    #         "COLUMN": "OPEN_BED_NUM"
-    #     },
-    #     {
-    #         "CATEGORY": "BEDCAPACITY",
-    #         "TAG": "OPHTHOALMIC",
-    #         "COLUMN": "OPHTH_BED_NUM"
-    #     },
-    #     {
-    #         "CATEGORY": "REVENUE",
-    #         "TAG": "BED_IN_RESIDENCE",
-    #         "COLUMN": "BED_INCOME"
-    #     },
-    #     {
-    #         "CATEGORY": "REVENUE",
-    #         "TAG": "MEDICINE_RMB",
-    #         "COLUMN": "DRUGINCOME_RMB"
-    #     },
-    #     {
-    #         "CATEGORY": "REVENUE",
-    #         "TAG": "MEDICINE",
-    #         "COLUMN": "DRUG_INCOME"
-    #     },
-    #     {
-    #         "CATEGORY": "REVENUE",
-    #         "TAG": "MEDICINE_IN_RESIDENCE",
-    #         "COLUMN": "IN_HOSP_DRUG_INCOME"
-    #     },
-    #     {
-    #         "CATEGORY": "REVENUE",
-    #         "TAG": "IN_RESIDENCE",
-    #         "COLUMN": "IN_HOSP_INCOME"
-    #     },
-    #     {
-    #         "CATEGORY": "REVENUE",
-    #         "TAG": "SURGERY_IN_RESIDENCE",
-    #         "COLUMN": "IN_HOSP_SURG_INCOME"
-    #     },
-    #     {
-    #         "CATEGORY": "REVENUE",
-    #         "TAG": "TREATMENT_IN_RESIDENCE",
-    #         "COLUMN": "IN_HOSP_TREAT_INCOME"
-    #     },
-    #     {
-    #         "CATEGORY": "REVENUE",
-    #         "TAG": "WST_MEDICINE_IN_RESIDENCE",
-    #         "COLUMN": "IN_HOSP_WST_DRUG_INCOME"
-    #     },
-    #     {
-    #         "CATEGORY": "REVENUE",
-    #         "TAG": "MEDICINE_OPT",
-    #         "COLUMN": "OUTP_DRUG_INCOME"
-    #     },
-    #     {
-    #         "CATEGORY": "REVENUE",
-    #         "TAG": "OPT",
-    #         "COLUMN": "OUTP_INCOME"
-    #     },
-    #     {
-    #         "CATEGORY": "REVENUE",
-    #         "TAG": "SURGERY_OPT",
-    #         "COLUMN": "OUTP_SURG_INCOME"
-    #     },
-    #     {
-    #         "CATEGORY": "REVENUE",
-    #         "TAG": "TREATMENT_OPT",
-    #         "COLUMN": "OUTP_TREAT_INCOME"
-    #     },
-    #     {
-    #         "CATEGORY": "REVENUE",
-    #         "TAG": "WST_MEDICINE_OPT",
-    #         "COLUMN": "OUTP_WST_DRUG_INCOME"
-    #     },
-    #     {
-    #         "CATEGORY": "REVENUE",
-    #         "TAG": "TREATMENT",
-    #         "COLUMN": "MED_INCOME"
-    #     },
-    #     {
-    #         "CATEGORY": "REVENUE",
-    #         "TAG": "MEDICINE_DISTRICT",
-    #         "COLUMN": "COUNTY_HOSP_WST_DRUG_INCOME"
-    #     }
-    # ]
-    
-    # def fact_table(item):
-    #     fact = dim.selectExpr("ID as HOSPITAL_ID", "PANEL_ID") \
-    #         .join(hosp_mapping, [col("PANEL_ID") == col("PHA_ID")], "left_outer") \
-    #         .selectExpr("HOSPITAL_ID", "PANEL_ID", "PHA_ID", item["COLUMN"]) \
-    #         .withColumn("CATEGORY", lit(item["CATEGORY"])) \
-    #         .withColumn("TAG", lit(item["TAG"])) \
-    #         .withColumn("VALUE", col(item["COLUMN"])) \
-    #         .withColumn("COMPANY", lit(company)) \
-    #         .withColumn("TIME", lit(date)) \
-    #         .withColumn("VERSION", lit("0.0.1")) \
-    #         .drop(item["COLUMN"])
-    #     return fact
-        
-    
-    # fact_un_all = reduce(lambda x, y: x.union(y), list(map(fact_table, fact_mapping)))
-    
-    # fact_un_all \
-    #     .write \
-    #     .partitionBy("TIME", "COMPANY") \
-    #     .mode("overwrite") \
-    #     .parquet("s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/FACT/HOSPITAL_FACT")
-    
-    
+    print(li)
     return {}

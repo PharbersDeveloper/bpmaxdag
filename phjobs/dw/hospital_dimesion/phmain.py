@@ -16,12 +16,15 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--run_id')
 @click.option('--job_name')
 @click.option('--job_id')
-@click.option('--inputs')
-@click.option('--output')
+@click.option('--input_clean_path')
+@click.option('--time')
+@click.option('--company')
+@click.option('--version')
+@click.option('--output_dim_path')
 def debug_execute(**kwargs):
     try:
         args = {"name": "hospital_dimesion"}
-        outputs = ["output"]
+        outputs = ["output_dim_path"]
 
         args.update(kwargs)
         result = exec_before(**args)

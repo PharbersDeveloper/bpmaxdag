@@ -12,20 +12,18 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 
 @click.command()
 @click.option('--owner')
-@click.option('--dag_name')
 @click.option('--run_id')
-@click.option('--job_name')
 @click.option('--job_id')
-@click.option('--base_path')
-@click.option('--hosp_name_mapping')
-@click.option('--companys')
+@click.option('--input_dim_path')
+@click.option('--hospital_univers')
 @click.option('--time')
-@click.option('--drop_matchers')
-@click.option('--clean_output')
+@click.option('--company')
+@click.option('--version')
+@click.option('--output_fact_path')
 def debug_execute(**kwargs):
     try:
-        args = {"name": "extract_hospital_data"}
-        outputs = ["clean_output"]
+        args = {"name": "hospital_fact"}
+        outputs = ["output_fact_path"]
 
         args.update(kwargs)
         result = exec_before(**args)

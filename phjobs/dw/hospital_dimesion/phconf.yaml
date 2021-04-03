@@ -16,40 +16,17 @@ spec:
     code: phmain.py
     config: phconf.yaml
     args:
-      - key: inputs
-        value: "s3a://ph-max-auto/v0.0.1-2020-06-08/奥鸿/universe_base/,
-               s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/universe_base/,
-               s3a://ph-max-auto/v0.0.1-2020-06-08/海坤/universe_base/,
-               s3a://ph-max-auto/v0.0.1-2020-06-08/汇宇/universe_base/,
-               s3a://ph-max-auto/v0.0.1-2020-06-08/京新/universe_base/,
-               s3a://ph-max-auto/v0.0.1-2020-06-08/康哲/universe_base/,
-               s3a://ph-max-auto/v0.0.1-2020-06-08/灵北/universe_base/,
-               s3a://ph-max-auto/v0.0.1-2020-06-08/神州/universe_base/,
-               s3a://ph-max-auto/v0.0.1-2020-06-08/Astellas/universe_base/,
-               s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/universe_base/,
-               s3a://ph-max-auto/v0.0.1-2020-06-08/AZ2/universe_base/,
-               s3a://ph-max-auto/v0.0.1-2020-06-08/Bayer/universe_base/,
-               s3a://ph-max-auto/v0.0.1-2020-06-08/Beite/universe_base/,
-               s3a://ph-max-auto/v0.0.1-2020-06-08/Chugai/universe_base/,
-               s3a://ph-max-auto/v0.0.1-2020-06-08/Eisai/universe_base/,
-               s3a://ph-max-auto/v0.0.1-2020-06-08/Gilead/universe_base/,
-               s3a://ph-max-auto/v0.0.1-2020-06-08/Janssen/universe_base/,
-               s3a://ph-max-auto/v0.0.1-2020-06-08/Merck/universe_base/,
-               s3a://ph-max-auto/v0.0.1-2020-06-08/Mylan/universe_base/,
-               s3a://ph-max-auto/v0.0.1-2020-06-08/NHWA/universe_base/,
-               s3a://ph-max-auto/v0.0.1-2020-06-08/Novartis/universe_base/,
-               s3a://ph-max-auto/v0.0.1-2020-06-08/Pfizer/universe_base/,
-               s3a://ph-max-auto/v0.0.1-2020-06-08/Qilu/universe_base/,
-               s3a://ph-max-auto/v0.0.1-2020-06-08/Sankyo/universe_base/,
-               s3a://ph-max-auto/v0.0.1-2020-06-08/Sanofi/universe_base/,
-               s3a://ph-max-auto/v0.0.1-2020-06-08/Servier/universe_base/,
-               s3a://ph-max-auto/v0.0.1-2020-06-08/Takeda/universe_base/,
-               s3a://ph-max-auto/v0.0.1-2020-06-08/Takeda2/universe_base/,
-               s3a://ph-max-auto/v0.0.1-2020-06-08/Tide/universe_base/,
-               s3a://ph-max-auto/v0.0.1-2020-06-08/XLT/universe_base/"
+      - key: input_clean_path
+        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DIMENSION/TMP/HOSPITAL_DIMENSION/"
+      - key: time
+        value: "2021-04-03"
+      - key: company
+        value: "奥鸿"
+      - key: version
+        value: "0.0.1"
     outputs:
-      - key: output
-        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DIMENSION/HOSPITAL_DIMENSION/tmp"
+      - key: output_dim_path
+        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DIMENSION/HOSPITAL_DIMENSION/"
 
 
 
