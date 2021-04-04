@@ -18,7 +18,7 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--job_id')
 @click.option('--base_path')
 @click.option('--hosp_name_mapping')
-@click.option('--companys')
+@click.option('--companies')
 @click.option('--time')
 @click.option('--drop_matchers')
 @click.option('--clean_output')

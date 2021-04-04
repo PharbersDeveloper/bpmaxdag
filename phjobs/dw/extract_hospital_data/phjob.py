@@ -24,7 +24,7 @@ def execute(**kwargs):
     logger.info("当前 job_id 为 " + str(kwargs["job_id"]))
     spark = kwargs["spark"]()
     
-    _companys = str(kwargs["companys"]).replace(" ", "").split(",")
+    _companies = str(kwargs["companies"]).replace(" ", "").split(",")
     _base_path = str(kwargs["base_path"]).replace(" ", "")
     _time = str(kwargs["time"])
     _output = str(kwargs["clean_output"]) + _time
@@ -96,7 +96,7 @@ def execute(**kwargs):
         df.write.mode("overwrite").parquet(out)
         return { "path": out}
     
-    li = list(map(get_df, _companys))
+    li = list(map(get_df, _companies))
     print(len(li))
     print(li)
     return {}
