@@ -3,7 +3,7 @@
 
 This is job template for Pharbers Max Job
 """
-
+from pyspark.sql.types import DoubleType
 from phcli.ph_logs.ph_logs import phs3logger, LOG_DEBUG_LEVEL
 from pyspark.sql.functions import array, array_join, col,\
                                 split, array_union,array_remove,\
@@ -44,6 +44,7 @@ def execute(**kwargs):
     
     ########### == main function == #########
     
+    
     df_dosage_mapping_original = get_dosage_mapping_elements(input_dataframe=df_dosage_mapping_original,\
                                                              input_dosage="DOSAGE_STANDARD",\
                                                              input_master="MASTER_DOSAGE")
@@ -57,7 +58,7 @@ def execute(**kwargs):
                                                input_dataframe_negative=df_dosage_mapping_negative)
 
     
-#     wirte_files(df,path_output)
+    wirte_files(df_dosage_mapping_negative,path_output)
     
     ########### == main function == #########
     
@@ -71,8 +72,8 @@ def execute(**kwargs):
 #####  == 下载文件 == ########
 def loading_csv_files(spark, input_path):
 
-    df = spark.read.csv(input_path, header=True) 
-    print(df.printSchema())
+#     df = spark.read.csv(input_path, header=True) 
+    df = spark.read.parquet(input_path)
     
     return df
 
@@ -108,11 +109,15 @@ def get_dosage_mapping_elements(input_dataframe,input_dosage,input_master):
 
 
 def get_negative_dosage_mapping_elements(input_dataframe,input_dosage,input_standard_dosage,input_master,similarity):
+    input_dataframe = input_dataframe.withColumn("PACK_ID_CHECK",col("PACK_ID_CHECK").cast(DoubleType()))\
+                                    .withColumn("PACK_ID_STANDARD",col("PACK_ID_STANDARD").cast(DoubleType()))
      
     input_dataframe = input_dataframe.na.fill('',subset=[input_master])
     
     input_dataframe = input_dataframe.withColumn(input_master, split(col(input_master), pattern=' '))\
                                     .filter((col("EFFTIVENESS_DOSAGE") < float(similarity)) & (col("PACK_ID_CHECK")==col("PACK_ID_STANDARD")))
+#     input_dataframe = input_dataframe.withColumn(input_master, split(col(input_master), pattern=' '))\
+#                                     .filter(col("PACK_ID_CHECK")==col("PACK_ID_STANDARD"))
     
     input_dataframe=  input_dataframe.withColumn(input_dosage,array(col(input_dosage),col(input_standard_dosage)))\
                 .withColumn(input_dosage,array_distinct(array_union(col(input_dosage),col(input_master))))\
@@ -131,6 +136,5 @@ def get_available_dosage_mapping_elements(input_dataframe_oringal, input_datafra
     data_frame = get_dosage_mapping_elements(input_dataframe=data_frame\
                                              ,input_dosage="DOSAGE_STANDARD",\
                                              input_master="MASTER_DOSAGE")
-    data_frame.show(100)
     
     return data_frame
