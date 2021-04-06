@@ -21,7 +21,7 @@ spec:
       - key: time
         value: "2021-04-03"
       - key: company
-        value: "奥鸿"
+        value: "贝达"
       - key: version
         value: "0.0.1"
     outputs:

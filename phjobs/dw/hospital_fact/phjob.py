@@ -26,6 +26,7 @@ def execute(**kwargs):
     _time = str(kwargs["time"])
     _company = str(kwargs["company"])
     _input = str(kwargs["input_dim_path"]) + "TIME=" + _time + "/COMPANY=" + _company
+    _hospital_univers_input = str(kwargs["hospital_univers"])
     _output = str(kwargs["output_fact_path"])
     _version = str(kwargs["version"])
     
@@ -49,7 +50,7 @@ def execute(**kwargs):
     
     spark = kwargs["spark"]()
     dim = spark.read.parquet(_input)
-    hosp_mapping = spark.read.parquet("s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DIMENSION/MAPPING/MAX/HOSPITAL_UNIVERS/")
+    hosp_mapping = spark.read.parquet(_hospital_univers_input)
     fact_mapping = [
         {
             "CATEGORY": "EMPLOYEES",
