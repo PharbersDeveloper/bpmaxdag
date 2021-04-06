@@ -210,7 +210,67 @@ def execute(**kwargs):
             "CATEGORY": "REVENUE",
             "TAG": "MEDICINE_DISTRICT",
             "COLUMN": "COUNTY_HOSP_WST_DRUG_INCOME"
-        }
+        },
+        {
+            "CATEGORY": "IS",
+            "TAG": "MILITARY",
+            "COLUMN": "MILITARY"
+        },
+        {
+            "CATEGORY": "IS",
+            "TAG": "EPILEPSY",
+            "COLUMN": "SPECIALTY_ADMIN"
+        },
+        {
+            "CATEGORY": "IS",
+            "TAG": "DOCTOR_LIB",
+            "COLUMN": "DOCT_BANK"
+        },
+        {
+            "CATEGORY": "IS",
+            "TAG": "REPRODUCT",
+            "COLUMN": "REPRODUCT"
+        },
+        {
+            "CATEGORY": "IS",
+            "TAG": "BID_SAMPLE",
+            "COLUMN": "BID_SAMPLE"
+        },
+        {
+            "CATEGORY": "TYPE",
+            "TAG": "AREA_LEVEL",
+            "COLUMN": "AREA_LEVEL"
+        },
+        {
+            "CATEGORY": "TYPE",
+            "TAG": "LEVEL",
+            "COLUMN": "HOSP_LEVEL"
+        },
+        {
+            "CATEGORY": "TYPE",
+            "TAG": "NATURE",
+            "COLUMN": "HOSP_QUALITY"
+        },
+        {
+            "CATEGORY": "TYPE",
+            "TAG": "SPECIALTY_CATE",
+            "COLUMN": "SPECIALTY_CATE"
+        },
+        {
+            "CATEGORY": "TYPE",
+            "TAG": "SPECIALTY_ADMIN",
+            "COLUMN": "SPECIALTY_ADMIN"
+        },
+        {
+            "CATEGORY": "TYPE",
+            "TAG": "RE_SPECIALTY",
+            "COLUMN": "RE_SPECIALTY"
+        },
+        {
+            "CATEGORY": "TYPE",
+            "TAG": "SPECIALTY_DETAIL",
+            "COLUMN": "SPECIALTY_DETAIL"
+        },
     ]
     
     def fact_table(item):
@@ -229,7 +289,6 @@ def execute(**kwargs):
         
     
     fact_un_all = reduce(lambda x, y: x.union(y), list(map(fact_table, fact_mapping)))
-    
     fact_un_all \
         .write \
         .partitionBy("TIME", "COMPANY") \
