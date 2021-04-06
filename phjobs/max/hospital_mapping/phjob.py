@@ -17,9 +17,6 @@ def execute(**kwargs):
     g_project_name = kwargs['g_project_name']
     dag_name = kwargs['dag_name']
     run_id = kwargs['run_id']
-    g_out_dir = kwargs['g_out_dir']
-    max_path = kwargs['max_path']
-    if_others = kwargs['if_others']
     ### input args ###
     
     ### output args ###
@@ -31,10 +28,16 @@ def execute(**kwargs):
     from pyspark.sql import functions as func
     from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col
 
+    #测试用
+    g_project_name = '贝达'
+    g_out_dir = '202012'
+    
+    max_path = 's3a://ph-max-auto/v0.0.1-2020-06-08/'
+    if_others = 'False'
+
     logger.debug('job1_hospital_mapping')
     # 输入
     # 测试用
-    universe_path = max_path + "/" + g_project_name + "/universe_base"
     cpa_pha_mapping_path = max_path + "/" + g_project_name + "/cpa_pha_mapping"
     if if_others == "True":
         raw_data_path = max_path + "/" + g_project_name + "/" + g_out_dir + "/raw_data_box"
@@ -45,6 +48,7 @@ def execute(**kwargs):
     p_hospital_mapping_out = result_path_prefix + g_hospital_mapping_out
 
     # =========== 数据准备 测试用=============
+    '''
     df_universe = spark.read.parquet(universe_path)
     df_universe = df_universe.withColumnRenamed('Panel_ID', 'PHA') \
                         .withColumnRenamed('CITYGROUP', 'CITY_TIER') \
@@ -59,8 +63,7 @@ def execute(**kwargs):
                         .withColumn('BEDSIZE', col('BEDSIZE').cast(IntegerType())) \
                         .withColumn('SEG', col('SEG').cast(IntegerType())) \
                         .withColumn('CITY_TIER', col('CITY_TIER').cast(StringType()))
-    df_universe
-
+    '''
     def dealIDlength(df):
         # ID不足7位的补足0到6位
         # 国药诚信医院编码长度是7位数字，cpa医院编码是6位数字。
@@ -69,13 +72,15 @@ def execute(**kwargs):
         df = df.withColumn("ID", func.regexp_replace("ID", "\\.0", ""))
         df = df.withColumn("ID", func.when(func.length(df.ID) < 7, func.lpad(df.ID, 6, "0")).otherwise(df.ID))
         return df
-        
+    
+    # df_cpa_pha_mapping
     df_cpa_pha_mapping = spark.read.parquet(cpa_pha_mapping_path)
     df_cpa_pha_mapping = df_cpa_pha_mapping.withColumnRenamed('推荐版本', 'COMMEND')
     df_cpa_pha_mapping = df_cpa_pha_mapping.select('COMMEND', 'ID', 'PHA')
     df_cpa_pha_mapping = dealIDlength(df_cpa_pha_mapping)
     df_cpa_pha_mapping
-
+    
+    # df_raw_data
     df_raw_data = spark.read.parquet(raw_data_path)
     df_raw_data = df_raw_data.withColumnRenamed('Form', 'FORM') \
                         .withColumnRenamed('Specifications', 'SPECIFICATIONS') \
@@ -100,7 +105,49 @@ def execute(**kwargs):
                         .withColumn('UNITS', col('UNITS').cast(DoubleType())) \
                         .withColumn('UNITS_BOX', col('UNITS_BOX').cast(DoubleType()))
     df_raw_data = dealIDlength(df_raw_data)
-    df_raw_data
+
+    # =========== 数据读取 =============
+    # 1. df_universe
+    time = "2021-04-06"
+    company = g_project_name
+    base_path = "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data"
+    definite_path = "{base_path}/{model}/TIME={time}/COMPANY={company}"
+    dim_path = definite_path.format(
+        base_path = base_path,
+        model = "DIMENSION/HOSPITAL_DIMENSION",
+        time = time,
+        company = company
+    )
+    fact_path = definite_path.format(
+        base_path = base_path,
+        model = "FACT/HOSPITAL_FACT",
+        time = time,
+        company = company
+    )
+    
+    spark.read.parquet(dim_path).createOrReplaceTempView("hospital_dimesion")
+    spark.read.parquet(fact_path).createOrReplaceTempView("hospital_fact")
+    
+    base_universe_sql = """
+        SELECT PHA_ID AS PHA, HOSPITAL_ID, HOSP_NAME, 
+                PROVINCE, CITY, CITYGROUP AS CITY_TIER, 
+                REGION, TOTAL AS BEDSIZE, SEG, BID_SAMPLE AS PANEL FROM (
+            SELECT 
+                PHA_ID, HOSPITAL_ID, HOSP_NAME, 
+                PROVINCE, CITY, CITYGROUP, 
+                REGION, TAG, VALUE, SEG 
+            FROM hospital_dimesion AS hdim 
+                INNER JOIN hospital_fact AS hfct
+                ON hdim.ID == hfct.HOSPITAL_ID WHERE (CATEGORY = 'BEDCAPACITY' AND TAG = 'TOTAL') OR (CATEGORY = 'IS' AND TAG = 'BID_SAMPLE')
+        )
+        PIVOT (
+            SUM(VALUE)
+            FOR TAG in ('TOTAL', 'BID_SAMPLE')
+        )
+    """
+    
+    df_universe = spark.sql(base_universe_sql)
+    df_universe
 
     # =========== 数据执行 =============
     logger.debug('数据执行-start：hospital_mapping')
