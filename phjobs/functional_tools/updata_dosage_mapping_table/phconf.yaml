@@ -17,9 +17,9 @@ spec:
     config: phconf.yaml
     args:
       - key: path_dosage_mapping_original
-        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DOSAGE_MAPPING/CHC/V0.0.3
+        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DOSAGE_MAPPING/CHC/V0.0.4
       - key: path_dosage_mapping_negative
-        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/results/2021-04-01_02-15-18/Negative_Predictions
+        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/results/2021-04-03_05-33-52/Negative_Predictions
     outputs:
       - key: path_write_file
         value: None
