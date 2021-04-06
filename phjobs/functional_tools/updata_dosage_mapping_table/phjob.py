@@ -72,8 +72,7 @@ def execute(**kwargs):
 #####  == 下载文件 == ########
 def loading_csv_files(spark, input_path):
 
-#     df = spark.read.csv(input_path, header=True) 
-    df = spark.read.parquet(input_path)
+    df = spark.read.csv(input_path, header=True) 
     
     return df
 

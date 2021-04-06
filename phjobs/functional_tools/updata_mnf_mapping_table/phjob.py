@@ -4,6 +4,7 @@
 This is job template for Pharbers Max Job
 """
 
+from pyspark.sql.types import DoubleType
 from phcli.ph_logs.ph_logs import phs3logger, LOG_DEBUG_LEVEL
 from pyspark.sql.functions import array, array_join, col,\
                                 split, array_union,array_remove,\
@@ -46,14 +47,15 @@ def execute(**kwargs):
     
     ########### == main function == #########
      
+    
     df_mnf_mapping_original = get_mnf_mapping_elements(input_dataframe=df_mnf_mapping_original,\
                                                              input_mnf="MANUFACTURER_NAME_STANDARD",\
-                                                             input_master="MASTER_MANUFACTURER")
+                                                             input_master="MASTER_MANUFACTURE")
     
     df_mnf_mapping_prediction =  get_prediction_mnf_mapping_elements(input_dataframe=df_mnf_mapping_prediction\
                                      ,input_mnf="MANUFACTURER_NAME"\
                                      ,input_standard_mnf="MANUFACTURER_NAME_STANDARD"\
-                                     ,input_master="MASTER_MANUFACTURER",\
+                                     ,input_master="MASTER_MANUFACTURE",\
                                      similarity=0.9)
 
 
@@ -61,7 +63,7 @@ def execute(**kwargs):
                                                input_dataframe_prediction=df_mnf_mapping_prediction)
 
     
-#     wirte_files(df,path_output)
+    wirte_files(df,path_output)
    
     
     ########### == main function == #########
@@ -118,6 +120,8 @@ def get_mnf_mapping_elements(input_dataframe,input_mnf,input_master):
 
 def get_prediction_mnf_mapping_elements(input_dataframe,input_mnf,input_standard_mnf,input_master,similarity):
     
+    input_dataframe = input_dataframe.withColumn("PACK_ID_CHECK",col("PACK_ID_CHECK").cast(DoubleType()))\
+                                    .withColumn("PACK_ID_STANDARD",col("PACK_ID_STANDARD").cast(DoubleType()))
         
     input_dataframe = input_dataframe.filter((col("EFFTIVENESS_MANUFACTURER") < float(similarity)) &\
                                              (col("PACK_ID_CHECK")==col("PACK_ID_STANDARD")))
@@ -153,5 +157,5 @@ def get_available_mnf_mapping_elements(input_dataframe_oringal, input_dataframe_
         data_frame = input_dataframe_oringal.union(input_dataframe_prediction)
         data_frame = get_mnf_mapping_elements(input_dataframe=data_frame\
                                                  ,input_mnf="MANUFACTURER_NAME_STANDARD",\
-                                                 input_master="MASTER_MANUFACTURER")
+                                                 input_master="MASTER_MANUFACTURE")
     return data_frame
