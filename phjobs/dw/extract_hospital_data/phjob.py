@@ -88,7 +88,7 @@ def execute(**kwargs):
         new_columns = list(map(convert_upper_columns, old_columns))
         df = drop_other_columns(reduce(lambda reading, idx: reading.withColumnRenamed(old_columns[idx], new_columns[idx]), range(len(old_columns)), reading))
         df = check_hospital_name(df)
-        select_str = "PANEL_ID,HOSP_NAME,PROVINCE,CITY,REGION".split(",")
+        select_str = "PANEL_ID,HOSP_NAME,PROVINCE,CITY,REGION,SEG".split(",")
         select_str.extend(completion_column(df.schema.names))
         cond = reduce(lambda x,y:x if y in x else x + [y], [[], ] + select_str)
         df = df.selectExpr(*cond)
