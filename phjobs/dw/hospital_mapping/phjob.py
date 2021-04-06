@@ -49,6 +49,7 @@ def execute(**kwargs):
         .withColumn("ANNU_DIAG_TIME", when(col("ANNU_DIAG_TIME") == "#N/A", col("ORIGINAL_ANNU_DIAG_TIME")).when(col("ANNU_DIAG_TIME") == "0", col("ORIGINAL_ANNU_DIAG_TIME")).otherwise(col("ANNU_DIAG_TIME"))) \
         .withColumn("OUTP_DIAG_TIME", when(col("OUTP_DIAG_TIME") == "#N/A", col("ORIGINAL_OUTP_DIAG_TIME")).when(col("OUTP_DIAG_TIME") == "0", col("ORIGINAL_OUTP_DIAG_TIME")).otherwise(col("OUTP_DIAG_TIME"))) \
         .withColumn("REPRODUCT", when(col("REPRODUCT") == "#N/A", lit("NAN")).otherwise(col("REPRODUCT"))) \
+        .withColumn("BID_SAMPLE", when(col("BID_SAMPLE") == "1", col("BID_SAMPLE")).otherwise(lit("0"))) \
         .groupBy("PHA_ID") \
         .agg(
                 reverse(array_distinct(collect_list("MILITARY"))).alias("MILITARYS"),
