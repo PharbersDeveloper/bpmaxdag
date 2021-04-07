@@ -20,8 +20,6 @@ spec:
         value: Empty
       - key: g_model_month_right
         value: 0
-      - key: g_month
-        value: Empty
       - key: g_year
         value: Empty
       - key: depend_job_names_keys

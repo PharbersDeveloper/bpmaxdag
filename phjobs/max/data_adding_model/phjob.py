@@ -16,7 +16,6 @@ def execute(**kwargs):
     ### input args ###
     g_project_name = kwargs['g_project_name']
     g_model_month_right = kwargs['g_model_month_right']
-    g_month = kwargs['g_month']
     g_year = kwargs['g_year']
     depend_job_names_keys = kwargs['depend_job_names_keys']
     dag_name = kwargs['dag_name']
@@ -37,8 +36,7 @@ def execute(**kwargs):
 
     # 测试输入
     g_project_name = '贝达'
-    g_month = "12"
-    g_year = "2020"
+    g_year = "2019"
     g_model_month_right = '201912'
     
     max_path = 's3a://ph-max-auto/v0.0.1-2020-06-08/'
@@ -55,8 +53,7 @@ def execute(**kwargs):
     p_products_of_interest = max_path + "/" + g_project_name + "/poi.csv"
     p_cpa_pha_mapping = max_path + "/" + g_project_name + "/cpa_pha_mapping"
     
-    # 月更新相关参数
-    g_month = int(g_month)
+    # 跑模型年年份要小于等于g_model_month_right，只需要输入哪些年要补数
     g_year = int(g_year)
     
     # 输出
@@ -276,7 +273,7 @@ def execute(**kwargs):
     df_raw_data_adding = (df_raw_data.withColumn("ADD_FLAG", func.lit(0))) \
                     .union(df_adding_data.withColumn("ADD_FLAG", func.lit(1)).select(df_raw_data.columns + ["ADD_FLAG"]))
 
-    # 4. 进一步为最后一年独有的医院补最后一年的缺失月（可能也要考虑第一年）:
+    # 4. 进一步为最后一年独有的医院补最后一年的缺失月数据:
     years = df_original_range.select("YEAR").distinct() \
                         .orderBy(df_original_range.YEAR) \
                         .toPandas()["YEAR"].values.tolist()
@@ -298,7 +295,7 @@ def execute(**kwargs):
         number_of_existing_months = 12 - missing_months.count()
         # 用于groupBy的列名：df_raw_data_adding列名去除list中的列名
         group_columns = set(df_raw_data_adding.columns) \
-                .difference(set(['MONTH', 'SALES', 'UNITS', "YEAR_MONTH"]))
+                            .difference(set(['MONTH', 'SALES', 'UNITS', "YEAR_MONTH"]))
         # 补数重新计算
         df_adding_data_new = df_raw_data_adding \
                             .where(col('ADD_FLAG') == 1) \
@@ -312,6 +309,9 @@ def execute(**kwargs):
         same_names = list(set(df_raw_data_adding.columns).intersection(set(df_adding_data_new.columns)))
         df_raw_data_adding_final = df_raw_data_adding.select(same_names) \
             .union(df_adding_data_new.select(same_names))
+    
+    # 保留当前补数年的结果
+    df_raw_data_adding_final = df_raw_data_adding.where((col('YEAR') == g_year))
 
     # =========== 输出 =============
     df_new_hospital = df_new_hospital.repartition(2)
@@ -330,14 +330,10 @@ def execute(**kwargs):
     
     logger.debug('数据执行-Finish')
 
-    # df_raw_data_adding_final.agg(func.sum('SALES'),func.sum('UNITS')).show()
+    # df_raw_data_adding_final.groupby('add_flag').agg(func.sum('SALES'),func.sum('UNITS')).show()
 
-    '''
-    df = spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/Test/贝达/data_adding_model/raw_data_adding_final')
-    new_hospital = spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/Test/贝达/data_adding_model/new_hospital')
-    adding_data = spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/Test/贝达/data_adding_model/adding_data')
-    '''
+    # df=spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/201912_test/raw_data_adding_final/')
+    # df.where(col('Year')==2019).groupby('add_flag').agg(func.sum('Sales'), func.sum('Units')).show()
 
-    # df = spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/Test/贝达/data_adding_model/raw_data_adding_final')
-    # df.agg(func.sum('SALES'),func.sum('UNITS')).show()
+
 

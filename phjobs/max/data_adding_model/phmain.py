@@ -18,7 +18,6 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--job_id')
 @click.option('--g_project_name')
 @click.option('--g_model_month_right')
-@click.option('--g_month')
 @click.option('--g_year')
 @click.option('--depend_job_names_keys')
 @click.option('--dag_name')
