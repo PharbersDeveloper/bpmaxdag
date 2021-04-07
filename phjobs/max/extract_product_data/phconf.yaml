@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: extract_product_data
+  description: "pharbers job description"
+  labels:
+    name: extract_product_data
+    runtime: python3
+    command: submit
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    command: submit
+    timeout: 60.0
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: product_inputs
+        value: "abc"
+    outputs:
+      - key: clean_output
+        value: "abc"
+
+
+
