@@ -26,6 +26,7 @@ def execute(**kwargs):
     
     _substr_tag = "v0.0.1-2020-06-08"
     _inputs = str(kwargs["product_inputs"]).replace(" ", "").split(",")
+    _time = str(kwargs["time"])
     _output = str(kwargs["clean_output"])
     
     _column_mapping = {
@@ -62,6 +63,9 @@ def execute(**kwargs):
         "Pack_Id": "PACK_ID",
         "PackID": "PACK_ID",
         "packid": "PACK_ID",
+        "pfc": "PACK_ID",
+        "PFC": "PACK_ID",
+        "最终pfc": "PACK_ID",
     }
     
     
@@ -73,18 +77,22 @@ def execute(**kwargs):
     def get_df(path):
         company = get_company_for_url(path)
         original_product_df = spark.read.parquet(path)
+        cols = list(filter(lambda x: x != "", list(map(lambda x: x if x in _column_mapping.keys() else "", original_product_df.columns))))
+        print(cols)
+        # original_product_df = original_product_df.select([col(c).alias(_column_mapping[c]) for c in cols])
         # original_product_df.show()
         # original_product_df.printSchema()
-        return original_product_df.columns
+        return 1 #original_product_df
     
-    # list(map(get_df, _inputs))
+    list(map(get_df, _inputs))
     
     # tmp = reduce(lambda x, y: x + y, list(map(get_df, _inputs)))
     # print(list(set(tmp)))
     
-    df = spark.read.parquet("s3a://ph-max-auto/v0.0.1-2020-06-08/奥鸿/202012/prod_mapping")
-    cols = list(filter(lambda x: x != "", list(map(lambda x: x if x in _column_mapping.keys() else "", df.columns))))
-    print(cols)
+    # df = spark.read.parquet("s3a://ph-max-auto/v0.0.1-2020-06-08/奥鸿/202012/prod_mapping")
+    # cols = list(filter(lambda x: x != "", list(map(lambda x: x if x in _column_mapping.keys() else "", df.columns))))
+    # print(cols)
+    # df.select([col(c).alias(_column_mapping[c]) for c in cols]).show()
     # df = df.select("标准通用名")
     # df.select([col(c).alias(_column_mapping[c]) for c in df.columns]).show()
     
