@@ -17,7 +17,7 @@ spec:
     config: phconf.yaml
     args:
       - key: input_clean_path
-        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DIMENSION/TMP/HOSPITAL_DIMENSION/"
+        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/TMP/HOSPITAL_DIMENSION/"
       - key: time
         value: "2021-04-03"
       - key: company
@@ -26,7 +26,7 @@ spec:
         value: "0.0.1"
     outputs:
       - key: output_dim_path
-        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DIMENSION/HOSPITAL_DIMENSION/"
+        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/HOSPITAL_DIMENSION/"
 
 
 

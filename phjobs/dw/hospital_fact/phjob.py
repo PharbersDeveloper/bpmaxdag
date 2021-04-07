@@ -22,32 +22,31 @@ def execute(**kwargs):
     logger.info("当前 owner 为 " + str(kwargs["owner"]))
     logger.info("当前 run_id 为 " + str(kwargs["run_id"]))
     logger.info("当前 job_id 为 " + str(kwargs["job_id"]))
-    
+
     _time = str(kwargs["time"])
     _company = str(kwargs["company"])
     _input = str(kwargs["input_dim_path"]) + "TIME=" + _time + "/COMPANY=" + _company
     _hospital_univers_input = str(kwargs["hospital_univers"])
     _output = str(kwargs["output_fact_path"])
     _version = str(kwargs["version"])
-    
+
     def general_id():
         charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' + \
-                    'abcdefghijklmnopqrstuvwxyz' + \
-                    '0123456789-_'
-        
+                  'abcdefghijklmnopqrstuvwxyz' + \
+                  '0123456789-_'
+
         charsetLength = len(charset)
-        
+
         keyLength = 3 * 5
-        
+
         result = ["H"]
         for _ in range(keyLength):
             result.append(charset[random.randint(0, charsetLength - 1)])
-        
+
         return "".join(result)
-    
-    
+
     gid = udf(general_id, StringType())
-    
+
     spark = kwargs["spark"]()
     dim = spark.read.parquet(_input)
     hosp_mapping = spark.read.parquet(_hospital_univers_input)
@@ -273,7 +272,7 @@ def execute(**kwargs):
             "COLUMN": "SPECIALTY_DETAIL"
         },
     ]
-    
+
     def fact_table(item):
         fact = dim.selectExpr("ID as HOSPITAL_ID", "PANEL_ID") \
             .join(hosp_mapping, [col("PANEL_ID") == col("PHA_ID")], "left_outer") \
@@ -287,8 +286,7 @@ def execute(**kwargs):
             .withColumn("VERSION", lit(_version)) \
             .drop(item["COLUMN"])
         return fact
-        
-    
+
     fact_un_all = reduce(lambda x, y: x.union(y), list(map(fact_table, fact_mapping)))
     fact_un_all \
         .write \
