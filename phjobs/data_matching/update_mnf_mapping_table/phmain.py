@@ -21,7 +21,7 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 def debug_execute(**kwargs):
     try:
         args = {"name": "update_mnf_mapping_table"}
-        outputs = ["outpu_mnf_mapping_table"]
+        outputs = ["output_mnf_mapping_table"]
 
         args.update(kwargs)
         result = exec_before(**args)

@@ -23,7 +23,7 @@ spec:
      - key: depend_job_names_keys
        value: 
          - mapping_dosage#original_dosage_mapping_table#input_original_dosage_table
-         - model_prediction#negative_result#input_negative_table
+         - cleaning_data_model_predictions#negative_result#input_negative_table
     outputs:
       - key: output_dosage_mapping_table 
         value: output_dosage_mapping_table   

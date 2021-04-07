@@ -40,6 +40,7 @@ def execute(**kwargs):
     run_id = get_run_id(kwargs)
     result_path_prefix = get_result_path(kwargs, run_id, job_id)
     result_path = result_path_prefix + kwargs["mapping_dosage_result"]
+    original_dosage_mapping_path = result_path_prefix + kwargs["original_dosage_mapping_table"]
 ###################=======output==========#################
 
 ###################=======loading files==========#################

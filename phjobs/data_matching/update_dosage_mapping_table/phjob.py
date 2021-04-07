@@ -3,6 +3,7 @@
 
 This is job template for Pharbers Max Job
 """
+import os , re
 import uuid
 from pyspark.sql.types import DoubleType
 from phcli.ph_logs.ph_logs import phs3logger, LOG_DEBUG_LEVEL
@@ -45,7 +46,7 @@ def execute(**kwargs):
     
     df_dosage_mapping_original = loading_parquet_files(spark, path_original_dosage_mapping_table)
     
-    df_negative = loading_csv_files(spark, path_negative_table)
+    df_negative = loading_parquet_files(spark, path_negative_table)
     
     ######### == loading files == #############
     
@@ -111,6 +112,14 @@ def get_depends_path(kwargs):
         depends_name = tmp_lst[2]
         result[depends_name] = get_depends_file_path(kwargs, depends_job, depends_key)
     return result
+
+def get_path_negative_table(kwargs):
+    
+    path_prefix = re.sub('(runs)','results',kwargs["path_prefix"])
+    path_negative_table = os.path.join(path_prefix,kwargs["run_id"],"negative_result")
+    
+    return path_negative_table
+
 # ##################  中间文件与结果文件路径  ######################
 
 
