@@ -76,9 +76,9 @@ def execute(**kwargs):
     # df_cpa_pha_mapping
     df_cpa_pha_mapping = spark.read.parquet(cpa_pha_mapping_path)
     df_cpa_pha_mapping = df_cpa_pha_mapping.withColumnRenamed('推荐版本', 'COMMEND')
-    df_cpa_pha_mapping = df_cpa_pha_mapping.select('COMMEND', 'ID', 'PHA')
+    df_cpa_pha_mapping = df_cpa_pha_mapping.select('COMMEND', 'ID', 'PHA').where(col("COMMEND") == 1)
     df_cpa_pha_mapping = dealIDlength(df_cpa_pha_mapping)
-    df_cpa_pha_mapping
+    
     
     # df_raw_data
     df_raw_data = spark.read.parquet(raw_data_path)
@@ -107,10 +107,9 @@ def execute(**kwargs):
     df_raw_data = dealIDlength(df_raw_data)
 
     # =========== 数据读取 =============
-    # 1. df_universe
     time = "2021-04-06"
     company = g_project_name
-    base_path = "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data"
+    base_path = "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX"
     definite_path = "{base_path}/{model}/TIME={time}/COMPANY={company}"
     dim_path = definite_path.format(
         base_path = base_path,
@@ -124,9 +123,16 @@ def execute(**kwargs):
         time = time,
         company = company
     )
+    cpa_gyc_mapping_path = definite_path.format(
+        base_path = base_path,
+        model = "/DIMENSION/MAPPING/MAX/CPA_GYC_MAPPING/STANDARD",
+        time = time,
+        company = company
+    )
     
     spark.read.parquet(dim_path).createOrReplaceTempView("hospital_dimesion")
     spark.read.parquet(fact_path).createOrReplaceTempView("hospital_fact")
+    spark.read.parquet(cpa_gyc_mapping_path).createOrReplaceTempView("cpa_gyc_mapping")
     
     base_universe_sql = """
         SELECT PHA_ID AS PHA, HOSPITAL_ID, HOSP_NAME, 
@@ -146,8 +152,15 @@ def execute(**kwargs):
         )
     """
     
+    mapping_sql = """
+            SELECT cgmap.VALUE AS ID, hdim.PANEL_ID AS PHA
+            FROM cpa_gyc_mapping AS cgmap 
+                INNER JOIN hospital_dimesion AS hdim 
+                ON hdim.ID == cgmap.HOSPITAL_ID
+        """
     df_universe = spark.sql(base_universe_sql)
-    df_universe
+    
+    # df_cpa_pha_mapping = spark.sql(mapping_sql)
 
     # =========== 数据执行 =============
     logger.debug('数据执行-start：hospital_mapping')
@@ -155,7 +168,7 @@ def execute(**kwargs):
     df_universe = df_universe.select('PHA', 'CITY', 'PROVINCE', 'CITY_TIER').distinct()
         
     # df_cpa_pha_mapping
-    df_cpa_pha_mapping = df_cpa_pha_mapping.where(col('COMMEND') == 1).select("ID", "PHA").distinct()
+    df_cpa_pha_mapping = df_cpa_pha_mapping.select("ID", "PHA").distinct()
                                     
     # df_raw_data 信息匹配与处理
     df_raw_data = df_raw_data.join(df_cpa_pha_mapping, on='ID', how='left') \
@@ -173,4 +186,16 @@ def execute(**kwargs):
     
     logger.debug("输出 hospital_mapping 结果：" + p_hospital_mapping_out)
     logger.debug('数据执行-Finish')
+
+    # df = spark.read.parquet(cpa_pha_mapping_path)
+    # df = df.withColumnRenamed('推荐版本', 'COMMEND')
+    # df = df.select('COMMEND', 'ID', 'PHA').where(col("COMMEND") == 1)
+    # df = dealIDlength(df)
+    # tmp=df.join(df_cpa_pha_mapping.withColumnRenamed('PHA','PHA_new'), on='ID', how='left')
+    # tmp.where(col('PHA') != col('PHA_new')).show()
+
+
+    # tmp.where(col('PHA_new').isNull()).show(100)
+
+
 
