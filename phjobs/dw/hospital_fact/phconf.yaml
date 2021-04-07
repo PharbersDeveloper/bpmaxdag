@@ -19,7 +19,7 @@ spec:
       - key: input_dim_path
         value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/HOSPITAL_DIMENSION/"
       - key: hospital_univers
-        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/MAPPING/MAX/HOSPITAL_UNIVERSE/"
+        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/MAPPING/HOSPITAL_UNIVERSE/"
       - key: time
         value: "2021-04-03"
       - key: company

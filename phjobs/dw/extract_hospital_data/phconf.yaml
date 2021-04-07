@@ -19,7 +19,7 @@ spec:
       - key: base_path
         value: "s3a://ph-max-auto/v0.0.1-2020-06-08/${company}/universe_base/"
       - key: hosp_name_mapping
-        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/MAPPING/MAX/UNIVERSE/"
+        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/MAPPING/UNIVERSE/"
       - key: companies 
         # value: "奥鸿,贝达,海坤,汇宇,京新,康哲,灵北,神州,Astellas,AZ,AZ2,Bayer,Beite,Chugai,Eisai,Gilead,Janssen,Merck,Mylan,NHWA,Novartis,Pfizer,Qilu,Sankyo,Sanofi,Servier,Takeda,Takeda2,Tide,XLT"
         value: "奥鸿,贝达"
@@ -30,7 +30,7 @@ spec:
       
     outputs:
       - key: clean_output
-        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/TMP/HOSPITAL_DIMENSION/"
+        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/TMP/HOSPITAL_DIMENSION/"
 
 
 

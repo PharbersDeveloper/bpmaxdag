@@ -17,7 +17,7 @@ spec:
     config: phconf.yaml
     args:
       - key: original_mapping_path
-        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/MAPPING/MAX/CPA_GYC_MAPPING/ORIGINAL/"
+        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/MAPPING/CPA_GYC_MAPPING/ORIGINAL/"
       - key: input_mapping_path
         value: "s3a://ph-max-auto/v0.0.1-2020-06-08/${company}/cpa_pha_mapping/"
       - key: input_dim_path
