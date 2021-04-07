@@ -30,6 +30,8 @@ spec:
     outputs:
       - key: mapping_mnf_result
         value: mapping_mnf_result
+      - key: original_mnf_mapping_table
+        value: original_mnf_mapping_table
 
 
 

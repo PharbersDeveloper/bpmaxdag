@@ -40,6 +40,7 @@ def execute(**kwargs):
     run_id = get_run_id(kwargs)
     result_path_prefix = get_result_path(kwargs, run_id, job_id)
     result_path = result_path_prefix + kwargs["mapping_mnf_result"]
+    original_mnf_mapping_path = result_path_prefix + kwargs["original_mnf_mapping_table"]
 ###################=======output==========#################
 
 ###################=======loading files==========#################
@@ -56,7 +57,10 @@ def execute(**kwargs):
 # # ####################=======main functions==========#################
 
 # ####################### == RESULT == #####################
-
+    #写入原mapping表
+    df_mapping_mnf.write.mode("overwrite").parquet(original_mnf_mapping_path)
+    
+    #写入结果
     df_mnf.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
     
 ####################### == RESULT == #####################

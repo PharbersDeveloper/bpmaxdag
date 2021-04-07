@@ -16,26 +16,27 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--job_id')
 @click.option('--job_name')
 @click.option('--path_prefix')
-@click.option('--path_master_prod')
-@click.option('--standard_result')
-@click.option('--standard_origin')
+@click.option('--depend_job_names_keys')
+@click.option('--output_mnf_mapping_table')
 def debug_execute(**kwargs):
     try:
-        args = {'name': 'standard_data_normalization'}
+        args = {"name": "update_standard_table"}
+        outputs = ["outpu_mnf_mapping_table"]
 
         args.update(kwargs)
         result = exec_before(**args)
 
-        args.update(result)
+        args.update(result if isinstance(result, dict) else {})
         result = execute(**args)
 
-        args.update(result)
-        result = exec_after(outputs=[], **args)
+        args.update(result if isinstance(result, dict) else {})
+        result = exec_after(outputs=outputs, **args)
 
         return result
     except Exception as e:
         logger = phs3logger(kwargs["job_id"])
         logger.error(traceback.format_exc())
+        print(traceback.format_exc())
         raise e
 
 

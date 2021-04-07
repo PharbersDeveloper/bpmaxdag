@@ -20,6 +20,7 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--g_repartition_shared')
 @click.option('--mnf_mapping_path')
 @click.option('--mapping_mnf_result')
+@click.option('--original_mnf_mapping_table')
 def debug_execute(**kwargs):
     try:
         args = {"name": "mapping_mnf"}
