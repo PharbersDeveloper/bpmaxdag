@@ -17,11 +17,11 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--job_name')
 @click.option('--path_prefix')
 @click.option('--depend_job_names_keys')
-@click.option('--output_mnf_mapping_table')
+@click.option('--output_dosage_mapping_table')
 def debug_execute(**kwargs):
     try:
-        args = {"name": "update_mnf_mapping_table"}
-        outputs = ["outpu_mnf_mapping_table"]
+        args = {"name": "update_dosage_mapping_table"}
+        outputs = ["output_dosage_mapping_table"]
 
         args.update(kwargs)
         result = exec_before(**args)

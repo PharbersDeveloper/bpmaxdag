@@ -58,7 +58,8 @@ def execute(**kwargs):
 # ####################=======main functions==========#################
 
 # ####################### == RESULT == #####################
-
+    #写入原mapping表
+    df_mapping_dosage.write.mode("overwrite").parquet(original_dosage_mapping_path)
     df_dosage.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
     
 ####################### == RESULT == #####################

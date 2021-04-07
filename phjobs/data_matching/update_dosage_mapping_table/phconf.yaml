@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: update_dosage_mapping_table
+  description: "pharbers job description"
+  labels:
+    name: update_mnf_mapping_table
+    runtime: python3
+    command: submit
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    command: submit
+    timeout: 10.0
+    code: phmain.py
+    config: phconf.yaml
+    args:
+     - key: job_name
+       value: update_dosage_mapping_table
+     - key: path_prefix
+       value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs
+     - key: depend_job_names_keys
+       value: 
+         - mapping_dosage#original_dosage_mapping_table#input_original_dosage_table
+         - model_prediction#negative_result#input_negative_table
+    outputs:
+      - key: output_dosage_mapping_table 
+        value: output_dosage_mapping_table   
+
+
+
