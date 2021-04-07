@@ -39,7 +39,7 @@ def execute(**kwargs):
     logger.debug('job2_product_mapping')
     # 注意：
     # Mylan不做Brand判断，写死了
-    # Mylan不重新生成g_minimum_product_newname: min1
+    # Mylan不重新生成g_minimum_product_newname: MIN
     
     # 输入
     p_hospital_mapping_out = depends_path['hospital_mapping_out']
@@ -58,8 +58,8 @@ def execute(**kwargs):
     # =========== 数据准备 测试用=============
     df_product_map = spark.read.parquet(product_map_path)
     
-    df_product_map = df_product_map.withColumnRenamed('min1', 'MIN1') \
-                        .withColumnRenamed('min2', 'MIN2') \
+    df_product_map = df_product_map.withColumnRenamed('min1', 'MIN') \
+                        .withColumnRenamed('min2', 'MIN_STD') \
                         .withColumnRenamed('标准通用名', 'MOLECULE_STD') \
                         .withColumnRenamed('标准商品名', 'BRAND_STD') \
                         .withColumnRenamed('标准剂型', 'FORM_STD') \
@@ -83,31 +83,31 @@ def execute(**kwargs):
         
     df_raw_data = df_raw_data.withColumn('PACK_NUMBER', col('PACK_NUMBER').cast(StringType()))
     
-    # min1 生成
+    # MIN 生成
     df_raw_data = df_raw_data.withColumn('tmp', func.concat_ws(g_minimum_product_sep, 
                                         *[func.when(col(i).isNull(), func.lit("NA")).otherwise(col(i)) for i in g_minimum_product_columns]))
        
-    # Mylan不重新生成 min1，其他项目生成min1（遗留问题，测试后可与其他项目一样）
+    # Mylan不重新生成 MIN，其他项目生成MIN（遗留问题，测试后可与其他项目一样）
     if g_project_name == "Mylan":
         df_raw_data = df_raw_data.drop("tmp")
     else:
         df_raw_data = df_raw_data.withColumnRenamed("tmp", g_minimum_product_newname)
         
     # df_product_map
-    df_product_map_for_needclean = df_product_map.select("MIN1").distinct()
-    df_product_map_for_rawdata = df_product_map.select("MIN1", "MIN2", "MOLECULE_STD", "ROUTE_STD", "BRAND_STD").distinct()
+    df_product_map_for_needclean = df_product_map.select("MIN").distinct()
+    df_product_map_for_rawdata = df_product_map.select("MIN", "MIN_STD", "MOLECULE_STD", "ROUTE_STD", "BRAND_STD").distinct()
     
     
     # df_raw_data 待清洗数据
-    df_need_cleaning = df_raw_data.join(df_product_map_for_needclean, on="MIN1", how="left_anti") \
+    df_need_cleaning = df_raw_data.join(df_product_map_for_needclean, on="MIN", how="left_anti") \
                         .select(g_need_cleaning_cols) \
                         .distinct()
     logger.debug('待清洗行数: ' + str(df_need_cleaning.count()))
     
     # df_raw_data 信息匹配
-    df_raw_data = df_raw_data.join(df_product_map_for_rawdata, on="MIN1", how="left")
+    df_raw_data = df_raw_data.join(df_product_map_for_rawdata, on="MIN", how="left")
 
-    # 输出
+    # =========== 输出 =============
     df_need_cleaning = df_need_cleaning.repartition(2)
     df_need_cleaning.write.format("parquet") \
         .mode("overwrite").save(p_need_cleaning)
@@ -120,4 +120,6 @@ def execute(**kwargs):
     logger.debug("输出 product_mapping 结果：" + p_product_mapping_out)
     
     logger.debug('数据执行-Finish')
+
+
 

@@ -19,7 +19,6 @@ def execute(**kwargs):
     depend_job_names_keys = kwargs['depend_job_names_keys']
     dag_name = kwargs['dag_name']
     run_id = kwargs['run_id']
-    max_path = kwargs['max_path']
     ### input args ###
     
     ### output args ###
@@ -32,6 +31,11 @@ def execute(**kwargs):
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
     from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col
+
+    #测试用
+    max_path = 's3a://ph-max-auto/v0.0.1-2020-06-08/'
+    g_project_name = '贝达'
+    g_out_dir = '202012'
 
     logger.debug('数据执行-start:价格计算')
     # 测试输入
@@ -59,24 +63,24 @@ def execute(**kwargs):
 
     # 1 价格计算：补数部分的数量需要用价格得出
     # 1.1 CITY_TIER 层面的价格
-    df_price = df_raw_data.groupBy("MIN2", "YEAR_MONTH", "CITY_TIER") \
+    df_price = df_raw_data.groupBy("MIN_STD", "YEAR_MONTH", "CITY_TIER") \
                             .agg((func.sum("SALES") / func.sum("UNITS")).alias("PRICE"))
     
-    df_price2 = df_raw_data.groupBy("MIN2", "YEAR_MONTH") \
+    df_price2 = df_raw_data.groupBy("MIN_STD", "YEAR_MONTH") \
                             .agg((func.sum("SALES") / func.sum("UNITS")).alias("PRICE2"))
     
-    df_price = df_price.join(df_price2, on=["MIN2", "YEAR_MONTH"], how="left")
+    df_price = df_price.join(df_price2, on=["MIN_STD", "YEAR_MONTH"], how="left")
     
     df_price = df_price.withColumn("PRICE", func.when(func.isnull(col('PRICE')), col('PRICE2')).otherwise(col('PRICE')))
     df_price = df_price.withColumn("PRICE", func.when(func.isnull(col('PRICE')), func.lit(0)).otherwise(col('PRICE'))) \
                         .drop("PRICE2")
     
     # 1.2 城市层面 的价格
-    df_price_city = df_raw_data.groupBy("MIN2", "YEAR_MONTH", 'CITY', 'PROVINCE') \
+    df_price_city = df_raw_data.groupBy("MIN_STD", "YEAR_MONTH", 'CITY', 'PROVINCE') \
                                 .agg((func.sum("SALES") / func.sum("UNITS")).alias("PRICE"))
     df_price_city = df_price_city.where(~col('PRICE').isNull())
     
-    # 输出
+    # =========== 输出 =============
     df_price = df_price.repartition(2)
     df_price.write.format("parquet") \
         .mode("overwrite").save(p_price)
@@ -88,15 +92,15 @@ def execute(**kwargs):
     logger.debug("输出 price：" + p_price)
     logger.debug("输出 price_city：" + p_price_city)
 
-    #df_price.agg(func.sum('PRICE')).show()
+    # df_price.agg(func.sum('PRICE')).show()
 
-    #df_price_city.agg(func.sum('PRICE')).show()
+    # df_price_city.agg(func.sum('PRICE')).show()
 
-    #df=spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012/price/')
-    #df.agg(func.sum('Price')).show()
+    # df=spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012_test/price/')
+    # df.agg(func.sum('Price')).show()
 
-    #df=spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012/price_city/')
-    #df.agg(func.sum('Price')).show()
+    # df=spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012_test/price_city/')
+    # df.agg(func.sum('Price')).show()
 
 
 

@@ -23,9 +23,9 @@ spec:
       - key: g_minimum_product_sep
         value: |
       - key: g_minimum_product_newname
-        value: MIN1
+        value: MIN
       - key: g_need_cleaning_cols
-        value: MOLECULE, BRAND, FORM, SPECIFICATIONS, PACK_NUMBER, MANUFACTURER, MIN1, ROUTE, CORP
+        value: MOLECULE, BRAND, FORM, SPECIFICATIONS, PACK_NUMBER, MANUFACTURER, MIN, ROUTE, CORP
       - key: depend_job_names_keys
         value: ["hospital_mapping#hospital_mapping_out#hospital_mapping_out"]
       - key: dag_name

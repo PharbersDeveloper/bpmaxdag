@@ -35,7 +35,7 @@ def execute(**kwargs):
     from pyspark.sql import functions as func
     from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col
 
-    #测试用
+    # 测试输入
     g_project_name = '贝达'
     g_month = "12"
     g_year = "2020"
@@ -43,8 +43,7 @@ def execute(**kwargs):
     
     max_path = 's3a://ph-max-auto/v0.0.1-2020-06-08/'
 
-    logger.debug('job3_data_adding')
-    
+    logger.debug('数据执行-start：补数-模型')
     # 输入
     g_model_month_right = int(g_model_month_right)
     p_product_mapping = depends_path['product_mapping_out']
@@ -82,7 +81,7 @@ def execute(**kwargs):
     # cpa_pha_mapping 文件
     df_cpa_pha_mapping = spark.read.parquet(p_cpa_pha_mapping)
     df_cpa_pha_mapping = df_cpa_pha_mapping.withColumnRenamed('推荐版本', 'COMMEND')
-    df_cpa_pha_mapping = df_cpa_pha_mapping.select('COMMEND', 'ID', 'PHA')
+    df_cpa_pha_mapping = df_cpa_pha_mapping.select('COMMEND', 'ID', 'PHA').where(col("COMMEND") == 1)
     df_cpa_pha_mapping = dealIDlength(df_cpa_pha_mapping)
 
     # =========== 数据准备 =============
@@ -113,8 +112,8 @@ def execute(**kwargs):
         else:
             published_full = published_full.join(published, on='ID', how='full')
     
-    published_all = unpivot(published_full, ['ID'])
-    published_all = published_all.where(col('value')==1).withColumnRenamed('feature', 'Date') \
+    df_published_all = unpivot(published_full, ['ID'])
+    df_published_all = df_published_all.where(col('value')==1).withColumnRenamed('feature', 'Date') \
                                 .drop('value')
     
     
@@ -124,14 +123,13 @@ def execute(**kwargs):
                                         .withColumnRenamed('YEAR_MONTH', 'DATE')
     
     # 模型前之前的未到名单（跑模型年的时候，不去除未到名单） 
-    df_original_range_raw = published_all
+    df_original_range_raw = df_published_all
     
     # 与 非CPA医院 合并
     df_original_range_raw = df_original_range_raw.union(df_original_range_raw_noncpa.select(df_original_range_raw.columns))
         
     # 匹配 PHA
-    df_cpa_pha_mapping = df_cpa_pha_mapping.where(col("COMMEND") == 1) \
-                                        .select("ID", "PHA").distinct()
+    df_cpa_pha_mapping = df_cpa_pha_mapping.select("ID", "PHA").distinct()
     
     df_original_range_raw = df_original_range_raw.join(df_cpa_pha_mapping, on='ID', how='left')
     df_original_range_raw = df_original_range_raw.where(~col('PHA').isNull()) \
@@ -141,7 +139,7 @@ def execute(**kwargs):
 
     # =========== 数据执行 =============
     logger.debug('数据执行-start')
-    # 数据读取
+    # 1.数据准备
     df_raw_data = spark.read.parquet(p_product_mapping)
     
     g_products_of_interest = df_products_of_interest.toPandas()["POI"].values.tolist()
@@ -163,9 +161,9 @@ def execute(**kwargs):
     # model df_raw_data 处理
     df_raw_data = df_raw_data.where(col('YEAR') < ((g_model_month_right // 100) + 1))
 
-    # 4 补数
-    def add_data(df_raw_data, df_growth_rate):
-        # 4.1 原始数据格式整理， 用于补数
+    # 补数函数
+    def addDate(df_raw_data, df_growth_rate):
+        # 1. 原始数据格式整理， 用于补数
         df_growth_rate = df_growth_rate.select(["CITYGROUP", "MOLECULE_STD_FOR_GR"] + 
                                                [name for name in df_growth_rate.columns if name.startswith("GR")]).distinct()
         
@@ -175,8 +173,7 @@ def execute(**kwargs):
                                         .join(df_growth_rate, on=["MOLECULE_STD_FOR_GR", "CITYGROUP"], how="left")
         df_raw_data_for_add.persist()
     
-        # 4.2 补充各个医院缺失的月份数据:
-        # add_data
+        # 2. 获取所有发表医院
         # 原始数据的 PHA-Month-YEAR
         # original_range = df_raw_data_for_add.select("YEAR", "Month", "PHA").distinct()
     
@@ -188,18 +185,17 @@ def execute(**kwargs):
     
         growth_rate_index = [i for i, name in enumerate(df_raw_data_for_add.columns) if name.startswith("GR")]
     
-        # 对每年的缺失数据分别进行补数(当前年)
-        # cal_time_range
-        # 当前年：月份-PHA
+        # 3.对每年的缺失数据分别进行补数
+        # 当前年：每月publish的PHA
         df_current_range_pha_month = df_original_range.where(col('YEAR') == g_year) \
                                                     .select("MONTH", "PHA").distinct()
-        # 当前年：月份
+        # 当前年：publish的月份
         df_current_range_month = df_current_range_pha_month.select("MONTH").distinct()
-        # 其他年：月份-当前年有的月份，PHA-当前年没有的医院
+        # 其他年：月份-当前年publish的月份，PHA-当前年没有publish的医院（这些医院需要补数）
         df_other_years_range = df_original_range.where(col('YEAR') != g_year) \
                                             .join(df_current_range_month, on="MONTH", how="inner") \
                                             .join(df_current_range_pha_month, on=["MONTH", "PHA"], how="left_anti")
-        # 其他年：与当前年的年份差值，比重计算
+        # 其他年与当前年的年份差值，比重计算（临近上一年比重为0.5，临近后一年比重为1）
         df_other_years_range = df_other_years_range \
             .withColumn("TIME_DIFF", (col('YEAR') - g_year)) \
             .withColumn("WEIGHT", func.when((col('YEAR') > g_year), (col('YEAR') - g_year - 0.5)).
@@ -209,7 +205,6 @@ def execute(**kwargs):
         df_current_range_for_add = df_current_range_for_add.groupBy("PHA", "MONTH") \
                                                     .agg(func.first(col('YEAR')).alias("YEAR"))
     
-        # get_seed_data
         # 从 rawdata 根据 df_current_range_for_add 获取用于补数的数据
         df_current_raw_data_for_add = df_raw_data_for_add.where(col('YEAR') != g_year) \
                                                 .join(df_current_range_for_add, on=["MONTH", "PHA", "YEAR"], how="inner")
@@ -218,7 +213,6 @@ def execute(**kwargs):
                                             .withColumn("WEIGHT", func.when((col('YEAR') > g_year), (col('YEAR') - g_year - 0.5)).
                                                         otherwise(col('YEAR') * (-1) + g_year))
     
-        # cal_seed_with_gr
         # 当前年与(当前年+1)的增长率所在列的index
         base_index = g_year - min(years) + min(growth_rate_index)
         df_current_raw_data_for_add = df_current_raw_data_for_add.withColumn("SALES_BK", col('SALES'))
@@ -230,7 +224,8 @@ def execute(**kwargs):
             .withColumn("MAX_INDEX", func.when((col('YEAR') < g_year), (base_index - 1)).
                         otherwise(col('TIME_DIFF') + base_index - 1)) \
             .withColumn("TOTAL_GR", func.lit(1))
-    
+        
+        # 多年有数的会对增长率进行累计计算
         for i in growth_rate_index:
             col_name = df_current_raw_data_for_add.columns[i]
             df_current_raw_data_for_add = df_current_raw_data_for_add.withColumn(col_name, func.when((col('MIN_INDEX') > i) | (col('MAX_INDEX') < i), 1).
@@ -250,8 +245,8 @@ def execute(**kwargs):
         df_current_adding_data = df_current_adding_data.withColumn("YEAR_MONTH", col("YEAR_MONTH").cast(DoubleType()))
     
         df_current_adding_data = df_current_adding_data.withColumnRenamed("CITYGROUP", "CITY_TIER") \
-                                    .join(df_price, on=["MIN2", "YEAR_MONTH", "CITY_TIER"], how="inner") \
-                                    .join(df_price_city, on=["MIN2", "YEAR_MONTH", "CITY", "PROVINCE"], how="left")
+                                    .join(df_price, on=["MIN_STD", "YEAR_MONTH", "CITY_TIER"], how="inner") \
+                                    .join(df_price_city, on=["MIN_STD", "YEAR_MONTH", "CITY", "PROVINCE"], how="left")
     
         df_current_adding_data = df_current_adding_data.withColumn('PRICE', func.when(col('PRICE_CITY').isNull(), 
                                                                                 col('PRICE_TIER')) \
@@ -263,29 +258,25 @@ def execute(**kwargs):
     
         return df_current_adding_data, df_original_range
 
-    logger.debug('4 补数')
-    # 执行函数 add_data, model补数不按月份
-    # 补数：add_data
-    add_data_out = add_data(df_raw_data, df_growth_rate)
+    logger.debug('补数')
+    # 2. 执行函数 addDate, model补数不按月份
+    add_data_out = addDate(df_raw_data, df_growth_rate)
     
     df_adding_data = add_data_out[0]
     df_original_range = add_data_out[1]
     
+    # 输出
     df_adding_data = df_adding_data.repartition(1)
     df_adding_data.write.format("parquet") \
         .mode("overwrite").save(p_adding_data)
     
     df_adding_data = spark.read.parquet(p_adding_data)
 
-    df_growth_rate.agg(func.sum('YEAR_2017'),func.sum('YEAR_2018'),func.sum('YEAR_2019'),
-                             func.sum('GR1718'),func.sum('GR1819')).show()
-
-    # 1.8 合并补数部分和原始部分:
-    # combind_data
+    # 3. 合并补数部分和原始部分:
     df_raw_data_adding = (df_raw_data.withColumn("ADD_FLAG", func.lit(0))) \
                     .union(df_adding_data.withColumn("ADD_FLAG", func.lit(1)).select(df_raw_data.columns + ["ADD_FLAG"]))
 
-    # 1.9 进一步为最后一年独有的医院补最后一年的缺失月（可能也要考虑第一年）:
+    # 4. 进一步为最后一年独有的医院补最后一年的缺失月（可能也要考虑第一年）:
     years = df_original_range.select("YEAR").distinct() \
                         .orderBy(df_original_range.YEAR) \
                         .toPandas()["YEAR"].values.tolist()
@@ -294,12 +285,6 @@ def execute(**kwargs):
     df_new_hospital = (df_original_range.where(col('YEAR') == max(years)).select("PHA").distinct()) \
                         .subtract(df_original_range.where(col('YEAR') != max(years)).select("PHA").distinct())
     logger.debug("以下是最新一年出现的医院:" + str(df_new_hospital.toPandas()["PHA"].tolist()))
-    # 输出
-    df_new_hospital = df_new_hospital.repartition(2)
-    df_new_hospital.write.format("parquet") \
-        .mode("overwrite").save(p_new_hospital)
-    
-    logger.debug("输出 new_hospital：" + p_new_hospital)
     
     # 最新一年没有的月份
     missing_months = (df_original_range.where(col('YEAR') != max(years)).select("MONTH").distinct()) \
@@ -313,7 +298,7 @@ def execute(**kwargs):
         number_of_existing_months = 12 - missing_months.count()
         # 用于groupBy的列名：df_raw_data_adding列名去除list中的列名
         group_columns = set(df_raw_data_adding.columns) \
-            .difference(set(['MONTH', 'SALES', 'UNITS', '季度', "sales_value__rmb_", "total_units", "counting_units", "YEAR_MONTH"]))
+                .difference(set(['MONTH', 'SALES', 'UNITS', "YEAR_MONTH"]))
         # 补数重新计算
         df_adding_data_new = df_raw_data_adding \
                             .where(col('ADD_FLAG') == 1) \
@@ -328,6 +313,14 @@ def execute(**kwargs):
         df_raw_data_adding_final = df_raw_data_adding.select(same_names) \
             .union(df_adding_data_new.select(same_names))
 
+    # =========== 输出 =============
+    df_new_hospital = df_new_hospital.repartition(2)
+    df_new_hospital.write.format("parquet") \
+        .mode("overwrite").save(p_new_hospital)
+    
+    logger.debug("输出 new_hospital：" + p_new_hospital)
+    
+    
     # 输出补数结果 df_raw_data_adding_final
     df_raw_data_adding_final = df_raw_data_adding_final.repartition(2)
     df_raw_data_adding_final.write.format("parquet") \
@@ -337,13 +330,14 @@ def execute(**kwargs):
     
     logger.debug('数据执行-Finish')
 
-    df_raw_data_adding_final.agg(func.sum('SALES'),func.sum('UNITS')).show()
+    # df_raw_data_adding_final.agg(func.sum('SALES'),func.sum('UNITS')).show()
 
     '''
-    raw_data_adding_final = spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/Test/贝达/data_adding_model/raw_data_adding_final')
-    
+    df = spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/Test/贝达/data_adding_model/raw_data_adding_final')
     new_hospital = spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/Test/贝达/data_adding_model/new_hospital')
-    
     adding_data = spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/Test/贝达/data_adding_model/adding_data')
     '''
+
+    # df = spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/Test/贝达/data_adding_model/raw_data_adding_final')
+    # df.agg(func.sum('SALES'),func.sum('UNITS')).show()
 
