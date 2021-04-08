@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: max_weight
+  description: "pharbers job description"
+  labels:
+    name: max_weight
+    runtime: python3
+    command: submit
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    command: submit
+    timeout: 720.0
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: g_project_name
+        value: Empty
+      - key: g_market
+        value: Empty
+      - key: g_universe
+        value: Empty
+      - key: g_factor
+        value: Empty
+      - key: g_universe_ot
+        value: Empty
+      - key: g_use_d_weight
+        value: Empty
+      - key: time_left
+        value: 0
+      - key: time_right
+        value: 0
+      - key: max_path
+        value: s3a://ph-max-auto/v0.0.1-2020-06-08/
+      - key: out_dir
+        value: Empty
+      - key: dag_name
+        value: Max
+      - key: run_id
+        value: max_test_beida_202012
+      - key: depend_job_names_keys
+        value: ["panel#panel_result#panel_result"]
+    outputs:
+      - key: g_max_out
+        value: max_weight_result
+
+
+
