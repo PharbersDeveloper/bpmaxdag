@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: PhJob
 metadata:
-  name: calculate_similarity_mole
+  name: mapping_mole
   description: "pharbers job description"
   labels:
-    name: calculate_similarity_mole
+    name: mapping_mole
     runtime: python3
     command: submit
 spec:
@@ -16,18 +16,22 @@ spec:
     code: phmain.py
     config: phconf.yaml
     args:
-      - key: job_name
-        value: calculate_similarity_mole
+      - key: job_name 
+        value: mapping_mole
       - key: path_prefix
         value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs
+      - key: mole_mapping_path
+        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MOLE_MAPPING/CHC/V0.0.1
       - key: depend_job_names_keys
         value:
-        - mapping_mole#mapping_mole_result#input_mapping_mole
+          - cross_join_cutting#cross_result#input_cross_result
       - key: g_repartition_shared
         value: 16
     outputs:
-      - key: similarity_mole_result
-        value: similarity_mole_result
+      - key: mapping_mole_result
+        value: mapping_mole_result
+      - key: original_mole_table
+        value: original_mole_table
 
 
 

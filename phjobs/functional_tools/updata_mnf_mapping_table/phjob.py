@@ -46,17 +46,16 @@ def execute(**kwargs):
     
     
     ########### == main function == #########
-     
     
     df_mnf_mapping_original = get_mnf_mapping_elements(input_dataframe=df_mnf_mapping_original,\
                                                              input_mnf="MANUFACTURER_NAME_STANDARD",\
                                                              input_master="MASTER_MANUFACTURE")
     
     df_mnf_mapping_prediction =  get_prediction_mnf_mapping_elements(input_dataframe=df_mnf_mapping_prediction\
-                                     ,input_mnf="MANUFACTURER_NAME"\
-                                     ,input_standard_mnf="MANUFACTURER_NAME_STANDARD"\
-                                     ,input_master="MASTER_MANUFACTURE",\
-                                     similarity=0.9)
+                                     ,input_mnf="MOLE_NAME"\
+                                     ,input_standard_mnf="MOLE_NAME_STANDARD"\
+                                     ,input_master="MASTER_MOLE",\
+                                     similarity=2)
 
 
     df = get_available_mnf_mapping_elements(input_dataframe_oringal=df_mnf_mapping_original,\
@@ -77,7 +76,7 @@ def execute(**kwargs):
 
 #####  == 下载文件 == ########
 def loading_csv_files(spark, input_path):
-
+    input_path = r"s3a://ph-max-auto/2020-08-11/data_matching/refactor/results/2021-04-08_12-11-26/Predictions"
     df = spark.read.csv(input_path, header=True) 
     
     return df
@@ -123,7 +122,7 @@ def get_prediction_mnf_mapping_elements(input_dataframe,input_mnf,input_standard
     input_dataframe = input_dataframe.withColumn("PACK_ID_CHECK",col("PACK_ID_CHECK").cast(DoubleType()))\
                                     .withColumn("PACK_ID_STANDARD",col("PACK_ID_STANDARD").cast(DoubleType()))
         
-    input_dataframe = input_dataframe.filter((col("EFFTIVENESS_MANUFACTURER") < float(similarity)) &\
+    input_dataframe = input_dataframe.filter((col("EFFTIVENESS_MOLE_NAME") < float(similarity)) &\
                                              (col("PACK_ID_CHECK")==col("PACK_ID_STANDARD")))
 
 #     input_dataframe = input_dataframe.filter(col("PACK_ID_CHECK")==col("PACK_ID_STANDARD"))
@@ -156,6 +155,6 @@ def get_available_mnf_mapping_elements(input_dataframe_oringal, input_dataframe_
     else:
         data_frame = input_dataframe_oringal.union(input_dataframe_prediction)
         data_frame = get_mnf_mapping_elements(input_dataframe=data_frame\
-                                                 ,input_mnf="MANUFACTURER_NAME_STANDARD",\
-                                                 input_master="MASTER_MANUFACTURE")
+                                                 ,input_mnf="MOLE_NAME_STANDARD",\
+                                                 input_master="MASTER_MOLE")
     return data_frame
