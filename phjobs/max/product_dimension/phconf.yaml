@@ -16,6 +16,8 @@ spec:
     code: phmain.py
     config: phconf.yaml
     args:
+      - key: base_path
+        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX"
       - key: clean_input
         value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/TMP/PRODUCT_DIMENSION/"
       - key: company
@@ -26,7 +28,7 @@ spec:
         value: "0.0.1"
     outputs:
       - key: pd_output
-        value: "s3://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/PRODUCT_DIMENSION/"
+        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/PRODUCT_DIMENSION/"
 
 
 

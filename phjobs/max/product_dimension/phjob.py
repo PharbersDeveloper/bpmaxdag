@@ -4,7 +4,13 @@
 This is job template for Pharbers Max Job
 """
 
+import random
+import string
 from phcli.ph_logs.ph_logs import phs3logger, LOG_DEBUG_LEVEL
+from pyspark.sql.functions import lit, udf, col, create_map
+from functools import reduce
+from pyspark.sql.types import StringType
+from pyspark.sql import SparkSession
 
 
 def execute(**kwargs):
@@ -27,7 +33,7 @@ def execute(**kwargs):
 
         keyLength = 3 * 5
 
-        result = []
+        result = ["P"]
         for _ in range(keyLength):
             result.append(charset[random.randint(0, charsetLength - 1)])
 
@@ -40,9 +46,65 @@ def execute(**kwargs):
     _output = str(kwargs["pd_output"])
     _version = str(kwargs["version"])
     
+    _base_path = str(kwargs["base_path"])
+    
+    _definite_path = "{base_path}/{model}/TIME={time}/COMPANY={company}"
+    _lexicon_manufacturer_path = _definite_path.format(
+        base_path = _base_path,
+        model = "DIMENSION/LEXICON",
+        time = _time,
+        company = _company
+    )
+    _manufacturer_path = _definite_path.format(
+        base_path = _base_path,
+        model = "DIMENSION/MNF_DIMENSION",
+        time = _time,
+        company = _company
+    )
+    _relationship_path = _definite_path.format(
+        base_path = _base_path,
+        model = "DIMENSION/PRODUCT_RELATIONSHIP_DIMENSION",
+        time = _time,
+        company = _company
+    )
+    
+    
+    lexicon_manufacturer_df = spark.read.parquet(_lexicon_manufacturer_path) \
+        .withColumnRenamed("ID", "LM_ID") \
+        .withColumnRenamed("VALUE", "LM_VALUE")
+    manufacturer_df = spark.read.parquet(_manufacturer_path) \
+        .withColumnRenamed("ID", "M_ID")
+    relationship_df = spark.read.parquet(_relationship_path) \
+        .withColumnRenamed("ID", "R_ID") \
+        .withColumnRenamed("VALUE", "R_VALUE")
     clean_df = spark.read.parquet(_input).filter(col("COMPANY") == _company)
     
+    df = clean_df \
+        .join(lexicon_manufacturer_df, [col("COMMON_NAME") == col("LM_VALUE")], "left_outer") \
+        .join(manufacturer_df, [col("MANUFACTURER") == col("MNF_NAME")], "left_outer") \
+        .join(relationship_df, [col("PACK_ID") == col("R_VALUE")], "left_outer")
     
     
+    df = df.selectExpr("LM_VALUE AS MOLE_NAME", "PRODUCT_NAME AS PROD_NAME_CH", "PACK_NUMBER AS PACK", "DOSAGE", "SPECIFICATIONS AS SPEC", "M_ID AS MNF_ID", "R_ID AS PACK_ID", "LM_ID AS MOLE_ID") \
+        .withColumn("PROD_DESC", lit("null")) \
+        .withColumn("PCK_DESC", lit("null")) \
+        .withColumn("ATC_ID", lit("null")) \
+        .withColumn("NFC_ID", lit("null")) \
+        .withColumn("EVENTS", lit("null")) \
+        .withColumn("ID", _id()) \
+        .withColumn("TIME", lit(_time)) \
+        .withColumn("COMPANY", lit(_company)) \
+        .withColumn("VERSION", lit(_version)) \
+        .withColumn("CONTAINS", create_map(
+            lit('MOLE_ID'), col("MOLE_ID"),
+            lit('MOLE_NAME'), col("MOLE_NAME"),
+        ))
+        
+    
+    df.selectExpr("ID","MOLE_NAME", "PROD_DESC", "PROD_NAME_CH", "PACK", "PCK_DESC", "DOSAGE", "SPEC", "CONTAINS", "MNF_ID", "ATC_ID", "NFC_ID", "EVENTS", "TIME", "COMPANY", "VERSION") \
+        .write \
+        .partitionBy("TIME", "COMPANY") \
+        .mode("append") \
+        .parquet(_output)
     
     return {}

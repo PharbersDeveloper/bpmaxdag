@@ -33,7 +33,7 @@ def execute(**kwargs):
 
         keyLength = 3 * 5
 
-        result = []
+        result = ["MO"]
         for _ in range(keyLength):
             result.append(charset[random.randint(0, charsetLength - 1)])
 
