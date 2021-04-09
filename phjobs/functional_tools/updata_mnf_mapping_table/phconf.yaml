@@ -22,7 +22,7 @@ spec:
         value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/results/2021-04-06_08-48-29/Negative_Predictions
     outputs:
       - key: path_write_file
-        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MOLE_MAPPING/CHC/V0.0.1
+        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MOLE_MAPPING/CPA_AZ/V0.0.1
 
 
 

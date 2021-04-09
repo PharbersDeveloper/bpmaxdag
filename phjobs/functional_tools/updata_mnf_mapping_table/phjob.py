@@ -76,7 +76,7 @@ def execute(**kwargs):
 
 #####  == 下载文件 == ########
 def loading_csv_files(spark, input_path):
-    input_path = r"s3a://ph-max-auto/2020-08-11/data_matching/refactor/results/2021-04-08_12-11-26/Predictions"
+    input_path = r"s3a://ph-max-auto/2020-08-11/data_matching/refactor/results/2021-04-08_07-02-22/Predictions/"
     df = spark.read.csv(input_path, header=True) 
     
     return df
