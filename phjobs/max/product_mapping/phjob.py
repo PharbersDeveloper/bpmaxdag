@@ -34,8 +34,7 @@ def execute(**kwargs):
     import os
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
-    from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col
-
+    from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col    # %%
     logger.debug('job2_product_mapping')
     # 注意：
     # Mylan不做Brand判断，写死了
@@ -54,7 +53,7 @@ def execute(**kwargs):
     # 输出
     p_product_mapping_out = result_path_prefix + g_product_mapping_out
     p_need_cleaning = result_path_prefix + g_need_cleaning_out
-
+    # %%
     # =========== 数据准备 测试用=============
     df_product_map = spark.read.parquet(product_map_path)
     
@@ -72,7 +71,7 @@ def execute(**kwargs):
     df_product_map = df_product_map.withColumn('PACK_NUMBER_STD', col('PACK_NUMBER_STD').cast(IntegerType())) \
                             .withColumn('PACK_ID', col('PACK_ID').cast(IntegerType()))
     df_product_map
-
+    # %%
     # =========== 数据执行 =============
     logger.debug('数据执行-start：product_mapping')
     df_raw_data = spark.read.parquet(p_hospital_mapping_out)
@@ -106,7 +105,7 @@ def execute(**kwargs):
     
     # df_raw_data 信息匹配
     df_raw_data = df_raw_data.join(df_product_map_for_rawdata, on="MIN", how="left")
-
+    # %%
     # =========== 输出 =============
     df_need_cleaning = df_need_cleaning.repartition(2)
     df_need_cleaning.write.format("parquet") \
@@ -120,6 +119,3 @@ def execute(**kwargs):
     logger.debug("输出 product_mapping 结果：" + p_product_mapping_out)
     
     logger.debug('数据执行-Finish')
-
-
-

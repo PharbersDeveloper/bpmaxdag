@@ -31,8 +31,7 @@ def execute(**kwargs):
     import os
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
-    from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col
-
+    from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col    # %%
     logger.debug('数据执行-start：计算增长率-模型年历史数据')
     
     # =========== 输入 输出 =============
@@ -51,7 +50,7 @@ def execute(**kwargs):
     
     # 输出
     p_growth_rate = result_path_prefix + g_growth_rate
-
+    # %%
     # =========== 数据执行 =============
     # raw_data 处理（products_of_interest 可以写成参数，在前一个job筛选）
     df_raw_data = spark.read.parquet(p_product_mapping_out)
@@ -64,7 +63,7 @@ def execute(**kwargs):
                                    otherwise(col('MOLECULE_STD')))
     
     df_raw_data = df_raw_data.where(col('YEAR') < ((g_model_month_right // 100) + 1))
-
+    # %%
     # 计算样本分子增长率
     def calculate_growth(df_raw_data, g_max_month=12):
         # TODO: 完整年用完整年增长，不完整年用不完整年增长
@@ -98,7 +97,7 @@ def execute(**kwargs):
             df_growth_rate = df_growth_rate.withColumn(y, func.when(func.isnull(col(y)) | (col(y) > 10) | (col(y) < 0.1), 1).
                                                  otherwise(col(y)))
         return df_growth_rate
-
+    # %%
     # AZ-Sanofi 要特殊处理
     if g_project_name != "Sanofi" and g_project_name != "AZ":
         df_growth_rate = calculate_growth(df_raw_data)
@@ -122,24 +121,21 @@ def execute(**kwargs):
             df_growth_rate_p2.select(["MOLECULE_STD_FOR_GR", "CITYGROUP"] + [name for name in df_growth_rate_p2.columns if name.startswith("GR")]),
             on=["MOLECULE_STD_FOR_GR", "CITYGROUP"],
             how="left")
-
+    # %%
     df_growth_rate = df_growth_rate.repartition(2)
     df_growth_rate.write.format("parquet") \
         .mode("overwrite").save(p_growth_rate)
     logger.debug("输出 growth_rate：" + p_growth_rate)
     
     logger.debug('数据执行-Finish')
-
+    # %%
     '''
     df_growth_rate.agg(func.sum('YEAR_2017'),func.sum('YEAR_2018'),func.sum('YEAR_2019'),
                              func.sum('GR1718'),func.sum('GR1819')).show()
     '''
-
+    # %%
     '''
     check = spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/201912/growth_rate/')
     check.agg(func.sum('Year_2017'),func.sum('Year_2018'),func.sum('Year_2019'),
                              func.sum('GR1718'),func.sum('GR1819')).show()
     '''
-
-
-

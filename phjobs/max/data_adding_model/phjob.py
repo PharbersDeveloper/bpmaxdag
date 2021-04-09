@@ -32,15 +32,14 @@ def execute(**kwargs):
     import os
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
-    from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col
-
+    from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col    # %%
     # 测试输入
     g_project_name = '贝达'
     g_year = "2019"
     g_model_month_right = '201912'
     
     max_path = 's3a://ph-max-auto/v0.0.1-2020-06-08/'
-
+    # %%
     logger.debug('数据执行-start：补数-模型')
     # 输入
     g_model_month_right = int(g_model_month_right)
@@ -60,7 +59,7 @@ def execute(**kwargs):
     p_adding_data =  result_path_prefix + g_adding_data
     p_raw_data_adding_final =  result_path_prefix + g_raw_data_adding_final
     p_new_hospital =  result_path_prefix + g_new_hospital
-
+    # %%
     # =========== 数据准备，测试用 =============
     # products_of_interest 文件
     df_products_of_interest = spark.read.csv(p_products_of_interest, header=True)
@@ -80,7 +79,7 @@ def execute(**kwargs):
     df_cpa_pha_mapping = df_cpa_pha_mapping.withColumnRenamed('推荐版本', 'COMMEND')
     df_cpa_pha_mapping = df_cpa_pha_mapping.select('COMMEND', 'ID', 'PHA').where(col("COMMEND") == 1)
     df_cpa_pha_mapping = dealIDlength(df_cpa_pha_mapping)
-
+    # %%
     # =========== 数据准备 =============
     def unpivot(df, keys):
         # 功能：数据宽变长
@@ -133,7 +132,7 @@ def execute(**kwargs):
                                             .withColumn('YEAR', func.substring(col('DATE'), 0, 4)) \
                                             .withColumn('MONTH', func.substring(col('DATE'), 5, 2).cast(IntegerType())) \
                                             .select('PHA', 'YEAR', 'MONTH').distinct()
-
+    # %%
     # =========== 数据执行 =============
     logger.debug('数据执行-start')
     # 1.数据准备
@@ -157,7 +156,7 @@ def execute(**kwargs):
     
     # model df_raw_data 处理
     df_raw_data = df_raw_data.where(col('YEAR') < ((g_model_month_right // 100) + 1))
-
+    # %%
     # 补数函数
     def addDate(df_raw_data, df_growth_rate):
         # 1. 原始数据格式整理， 用于补数
@@ -254,7 +253,7 @@ def execute(**kwargs):
                                                     .na.fill({'UNITS': 0})
     
         return df_current_adding_data, df_original_range
-
+    # %%
     logger.debug('补数')
     # 2. 执行函数 addDate, model补数不按月份
     add_data_out = addDate(df_raw_data, df_growth_rate)
@@ -268,11 +267,11 @@ def execute(**kwargs):
         .mode("overwrite").save(p_adding_data)
     
     df_adding_data = spark.read.parquet(p_adding_data)
-
+    # %%
     # 3. 合并补数部分和原始部分:
     df_raw_data_adding = (df_raw_data.withColumn("ADD_FLAG", func.lit(0))) \
                     .union(df_adding_data.withColumn("ADD_FLAG", func.lit(1)).select(df_raw_data.columns + ["ADD_FLAG"]))
-
+    # %%
     # 4. 进一步为最后一年独有的医院补最后一年的缺失月数据:
     years = df_original_range.select("YEAR").distinct() \
                         .orderBy(df_original_range.YEAR) \
@@ -312,7 +311,7 @@ def execute(**kwargs):
     
     # 保留当前补数年的结果
     df_raw_data_adding_final = df_raw_data_adding.where((col('YEAR') == g_year))
-
+    # %%
     # =========== 输出 =============
     df_new_hospital = df_new_hospital.repartition(2)
     df_new_hospital.write.format("parquet") \
@@ -329,11 +328,8 @@ def execute(**kwargs):
     logger.debug("输出 raw_data_adding_final：" + p_raw_data_adding_final)
     
     logger.debug('数据执行-Finish')
-
+    # %%
     # df_raw_data_adding_final.groupby('add_flag').agg(func.sum('SALES'),func.sum('UNITS')).show()
-
+    # %%
     # df=spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/201912_test/raw_data_adding_final/')
     # df.where(col('Year')==2019).groupby('add_flag').agg(func.sum('Sales'), func.sum('Units')).show()
-
-
-

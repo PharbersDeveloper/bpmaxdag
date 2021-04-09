@@ -26,15 +26,14 @@ def execute(**kwargs):
     import os
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
-    from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col
-
+    from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col    # %%
     #测试用
     g_project_name = '贝达'
     g_out_dir = '202012'
     
     max_path = 's3a://ph-max-auto/v0.0.1-2020-06-08/'
     if_others = 'False'
-
+    # %%
     logger.debug('job1_hospital_mapping')
     # 输入
     # 测试用
@@ -46,7 +45,7 @@ def execute(**kwargs):
         
     # 输出    
     p_hospital_mapping_out = result_path_prefix + g_hospital_mapping_out
-
+    # %%
     # =========== 数据准备 测试用=============
     '''
     df_universe = spark.read.parquet(universe_path)
@@ -105,7 +104,7 @@ def execute(**kwargs):
                         .withColumn('UNITS', col('UNITS').cast(DoubleType())) \
                         .withColumn('UNITS_BOX', col('UNITS_BOX').cast(DoubleType()))
     df_raw_data = dealIDlength(df_raw_data)
-
+    # %%
     # =========== 数据读取 =============
     time = "2021-04-06"
     company = g_project_name
@@ -125,7 +124,7 @@ def execute(**kwargs):
     )
     cpa_gyc_mapping_path = definite_path.format(
         base_path = base_path,
-        model = "/DIMENSION/MAPPING/MAX/CPA_GYC_MAPPING/STANDARD",
+        model = "/DIMENSION/MAPPING/CPA_GYC_MAPPING/STANDARD",
         time = time,
         company = company
     )
@@ -161,7 +160,7 @@ def execute(**kwargs):
     df_universe = spark.sql(base_universe_sql)
     
     # df_cpa_pha_mapping = spark.sql(mapping_sql)
-
+    # %%
     # =========== 数据执行 =============
     logger.debug('数据执行-start：hospital_mapping')
     # df_universe
@@ -178,7 +177,7 @@ def execute(**kwargs):
                         .withColumn("YEAR", ((col('DATE') - col('MONTH')) / 100).cast(IntegerType()))
     
     df_raw_data = df_raw_data.withColumnRenamed("DATE", "YEAR_MONTH")
-
+    # %%
     # 结果输出
     df_raw_data = df_raw_data.repartition(2)
     df_raw_data.write.format("parquet") \
@@ -186,7 +185,7 @@ def execute(**kwargs):
     
     logger.debug("输出 hospital_mapping 结果：" + p_hospital_mapping_out)
     logger.debug('数据执行-Finish')
-
+    # %%
     # df = spark.read.parquet(cpa_pha_mapping_path)
     # df = df.withColumnRenamed('推荐版本', 'COMMEND')
     # df = df.select('COMMEND', 'ID', 'PHA').where(col("COMMEND") == 1)
@@ -194,8 +193,5 @@ def execute(**kwargs):
     # tmp=df.join(df_cpa_pha_mapping.withColumnRenamed('PHA','PHA_new'), on='ID', how='left')
     # tmp.where(col('PHA') != col('PHA_new')).show()
 
-
+    # %%
     # tmp.where(col('PHA_new').isNull()).show(100)
-
-
-

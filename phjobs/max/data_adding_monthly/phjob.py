@@ -33,8 +33,7 @@ def execute(**kwargs):
     import os
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
-    from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col
-
+    from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col    # %%
     # 测试输入
     g_project_name = '贝达'
     g_month = "12"
@@ -43,7 +42,7 @@ def execute(**kwargs):
     
     max_path = 's3a://ph-max-auto/v0.0.1-2020-06-08/'
     current_month = '12'
-
+    # %%
     logger.debug('数据执行-start：补数-月更新')
     
     if if_add_data != "False" and if_add_data != "True":
@@ -71,7 +70,7 @@ def execute(**kwargs):
     # 输出
     p_adding_data =  result_path_prefix + g_adding_data
     p_raw_data_adding_final =  result_path_prefix + g_raw_data_adding_final
-
+    # %%
     # =========== 数据准备，测试用 =============
     df_products_of_interest = spark.read.csv(p_products_of_interest, header=True)
     df_products_of_interest = df_products_of_interest.withColumnRenamed('poi', 'POI')
@@ -92,7 +91,7 @@ def execute(**kwargs):
     
     df_not_arrived =  spark.read.csv(p_not_arrived, header=True)
     df_not_arrived = df_not_arrived.withColumnRenamed('Date', 'DATE')
-
+    # %%
     # =========== 数据准备 =============
     def unpivot(df, keys):
         # 功能：数据宽变长
@@ -167,7 +166,7 @@ def execute(**kwargs):
                                             .withColumn('YEAR', func.substring(col('Date'), 0, 4)) \
                                             .withColumn('MONTH', func.substring(col('Date'), 5, 2).cast(IntegerType())) \
                                             .select('PHA', 'YEAR', 'MONTH').distinct()
-
+    # %%
     # =========== 数据执行 =============
     logger.debug('数据执行-start')
     # 1.数据准备
@@ -188,7 +187,7 @@ def execute(**kwargs):
     
     df_price_city = spark.read.parquet(p_price_city)
     df_price_city = df_price_city.withColumnRenamed('PRICE', 'PRICE_CITY')
-
+    # %%
     # 补数函数
     def addDate(df_raw_data, df_growth_rate):
         # 1. 原始数据格式整理， 用于补数
@@ -285,7 +284,7 @@ def execute(**kwargs):
                                                     .na.fill({'UNITS': 0})
     
         return df_current_adding_data, df_original_range
-
+    # %%
     logger.debug('补数')
     # 2. 执行函数 addDate, 月更新每月分别补数，每次补数1个月
     if if_add_data == "True":
@@ -301,7 +300,7 @@ def execute(**kwargs):
             .mode("overwrite").save(p_adding_data)
     
         df_adding_data = spark.read.parquet(p_adding_data)
-
+    # %%
     # 3. 合并补数部分和原始部分:: 只有当前年当前月的结果
     if if_add_data == "True":
         df_raw_data_adding = (df_raw_data.withColumn("ADD_FLAG", func.lit(0))) \
@@ -311,7 +310,7 @@ def execute(**kwargs):
     
     df_raw_data_adding_final = df_raw_data_adding \
             .where((col('YEAR') == g_year) & (col('MONTH') == g_month))
-
+    # %%
     # =========== 输出 =============
     df_raw_data_adding_final = df_raw_data_adding_final.repartition(2)
     df_raw_data_adding_final.write.format("parquet") \
@@ -320,13 +319,11 @@ def execute(**kwargs):
     logger.debug("输出 raw_data_adding_final：" + p_raw_data_adding_final)
     
     logger.debug('数据执行-Finish')
-
-
-
-    #add_data = spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012_test/raw_data_adding_final/')
-    #add_data.where(col('Year')==2020).where(col('Month')==12).agg(func.sum('Sales'), func.sum('Units')).show()
-
-    #df_raw_data_adding_final.agg(func.sum('SALES'), func.sum('UNITS')).show()
-
-
-
+    # %%
+    # add_data = spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012_test/raw_data_adding_final/')
+    # add_data.where(col('Year')==2020).where(col('Month')==12).groupby('add_flag').agg(func.sum('Sales'), func.sum('Units')).show()
+    # %%
+    # df_raw_data_adding_final.agg(func.sum('SALES'), func.sum('UNITS')).show()
+    # %%
+    # df=spark.read.parquet('s3a://ph-max-auto/2020-08-11/Max/refactor/runs/max_test_beida_202012/data_adding_monthly/raw_data_adding_final/')
+    # df.groupby('ADD_FLAG').agg(func.sum('SALES'), func.sum('UNITS')).show()
