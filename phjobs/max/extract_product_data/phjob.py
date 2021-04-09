@@ -30,6 +30,7 @@ def execute(**kwargs):
     _output = str(kwargs["clean_output"]) + _time
     
     _column_mapping = {
+        "min1": "ORIGINAL_MIN",
         "标准通用名": "COMMON_NAME",
         "通用名_标准": "COMMON_NAME",
         "通用名": "COMMON_NAME",
@@ -110,7 +111,7 @@ def execute(**kwargs):
             .withColumn("COMPANY", lit(company)) \
             .withColumn("TIME", lit(_time))
         
-        return original_product_df.select("PACK_ID", "COMMON_NAME", "PRODUCT_NAME", "SPECIFICATIONS", "DOSAGE", "PACK_NUMBER", "MANUFACTURER", "TIME", "COMPANY")
+        return original_product_df.select("ORIGINAL_MIN", "PACK_ID", "COMMON_NAME", "PRODUCT_NAME", "SPECIFICATIONS", "DOSAGE", "PACK_NUMBER", "MANUFACTURER", "TIME", "COMPANY")
     
     # list(map(get_df, _inputs))
     
