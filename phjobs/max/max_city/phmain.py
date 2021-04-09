@@ -16,6 +16,11 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--run_id')
 @click.option('--job_full_name')
 @click.option('--job_id')
+@click.option('--g_project_name')
+@click.option('--g_minimum_product_columns')
+@click.option('--g_minimum_product_sep')
+@click.option('--g_minimum_product_newname')
+@click.option('--depend_job_names_keys')
 @click.option('--max_path')
 @click.option('--project_name')
 @click.option('--time_left')
@@ -28,19 +33,18 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--if_others')
 @click.option('--out_path')
 @click.option('--out_dir')
-@click.option('--need_test')
-@click.option('--minimum_product_columns')
-@click.option('--minimum_product_sep')
-@click.option('--minimum_product_newname')
 @click.option('--if_two_source')
 @click.option('--hospital_level')
 @click.option('--bedsize')
 @click.option('--id_bedsize_path')
+@click.option('--dag_name')
+@click.option('--run_id')
+@click.option('--g_out_dir')
 @click.option('--c')
 @click.option('--d')
 def debug_execute(**kwargs):
     try:
-        args = {"name": "job6_max_city"}
+        args = {"name": "max_city"}
         outputs = ["c", "d"]
 
         args.update(kwargs)
