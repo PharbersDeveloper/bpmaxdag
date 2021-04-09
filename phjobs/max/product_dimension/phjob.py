@@ -101,7 +101,7 @@ def execute(**kwargs):
         ))
         
     
-    df.selectExpr("ID","MOLE_NAME", "PROD_DESC", "PROD_NAME_CH", "PACK", "PCK_DESC", "DOSAGE", "SPEC", "CONTAINS", "MNF_ID", "ATC_ID", "NFC_ID", "EVENTS", "TIME", "COMPANY", "VERSION") \
+    df.selectExpr("ID","MOLE_NAME", "PROD_DESC", "PROD_NAME_CH", "PACK", "PCK_DESC", "DOSAGE", "SPEC", "CONTAINS", "MNF_ID", "PACK_ID", "ATC_ID", "NFC_ID", "EVENTS", "TIME", "COMPANY", "VERSION") \
         .write \
         .partitionBy("TIME", "COMPANY") \
         .mode("append") \
