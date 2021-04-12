@@ -125,7 +125,6 @@ def confirm_mapping_route_state(spark,kwargs):
         state = "success"
     except:
         state = "fail"
-    print(state)
     return state
         
 
