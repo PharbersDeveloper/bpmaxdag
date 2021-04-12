@@ -30,7 +30,7 @@ def execute(**kwargs):
 ###################=======input==========#################
     depends = get_depends_path(kwargs)
     path_cross_result = depends["input_cross_result"]
-    path_mapping_path = kwargs["mole_mapping_path"]
+    path_mapping_path = confirm_mapping_path(spark,kwargs) 
     g_repartition_shared = int(kwargs["g_repartition_shared"])
     
 ###################=======input==========#################
@@ -115,6 +115,30 @@ def load_cross_result(spark,path_cross_result):
 def loading_files(spark, input_path):
     files = spark.read.parquet(input_path)
     return files
+
+####### == 确认正确mapping路径状态  == #####
+def confirm_mapping_route_state(spark,kwargs):
+    path_correct_mapping_path = get_depends_path(kwargs)["input_correct_mapping_table"]
+    
+    try:
+        df = spark.read.parquet(path_correct_mapping_path)
+        state = "success"
+    except:
+        state = "fail"
+    print(state)
+    return state
+        
+
+####### == 确认mapping表路径 == #######
+def confirm_mapping_path(spark,kwargs):
+    
+    state = confirm_mapping_route_state(spark,kwargs)
+    if state == "success":
+        path_mapping_table =get_depends_path(kwargs)["input_correct_mapping_table"]
+    else:
+        path_mapping_table = kwargs["mole_mapping_path"]
+    
+    return path_mapping_table
 
 
 ##### == mapping == #####
