@@ -110,9 +110,7 @@ def loading_files(spark,input_path):
 
 def combine_similarity_cols(df_max_sim):
     
-    df_max_sim = df_max_sim.withColumn("array_sim", array(df_max_sim.eff_dosage,df_max_sim.eff_mnf,\
-                                                          df_max_sim.eff_mole,df_max_sim.eff_spec,\
-                                                         df_max_sim.eff_pack))
+    df_max_sim = df_max_sim.withColumn("array_sim", array(df_max_sim.eff_dosage,df_max_sim.eff_mnf,df_max_sim.eff_mole))
     
     return df_max_sim
 
