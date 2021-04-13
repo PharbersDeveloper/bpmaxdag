@@ -17,6 +17,9 @@ def execute(**kwargs):
     g_project_name = kwargs['g_project_name']
     dag_name = kwargs['dag_name']
     run_id = kwargs['run_id']
+    max_path = kwargs['max_path']
+    if_others = kwargs['if_others']
+    g_out_dir = kwargs['g_out_dir']
     ### input args ###
     
     ### output args ###
@@ -28,11 +31,10 @@ def execute(**kwargs):
     from pyspark.sql import functions as func
     from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col    # %%
     #测试用
+    '''
     g_project_name = '贝达'
     g_out_dir = '202012'
-    
-    max_path = 's3a://ph-max-auto/v0.0.1-2020-06-08/'
-    if_others = 'False'
+    '''
     # %%
     logger.debug('job1_hospital_mapping')
     # 输入
