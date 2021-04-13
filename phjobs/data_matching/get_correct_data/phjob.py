@@ -107,7 +107,6 @@ def get_depends_path(kwargs):
 ########　下载文件
 def loading_flies(spark,input_path):
     df = spark.read.parquet(input_path)
-    print(df.count())
     return df
 
 ######## 统一pack_check_id数据类型
@@ -131,7 +130,6 @@ def merge_table(left_table,right_table,left_key,right_key):
     df = df.withColumnRenamed("left_col",left_key)\
             .withColumnRenamed("right_col",right_key)
     
-    print(df.count())
     return df
 
 
