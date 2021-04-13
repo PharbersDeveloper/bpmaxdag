@@ -22,8 +22,8 @@ def execute(**kwargs):
     depend_job_names_keys = kwargs['depend_job_names_keys']
     dag_name = kwargs['dag_name']
     run_id = kwargs['run_id']
-    g_out_dir = kwargs['g_out_dir']
     max_path = kwargs['max_path']
+    g_out_dir = kwargs['g_out_dir']
     ### input args ###
     
     ### output args ###
@@ -35,6 +35,12 @@ def execute(**kwargs):
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
     from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col    # %%
+    # 测试
+    '''
+    g_project_name = '贝达'
+    g_out_dir = '202012'
+    '''
+    # %%
     logger.debug('job2_product_mapping')
     # 注意：
     # Mylan不做Brand判断，写死了
