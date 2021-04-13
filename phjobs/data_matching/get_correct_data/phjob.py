@@ -6,9 +6,10 @@ This is job template for Pharbers Max Job
 
 import uuid
 import pandas as pd
+from pyspark.sql.types import DoubleType
 from phcli.ph_logs.ph_logs import phs3logger
 from pyspark.sql.types import *
-from pyspark.sql.functions import broadcast, monotonically_increasing_id
+from pyspark.sql.functions import broadcast, monotonically_increasing_id, col
 from pyspark.sql.functions import udf, pandas_udf, PandasUDFType
 
 
@@ -109,8 +110,20 @@ def loading_flies(spark,input_path):
     print(df.count())
     return df
 
+######## 统一pack_check_id数据类型
+def define_data_types_as_double(input_dataframe,input_col):
+    
+    df = input_dataframe.withColumn(input_col,col(input_col).cast(DoubleType()))
+    
+    return df
+
 #######  左连接
 def merge_table(left_table,right_table,left_key,right_key):
+    
+    left_table = define_data_types_as_double(input_dataframe=left_table,\
+                                             input_col=left_key)
+    right_table = define_data_types_as_double(input_dataframe=right_table,\
+                                             input_col=right_key)
     
     left_table = left_table.withColumnRenamed(left_key,"left_col")
     right_table = right_table.withColumnRenamed(right_key,"right_col")
