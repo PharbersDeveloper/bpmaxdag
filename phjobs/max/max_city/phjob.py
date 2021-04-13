@@ -354,6 +354,8 @@ def execute(**kwargs):
             .withColumnRenamed("sum(PREDICT_UNIT)", "PREDICT_UNIT")
         max_result_city = max_result_city.select("PROVINCE", "CITY", "DATE", "MIN_STD", "MOLECULE_STD", "PANEL", "MARKET", 
                                                  "PREDICT_SALES", "PREDICT_UNIT")
+        
+    max_result_city = max_result_city.withColumnRenamed("MOLECULE_STD", "MOLECULE")
     # %%
     # 输出
     max_result_city = max_result_city.repartition(2)
