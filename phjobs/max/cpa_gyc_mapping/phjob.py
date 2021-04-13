@@ -62,6 +62,7 @@ def execute(**kwargs):
         .selectExpr("HOSP_CODE", "TYPE", "PHA_ID") \
         .join(dim, [col("PANEL_ID") == col("PHA_ID")], "left_outer") \
         .selectExpr("ID AS HOSPITAL_ID", "HOSP_CODE AS VALUE", "TYPE AS TAG") \
+        .distinct() \
         .withColumn("ID", gid()) \
         .withColumn("CATEGORY", lit("TYPE")) \
         .withColumn("COMPANY", lit(_company)) \

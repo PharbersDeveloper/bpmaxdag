@@ -85,7 +85,7 @@ def execute(**kwargs):
         .join(relationship_df, [col("PACK_ID") == col("R_VALUE")], "left_outer")
     
     
-    df = df.selectExpr("ORIGINAL_MIN", "LM_VALUE AS MOLE_NAME", "PRODUCT_NAME AS PROD_NAME_CH", "PACK_NUMBER AS PACK", "DOSAGE", "SPECIFICATIONS AS SPEC", "M_ID AS MNF_ID", "R_ID AS PACK_ID", "LM_ID AS MOLE_ID") \
+    df = df.selectExpr("ORIGINAL_MIN", "ORIGINAL_MNF", "LM_VALUE AS MOLE_NAME", "PRODUCT_NAME AS PROD_NAME_CH", "PACK_NUMBER AS PACK", "DOSAGE", "SPECIFICATIONS AS SPEC", "M_ID AS MNF_ID", "R_ID AS PACK_ID", "LM_ID AS MOLE_ID") \
         .withColumn("PROD_DESC", lit("null")) \
         .withColumn("PCK_DESC", lit("null")) \
         .withColumn("ATC_ID", lit("null")) \
@@ -100,7 +100,7 @@ def execute(**kwargs):
             lit('MOLE_NAME'), col("MOLE_NAME"),
         ))
         
-    df.selectExpr("ID", "ORIGINAL_MIN" ,"MOLE_NAME", "PROD_DESC", "PROD_NAME_CH", "PACK", "PCK_DESC", "DOSAGE", "SPEC", "CONTAINS", "MNF_ID", "PACK_ID", "ATC_ID", "NFC_ID", "EVENTS", "TIME", "COMPANY", "VERSION") \
+    df.selectExpr("ID", "ORIGINAL_MIN", "ORIGINAL_MNF", "MOLE_NAME", "PROD_DESC", "PROD_NAME_CH", "PACK", "PCK_DESC", "DOSAGE", "SPEC", "CONTAINS", "MNF_ID", "PACK_ID", "ATC_ID", "NFC_ID", "EVENTS", "TIME", "COMPANY", "VERSION") \
         .write \
         .partitionBy("TIME", "COMPANY") \
         .mode("append") \

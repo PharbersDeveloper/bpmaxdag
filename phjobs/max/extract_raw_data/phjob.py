@@ -24,18 +24,50 @@ def execute(**kwargs):
     logger.info("当前 job_id 为 " + str(kwargs["job_id"]))
     spark = kwargs["spark"]()
     
-    
+    _substr_tag = "v0.0.1-2020-06-08"
     _inputs = str(kwargs["raw_inputs"]).replace(" ", "").split(",")
     _time = str(kwargs["time"])
     _output = str(kwargs["clean_output"]) + _time
     
     
-    def get_df(path):
-        original_raw_df = spark.read.parquet(path)
-        print(path + " ======> ")
-        original_raw_df.show(2, False)
-        # original_raw_df.printSchema()
+    def col_to_upper(col):
+        return col.upper()
     
-    list(map(get_df, _inputs))
+    
+    def clean_cols(cols):
+        if ("S_MOLECULE" not in cols):
+            return list(map(lambda col: col + " AS S_MOLECULE" if col == "MOLECULE" else col, cols))
+        else:
+            return cols
+    
+    
+    def get_company_for_url(path):
+        tmp = path[path.index(_substr_tag) + len(_substr_tag) + 1:]
+        return tmp[:tmp.index("/")]
+    
+    
+    format_num_to_str = udf(lambda x: str(x).replace(".0", "").zfill(6), StringType())
+    
+    def get_df(path):
+        company = get_company_for_url(path)
+        original_raw_df = spark.read.parquet(path)
+        cols = list(map(col_to_upper, original_raw_df.columns))
+        df = original_raw_df \
+            .selectExpr(*clean_cols(cols)) \
+            .withColumn("ID", col("ID")) \
+            .withColumn("TIME", lit(_time)) \
+            .withColumn("COMPANY", lit(company)) \
+            .drop("PATH").drop("SHEET") \
+            .drop("ORG_MEASURE").drop("UNITS_BOX")
+        
+        return df.selectExpr("ID", "DATE", "S_MOLECULE AS MOLECULE", "BRAND", "FORM", 
+            "SPECIFICATIONS", "PACK_NUMBER", "MANUFACTURER", "SALES", "UNITS", 
+            "SOURCE", "TIME", "COMPANY")
+    
+    # list(map(get_df, _inputs))
+    df = reduce(lambda x, y: x.union(y), list(map(get_df, _inputs)))
+    df.write.mode("overwrite").parquet(_output)
+    
+    
 
     return {}

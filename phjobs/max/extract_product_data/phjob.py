@@ -30,6 +30,14 @@ def execute(**kwargs):
     _output = str(kwargs["clean_output"]) + _time
     
     _column_mapping = {
+        "Manufacturer": "ORIGINAL_MNF",
+        "生产企业": "ORIGINAL_MNF",
+        "生产企业1": "ORIGINAL_MNF",
+        "生产厂家": "ORIGINAL_MNF",
+        "企业名称1": "ORIGINAL_MNF",
+        "CORPORATION": "ORIGINAL_MNF",
+        "Corporation": "ORIGINAL_MNF",
+        # "company_name": "ORIGINAL_MNF",
         "min1": "ORIGINAL_MIN",
         "标准通用名": "COMMON_NAME",
         "通用名_标准": "COMMON_NAME",
@@ -74,7 +82,7 @@ def execute(**kwargs):
         "剂型": "DOSAGE",
         "规格": "SPECIFICATIONS",
         "包装数量": "PACK_NUMBER",
-        "生产企业": "MANUFACTURER"
+        "company_name_std": "MANUFACTURER"
     }, **_column_mapping)
     
     _column_mapping_nhwa = dict({
@@ -106,12 +114,12 @@ def execute(**kwargs):
             original_product_df = original_product_df.select([col(c).alias(_column_mapping[c]) for c in cols])
         else:
             original_product_df = original_product_df.select([col(c).alias(_column_mapping[c]) for c in cols])
-            
+        
         original_product_df = original_product_df \
             .withColumn("COMPANY", lit(company)) \
             .withColumn("TIME", lit(_time))
         
-        return original_product_df.select("ORIGINAL_MIN", "PACK_ID", "COMMON_NAME", "PRODUCT_NAME", "SPECIFICATIONS", "DOSAGE", "PACK_NUMBER", "MANUFACTURER", "TIME", "COMPANY")
+        return original_product_df.select("ORIGINAL_MIN", "ORIGINAL_MNF", "PACK_ID", "COMMON_NAME", "PRODUCT_NAME", "SPECIFICATIONS", "DOSAGE", "PACK_NUMBER", "MANUFACTURER", "TIME", "COMPANY")
     
     # list(map(get_df, _inputs))
     

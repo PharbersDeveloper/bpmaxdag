@@ -30,7 +30,7 @@ spec:
         value: "0.0.1"
     outputs:
       - key: output_mapping_path
-        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/MAPPING/MAX/CPA_GYC_MAPPING/STANDARD/"
+        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/MAPPING/CPA_GYC_MAPPING/STANDARD/"
 
 
 
