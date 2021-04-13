@@ -39,6 +39,7 @@ def execute(**kwargs):
     '''
     g_project_name = '贝达'
     g_out_dir = '202012'
+    g_minimum_product_sep='|'
     '''
     # %%
     logger.debug('job2_product_mapping')
@@ -62,17 +63,28 @@ def execute(**kwargs):
     # %%
     # =========== 数据准备 测试用=============
     df_product_map = spark.read.parquet(product_map_path)
-    
+    for i in df_product_map.columns:
+        if i in ["标准通用名", "通用名_标准", "药品名称_标准", "S_Molecule_Name"]:
+            df_product_map = df_product_map.withColumnRenamed(i, "通用名")
+        if i in ["商品名_标准", "S_Product_Name"]:
+            df_product_map = df_product_map.withColumnRenamed(i, "标准商品名")
+        if i in ["标准途径"]:
+            df_product_map = df_product_map.withColumnRenamed(i, "std_route")
+        if i in ["min1_标准"]:
+            df_product_map = df_product_map.withColumnRenamed(i, "min2")
+    if "std_route" not in df_product_map.columns:
+        df_product_map = df_product_map.withColumn("std_route", func.lit(''))
+        
     df_product_map = df_product_map.withColumnRenamed('min1', 'MIN') \
                         .withColumnRenamed('min2', 'MIN_STD') \
-                        .withColumnRenamed('标准通用名', 'MOLECULE_STD') \
+                        .withColumnRenamed('通用名', 'MOLECULE_STD') \
                         .withColumnRenamed('标准商品名', 'BRAND_STD') \
                         .withColumnRenamed('标准剂型', 'FORM_STD') \
                         .withColumnRenamed('标准规格', 'SPECIFICATIONS_STD') \
                         .withColumnRenamed('标准包装数量', 'PACK_NUMBER_STD') \
                         .withColumnRenamed('标准生产企业', 'MANUFACTURER_STD') \
                         .withColumnRenamed('标准集团', 'CORP_STD') \
-                        .withColumnRenamed('标准途径', 'ROUTE_STD') \
+                        .withColumnRenamed('std_route', 'ROUTE_STD') \
                         .withColumnRenamed('pfc', 'PACK_ID')
     df_product_map = df_product_map.withColumn('PACK_NUMBER_STD', col('PACK_NUMBER_STD').cast(IntegerType())) \
                             .withColumn('PACK_ID', col('PACK_ID').cast(IntegerType()))
