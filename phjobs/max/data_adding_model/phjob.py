@@ -15,11 +15,12 @@ def execute(**kwargs):
     
     ### input args ###
     g_project_name = kwargs['g_project_name']
-    g_model_month_right = kwargs['g_model_month_right']
     g_year = kwargs['g_year']
+    g_model_month_right = kwargs['g_model_month_right']
     depend_job_names_keys = kwargs['depend_job_names_keys']
     dag_name = kwargs['dag_name']
     run_id = kwargs['run_id']
+    max_path = kwargs['max_path']
     ### input args ###
     
     ### output args ###
@@ -34,20 +35,19 @@ def execute(**kwargs):
     from pyspark.sql import functions as func
     from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col    # %%
     # 测试输入
+    '''
     g_project_name = '贝达'
     g_year = "2019"
     g_model_month_right = '201912'
-    
-    max_path = 's3a://ph-max-auto/v0.0.1-2020-06-08/'
+    '''
     # %%
     logger.debug('数据执行-start：补数-模型')
     # 输入
-    g_model_month_right = int(g_model_month_right)
     p_product_mapping = depends_path['product_mapping_out']
     p_growth_rate = depends_path['growth_rate']
     p_price = depends_path['price']
     p_price_city = depends_path['price_city']
-    
+    g_model_month_right = int(g_model_month_right)
     # 测试输入
     p_products_of_interest = max_path + "/" + g_project_name + "/poi.csv"
     p_cpa_pha_mapping = max_path + "/" + g_project_name + "/cpa_pha_mapping"
@@ -156,6 +156,7 @@ def execute(**kwargs):
     
     # model df_raw_data 处理
     df_raw_data = df_raw_data.where(col('YEAR') < ((g_model_month_right // 100) + 1))
+    # df_raw_data = df_raw_data.where(col('YEAR') == g_year)
     # %%
     # 补数函数
     def addDate(df_raw_data, df_growth_rate):
@@ -331,5 +332,5 @@ def execute(**kwargs):
     # %%
     # df_raw_data_adding_final.groupby('add_flag').agg(func.sum('SALES'),func.sum('UNITS')).show()
     # %%
-    # df=spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/201912_test/raw_data_adding_final/')
-    # df.where(col('Year')==2019).groupby('add_flag').agg(func.sum('Sales'), func.sum('Units')).show()
+    # check = spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/201912_test/raw_data_adding_final/')
+    # check = check.where(col('Year')==2019).groupby('add_flag').agg(func.sum('Sales'), func.sum('Units')).show()

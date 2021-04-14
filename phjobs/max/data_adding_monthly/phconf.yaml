@@ -24,14 +24,18 @@ spec:
         value: Empty
       - key: g_year
         value: Empty
-      - key: if_add_data
+      - key: g_current_month
+        value: Empty
+      - key: g_if_add_data
         value: True
       - key: depend_job_names_keys
-        value: ["growth_monthly_update#growth_rate#growth_rate", "price#price#price", "price#price_city#price_city", "product_mapping#product_mapping_out#product_mapping_out"]
+        value: ["growth_monthly#growth_rate#growth_rate", "price#price#price", "price#price_city#price_city", "product_mapping#product_mapping_out#product_mapping_out"]
       - key: dag_name
         value: Max
       - key: run_id
         value: max_test_beida_202012
+      - key: max_path
+        value: s3a://ph-max-auto/v0.0.1-2020-06-08/
     outputs:
       - key: g_adding_data
         value: adding_data

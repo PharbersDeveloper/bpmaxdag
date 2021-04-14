@@ -18,10 +18,12 @@ def execute(**kwargs):
     g_model_month_right = kwargs['g_model_month_right']
     g_month = kwargs['g_month']
     g_year = kwargs['g_year']
-    if_add_data = kwargs['if_add_data']
+    g_current_month = kwargs['g_current_month']
+    g_if_add_data = kwargs['g_if_add_data']
     depend_job_names_keys = kwargs['depend_job_names_keys']
     dag_name = kwargs['dag_name']
     run_id = kwargs['run_id']
+    max_path = kwargs['max_path']
     ### input args ###
     
     ### output args ###
@@ -35,19 +37,19 @@ def execute(**kwargs):
     from pyspark.sql import functions as func
     from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col    # %%
     # 测试输入
+    '''
     g_project_name = '贝达'
     g_month = "12"
     g_year = "2020"
     g_model_month_right = '201912'
-    
-    max_path = 's3a://ph-max-auto/v0.0.1-2020-06-08/'
-    current_month = '12'
+    g_current_month = '12'
+    '''
     # %%
     logger.debug('数据执行-start：补数-月更新')
     
-    if if_add_data != "False" and if_add_data != "True":
-        logger.error('wrong input: if_add_data, False or True') 
-        raise ValueError('wrong input: if_add_data, False or True')
+    if g_if_add_data != "False" and g_if_add_data != "True":
+        logger.error('wrong input: g_if_add_data, False or True') 
+        raise ValueError('wrong input: g_if_add_data, False or True')
     
     # 输入
     g_model_month_right = int(g_model_month_right)
@@ -57,7 +59,7 @@ def execute(**kwargs):
     p_price_city = depends_path['price_city']
     
     # 测试输入
-    current_month = int(current_month)
+    g_current_month = int(g_current_month)
     p_products_of_interest = max_path + "/" + g_project_name + "/poi.csv"
     p_cpa_pha_mapping = max_path + "/" + g_project_name + "/cpa_pha_mapping"
     
@@ -65,7 +67,7 @@ def execute(**kwargs):
     g_month = int(g_month)
     g_year = int(g_year)
     
-    p_not_arrived = max_path + "/Common_files/Not_arrived" + str(g_year*100 + current_month) + ".csv"
+    p_not_arrived = max_path + "/Common_files/Not_arrived" + str(g_year*100 + g_current_month) + ".csv"
     
     # 输出
     p_adding_data =  result_path_prefix + g_adding_data
@@ -287,7 +289,7 @@ def execute(**kwargs):
     # %%
     logger.debug('补数')
     # 2. 执行函数 addDate, 月更新每月分别补数，每次补数1个月
-    if if_add_data == "True":
+    if g_if_add_data == "True":
         df_raw_data_month = df_raw_data.where(col('MONTH') == g_month)
         df_growth_rate_month = df_growth_rate.where(df_growth_rate.MONTH_FOR_ADD == g_month)
     
@@ -302,7 +304,7 @@ def execute(**kwargs):
         df_adding_data = spark.read.parquet(p_adding_data)
     # %%
     # 3. 合并补数部分和原始部分:: 只有当前年当前月的结果
-    if if_add_data == "True":
+    if g_if_add_data == "True":
         df_raw_data_adding = (df_raw_data.withColumn("ADD_FLAG", func.lit(0))) \
             .union(df_adding_data.withColumn("ADD_FLAG", func.lit(1)).select(df_raw_data.columns + ["ADD_FLAG"]))
     else:
@@ -320,10 +322,7 @@ def execute(**kwargs):
     
     logger.debug('数据执行-Finish')
     # %%
-    # add_data = spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012_test/raw_data_adding_final/')
-    # add_data.where(col('Year')==2020).where(col('Month')==12).groupby('add_flag').agg(func.sum('Sales'), func.sum('Units')).show()
+    # check = spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012_test/raw_data_adding_final/')
+    # check.where(col('Year')==2020).where(col('Month')==12).groupby('add_flag').agg(func.sum('Sales'), func.sum('Units')).show()
     # %%
-    # df_raw_data_adding_final.agg(func.sum('SALES'), func.sum('UNITS')).show()
-    # %%
-    # df=spark.read.parquet('s3a://ph-max-auto/2020-08-11/Max/refactor/runs/max_test_beida_202012/data_adding_monthly/raw_data_adding_final/')
-    # df.groupby('ADD_FLAG').agg(func.sum('SALES'), func.sum('UNITS')).show()
+    # df_raw_data_adding_final.groupby('ADD_FLAG').agg(func.sum('SALES'), func.sum('UNITS')).show()
