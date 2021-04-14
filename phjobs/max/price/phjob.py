@@ -15,10 +15,10 @@ def execute(**kwargs):
     
     ### input args ###
     g_project_name = kwargs['g_project_name']
-    g_out_dir = kwargs['g_out_dir']
     depend_job_names_keys = kwargs['depend_job_names_keys']
     dag_name = kwargs['dag_name']
     run_id = kwargs['run_id']
+    max_path = kwargs['max_path']
     ### input args ###
     
     ### output args ###
@@ -32,9 +32,9 @@ def execute(**kwargs):
     from pyspark.sql import functions as func
     from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col    # %%
     #测试用
-    max_path = 's3a://ph-max-auto/v0.0.1-2020-06-08/'
+    '''
     g_project_name = '贝达'
-    g_out_dir = '202012'
+    '''
     # %%
     logger.debug('数据执行-start:价格计算')
     # 测试输入
@@ -78,7 +78,7 @@ def execute(**kwargs):
     df_price_city = df_raw_data.groupBy("MIN_STD", "YEAR_MONTH", 'CITY', 'PROVINCE') \
                                 .agg((func.sum("SALES") / func.sum("UNITS")).alias("PRICE"))
     df_price_city = df_price_city.where(~col('PRICE').isNull())
-    
+    # %%
     # =========== 输出 =============
     df_price = df_price.repartition(2)
     df_price.write.format("parquet") \
