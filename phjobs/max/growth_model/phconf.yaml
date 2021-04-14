@@ -17,9 +17,9 @@ spec:
     config: phconf.yaml
     args:
       - key: g_project_name
-        value: 贝达
+        value: Empty
       - key: g_model_month_right
-        value: 201912
+        value: 0
       - key: g_max_month
         value: 0
       - key: g_year_missing

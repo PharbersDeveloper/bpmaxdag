@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: PhJob
 metadata:
-  name: growth_monthly_update
+  name: growth_monthly
   description: "pharbers job description"
   labels:
-    name: growth_monthly_update
+    name: growth_monthly
     runtime: python3
     command: submit
 spec:
@@ -17,15 +17,15 @@ spec:
     config: phconf.yaml
     args:
       - key: g_project_name
-        value: 贝达
-      - key: g_max_month
-        value: 0
+        value: Empty
       - key: g_month
-        value: 12
+        value: Empty
       - key: g_year
-        value: 2020
-      - key: depend_job_names_keys
+        value: Empty
+      - key: g_depend_job_names_keys
         value: ["product_mapping#product_mapping_out#product_mapping_out"]
+      - key: g_current_month
+        value: Empty
       - key: dag_name
         value: Max
       - key: run_id
@@ -36,8 +36,6 @@ spec:
         value: Empty
       - key: published_path
         value: Empty
-      - key: current_month
-        value: 12
     outputs:
       - key: g_growth_rate
         value: growth_rate
