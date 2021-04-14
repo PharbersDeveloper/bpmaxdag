@@ -18,13 +18,13 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--path_prefix')
 @click.option('--depend_job_names_keys')
 @click.option('--g_repartition_shared')
-@click.option('--dosage_mapping_path')
-@click.option('--mapping_dosage_result')
-@click.option('--original_dosage_mapping_table')
+@click.option('--mnf_mapping_path')
+@click.option('--mapping_mnf_result')
+@click.option('--original_mnf_mapping_table')
 def debug_execute(**kwargs):
     try:
-        args = {"name": "mapping_dosage"}
-        outputs = ["mapping_dosage_result","original_dosage_mapping_table"]
+        args = {"name": "mapping_mnf"}
+        outputs = ["mapping_mnf_result"]
 
         args.update(kwargs)
         result = exec_before(**args)

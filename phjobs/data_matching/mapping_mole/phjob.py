@@ -6,7 +6,6 @@ This is job template for Pharbers Max Job
 
 from phcli.ph_logs.ph_logs import phs3logger, LOG_DEBUG_LEVEL
 import uuid
-import pkuseg
 import numpy as np
 import pandas as pd
 from pyspark.sql.types import *
@@ -31,7 +30,7 @@ def execute(**kwargs):
 ###################=======input==========#################
     depends = get_depends_path(kwargs)
     path_cross_result = depends["input_cross_result"]
-    path_mole_stopwords = kwargs["mole_stopwords_path"]
+    path_mapping_path = confirm_mapping_path(spark,kwargs) 
     g_repartition_shared = int(kwargs["g_repartition_shared"])
     
 ###################=======input==========#################
@@ -40,18 +39,31 @@ def execute(**kwargs):
     job_id = get_job_id(kwargs)
     run_id = get_run_id(kwargs)
     result_path_prefix = get_result_path(kwargs, run_id, job_id)
-    result_path = result_path_prefix + kwargs["segmentation_mole_result"]
+    result_path = result_path_prefix + kwargs["mapping_mole_result"]
+    original_mole_mapping_path = result_path_prefix + kwargs["original_mole_table"]
 ###################=======output==========#################
 
 ###################=======loading files==========#################
-    df_seg_mole = load_cross_result(spark,path_cross_result)
-    mole_stopwords = load_mole_stopwords(spark, path_mole_stopwords)
-###################=======loading files==========#################
+    df_cross_mole = load_cross_result(spark, path_cross_result)
+    df_mapping_mole = loading_files(spark, path_mapping_path)
+    
+####################=======loading files==========#################
 
-###################=======main functions==========#################
-    df_seg_mole = cut_mole_word(df_seg_mole,mole_stopwords)
-###################=======main functions==========#################
-    df_seg_mole.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
+####################=======main functions==========#################
+    df_mole = join_maping_table(df_cross_mole=df_cross_mole,\
+                               df_mapping_mole=df_mapping_mole,\
+                               left_key="MOLE_NAME_STANDARD",\
+                               right_key="MOLE_NAME_STANDARD")
+######################=======main functions==========#################
+
+######################## == RESULT == #####################
+    #写入原mapping表
+    df_mapping_mole.write.mode("overwrite").parquet(original_mole_mapping_path)
+    
+    #写入结果
+    df_mole.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
+    
+####################### == RESULT == #####################
     return {}
 
 
@@ -91,51 +103,53 @@ def get_depends_path(kwargs):
     return result
 ##################  中间文件与结果文件路径  ######################
 
-def load_mole_stopwords(spark, path_mole_stopwords):
-    if path_mole_stopwords == "None":
-        return None
-    else:
-        mole_stopwords = spark.csv(path_mole_stopwords,header=True)
-        mole_stopwords = mole_stopwords.rdd.map(lambda x : x.STOPWORDS).collect()
-        return mole_stopwords
-
 def load_cross_result(spark,path_cross_result):
+    
     df_seg_mole = spark.read.parquet(path_cross_result)
     df_seg_mole = df_seg_mole.select("ID","INDEX","MOLE_NAME","MOLE_NAME_STANDARD")
-    df_seg_mole.persist()
     
     return df_seg_mole 
 
 
-######## 分词逻辑 ##########
-def phcleanning_mole_seg(df,stopwords, inputCol, outputCol):
-    lexicon = df.rdd.map(lambda x: x.MOLE_NAME_STANDARD).distinct().collect()
-    seg = pkuseg.pkuseg(user_dict=lexicon)
-    @pandas_udf(ArrayType(StringType()), PandasUDFType.SCALAR)
-    def manifacture_name_pseg_cut(inputCol):
-        nonlocal seg 
-        frame = {
-            "inputCol_name": inputCol,
-        }
-        df = pd.DataFrame(frame)
-        df["be_cut_col"] = df["inputCol_name"].apply(lambda x: seg.cut(x))
-        return df["be_cut_col"]
-    
-    # 3. 中文的分词
-    df = df.withColumn(outputCol, manifacture_name_pseg_cut(col(inputCol)))
-    # 4. 分词之后构建词库编码
-    # 4.1 stop word remover 去掉不需要的词
-    if stopwords is None:
-        pass
-    else:
-        remover = StopWordsRemover(stopWords=stopwords, inputCol=outputCol, outputCol=outputCol)
-        df = remover.transform(df) #.drop(inputCol)
-    return df
-########  分词逻辑  ############
+######## == 下载文件 == ########
+def loading_files(spark, input_path):
+    files = spark.read.parquet(input_path)
+    return files
 
-######  进行分词 ########
-def cut_mole_word(df_seg_mole,mole_stopwords):
+####### == 确认正确mapping路径状态  == #####
+def confirm_mapping_route_state(spark,kwargs):
+    path_correct_mapping_path = get_depends_path(kwargs)["input_correct_mapping_table"]
     
-    df_seg_mole =phcleanning_mole_seg(df=df_seg_mole,stopwords=mole_stopwords,inputCol="MOLE_NAME",outputCol="MOLE_CUT_WORDS")
-    return df_seg_mole
+    try:
+        df = spark.read.parquet(path_correct_mapping_path)
+        state = "success"
+    except:
+        state = "fail"
+    return state
+        
+
+####### == 确认mapping表路径 == #######
+def confirm_mapping_path(spark,kwargs):
+    
+    state = confirm_mapping_route_state(spark,kwargs)
+    if state == "success":
+        path_mapping_table =get_depends_path(kwargs)["input_correct_mapping_table"]
+    else:
+        path_mapping_table = kwargs["mole_mapping_path"]
+    
+    return path_mapping_table
+
+
+##### == mapping == #####
+def join_maping_table(df_cross_mole,df_mapping_mole,left_key,right_key):
+    
+    df_cross_mole = df_cross_mole.withColumnRenamed(left_key,"left_col")
+    df_mapping_mole = df_mapping_mole.withColumnRenamed(right_key,"right_col")
+    
+    df_mole = df_cross_mole.join(df_mapping_mole,df_cross_mole.left_col == df_mapping_mole.right_col, how="left")
+    
+    df_mole = df_mole.withColumnRenamed("left_col",left_key).drop("right_col")
+    
+    
+    return df_mole
 

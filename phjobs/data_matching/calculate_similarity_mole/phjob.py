@@ -28,7 +28,7 @@ def execute(**kwargs):
     
 ############# ------- input ----------- #####################
     depends = get_depends_path(kwargs)
-    path_segmentation_mole = depends["input_seg_mole"]
+    path_mapping_mole = depends["input_mapping_mole"]
     
 ############# ------- input ------------ ####################
 
@@ -42,15 +42,13 @@ def execute(**kwargs):
 
 ############# == loading files == #####################
 
-    df_seg_mole = load_seg_mole_result(spark, path_segmentation_mole)
+    df_mapping_mole = load_mapping_mole_result(spark, path_mapping_mole)
     
 ############# == loading files == #####################
 
 ############# == main functions == #####################
 
-    df_sim_mole = calulate_mole_similarity(df_seg_mole)
-    
-#     df_sim_mole = extract_max_similarity(df_sim_mole)
+    df_sim_mole = calculate_mole_similarity(df_mapping_mole)
     
     df_sim_mole = let_array_become_string(df_sim_mole)
 
@@ -100,72 +98,42 @@ def get_depends_path(kwargs):
 
 
 #### == loding files == ###
-def load_seg_mole_result(spark, path_segmentation_mole):
-    df_seg_mole = spark.read.parquet(path_segmentation_mole)
-    return df_seg_mole  
+def load_mapping_mole_result(spark, path_mapping_mole):
+    df_mapping_mole = spark.read.parquet(path_mapping_mole)
+    return df_mapping_mole  
 
 
-
-#### 相似性计算 ########
 @pandas_udf(DoubleType(),PandasUDFType.SCALAR)
-def calulate_mole_similarity_after_seg(raw_mole,standard_mole):
-    frame = {"raw_mole":raw_mole,
-            "standard_mole":standard_mole}
+def calculate_mole_similarity_after_mapping(mole_name,master_mole,mole_name_standard):
+    frame = {"mole_name":mole_name,
+            "master_mole":master_mole,
+            "mole_name_standard":mole_name_standard}
     df = pd.DataFrame(frame)
+    def calculate_similarity(s1,s2,s3):
+        try:
+            if float(jaro_winkler_similarity(s1,s3)) == 1.0:
+                sim_value = float(1)
+            elif s1 in s2:
+                sim_value = float(0.995)
+            else:
+                sim_value = float(jaro_winkler_similarity(s1,s3))
+        except:
+            sim_value = float(0.0)
+        return sim_value
     
-    def sure_sim(s1,s2):
-        if s1 == s2:
-            value = 1.0
-        else:
-            value = 0.0
-        return value
-    
-    def Get_sim_value_data(input_raw, input_standard):
-        all_possible_result = list(product(input_raw, input_standard))
-        if len(all_possible_result) == 1:
-            max_similarity_value = list(map(lambda x: sure_sim(x[0],x[-1]),all_possible_result))
-        else:
-            all_possible_sim_value = list(map(lambda x: jaro_winkler_similarity(x[0],x[-1]), all_possible_result))
-            all_possible_array_value = np.array(all_possible_sim_value)
-            all_possible_matrix_value = all_possible_array_value.reshape(int(len(input_raw)),int(len(input_standard)))
-            max_similarity_value = list(map(lambda x: max(x,default=0.0), all_possible_matrix_value))
-        return max_similarity_value
-    
-    def handle_sim_value_data(raw_sentence, standard_sentence):
-        max_similarity_value = Get_sim_value_data(raw_sentence, standard_sentence)
-        high_similarity_data = list(filter(lambda x: x >= 0.5, max_similarity_value))
-        low_similarity_data = [x for x in max_similarity_value if x not in high_similarity_data]
-        high_similarity_rate = len(high_similarity_data) / len(max_similarity_value)
-        if high_similarity_rate >= 0.5:
-            similarity_value = np.mean(high_similarity_data)
-        else:
-            similarity_value = np.mean(low_similarity_data)
-        return similarity_value
-    
-    df['output_similarity_value'] = df.apply(lambda x: float(handle_sim_value_data(x.raw_mole,x.standard_mole)), axis=1)
-    return df['output_similarity_value']
+    df['mole_sim'] = df.apply(lambda x: calculate_similarity(x.mole_name, x.master_mole,x.mole_name_standard), axis=1)
+    return df['mole_sim']
 
 ##### == calulate_similarity == #######
-def calulate_mole_similarity(df_seg_mole):
+def calculate_mole_similarity(df_mapping_mole):
     
-    df_seg_mole = df_seg_mole.withColumn("eff_mole",calulate_mole_similarity_after_seg(df_seg_mole.MOLE_CUT_WORDS,df_seg_mole.MOLE_CUT_STANDARD_WORDS))
-    return df_seg_mole
-
-
-# def extract_max_similarity(df_sim_mole):
-    
-#     window_mole = Window.partitionBy("ID")
-
-#     df_sim_mole = df_sim_mole.withColumn("max_eff",F.max("eff_mole").over(window_mole))\
-#                                 .where(F.col("eff_mole") == F.col("max_eff"))\
-#                                 .drop("max_eff")\
-#                                 .drop_duplicates(["ID"])
-
-#     return df_sim_mole
+    df_sim_mole = df_mapping_mole.withColumn("eff_mole",calculate_mole_similarity_after_mapping(df_mapping_mole.MOLE_NAME,\
+                                                                                        df_mapping_mole.MASTER_MOLE,\
+                                                                                       df_mapping_mole.MOLE_NAME_STANDARD))
+    return df_sim_mole
 
 def let_array_become_string(df_sim_mole):
     
-    df_sim_mole = df_sim_mole.withColumn("MOLE_CUT_WORDS",array_join(df_sim_mole.MOLE_CUT_WORDS,delimiter=' '))
-    df_sim_mole = df_sim_mole.withColumn("MOLE_CUT_STANDARD_WORDS",array_join(df_sim_mole.MOLE_CUT_STANDARD_WORDS,delimiter=' '))
+    df_sim_mole = df_sim_mole.withColumn("MASTER_MOLE",array_join(df_sim_mole.MASTER_MOLE,delimiter=' '))
     
     return df_sim_mole

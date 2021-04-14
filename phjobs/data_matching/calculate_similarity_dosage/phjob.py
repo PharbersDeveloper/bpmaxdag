@@ -52,7 +52,6 @@ def execute(**kwargs):
 
     df_sim_dosage = calculate_dosage_similarity(df_mapping_dosage)
     
-#     df_sim_dosage = extract_max_similaritey(df_sim_dosage)
     
     df_sim_dosage = let_array_become_string(df_sim_dosage)
 
@@ -110,29 +109,31 @@ def load_mapping_dosage_result(spark, path_mapping_dosage):
 
 
 #### 相似性计算 ########
-@pandas_udf(DoubleType(), PandasUDFType.SCALAR)
-def execute_calculate_dosage_similarity(dosage_standard,master_dosage):
-    frame = { "dosage_standard": dosage_standard, "master_dosage": master_dosage }
+@pandas_udf(DoubleType(),PandasUDFType.SCALAR)
+def execute_calculate_dosage_similarity(dosage,master_dosage,dosage_standard):
+    frame = {"dosage":dosage,
+            "master_dosage":master_dosage,
+            "dosage_standard":dosage_standard}
     df = pd.DataFrame(frame)
-    def calculate_similarity(s1,s2):
+    def calculate_similarity(s1,s2,s3):
         try:
             if s1 in s2:
-                sim_value = 0.999
+                sim_value = float(1)
             else:
-                sim_value = 0.0
+                sim_value = float(jaro_winkler_similarity(s1,s3))
         except:
-            sim_value = 0.0
+            sim_value = float(0.0)
         return sim_value
-
-    df["eff_dosage"] = df.apply(lambda x: calculate_similarity(x.dosage_standard,x.master_dosage), axis=1)
-
-    return df["eff_dosage"]
-
+    
+    df['dosage_sim'] = df.apply(lambda x: calculate_similarity(x.dosage, x.master_dosage,x.dosage_standard), axis=1)
+    return df['dosage_sim']
 
 ##### == calculate_similarity == #######
 def calculate_dosage_similarity(df_mapping_dosage):
     
-    df_sim_dosage = df_mapping_dosage.withColumn("eff_dosage", execute_calculate_dosage_similarity(df_mapping_dosage.DOSAGE_STANDARD,df_mapping_dosage.MASTER_DOSAGE))
+    df_sim_dosage = df_mapping_dosage.withColumn("eff_dosage", execute_calculate_dosage_similarity(df_mapping_dosage.DOSAGE,\
+                                                                                       df_mapping_dosage.MASTER_DOSAGE,\
+                                                                                      df_mapping_dosage.DOSAGE_STANDARD))
     
     return df_sim_dosage
 
@@ -141,5 +142,6 @@ def calculate_dosage_similarity(df_mapping_dosage):
 def let_array_become_string(df_sim_dosage):
     
     df_sim_dosage = df_sim_dosage.withColumn("MASTER_DOSAGE",array_join(df_sim_dosage.MASTER_DOSAGE,delimiter=' '))
+    df_sim_dosage.show(500)
     
     return df_sim_dosage

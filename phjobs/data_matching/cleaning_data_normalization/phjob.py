@@ -70,9 +70,6 @@ def execute(**kwargs):
 
     df_cleanning = get_inter(df_cleanning,df_second_interfere)
     
-    #处理产品名称
-    df_cleanning = make_production_col(df_cleanning)
-    
     df_cleanning = select_cpa_col(df_cleanning)
     df_cleanning.write.mode("overwrite").parquet(result_path)
     
@@ -710,7 +707,6 @@ def make_spec_from_array_into_string(spec_standard):
 #pakc_id 处理
 def choose_correct_pack_id(df_cleanning,source_data_type):
     
-#     df_cleanning.select("SPEC_ORIGINAL").distinct().show(500)
     if source_data_type.upper() == 'CHC':
         df_cleanning = df_cleanning.withColumn("PACK_QTY",extract_chc_pack_id_from_spec(df_cleanning.SPEC_ORIGINAL,df_cleanning.PACK_QTY))
     else:
@@ -724,7 +720,7 @@ def extract_chc_pack_id_from_spec(spec_original, pack_qty):
             "pack_qty":pack_qty}
     df = pd.DataFrame(frame)
     def extract_regex_pack_id(word,pack_original):
-        pack_id_pattern = r'×(\d+)'
+        pack_id_pattern = r'[×*]?(\d+)[瓶贴支袋丸粒片吸]'
         try:
             if (re.findall(pack_id_pattern, word)) != 0:
                 pack_id = str(float(re.findall(pack_id_pattern,word)[0]))
@@ -742,15 +738,8 @@ def extract_chc_pack_id_from_spec(spec_original, pack_qty):
     
     return df['pack_id']
 
-#处理产品名
-def make_production_col(df_cleanning):
-    
-    df_cleanning = df_cleanning.withColumn("PRODUCT_NAME", concat_ws(' ', col("MOLE_NAME"), col("DOSAGE")))
-    
-    return df_cleanning
-
 def get_cpa_pack(df_cleanning):
-    extract_pack_id = r'[×*](\d+)'
+    extract_pack_id = r'[×*]?(\d+)[瓶贴支袋丸粒片吸]'
     df_cleanning = df_cleanning.withColumnRenamed("PACK_QTY", "PACK_QTY_ORIGINAL")
     df_cleanning = df_cleanning.withColumn("PACK_QTY", regexp_extract(col("SPEC_ORIGINAL"), extract_pack_id, 1).cast('float'))
     df_cleanning = df_cleanning.withColumn("PACK_QTY", when(col("PACK_QTY").isNull(), col("PACK_QTY_ORIGINAL")).otherwise(col("PACK_QTY"))).drop(col("PACK_QTY_ORIGINAL"))

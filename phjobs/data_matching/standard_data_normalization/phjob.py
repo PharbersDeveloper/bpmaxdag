@@ -28,7 +28,6 @@ def execute(**kwargs):
 
 ###############----------input--------------------################
     path_master_prod = kwargs["path_master_prod"]
-    path_for_replace_standard_dosage = kwargs["path_for_replace_standard_dosage"]
 ###############----------input--------------------################
 
 ###############----------output-------------------################
@@ -42,15 +41,16 @@ def execute(**kwargs):
 ###########--------------load file----------------------- ################
     df_standard = load_standard_prod(spark, path_master_prod)
     df_standard.write.mode("overwrite").parquet(origin_path)
-    df_replace_standard_dosage  = load_replace_standard_dosage(spark,path_for_replace_standard_dosage) 
 ###########--------------load file----------------------- ################
 
 #########--------------main function--------------------################# 
 
-    #DOSAGE预处理
-    df_standard = make_dosage_standardization(df_standard,df_replace_standard_dosage)
+    #dosage处理
+    df_standard = make_dosage_standardization(df_standard)
+
     #spec转成结构化数据
     df_standard = make_spec_become_structured(df_standard)
+    
     #词形还原
     df_standard = restore_nonstandard_data_to_normal(df_standard)
     #数据单位标准化
@@ -60,8 +60,6 @@ def execute(**kwargs):
     #spec array转string类型
     df_standard = make_spec_become_string(df_standard)
     
-    #凑产品名称
-    df_standard = make_product_col(df_standard)
     
     df_standard.write.mode("overwrite").parquet(result_path)
 #########--------------main function--------------------################# 
@@ -116,17 +114,12 @@ def load_standard_prod(spark, standard_prod_path):
 
     return df_standard
 
-    
-def load_replace_standard_dosage(spark,path_for_replace_standard_dosage):
-    df_replace_standard_dosage = spark.read.parquet(path_for_replace_standard_dosage)
-    return df_replace_standard_dosage
-    
-def make_dosage_standardization(df_standard,df_replace_standard_dosage):
+def make_dosage_standardization(df_standard):
     #标准表DOSAGE中干扰项剔除
     replace_dosage_str = r'(([(（].*[)）])|(\s+))'
     df_standard = df_standard.withColumn("DOSAGE_STANDARD", regexp_replace(col("DOSAGE_STANDARD"),replace_dosage_str,""))\
     .dropna(subset="DOSAGE_STANDARD")
-
+    
     return df_standard
 
 #spec数据改为array
@@ -423,13 +416,4 @@ def make_spec_from_array_into_string(spec_standard):
     df['out_put_col'] = df.apply(lambda x: make_elements_of_list_into_one_string(x.spec_standard), axis=1)
     return df['out_put_col']
 
-
-#凑产品名
-def make_product_col(df_standard):
-    
-#     df_standard.select("MOLE_NAME_STANDARD","DOSAGE_STANDARD","PRODUCT_NAME_STANDARD").distinct().show(300)
-#     print(df_standard.printSchema())
-    df_standard = df_standard.withColumnRenamed("PRODUCT_NAME_STANDARD","PRODUCT_NAME_STANDARD_ORIGINAL")
-    df_standard = df_standard.withColumn("PRODUCT_NAME_STANDARD", concat_ws(' ',col("MOLE_NAME_STANDARD"),col("DOSAGE_STANDARD")))
-    return df_standard
 ################-----------------------functions---------------------------################

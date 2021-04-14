@@ -30,7 +30,7 @@ def execute(**kwargs):
 ###################=======input==========#################
     depends = get_depends_path(kwargs)
     path_cross_result = depends["input_cross_result"]
-    path_mapping_path = kwargs["dosage_mapping_path"]
+    path_mapping_path = confirm_mapping_path(spark,kwargs)   
     g_repartition_shared = int(kwargs["g_repartition_shared"])
     
 ###################=======input==========#################
@@ -40,6 +40,7 @@ def execute(**kwargs):
     run_id = get_run_id(kwargs)
     result_path_prefix = get_result_path(kwargs, run_id, job_id)
     result_path = result_path_prefix + kwargs["mapping_dosage_result"]
+    original_dosage_mapping_path = result_path_prefix + kwargs["original_dosage_mapping_table"]
 ###################=======output==========#################
 
 ###################=======loading files==========#################
@@ -49,11 +50,17 @@ def execute(**kwargs):
 ####################=======loading files==========#################
 
 ####################=======main functions==========#################
-    df_dosage = join_maping_table(df_cross_dosage, df_mapping_dosage)
+
+    df_dosage = join_maping_table(df_cross_dosage=df_cross_dosage,\
+                                  df_mapping_dosage=df_mapping_dosage,\
+                                 left_key="DOSAGE_STANDARD",
+                                 right_key="DOSAGE_STANDARD")
+    
 # ####################=======main functions==========#################
 
 # ####################### == RESULT == #####################
-
+    #写入原mapping表
+    df_mapping_dosage.write.mode("overwrite").parquet(original_dosage_mapping_path)
     df_dosage.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
     
 ####################### == RESULT == #####################
@@ -108,12 +115,39 @@ def loading_files(spark, input_path):
     files = spark.read.parquet(input_path)
     return files
 
+####### == 确认正确mapping路径状态  == #####
+def confirm_mapping_route_state(spark,kwargs):
+    path_correct_mapping_path = get_depends_path(kwargs)["input_correct_mapping_table"]
+    
+    try:
+        df = spark.read.parquet(path_correct_mapping_path)
+        state = "success"
+    except:
+        state = "fail"
+    return state
+        
+
+####### == 确认mapping表路径 == #######
+def confirm_mapping_path(spark,kwargs):
+    
+    state = confirm_mapping_route_state(spark,kwargs)
+    if state == "success":
+        path_mapping_table =get_depends_path(kwargs)["input_correct_mapping_table"]
+    else:
+        path_mapping_table = kwargs["dosage_mapping_path"]
+    
+    return path_mapping_table
 
 ##### == mapping == #####
-def join_maping_table(df_cross_dosage, df_mapping_dosage):
-    df_mapping_dosage = df_mapping_dosage.withColumnRenamed("DOSAGE","MAPPING_DOSAGE")
+def join_maping_table(df_cross_dosage, df_mapping_dosage,left_key,right_key):
+
     
-    df_dosage = df_cross_dosage.join(df_mapping_dosage, df_cross_dosage.DOSAGE==df_mapping_dosage.MAPPING_DOSAGE, how="left").na.fill("").drop("MAPPING_DOSAGE")
+    df_cross_dosage = df_cross_dosage.withColumnRenamed(left_key,"left_col")
+    df_mapping_dosage = df_mapping_dosage.withColumnRenamed(right_key,"right_col")
+
+    df_dosage = df_cross_dosage.join(df_mapping_dosage,df_cross_dosage.left_col == df_mapping_dosage.right_col, how="left")
+
+    df_dosage = df_dosage.withColumnRenamed("left_col",left_key).drop("right_col")
     
     return df_dosage
 
