@@ -124,7 +124,6 @@ def get_depends_path(kwargs):
 def loading_files(spark,input_path):
     try:
         dataframe = spark.read.parquet(input_path)
-        print(dataframe.printSchema())
     except:
         print("数据下载失败！")
         dataframe = None
@@ -229,7 +228,6 @@ def training_model(input_training_dataframe):
     return model
     
 def get_model(input_model_state,input_data_frame):
-    input_model_state = None
     
     if input_model_state == None:
         data_frame = generate_features(input_data_frame)
