@@ -32,3 +32,5 @@ spec:
         value: cleaning_result
       - key: cleaning_origin
         value: cleaning_origin
+      - key: raw_table_of_no_exist_pack_check_id
+        value: raw_table_of_no_exist_pack_check_id

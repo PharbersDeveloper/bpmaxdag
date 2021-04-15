@@ -42,7 +42,7 @@ def execute(**kwargs):
     job_id = get_job_id(kwargs)
     run_id = get_run_id(kwargs)
     result_path_prefix = get_result_path(kwargs, run_id, job_id)
-    model_path = result_path_prefix + kwargs["model_result"]
+    output_model_path = result_path_prefix + kwargs["model_result"]
     validate_path = result_path_prefix + kwargs["model_validate"]
     tm = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
     final_path = get_final_result_path(kwargs, run_id, kwargs["final_model"], tm)
@@ -65,9 +65,9 @@ def execute(**kwargs):
     print(treeModel.toDebugString)
 ########## == RESULT == ###########
     #写入run路径
-    wirte_model(input_model=model,output_path=model_path)
+    wirte_model(input_model=model,output_path=output_model_path)
     #写入报告路径
-    wirte_model(input_model=model,output_path=final_path)
+#     wirte_model(input_model=model,output_path=final_path)
 
 ########## == RESULT == ###########
     return {}
@@ -239,6 +239,8 @@ def get_model(input_model_state,input_data_frame):
         print("调用的模型")
     
     return model
+
+################-----------------------------------------------------################
     
 '''
     if input_model_path == "unknown":
@@ -318,4 +320,3 @@ def get_model(input_model_state,input_data_frame):
     
 '''
  
-################-----------------------------------------------------################

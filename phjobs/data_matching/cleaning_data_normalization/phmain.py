@@ -22,6 +22,7 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--source_data_type')
 @click.option('--cleaning_result')
 @click.option('--cleaning_origin')
+@click.option('--raw_table_of_no_exist_pack_check_id')
 def debug_execute(**kwargs):
     try:
         args = {'name': 'cleaning_data_normalization'}

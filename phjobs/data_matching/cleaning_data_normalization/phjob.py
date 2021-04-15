@@ -39,6 +39,7 @@ def execute(**kwargs):
     result_path_prefix = get_result_path(kwargs, run_id, job_id)
     result_path = result_path_prefix + kwargs["cleaning_result"]
     origin_path = result_path_prefix + kwargs["cleaning_origin"]
+    raw_df_of_no_pack_check_id_path = result_path_prefix + kwargs["raw_table_of_no_exist_pack_check_id"]
 #########--------------output------------------------####################
 
 ###########--------------load file----------------------- ################
@@ -50,6 +51,12 @@ def execute(**kwargs):
 #########---------------load file------------------------################
 
 #########--------------main function--------------------#################   
+    #剔除无pack_check_id 的数据
+    print(df_cleanning.printSchema())
+    df_of_no_exist_pack_check_id = get_df_of_no_pack_check_id(input_df=df_cleanning,\
+                                                           input_col="PACK_ID_CHECK")
+    df_cleanning = get_df_of_has_pack_check_id(input_df=df_cleanning,\
+                                                           input_col="PACK_ID_CHECK")
     #spec预处理
     df_cleanning = make_spec_pre_treatment(df_cleanning)
 
@@ -74,6 +81,14 @@ def execute(**kwargs):
     df_cleanning.write.mode("overwrite").parquet(result_path)
     
 ########------------main fuction-------------------------################
+
+
+######### == RESULT == ###########
+######### ***** 缺pack_check_id数据
+    write_files(input_df_info=df_of_no_exist_pack_check_id,\
+                path_output=raw_df_of_no_pack_check_id_path)
+    
+######### == RESULT == ###########
     return {}
 
 
@@ -107,6 +122,7 @@ def modify_pool_cleanning_prod(spark, raw_data_path):
         df_cleanning = spark.read.csv(path=raw_data_path, header=True).withColumn("ID", pudf_id_generator(col("MOLE_NAME")))
     else:
         df_cleanning = spark.read.parquet(raw_data_path).withColumn("ID", pudf_id_generator(col("MOLE_NAME")))
+                                               
     return df_cleanning
 
 @pandas_udf(StringType(), PandasUDFType.SCALAR)
@@ -121,6 +137,38 @@ def pudf_id_generator(oid):
 def load_second_interfere(spark,second_interfere_path):
     df_second_interfere = spark.read.parquet(second_interfere_path)
     return df_second_interfere
+
+#过滤数据
+def get_df_of_no_pack_check_id(input_df,input_col):
+    
+    df = input_df.filter(col(input_col).isNull())
+    print(df.count())
+    df_type = "csv"
+    
+    return df,df_type
+                                               
+## 取有效数据
+def get_df_of_has_pack_check_id(input_df,input_col):
+    
+    df = input_df.filter(col(input_col).isNotNull())
+                                               
+    return df 
+
+##### == 写入路径 == #########
+def write_files(input_df_info, path_output):
+    
+    try:
+        if input_df_info[-1].lower() == "parquet":
+            input_df_info[0].repartition(10).write.mode("overwrite").parquet(path_output)
+        else:
+            input_df_info[0].repartition(1).write.mode("overwrite").csv(path_output,header=True)
+        status_info = fr"{input_df_info[-1]} Write Success"
+    except:
+        status_info = fr"{input_df_info[-1]} Write Failed"
+        
+    print(status_info)
+    
+    return status_info
  
 
 #spec预处理
