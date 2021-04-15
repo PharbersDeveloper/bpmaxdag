@@ -16,24 +16,20 @@ spec:
     code: phmain.py
     config: phconf.yaml
     args:
-      - key: g_path_max
-        value: s3a://ph-max-auto/v0.0.1-2020-06-08/
-      - key: g_path_extract
-        value: s3a://ph-stream/common/public/max_result/0.0.5/rawdata_standard
       - key: g_project_name
         value: Empty
-      - key: g_out_dir
-        value: Empty
       - key: g_minimum_product_sep
-        value: |
+        value: '|'
       - key: g_minimum_product_columns
         value: Brand, Form, Specifications, Pack_Number, Manufacturer
-      - key: g_dag_name
+      - key: dag_name
         value: Max
-      - key: g_run_id
+      - key: run_id
         value: max_test_beida_202012
-      - key: g_depend_job_names_keys
-        value: ["data_adding_monthly#raw_data_adding_final#raw_data_adding_final"]
+      - key: max_path
+        value: s3a://ph-max-auto/v0.0.1-2020-06-08/
+      - key: g_out_dir
+        value: Empty
     outputs:
       - key: g_rawdata_standard
         value: rawdata_standard

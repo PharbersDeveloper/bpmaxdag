@@ -14,15 +14,13 @@ def execute(**kwargs):
     depends_path = kwargs["depends_path"]
     
     ### input args ###
-    g_path_max = kwargs['g_path_max']
-    g_path_extract = kwargs['g_path_extract']
     g_project_name = kwargs['g_project_name']
-    g_out_dir = kwargs['g_out_dir']
     g_minimum_product_sep = kwargs['g_minimum_product_sep']
     g_minimum_product_columns = kwargs['g_minimum_product_columns']
-    g_dag_name = kwargs['g_dag_name']
-    g_run_id = kwargs['g_run_id']
-    g_depend_job_names_keys = kwargs['g_depend_job_names_keys']
+    dag_name = kwargs['dag_name']
+    run_id = kwargs['run_id']
+    max_path = kwargs['max_path']
+    g_out_dir = kwargs['g_out_dir']
     ### input args ###
     
     ### output args ###
@@ -30,17 +28,16 @@ def execute(**kwargs):
     g_rawdata_standard_brief = kwargs['g_rawdata_standard_brief']
     ### output args ###
 
-    # ===========  加载需要使用到的包 ============
     from pyspark.sql.types import IntegerType, DoubleType, StringType, StructType, StructType
     from pyspark.sql.functions import col
     from pyspark.sql import functions as func
-    from pyspark.sql import DataFrame
-    # %%
+    from pyspark.sql import DataFrame    # %%
     # ===========  测试用的参数 ============
-    # g_project_name ="贝达"
-    # g_out_dir = "202012_test"
+    g_project_name ="贝达"
+    g_out_dir = "202012_test"
+    # g_depend_job_names_keys = '["data_adding_monthly#raw_data_adding_final#raw_data_adding_final"]'
     # %%
-    # ===========  输入文件和输出文件目录 ============
+    # =========== 输入 输出 ============
     
     if g_minimum_product_sep == 'kong':
         g_minimum_product_sep = ''
@@ -48,16 +45,16 @@ def execute(**kwargs):
     
     
     # raw—data数据，product-map产品匹配数据，市场数据
-    p_raw_data = g_path_max + '/' + g_project_name + '/' + g_out_dir + '/raw_data_delivery'
-    p_product_map = g_path_max + "/" + g_project_name + "/" + g_out_dir + "/prod_mapping"
-    p_market  = g_path_max + "/" + g_project_name + "/mkt_mapping"
+    p_raw_data = max_path + '/' + g_project_name + '/' + g_out_dir + '/raw_data_delivery'
+    p_product_map = max_path + "/" + g_project_name + "/" + g_out_dir + "/prod_mapping"
+    p_market  = max_path + "/" + g_project_name + "/mkt_mapping"
     
     # 通用匹配文件
-    p_cpa_pha_mapping = g_path_max + "/Common_files/cpa_pha_mapping"
-    p_universe = g_path_max + "/Common_files/universe_latest"
-    p_molecule_act = g_path_max  + "/Common_files/extract_data_files/product_map_all_ATC.csv"
-    p_max_city_normalize = g_path_max  + "/Common_files/extract_data_files/MAX_city_normalize.csv"
-    p_master_data_map = g_path_max  + "/Common_files/extract_data_files/master_data_map.csv"
+    p_cpa_pha_mapping = max_path + "/Common_files/cpa_pha_mapping"
+    p_universe = max_path + "/Common_files/universe_latest"
+    p_molecule_act = max_path  + "/Common_files/extract_data_files/product_map_all_ATC.csv"
+    p_max_city_normalize = max_path  + "/Common_files/extract_data_files/MAX_city_normalize.csv"
+    p_master_data_map = max_path  + "/Common_files/extract_data_files/master_data_map.csv"
     
     # 输出
     p_raw_data_standard = result_path_prefix + g_rawdata_standard
@@ -93,6 +90,7 @@ def execute(**kwargs):
     logger.debug(num1 - num2)
     df_pack_id_master_map = df_pack_id_master_map.dropDuplicates(["PACK_ID"])
                             
+
     # %%
     # 3. product_map_all_ATC: 有补充的新的 PACK_ID - 标准通用名 - ACT （0是缺失）
     ## 读入 molecule-act 分子表
@@ -135,9 +133,39 @@ def execute(**kwargs):
     ## 读入产品表
     
     df_product_map = spark.read.parquet(p_product_map)
+    # a. 列名清洗统一
+    # 有的min2结尾有空格与无空格的是两条不同的匹配
+    for i in df_product_map.columns:
+        if i in ["标准通用名", "通用名_标准", "药品名称_标准", "S_Molecule_Name"]:
+            df_product_map = df_product_map.withColumnRenamed(i, "通用名")
+        if i in ["min1_标准"]:
+            df_product_map = df_product_map.withColumnRenamed(i, "min2")
+        if i in ["packcode", "Pack_ID", "Pack_Id", "PackID", "packid"]:
+            df_product_map = df_product_map.withColumnRenamed(i, "pfc")
+        if i in ["商品名_标准", "S_Product_Name"]:
+            df_product_map = df_product_map.withColumnRenamed(i, "标准商品名")
+        if i in ["剂型_标准", "Form_std", "S_Dosage"]:
+            df_product_map = df_product_map.withColumnRenamed(i, "标准剂型")
+        if i in ["规格_标准", "Specifications_std", "药品规格_标准", "S_Pack"]:
+            df_product_map = df_product_map.withColumnRenamed(i, "标准规格")
+        if i in ["包装数量2", "包装数量_标准", "Pack_Number_std", "S_PackNumber", "最小包装数量"]:
+            df_product_map = df_product_map.withColumnRenamed(i, "标准包装数量")
+        if i in ["标准企业", "生产企业_标准", "Manufacturer_std", "S_CORPORATION", "标准生产厂家"]:
+            df_product_map = df_product_map.withColumnRenamed(i, "标准生产企业")
+    if g_project_name == "Janssen" or g_project_name == "NHWA":
+        if "标准剂型" not in df_product_map.columns:
+            df_product_map = df_product_map.withColumnRenamed("剂型", "标准剂型")
+        if "标准规格" not in df_product_map.columns:
+            df_product_map = df_product_map.withColumnRenamed("规格", "标准规格")
+        if "标准生产企业" not in df_product_map.columns:
+            df_product_map = df_product_map.withColumnRenamed("生产企业", "标准生产企业")
+        if "标准包装数量" not in df_product_map.columns:
+            df_product_map = df_product_map.withColumnRenamed("包装数量", "标准包装数量")
+    
+    # 列名标准化
     df_product_map = df_product_map.withColumnRenamed('min1', 'MIN') \
                         .withColumnRenamed('min2', 'MIN_STD') \
-                        .withColumnRenamed('标准通用名', 'MOLECULE_STD') \
+                        .withColumnRenamed('通用名', 'MOLECULE_STD') \
                         .withColumnRenamed('标准商品名', 'BRAND_STD') \
                         .withColumnRenamed('标准剂型', 'FORM_STD') \
                         .withColumnRenamed('标准规格', 'SPECIFICATIONS_STD') \
@@ -146,8 +174,6 @@ def execute(**kwargs):
                         .withColumnRenamed('标准集团', 'CORP_STD') \
                         .withColumnRenamed('标准途径', 'ROUTE_STD') \
                         .withColumnRenamed('pfc', 'PACK_ID')
-    
-    
     df_product_map = df_product_map.withColumn('PACK_NUMBER_STD', 
                                 col('PACK_NUMBER_STD').cast(IntegerType()) ) \
                             .withColumn('PACK_ID', 
@@ -255,6 +281,7 @@ def execute(**kwargs):
     
         df_raw_data_join_universe = df_raw_data_join_universe.withColumn('MIN', func.concat_ws(g_minimum_product_sep, 
                                         *[func.when(col(i).isNull(), func.lit("NA")).otherwise(col(i)) for i in g_minimum_product_columns]))
+
     # %%
     # 三. 标准化df_raw_data_join_universe
     # 2. df_product_map 匹配 MIN ：获得 PACK_ID, MOLECULE_STD, 标准商品名, 标准剂型, 标准规格, 标准包装数量, 标准生产企业
@@ -302,6 +329,7 @@ def execute(**kwargs):
     
     # # 合并 max_standard_yidaosu 和 max_standard_others
     df_data_standard = df_data_standard_others.union(df_data_standard_yidaosu.select(df_data_standard_others.columns))
+
     # %%
     # # master 匹配不上的(ATC4_1是null) 用 df_molecule_act_map 和 df_product_map 信息
     df_data_standard = df_data_standard.withColumn("MOLECULE_STD_MASTER", func.when(df_data_standard["MOLE_NAME_CH_1"].isNull(), df_data_standard["MOLE_NAME_CH_2"]) \
@@ -357,16 +385,16 @@ def execute(**kwargs):
                 "CITY_STD", "PACK_ID", "ATC", "PROJECT" ]
     df_raw_data_standard = df_data_standard.select( std_names_list ).withColumnRenamed("Specifications", "SPECIFICATIONS" )\
                 .withColumnRenamed("Pack_Number", "PACK_NUMBER") \
-                .withColumnRenamed("Manufacturer", "MANUFACTURER" )
+                .withColumnRenamed("Manufacturer", "MANUFACTURER" ) \
                 .withColumnRenamed('MOLECULE_STD_MASTER', 'MOLECULE_STD')
     
     df_raw_data_standard = df_raw_data_standard.withColumn("DATE_COPY", df_raw_data_standard.DATE)
-
-    # %%
-    # ===========  保存结果,写入到文件中  ============
+    
     # 目录结果汇总
     df_raw_data_standard_brief = df_raw_data_standard.select("PROJECT", "DATE", "MOLECULE_STD", "ATC", "MARKET", "PHA", "SOURCE").distinct()
-    
+
+    # %%
+    # =========== 数据输出 =============
     # 根据日期分桶写出
     df_raw_data_standard = df_raw_data_standard.repartition("DATE_COPY")
     df_raw_data_standard.write.format("parquet").partitionBy("DATE_COPY") \
@@ -376,6 +404,7 @@ def execute(**kwargs):
     df_raw_data_standard_brief = df_raw_data_standard_brief.repartition(2)
     df_raw_data_standard_brief.write.format("parquet") \
         .mode("overwrite").save(p_raw_data_standard_brief)
+
     # %%
     # ===========  数据校准  ============
     # p_result_rawdata_standard = "s3a://ph-stream/common/public/max_result/0.0.5/rawdata_standard/贝达_rawdata_standard"
