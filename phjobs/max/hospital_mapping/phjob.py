@@ -114,29 +114,4 @@ def execute(**kwargs):
     
     get = udf(lambda x: x[0] if len(x) > 0 else "", StringType())
     
-    # new_gb_df = reading.groupBy(col("PHA_ID")) \
-    #     .agg(
-    #         reverse(array_distinct(collect_list("HOSP_NAME"))).alias("HOSP_NAMES"),
-    #         reverse(array_distinct(collect_list("HOSP_LEVEL"))).alias("HOSP_LEVELS"),
-    #         reverse(array_distinct(collect_list("REGION"))).alias("REGIONS"),
-    #         reverse(array_distinct(collect_list("LOCATION"))).alias("LOCATIONS"),
-    #         reverse(array_distinct(collect_list("PROVINCE"))).alias("PROVINCES"),
-    #         reverse(array_distinct(collect_list("CITY"))).alias("CITYS"),
-    #         reverse(array_distinct(collect_list("DISTRICT"))).alias("DISTRICTS"),
-    #         reverse(array_distinct(collect_list("CITY_TIER"))).alias("CITY_TIERS")
-    #         ) \
-    #     .withColumn("HOSP_NAME", get(col("HOSP_NAMES"))) \
-    #     .withColumn("HOSP_LEVEL", get(col("HOSP_LEVELS"))) \
-    #     .withColumn("REGION", get(col("REGIONS"))) \
-    #     .withColumn("LOCATION", split(get(col("LOCATIONS")), ",")) \
-    #     .withColumn("PROVINCE", get(col("PROVINCES"))) \
-    #     .withColumn("CITY", get(col("CITYS"))) \
-    #     .withColumn("DISTRICT", get(col("DISTRICTS"))) \
-    #     .withColumn("CITY_TIER", get(col("CITY_TIERS"))) \
-    #     .withColumn("CATEGORY", lit("NEW"))
-    
-    # df = new_gb_df.selectExpr("PHA_ID","HOSP_NAME", "HOSP_LEVEL", "REGION", "LOCATION", "PROVINCE", "CITY", "DISTRICT", "CITY_TIER", "CATEGORY")
-    # df.repartition(1).write.mode("overwrite").parquet("s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DIMENSION/HOSPITAL_DIMENSION/")
-    
-    
     return {}

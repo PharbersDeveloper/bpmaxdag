@@ -21,14 +21,14 @@ spec:
       - key: hospital_univers
         value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/MAPPING/HOSPITAL_UNIVERSE/"
       - key: time
-        value: "2021-04-03"
+        value: "2021-04-14"
       - key: company
-        value: "奥鸿"
+        value: "贝达"
       - key: version
         value: "0.0.1"
     outputs:
-      - key: output_fact_path
-        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/FACT/HOSPITAL_FACT/"
+      - key: output_tmp_fact_path
+        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/TMP/HOSPITAL_FACT/"
 
 
 

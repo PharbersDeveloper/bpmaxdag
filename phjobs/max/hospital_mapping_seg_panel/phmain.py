@@ -15,15 +15,15 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--run_id')
 @click.option('--job_id')
 @click.option('--input_dim_path')
-@click.option('--hospital_univers')
 @click.option('--time')
+@click.option('--seg_panel_paths')
 @click.option('--company')
 @click.option('--version')
-@click.option('--output_tmp_fact_path')
+@click.option('--output_fact_path')
 def debug_execute(**kwargs):
     try:
-        args = {"name": "hospital_fact"}
-        outputs = ["output_tmp_fact_path"]
+        args = {"name": "hospital_mapping_seg_panel"}
+        outputs = ["output_fact_path"]
 
         args.update(kwargs)
         result = exec_before(**args)

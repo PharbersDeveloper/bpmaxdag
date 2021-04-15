@@ -19,7 +19,7 @@ spec:
       - key: input_clean_path
         value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/TMP/HOSPITAL_DIMENSION/"
       - key: time
-        value: "2021-04-03"
+        value: "2021-04-14"
       - key: company
         value: "贝达"
       - key: version

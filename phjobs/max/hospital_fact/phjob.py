@@ -27,7 +27,7 @@ def execute(**kwargs):
     _company = str(kwargs["company"])
     _input = str(kwargs["input_dim_path"]) + "TIME=" + _time + "/COMPANY=" + _company
     _hospital_univers_input = str(kwargs["hospital_univers"])
-    _output = str(kwargs["output_fact_path"])
+    _output = str(kwargs["output_tmp_fact_path"])
     _version = str(kwargs["version"])
 
     def general_id():
