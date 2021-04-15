@@ -38,8 +38,7 @@ spec:
       - key: depend_job_names_keys
         value: 
           - cleaning_data_model_training#model_result#model
-          - labeling_with_crossed_data#label_result#data
-          - cross_join_cutting#cross_drop#lost
+          - cleaning_data_model_training#data_of_features#input_data_of_features
           - cleaning_data_normalization#cleaning_origin#origin_data
     outputs:
       - key: prediction_result

@@ -10,6 +10,7 @@ import numpy as np
 from pyspark.sql.types import *
 from pyspark.ml import PipelineModel
 from pyspark.ml.feature import VectorAssembler
+from pyspark.ml.evaluation import MulticlassClassificationEvaluator
 from pyspark.sql.functions import udf, pandas_udf, PandasUDFType
 from pyspark.sql.functions import desc, col 
 from pyspark.sql.functions import rank, lit, when, row_number
@@ -29,11 +30,15 @@ def execute(**kwargs):
 
 ###########------------input---------######################
     depends = get_depends_path(kwargs)
-    label_result_path = depends['data']
+    df_of_features_path = depends['input_data_of_features']
     model_path = depends['model']
     origin_data_path = depends['origin_data']
-    shareholds = [kwargs["g_sharehold_mole_name"], kwargs["g_sharehold_product_name"], kwargs["g_sharehold_dosage"], \
-                  kwargs["g_sharehold_spec"], kwargs["g_sharehold_pack_qty"], kwargs["g_sharehold_manufacturer_name"]]
+    shareholds = [kwargs["g_sharehold_mole_name"],\
+                  kwargs["g_sharehold_product_name"],\
+                  kwargs["g_sharehold_dosage"],\
+                  kwargs["g_sharehold_spec"],\
+                  kwargs["g_sharehold_pack_qty"],\
+                  kwargs["g_sharehold_manufacturer_name"]]
 ###########------------input---------######################
     
 ###############-------------output---------------##################
@@ -43,30 +48,32 @@ def execute(**kwargs):
     prediction_path = result_path_prefix + kwargs["prediction_result"]
     positive_result_path = result_path_prefix + kwargs["positive_result"]
     negative_result_path = result_path_prefix + kwargs["negative_result"]
+    ## rusult 目录文件
     tm = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
     final_predictions = get_final_result_path(kwargs, run_id, kwargs["final_predictions"], tm)
     final_positive_path = get_final_result_path(kwargs, run_id, kwargs["final_positive"], tm)
     final_negative_path = get_final_result_path(kwargs, run_id, kwargs["final_negative"], tm)
-    final_lost_path = get_final_result_path(kwargs, run_id, kwargs["final_lost"], tm)
     final_report_path = get_final_result_path(kwargs, run_id, kwargs["final_report"], tm)
 ###################------------output------------#######################
 
 #################------------loading files--------------#################
-    df_result = load_label_result(spark, label_result_path)
-    df_origin_data = load_origin_data(spark, origin_data_path)
-    model = load_model(model_path)
+    df_test = loading_files(spark,input_path=df_of_features_path)
+    df_origin_data = loading_files(spark,input_path=origin_data_path)
+    model = loading_model(input_model_path=model_path)
 ################-----------loading files---------------##################
-#df_lost = spark.read.parquet(depends["lost"])
+    
 
 ##################-----------main functions---------####################
-    df_predictions = make_data_classification(df_result, model)
+    
+    df_predictions = let_model_to_classification(input_data=df_test,\
+                                                 input_model=model)
+    model_score = model_performance_evaluation(input_dataframe=df_predictions)
+    
+    
     
 ##################-----------main functions---------####################
 	# df_predictions.write.mode("overwrite").parquet(prediction_path)
-
-	# df_predictions = df_predictions.withColumn("JACCARD_DISTANCE_MOLE_NAME", df_predictions.JACCARD_DISTANCE[0]) \
-	# 			.withColumn("JACCARD_DISTANCE_DOSAGE", df_predictions.JACCARD_DISTANCE[1]) \
-	# 			.drop("JACCARD_DISTANCE", "indexedFeatures").drop("rawPrediction", "probability")
+    '''
     # 5. 生成文件
     df_predictions = df_predictions.drop("indexedFeatures", "rawPrediction", "probability")
     df_predictions = similarity(df_predictions, shareholds)
@@ -115,10 +122,6 @@ def execute(**kwargs):
     positive_count = df_positive.count()  # 机器判断pre=1条目
     negative_count = ph_total - positive_count # - df_lost.count()  # 机器判断pre=0条目
     matching_ratio = str(round((float(positive_count / ph_total) * 100),2)) + '%'       # 匹配率
-    accuracy_num = df_predictions.filter(col("label")==col("prediction")).count()
-    prediction_count = df_predictions.count()
-    Accuracy = str(round(int(accuracy_num)/int(prediction_count) * 100 ,2)) + '%'  
-    print("CHC准确率:",Accuracy)
 
     # 7. 最终结果报告以csv形式写入s3
     report = [("data_matching_report", ),]
@@ -134,9 +137,11 @@ def execute(**kwargs):
     df_report.show()
     df_report.repartition(1).write.mode("overwrite").option("header", "true").csv(final_report_path)
     logger.warn("final report csv文件写入完成")
-
+    ''' 
+    
     return {}
 
+    
 
 ################--------------------- functions ---------------------################
 """
@@ -177,28 +182,69 @@ def get_depends_path(kwargs):
         depends_name = tmp_lst[2]
         result[depends_name] = get_depends_file_path(kwargs, depends_job, depends_key)
     return result
+####### == 中间文件路径 == ######## 
 
-def load_label_result(spark, label_result_path):
-    df_result = spark.read.parquet(label_result_path) 
-    print(df_result.printSchema())
-    return df_result  
+##### == 下载数据
+def loading_files(spark,input_path):
+    try:
+        dataframe = spark.read.parquet(input_path)
+        print(fr"{input_path} loading success!")
+    except:
+        print(fr"{input_path} loading fail")
+        dataframe = None
+    return dataframe
 
-def load_origin_data(spark, origin_data_path):
-    df_origin_data = spark.read.parquet(origin_data_path)
-    return df_origin_data
 
-def load_model(model_path):
-    model = PipelineModel.load(model_path)
-    return model 
+#### == 加载模型
+def loading_model(input_model_path):
+    try:
+        mode = PipelineModel.load(input_model_path)
+        print("mode 路径存在")
+    except:
+        print("mode 路径不存在")
+        mode = None
+    return mode
 
-def make_data_classification(df_result, model):
-    assembler = VectorAssembler( \
-                                inputCols=["EFFTIVENESS_MOLE_NAME", "EFFTIVENESS_PRODUCT_NAME", "EFFTIVENESS_DOSAGE", "EFFTIVENESS_SPEC", \
-                                           "EFFTIVENESS_PACK_QTY", "EFFTIVENESS_MANUFACTURER"], \
-                                outputCol="features")
-    df_result = assembler.transform(df_result)
-    df_predictions = model.transform(df_result)
-    return df_predictions  
+### ==进行分类预测 
+def let_model_to_classification(input_data,input_model):
+    
+    df_predictions = input_model.transform(input_data)
+    print(df_predictions.count())
+    
+    
+    print("模型预测完毕！")
+    return df_predictions
+
+### 转换百分数
+def let_decimal_to_be_percentage(input_decimal):
+    
+    data = '%.2f%%' % (input_decimal * 100)
+    
+    return data
+    
+### == 模型性能评估
+def model_performance_evaluation(input_dataframe):
+    evaluator_acc =  MulticlassClassificationEvaluator(labelCol="indexedLabel",\
+                                     predictionCol="prediction",\
+                                     metricName="accuracy").evaluate(input_dataframe)
+    
+    precision = MulticlassClassificationEvaluator(labelCol="indexedLabel",\
+                                                  predictionCol="prediction",\
+                                                  metricName="weightedPrecision").evaluate(input_dataframe)
+    
+    evaluator_recall = MulticlassClassificationEvaluator(labelCol="indexedLabel",\
+                                               predictionCol="prediction",\
+                                               metricName="weightedRecall").evaluate(input_dataframe)
+    
+    model_socre = (evaluator_acc,precision,evaluator_recall)
+    model_socre = tuple(map(lambda x: let_decimal_to_be_percentage(x),model_socre))
+    model_score_name = ('Accuracy','Precision','Recall')
+    score = dict(zip(model_score_name,model_socre))
+    
+    print(score)
+    
+    return score 
+
 
 def similarity(df, shareholds):
     df = df.withColumn("SIMILARITY", \
@@ -208,6 +254,7 @@ def similarity(df, shareholds):
     df = df.withColumn("RANK", row_number().over(windowSpec))
     df = df.where((df.RANK <= 5) | (df.label == 1.0))
     return df
+
 
 join_udf = udf(lambda x: ",".join(map(str,x)))
 

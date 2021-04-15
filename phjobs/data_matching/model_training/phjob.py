@@ -44,6 +44,7 @@ def execute(**kwargs):
     result_path_prefix = get_result_path(kwargs, run_id, job_id)
     output_model_path = result_path_prefix + kwargs["model_result"]
     validate_path = result_path_prefix + kwargs["model_validate"]
+    data_of_features_path = result_path_prefix + kwargs["data_of_features"]
     tm = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
     final_path = get_final_result_path(kwargs, run_id, kwargs["final_model"], tm)
 #############--------output-----------#################
@@ -56,8 +57,12 @@ def execute(**kwargs):
 
 #####################-------main function-------------#####################
 
+    ## == 生成features
+    data_of_features = generate_features(input_data_frame=label_data)
+    
+    ## 生成模型
     model = get_model(input_model_state=model_state,\
-                      input_data_frame=label_data)
+                      input_data_frame=data_of_features)
     
 #####################-------main function-------------#####################
     treeModel = model.stages[2]
@@ -65,9 +70,12 @@ def execute(**kwargs):
     print(treeModel.toDebugString)
 ########## == RESULT == ###########
     #写入run路径
-    wirte_model(input_model=model,output_path=output_model_path)
+    write_model(input_model=model,output_path=output_model_path)
     #写入报告路径
 #     wirte_model(input_model=model,output_path=final_path)
+    # 写入features数据
+    write_file(input_data=data_of_features,\
+               output_path=data_of_features_path) 
 
 ########## == RESULT == ###########
     return {}
@@ -130,7 +138,7 @@ def loading_files(spark,input_path):
     return dataframe
 
 ##### == 写入路径 
-def wirte_model(input_model,output_path):
+def write_model(input_model,output_path):
     
     try:
         input_model.write().overwrite().save(output_path)
@@ -141,7 +149,15 @@ def wirte_model(input_model,output_path):
     
     return status_info
 
-
+def write_file(input_data,output_path):
+    
+    try:
+        input_data.repartition(16).write.mode("overwrite").parquet(output_path)
+        message = fr"{output_path} Write Success"
+    except:
+        message = fr"{output_path} Write Failed"
+    print(message)
+    return message
 
 def judge_state_of_model(input_model_path):
     try:
@@ -230,8 +246,7 @@ def training_model(input_training_dataframe):
 def get_model(input_model_state,input_data_frame):
     
     if input_model_state == None:
-        data_frame = generate_features(input_data_frame)
-        data_frame = get_training_and_test_data(input_data=data_frame)[0]   
+        data_frame = get_training_and_test_data(input_data=input_data_frame)[0]   
         model = training_model(input_training_dataframe=data_frame)
         print("生成的模型")
     else:

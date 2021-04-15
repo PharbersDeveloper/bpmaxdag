@@ -22,9 +22,10 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--model_result')
 @click.option('--model_validate')
 @click.option('--final_model')
+@click.option('--data_of_features')
 def debug_execute(**kwargs):
 	try:
-		args = {'name': 'training2'}
+		args = {'name': 'model_training'}
 
 		args.update(kwargs)
 		result = exec_before(**args)
