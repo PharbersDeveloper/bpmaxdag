@@ -16,36 +16,24 @@ spec:
     code: phmain.py
     config: phconf.yaml
     args:
-      - key: g_max_path
-        value: s3a://ph-max-auto/v0.0.1-2020-06-08/
       - key: g_project_name
         value: Empty
-      - key: g_model_month_left
-        value: 0
       - key: g_model_month_right
         value: 0
-      - key: g_if_others
-        value: False
-      - key: g_current_year
-        value: 2020
+      - key: g_year
+        value: Empty
       - key: g_current_month
-        value: Empty
-      - key: g_p_not_arrived
-        value: Empty
-      - key: g_p_published
-        value: Empty
-      - key: g_path_out
-        value: s3a://ph-max-auto/v0.0.1-2020-06-08/
-      - key: g_out_dir
         value: Empty
       - key: g_add_47
         value: False
+      - key: depend_job_names_keys
+        value: ["data_adding_monthly#raw_data_adding_final#raw_data_adding_final"]
       - key: dag_name
         value: Max
       - key: run_id
         value: max_test_beida_202012
-      - key: depend_job_names_keys
-        value: ["data_adding_monthly#raw_data_adding_final#raw_data_adding_final"]
+      - key: max_path
+        value: s3a://ph-max-auto/v0.0.1-2020-06-08/
     outputs:
       - key: g_panel
         value: panel_result
