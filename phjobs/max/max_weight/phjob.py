@@ -34,12 +34,14 @@ def execute(**kwargs):
     from pyspark.sql import functions as func
     from pyspark.sql.functions import col    # %%
     # 测试输入
+    '''
     g_project_name = "贝达"
     g_market = 'BD1'
     g_universe = 'universe_onc'
     g_factor = 'factor_BD1'
     g_universe_ot = 'universe_ot_BD1'
     g_monthly_update = 'True'
+    '''
     # %%
     # 根据是否为月更选项panel文件路径
     if g_monthly_update == 'True':
