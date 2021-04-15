@@ -23,6 +23,7 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--g_current_month')
 @click.option('--g_if_add_data')
 @click.option('--depend_job_names_keys')
+@click.option('--g_monthly_update')
 @click.option('--dag_name')
 @click.option('--run_id')
 @click.option('--max_path')

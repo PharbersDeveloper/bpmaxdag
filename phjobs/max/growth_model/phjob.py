@@ -18,6 +18,7 @@ def execute(**kwargs):
     g_model_month_right = kwargs['g_model_month_right']
     g_max_month = kwargs['g_max_month']
     g_year_missing = kwargs['g_year_missing']
+    g_monthly_update = kwargs['g_monthly_update']
     depend_job_names_keys = kwargs['depend_job_names_keys']
     dag_name = kwargs['dag_name']
     run_id = kwargs['run_id']
@@ -41,6 +42,10 @@ def execute(**kwargs):
     logger.debug('数据执行-start：计算增长率-模型年历史数据')
     
     # =========== 输入 输出 =============
+    # 是否运行此job
+    if g_monthly_update == "False":
+         return
+    
     # 输入
     if g_year_missing:
         g_year_missing = g_year_missing.replace(" ","").split(",")

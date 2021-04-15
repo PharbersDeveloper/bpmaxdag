@@ -20,6 +20,7 @@ def execute(**kwargs):
     g_paths_foradding = kwargs['g_paths_foradding']
     g_add_47 = kwargs['g_add_47']
     depend_job_names_keys = kwargs['depend_job_names_keys']
+    g_monthly_update = kwargs['g_monthly_update']
     dag_name = kwargs['dag_name']
     run_id = kwargs['run_id']
     max_path = kwargs['max_path']
@@ -61,6 +62,10 @@ def execute(**kwargs):
     logger.debug( p_panel_result)
     logger.debug(p_new_hospital)
     # %%
+    # 是否运行此job
+    if g_monthly_update == "False":
+         return
+    
     # =========== 数据准备 测试用=============
     # 读取 market
     df_market = spark.read.parquet(p_market)

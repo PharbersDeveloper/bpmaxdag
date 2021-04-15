@@ -28,6 +28,8 @@ spec:
         value: False
       - key: depend_job_names_keys
         value: ["data_adding_monthly#raw_data_adding_final#raw_data_adding_final"]
+      - key: g_monthly_update
+        value: Empty
       - key: dag_name
         value: Max
       - key: run_id

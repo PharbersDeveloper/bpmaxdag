@@ -21,6 +21,7 @@ def execute(**kwargs):
     g_current_month = kwargs['g_current_month']
     g_if_add_data = kwargs['g_if_add_data']
     depend_job_names_keys = kwargs['depend_job_names_keys']
+    g_monthly_update = kwargs['g_monthly_update']
     dag_name = kwargs['dag_name']
     run_id = kwargs['run_id']
     max_path = kwargs['max_path']
@@ -46,7 +47,10 @@ def execute(**kwargs):
     '''
     # %%
     logger.debug('数据执行-start：补数-月更新')
-    
+    # 是否运行此job
+    if g_monthly_update == "True":
+         return
+        
     if g_if_add_data != "False" and g_if_add_data != "True":
         logger.error('wrong input: g_if_add_data, False or True') 
         raise ValueError('wrong input: g_if_add_data, False or True')

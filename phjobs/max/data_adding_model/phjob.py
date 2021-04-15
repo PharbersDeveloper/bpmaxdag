@@ -18,6 +18,7 @@ def execute(**kwargs):
     g_year = kwargs['g_year']
     g_model_month_right = kwargs['g_model_month_right']
     depend_job_names_keys = kwargs['depend_job_names_keys']
+    g_monthly_update = kwargs['g_monthly_update']
     dag_name = kwargs['dag_name']
     run_id = kwargs['run_id']
     max_path = kwargs['max_path']
@@ -41,6 +42,10 @@ def execute(**kwargs):
     g_model_month_right = '201912'
     '''
     # %%
+    # 是否运行此job
+    if g_monthly_update == "False":
+         return
+    
     logger.debug('数据执行-start：补数-模型')
     # 输入
     p_product_mapping = depends_path['product_mapping_out']

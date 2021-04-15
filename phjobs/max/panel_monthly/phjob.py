@@ -20,6 +20,7 @@ def execute(**kwargs):
     g_current_month = kwargs['g_current_month']
     g_add_47 = kwargs['g_add_47']
     depend_job_names_keys = kwargs['depend_job_names_keys']
+    g_monthly_update = kwargs['g_monthly_update']
     dag_name = kwargs['dag_name']
     run_id = kwargs['run_id']
     max_path = kwargs['max_path']
@@ -43,6 +44,10 @@ def execute(**kwargs):
     '''
     # %%
     logger.debug('panel_monthly')
+    # 是否运行此job
+    if g_monthly_update == "True":
+         return
+        
     # 输入
     # p_universe = max_path + "/" + g_project_name + "/universe_base"
     p_market  = max_path + "/" + g_project_name + "/mkt_mapping"

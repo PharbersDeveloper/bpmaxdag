@@ -24,6 +24,8 @@ spec:
         value: 0
       - key: g_year_missing
         value: 0
+      - key: g_monthly_update
+        value: Empty
       - key: depend_job_names_keys
         value: ["product_mapping#product_mapping_out#product_mapping_out"]
       - key: dag_name
