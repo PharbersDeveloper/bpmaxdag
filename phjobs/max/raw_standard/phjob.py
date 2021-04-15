@@ -358,10 +358,9 @@ def execute(**kwargs):
     df_raw_data_standard = df_data_standard.select( std_names_list ).withColumnRenamed("Specifications", "SPECIFICATIONS" )\
                 .withColumnRenamed("Pack_Number", "PACK_NUMBER") \
                 .withColumnRenamed("Manufacturer", "MANUFACTURER" )
+                .withColumnRenamed('MOLECULE_STD_MASTER', 'MOLECULE_STD')
     
     df_raw_data_standard = df_raw_data_standard.withColumn("DATE_COPY", df_raw_data_standard.DATE)
-    
-    df_raw_data_standard = df_raw_data_standard.withColumnRenamed('MOLECULE_STD_MASTER', 'MOLECULE_STD')
 
     # %%
     # ===========  保存结果,写入到文件中  ============
