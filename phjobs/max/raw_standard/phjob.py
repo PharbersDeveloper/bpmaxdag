@@ -360,11 +360,13 @@ def execute(**kwargs):
                 .withColumnRenamed("Manufacturer", "MANUFACTURER" )
     
     df_raw_data_standard = df_raw_data_standard.withColumn("DATE_COPY", df_raw_data_standard.DATE)
+    
+    df_raw_data_standard = df_raw_data_standard.withColumnRenamed('MOLECULE_STD_MASTER', 'MOLECULE_STD')
 
     # %%
     # ===========  保存结果,写入到文件中  ============
     # 目录结果汇总
-    df_raw_data_standard_brief = df_raw_data_standard.select("PROJECT", "DATE", "MOLECULE_STD_MASTER", "ATC", "MARKET", "PHA", "SOURCE").distinct()
+    df_raw_data_standard_brief = df_raw_data_standard.select("PROJECT", "DATE", "MOLECULE_STD", "ATC", "MARKET", "PHA", "SOURCE").distinct()
     
     # 根据日期分桶写出
     df_raw_data_standard = df_raw_data_standard.repartition("DATE_COPY")
