@@ -32,14 +32,16 @@ spec:
         value: True
       - key: p_id_bedsize
         value: Empty
-      - key: depend_job_names_keys
-        value: ["max_weight#max_weight_result#max_weight_result"]
-      - key: g_max_path
-        value: s3a://ph-max-auto/v0.0.1-2020-06-08/
       - key: g_time_left
         value: Empty
       - key: g_time_right
         value: Empty
+      - key: g_market
+        value: Empty
+      - key: depend_job_names_keys
+        value: ["max_weight#max_weight_result#max_weight_result"]
+      - key: g_max_path
+        value: s3a://ph-max-auto/v0.0.1-2020-06-08/
       - key: g_out_dir
         value: Empty
       - key: dag_name

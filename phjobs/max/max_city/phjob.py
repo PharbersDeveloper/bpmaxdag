@@ -22,10 +22,11 @@ def execute(**kwargs):
     g_hospital_level = kwargs['g_hospital_level']
     g_bedsize = kwargs['g_bedsize']
     p_id_bedsize = kwargs['p_id_bedsize']
-    depend_job_names_keys = kwargs['depend_job_names_keys']
-    g_max_path = kwargs['g_max_path']
     g_time_left = kwargs['g_time_left']
     g_time_right = kwargs['g_time_right']
+    g_market = kwargs['g_market']
+    depend_job_names_keys = kwargs['depend_job_names_keys']
+    g_max_path = kwargs['g_max_path']
     g_out_dir = kwargs['g_out_dir']
     dag_name = kwargs['dag_name']
     run_id = kwargs['run_id']
@@ -63,7 +64,6 @@ def execute(**kwargs):
     g_time_right = int(g_time_right)
     
     p_province_city_mapping = g_max_path + "/" + g_project_name + '/province_city_mapping'
-    hospital_ot_path = g_max_path + "/" + g_project_name + '/hospital_ot.csv'
     p_market = g_max_path + "/" + g_project_name + '/mkt_mapping'
     p_cpa_pha_mapping = g_max_path + "/" + g_project_name + "/cpa_pha_mapping"
     if p_id_bedsize == 'Empty':
@@ -77,9 +77,9 @@ def execute(**kwargs):
     product_map_path = out_path_dir + "/prod_mapping"
     
     if g_if_two_source == "False":
-        raw_data_std_path = out_path_dir + "/product_mapping_out"
+        p_raw_data_std = out_path_dir + "/product_mapping_out"
     else:
-        raw_data_std_path = out_path_dir + "/raw_data_std"
+        p_raw_data_std = out_path_dir + "/raw_data_std"
     
     
     # 输入
@@ -169,7 +169,7 @@ def execute(**kwargs):
     df_ID_Bedsize
     # %%
     # 7.raw_data
-    df_raw_data = spark.read.parquet(raw_data_std_path)
+    df_raw_data = spark.read.parquet(p_raw_data_std)
     # === 测试用 =====
     for i in df_raw_data.columns:
         if i in ["数量（支/片）", "最小制剂单位数量", "total_units", "SALES_QTY"]:
