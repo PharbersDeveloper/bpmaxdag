@@ -20,13 +20,10 @@ def execute(**kwargs):
     g_factor = kwargs['g_factor']
     g_universe_ot = kwargs['g_universe_ot']
     g_use_d_weight = kwargs['g_use_d_weight']
-    time_left = kwargs['time_left']
-    time_right = kwargs['time_right']
-    max_path = kwargs['max_path']
-    out_dir = kwargs['out_dir']
+    g_monthly_update = kwargs['g_monthly_update']
     dag_name = kwargs['dag_name']
     run_id = kwargs['run_id']
-    depend_job_names_keys = kwargs['depend_job_names_keys']
+    max_path = kwargs['max_path']
     ### input args ###
     
     ### output args ###
@@ -42,16 +39,22 @@ def execute(**kwargs):
     g_universe = 'universe_onc'
     g_factor = 'factor_BD1'
     g_universe_ot = 'universe_ot_BD1'
-    
-    time_left = "202001"
-    time_right = "202012"
-    out_dir = "202012_test"
+    g_monthly_update = 'True'
+    # %%
+    # 根据是否为月更选项panel文件路径
+    if g_monthly_update == 'True':
+        depend_job_names_keys = '["panel_monthly#panel_result#panel_result"]'
+    elif g_monthly_update == 'False':
+        depend_job_names_keys = '["panel_model#panel_result#panel_result"]'
+    result_path_prefix = get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
+    depends_path = get_depends_path({"name":job_name, "dag_name":dag_name, "run_id":run_id, "depend_job_names_keys":depend_job_names_keys})
     # %%
     logger.debug('数据执行-start：max放大')
     
     # =========== 输入 输出 =============
     
-    out_path_dir = max_path + "/" + g_project_name + '/' + out_dir
+    # out_path_dir = max_path + "/" + g_project_name + '/' + out_dir
+    # p_panel = out_path_dir + "/panel_result"
     
     if g_use_d_weight != "Empty":
         g_use_d_weight = g_use_d_weight.replace(" ","").split(",")
@@ -62,14 +65,14 @@ def execute(**kwargs):
     p_universe = max_path + "/" + g_project_name + "/" + g_universe
     p_factor = max_path + "/" + g_project_name + "/factor/" + g_factor
     p_universe_ot = max_path + "/" + g_project_name + "/universe/"+ g_universe_ot
-    
-    p_panel = out_path_dir + "/panel_result"
     p_PHA_weight = max_path + "/" + g_project_name + '/PHA_weight'
+    p_panel = depends_path['panel_result']
     if g_use_d_weight:
         p_PHA_weight_default = max_path + "/" + g_project_name + '/PHA_weight_default'
     # %%
     # # =========== 数据准备，测试用 =============
     # 1、panel 文件
+    '''
     df_original_panel = spark.read.parquet(p_panel)
     df_original_panel
     df_original_panel = df_original_panel.withColumnRenamed('ID', 'ID') \
@@ -92,6 +95,7 @@ def execute(**kwargs):
     
     df_original_panel = df_original_panel.where((col('MARKET') == g_market) & 
                                           (col('DATE') >= time_left) & (col('DATE') <= time_right)).cache()
+    '''
     # %%
     # 2.医院权重文件	 
     df_PHA_weight = spark.read.parquet(p_PHA_weight)
@@ -120,6 +124,8 @@ def execute(**kwargs):
     df_PHA_weight_market = df_PHA_weight.where(df_PHA_weight.MARKET == g_market)
     # %%
     # 3. universe 文件
+    '''
+    '''
     df_universe = spark.read.parquet(p_universe)
     df_universe = df_universe.withColumnRenamed('Panel_ID', 'PHA') \
                         .withColumnRenamed('BEDSIZE', 'BEDSIZE') \
@@ -128,8 +134,8 @@ def execute(**kwargs):
                         .withColumnRenamed('City', 'CITY') \
                         .withColumnRenamed('Province', 'PROVINCE') \
                         .withColumnRenamed('Est_DrugIncome_RMB', 'EST_DRUGINCOME_RMB')
-    df_universe = df_universe.select("PHA", "BEDSIZE", "PANEL", "SEG", 'CITY', 'PROVINCE', 'EST_DRUGINCOME_RMB')
     df_universe
+
     # %%
     # 4. factor 文件
     df_factor = spark.read.parquet(p_factor)
@@ -148,7 +154,59 @@ def execute(**kwargs):
     df_universe_outlier = df_universe_outlier.select("PHA", "EST_DRUGINCOME_RMB", "PANEL", "SEG", "BEDSIZE")
     df_universe_outlier
     # %%
+    # =========== 数据读取 =============
+    # 1、读取 panel
+    df_original_panel = spark.read.parquet(p_panel)
+    df_original_panel = df_original_panel.select("ID", "DATE", "MIN_STD", "MARKET", "HOSP_NAME", 
+                                           "PHA", "MOLECULE_STD", "PROVINCE", "CITY", "ADD_FLAG", "ROUTE_STD",
+                                           "SALES", "UNITS")
+    '''
+    # 2、读取 universe 数据(Panel列不一样，暂时不替换)
+    def createView(company, table_name, model,
+            time="2021-04-06", 
+            base_path = "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX"):
+                
+                definite_path = "{base_path}/{model}/TIME={time}/COMPANY={company}"
+                dim_path = definite_path.format(
+                    base_path = base_path,
+                    model = model,
+                    time = time,
+                    company = company
+                )
+                spark.read.parquet(dim_path).createOrReplaceTempView(table_name)
+                
+    createView(g_project_name, "hospital_dimesion", "DIMENSION/HOSPITAL_DIMENSION", "2021-04-06")
+    createView(g_project_name, "hospital_fact", "FACT/HOSPITAL_FACT", "2021-04-06")
+    createView(g_project_name, "cpa_gyc_mapping", "DIMENSION/MAPPING/CPA_GYC_MAPPING/STANDARD", "2021-04-06")
+    createView(g_project_name, "product_dimesion", "DIMENSION/PRODUCT_DIMENSION", "2021-04-06")
+    createView(g_project_name, "mnf_dimesion", "DIMENSION/MNF_DIMENSION", "2021-04-06")
+    createView(g_project_name, "product_rel_dimesion", "DIMENSION/PRODUCT_RELATIONSHIP_DIMENSION", "2021-04-06")
+    createView(g_project_name, "raw_data_fact", "FACT/RAW_DATA_FACT", "2021-04-06")
+    
+    base_universe_sql = """
+        SELECT PHA_ID AS PHA, HOSPITAL_ID, HOSP_NAME, 
+                    PROVINCE, CITY, CITYGROUP AS CITY_TIER, 
+                    REGION, TOTAL AS BEDSIZE, SEG, BID_SAMPLE AS PANEL, MEDICINE_RMB AS EST_DRUGINCOME_RMB  FROM (
+                SELECT 
+                    PHA_ID, HOSPITAL_ID, HOSP_NAME, 
+                    PROVINCE, CITY, CITYGROUP, 
+                    REGION, TAG, VALUE, SEG 
+                FROM hospital_dimesion AS hdim 
+                    INNER JOIN hospital_fact AS hfct
+                    ON hdim.ID == hfct.HOSPITAL_ID WHERE (CATEGORY = 'BEDCAPACITY' AND TAG = 'TOTAL') OR (CATEGORY = 'IS' AND TAG = 'BID_SAMPLE') OR (CATEGORY = 'REVENUE' AND TAG = 'MEDICINE_RMB')
+            )
+            PIVOT (
+                SUM(VALUE)
+                FOR TAG in ('TOTAL', 'BID_SAMPLE', 'MEDICINE_RMB')
+            )
+    """
+    df_universe = spark.sql(base_universe_sql)
+    '''
+    # %%
     # =========== 数据执行 =============
+    df_universe = df_universe.select("PHA", "BEDSIZE", "PANEL", "SEG", 'CITY', 'PROVINCE', 'EST_DRUGINCOME_RMB')
+    # %%
+    # == 放大过程 ==
     # 每次只执行一个月(模型年是一年)的一个market的数据
     
     # 获得 panel, df_panel_seg：group_panel_by_seg
@@ -222,7 +280,7 @@ def execute(**kwargs):
     # 合并样本部分
     df_max_result = df_max_result.union(df_panel.select(df_max_result.columns))
     # %%
-    # 输出结果
+    # =========== 输出结果 =============
     df_max_result = df_max_result.repartition(2)
     df_max_result.write.format("parquet") \
                     .mode("overwrite").save(result_path_prefix + g_max_out)

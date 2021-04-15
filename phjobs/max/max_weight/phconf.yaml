@@ -28,20 +28,14 @@ spec:
         value: Empty
       - key: g_use_d_weight
         value: Empty
-      - key: time_left
-        value: 0
-      - key: time_right
-        value: 0
-      - key: max_path
-        value: s3a://ph-max-auto/v0.0.1-2020-06-08/
-      - key: out_dir
+      - key: g_monthly_update
         value: Empty
       - key: dag_name
         value: Max
       - key: run_id
         value: max_test_beida_202012
-      - key: depend_job_names_keys
-        value: ["panel#panel_result#panel_result"]
+      - key: max_path
+        value: s3a://ph-max-auto/v0.0.1-2020-06-08/
     outputs:
       - key: g_max_out
         value: max_weight_result
