@@ -41,7 +41,9 @@ def execute(**kwargs):
                   kwargs["g_sharehold_pack_qty"],\
                   kwargs["g_sharehold_manufacturer_name"]]
 ###########------------input---------######################
-    
+    model_path = r"s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs/manual__2021-04-16T07_19_46.469214+00_00/cleaning_data_model_training/model_result/"
+    df_of_features_path = r"s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs/manual__2021-04-16T07_19_46.469214+00_00/cleaning_data_model_training/data_of_features/"
+    path_of_no_exist_pack_check_id = r"s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs/manual__2021-04-16T07_19_46.469214+00_00/cleaning_data_normalization/raw_table_of_no_exist_pack_check_id/"
 ###############-------------output---------------##################
     job_id = get_job_id(kwargs)
     run_id = get_run_id(kwargs)
@@ -69,7 +71,9 @@ def execute(**kwargs):
     
     df_predictions = let_model_to_classification(input_data=df_test,\
                                                  input_model=model)
+   
     model_score = model_performance_evaluation(input_dataframe=df_predictions)
+    
     
     df_predictions,df_positive,df_negative = generate_output_dataframe(input_dataframe_of_predictions=df_predictions,\
                                                 input_shareholds=shareholds)
@@ -108,6 +112,7 @@ def execute(**kwargs):
     write_file(input_dataframe=df_report,\
                write_path=final_report_path,\
                write_file_type="csv")
+   
     return {}
 
     
@@ -180,7 +185,7 @@ def write_file(input_dataframe,write_path,write_file_type):
         if write_file_type.lower() == 'parquet':
             input_dataframe.repartition(16).write.mode("overwrite").parquet(write_path)
         else:
-            input_dataframe.repartition(1).write.mode("overwrite").csv(write_path)
+            input_dataframe.repartition(1).write.mode("overwrite").csv(write_path,header=True)
         message = f"{write_path} {write_file_type}  write success !"
     except:
         message = f"{write_path} {write_file_type}  write fail!"
@@ -218,7 +223,8 @@ def model_performance_evaluation(input_dataframe):
     
     evaluator_acc =  MulticlassClassificationEvaluator(labelCol="indexedLabel",\
                                      predictionCol="prediction",\
-                                     metricName="accuracy").evaluate(input_dataframe)
+                                     metricName="accuracy")\
+                                    .evaluate(input_dataframe)
     
     precision = MulticlassClassificationEvaluator(labelCol="indexedLabel",\
                                                   predictionCol="prediction",\
@@ -232,9 +238,7 @@ def model_performance_evaluation(input_dataframe):
     model_socre = tuple(map(lambda x: let_decimal_to_be_percentage(x),model_socre))
     model_score_name = ('Accuracy','Precision','Recall')
     score = dict(zip(model_score_name,model_socre))
-    
-    print(score)
-    
+   
     return score 
 
 ### == 生成输出dataframe

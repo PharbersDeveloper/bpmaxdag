@@ -49,7 +49,6 @@ def execute(**kwargs):
     final_path = get_final_result_path(kwargs, run_id, kwargs["final_model"])
 #############--------output-----------#################
 
-
 ###########-------loading files-----------#################
     label_data = loading_files(spark,input_path=path_label_result)
     model_state = judge_state_of_model(input_model_path=input_model_path)
