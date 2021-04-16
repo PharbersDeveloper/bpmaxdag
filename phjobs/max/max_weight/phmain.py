@@ -23,6 +23,7 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--g_universe_ot')
 @click.option('--g_use_d_weight')
 @click.option('--g_monthly_update')
+@click.option('--depend_job_names_keys')
 @click.option('--dag_name')
 @click.option('--run_id')
 @click.option('--max_path')

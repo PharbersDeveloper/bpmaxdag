@@ -21,6 +21,7 @@ def execute(**kwargs):
     g_universe_ot = kwargs['g_universe_ot']
     g_use_d_weight = kwargs['g_use_d_weight']
     g_monthly_update = kwargs['g_monthly_update']
+    depend_job_names_keys = kwargs['depend_job_names_keys']
     dag_name = kwargs['dag_name']
     run_id = kwargs['run_id']
     max_path = kwargs['max_path']
@@ -35,21 +36,14 @@ def execute(**kwargs):
     from pyspark.sql.functions import col    # %%
     # 测试输入
     '''
+    '''
     g_project_name = "贝达"
     g_market = 'BD1'
     g_universe = 'universe_onc'
     g_factor = 'factor_BD1'
     g_universe_ot = 'universe_ot_BD1'
     g_monthly_update = 'True'
-    '''
-    # %%
-    # 根据是否为月更选项panel文件路径
-    if g_monthly_update == 'True':
-        depend_job_names_keys = '["panel_monthly#panel_result#panel_result"]'
-    elif g_monthly_update == 'False':
-        depend_job_names_keys = '["panel_model#panel_result#panel_result"]'
-    result_path_prefix = get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
-    depends_path = get_depends_path({"name":job_name, "dag_name":dag_name, "run_id":run_id, "depend_job_names_keys":depend_job_names_keys})
+
     # %%
     logger.debug('数据执行-start：max放大')
     
@@ -68,7 +62,12 @@ def execute(**kwargs):
     p_factor = max_path + "/" + g_project_name + "/factor/" + g_factor
     p_universe_ot = max_path + "/" + g_project_name + "/universe/"+ g_universe_ot
     p_PHA_weight = max_path + "/" + g_project_name + '/PHA_weight'
-    p_panel = depends_path['panel_result']
+    # 根据是否为月更选项panel文件路径
+    if g_monthly_update == 'True':
+        p_panel = depends_path['panel_monthly_out']
+    elif g_monthly_update == 'False':
+        p_panel = depends_path['panel_model_out']
+    
     if g_use_d_weight:
         p_PHA_weight_default = max_path + "/" + g_project_name + '/PHA_weight_default'
     # %%
