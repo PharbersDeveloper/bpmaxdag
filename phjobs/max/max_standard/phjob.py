@@ -15,7 +15,7 @@ def execute(**kwargs):
     
     ### input args ###
     g_project_name = kwargs['g_project_name']
-    g_depend_job_names_keys = kwargs['g_depend_job_names_keys']
+    depend_job_names_keys = kwargs['depend_job_names_keys']
     dag_name = kwargs['dag_name']
     run_id = kwargs['run_id']
     max_path = kwargs['max_path']

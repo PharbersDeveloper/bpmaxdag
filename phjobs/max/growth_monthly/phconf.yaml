@@ -22,7 +22,7 @@ spec:
         value: Empty
       - key: g_year
         value: Empty
-      - key: g_depend_job_names_keys
+      - key: depend_job_names_keys
         value: ["product_mapping#product_mapping_out#product_mapping_out"]
       - key: g_current_month
         value: Empty

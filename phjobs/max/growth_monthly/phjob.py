@@ -17,7 +17,7 @@ def execute(**kwargs):
     g_project_name = kwargs['g_project_name']
     g_month = kwargs['g_month']
     g_year = kwargs['g_year']
-    g_depend_job_names_keys = kwargs['g_depend_job_names_keys']
+    depend_job_names_keys = kwargs['depend_job_names_keys']
     g_current_month = kwargs['g_current_month']
     g_monthly_update = kwargs['g_monthly_update']
     dag_name = kwargs['dag_name']
@@ -46,8 +46,8 @@ def execute(**kwargs):
     # %%
     logger.debug('数据执行-start：计算增长率-月更新')
     # 是否运行此job
-    if g_monthly_update == "False":
-         return
+    # if g_monthly_update == "False":
+    #      return
         
     # =========== 输入 输出 =============   
     # 输入
