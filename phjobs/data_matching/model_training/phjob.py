@@ -45,8 +45,8 @@ def execute(**kwargs):
     output_model_path = result_path_prefix + kwargs["model_result"]
     validate_path = result_path_prefix + kwargs["model_validate"]
     data_of_features_path = result_path_prefix + kwargs["data_of_features"]
-    tm = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
-    final_path = get_final_result_path(kwargs, run_id, kwargs["final_model"], tm)
+#     tm = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
+    final_path = get_final_result_path(kwargs, run_id, kwargs["final_model"])
 #############--------output-----------#################
 
 
@@ -72,7 +72,7 @@ def execute(**kwargs):
     #写入run路径
     write_model(input_model=model,output_path=output_model_path)
     #写入报告路径
-#     wirte_model(input_model=model,output_path=final_path)
+    write_model(input_model=model,output_path=final_path)
     # 写入features数据
     write_file(input_data=data_of_features,\
                output_path=data_of_features_path) 
@@ -110,9 +110,9 @@ def get_depends_file_path(kwargs, job_name, job_key):
     return get_result_path(kwargs, run_id, job_name) + job_key
 
 
-def get_final_result_path(kwargs, run_id, final_key, tm):
+def get_final_result_path(kwargs, run_id, final_key):
     path_prefix = kwargs["final_prefix"]
-    return path_prefix + "/" + tm + "/" + final_key
+    return path_prefix + "/" + run_id + "/" + final_key
 
 
 def get_depends_path(kwargs):
