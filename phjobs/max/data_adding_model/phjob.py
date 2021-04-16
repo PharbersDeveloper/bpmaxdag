@@ -43,7 +43,7 @@ def execute(**kwargs):
     '''
     # %%
     # 是否运行此job
-    if g_monthly_update == "False":
+    if g_monthly_update == "True":
          return
     
     logger.debug('数据执行-start：补数-模型')

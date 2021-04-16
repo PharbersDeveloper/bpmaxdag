@@ -63,7 +63,7 @@ def execute(**kwargs):
     logger.debug(p_new_hospital)
     # %%
     # 是否运行此job
-    if g_monthly_update == "False":
+    if g_monthly_update == "True":
          return
     
     # =========== 数据准备 测试用=============

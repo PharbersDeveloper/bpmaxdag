@@ -41,7 +41,7 @@ def execute(**kwargs):
     # %%
     logger.debug('数据执行-start：计算增长率-模型年历史数据')
     # 是否运行此job
-    if g_monthly_update == "False":
+    if g_monthly_update == "True":
          return
     
     # =========== 输入 输出 =============

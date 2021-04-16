@@ -45,7 +45,7 @@ def execute(**kwargs):
     # %%
     logger.debug('panel_monthly')
     # 是否运行此job
-    if g_monthly_update == "True":
+    if g_monthly_update == "False":
          return
         
     # 输入
