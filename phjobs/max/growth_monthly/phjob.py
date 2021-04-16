@@ -31,18 +31,25 @@ def execute(**kwargs):
     g_growth_rate = kwargs['g_growth_rate']
     ### output args ###
 
+    
+    
     import pandas as pd
     import os
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
-    from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col    # %%
+    from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col    
+    # %%
     # 测试用
     '''
     g_project_name = '贝达'
     g_month = "12"
     g_year = "2020"
     g_current_month = "12"
+    result_path_prefix = get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
+    depends_path = get_depends_path({"name":job_name, "dag_name":dag_name, 
+                                     "run_id":run_id, "depend_job_names_keys":depend_job_names_keys } )
     '''
+
     # %%
     logger.debug('数据执行-start：计算增长率-月更新')
     # 是否运行此job
@@ -73,6 +80,7 @@ def execute(**kwargs):
             
     # 输出
     p_growth_rate = result_path_prefix + g_growth_rate
+
     # %%
     # =========== 数据准备，测试用 =============
     df_published_left = spark.read.csv(p_published_left, header=True)
@@ -83,10 +91,41 @@ def execute(**kwargs):
     
     df_not_arrived =  spark.read.csv(p_not_arrived, header=True)
     df_not_arrived = df_not_arrived.withColumnRenamed('Date', 'DATE')
+
     # %%
     # =========== 数据执行 =============
     # raw_data 处理（products_of_interest 可以写成参数，在前一个job筛选）
-    df_raw_data = spark.read.parquet(p_product_mapping_out)
+    # df_raw_data = spark.read.parquet(p_product_mapping_out)
+    struct_type = StructType([StructField('MIN', StringType(), True),
+                                StructField('PHA', StringType(), True),
+                                StructField('ID', StringType(), True),
+                                StructField('YEAR_MONTH', IntegerType(), True),
+                                StructField('RAW_HOSP_NAME', StringType(), True),
+                                StructField('BRAND', StringType(), True),
+                                StructField('FORM', StringType(), True),
+                                StructField('SPECIFICATIONS', StringType(), True),
+                                StructField('PACK_NUMBER', StringType(), True),
+                                StructField('MANUFACTURER', StringType(), True),
+                                StructField('MOLECULE', StringType(), True),
+                                StructField('SOURCE', StringType(), True),
+                                StructField('CORP', StringType(), True),
+                                StructField('ROUTE', StringType(), True),
+                                StructField('ORG_MEASURE', StringType(), True),
+                                StructField('SALES', DoubleType(), True),
+                                StructField('UNITS', DoubleType(), True),
+                                StructField('UNITS_BOX', DoubleType(), True),
+                                StructField('PATH', StringType(), True),
+                                StructField('SHEET', StringType(), True),
+                                StructField('CITY', StringType(), True),
+                                StructField('PROVINCE', StringType(), True),
+                                StructField('CITY_TIER', DoubleType(), True),
+                                StructField('MONTH', IntegerType(), True),
+                                StructField('YEAR', IntegerType(), True),
+                                StructField('MIN_STD', StringType(), True),
+                                StructField('MOLECULE_STD', StringType(), True),
+                                StructField('ROUTE_STD', StringType(), True),
+                                StructField('BRAND_STD', StringType(), True)])
+    df_raw_data = spark.read.format("parquet").load(p_product_mapping_out, schema=struct_type)
     
     df_products_of_interest = spark.read.csv(p_products_of_interest, header=True)
     g_products_of_interest = df_products_of_interest.toPandas()["poi"].values.tolist()
@@ -94,6 +133,7 @@ def execute(**kwargs):
     df_raw_data = df_raw_data.withColumn("MOLECULE_STD_FOR_GR",
                                    func.when(col("BRAND_STD").isin(g_products_of_interest), col("BRAND_STD")).
                                    otherwise(col('MOLECULE_STD')))
+
     # %%
     # 计算样本分子增长率(月更和模型函数相同)
     def calculateGrowth(df_raw_data, g_max_month=12):
@@ -128,6 +168,7 @@ def execute(**kwargs):
             df_growth_rate = df_growth_rate.withColumn(y, func.when(func.isnull(col(y)) | (col(y) > 10) | (col(y) < 0.1), 1).
                                                  otherwise(col(y)))
         return df_growth_rate
+
     # %%
     # 近两年发表医院减去当月未到医院，用这些医院数据计算增长率
     df_published_left = df_published_left.select('ID').distinct()
@@ -146,6 +187,7 @@ def execute(**kwargs):
     # 标记是哪个月的growth_rate
     df_growth_rate_month = df_growth_rate_month.withColumn("MONTH_FOR_ADD", func.lit(g_month))
     df_growth_rate_month = df_growth_rate_month.withColumn("YEAR_FOR_ADD", func.lit(g_year))
+
     # %%
     # 输出
     df_growth_rate_month = df_growth_rate_month.repartition(1)
@@ -153,11 +195,13 @@ def execute(**kwargs):
         .mode("overwrite").save(p_growth_rate)
     
     logger.debug('数据执行-Finish')
+
     # %%
     '''
     df_growth_rate_month.agg(func.sum('YEAR_2017'),func.sum('YEAR_2018'),func.sum('YEAR_2019'),func.sum('YEAR_2020'),
                              func.sum('GR1718'),func.sum('GR1819'),func.sum('GR1920')).show()
     '''
+
     # %%
     '''
     check = spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012_test/growth_rate/')
@@ -165,3 +209,4 @@ def execute(**kwargs):
     check.where(col('month_for_monthly_add') == 12).agg(func.sum('Year_2017'),func.sum('Year_2018'),func.sum('Year_2019'),func.sum('Year_2020'),
                              func.sum('GR1718'),func.sum('GR1819'),func.sum('GR1920')).show()
     '''
+
