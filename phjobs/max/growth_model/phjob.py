@@ -40,12 +40,11 @@ def execute(**kwargs):
     '''
     # %%
     logger.debug('数据执行-start：计算增长率-模型年历史数据')
-    
-    # =========== 输入 输出 =============
     # 是否运行此job
     if g_monthly_update == "False":
          return
     
+    # =========== 输入 输出 =============
     # 输入
     if g_year_missing:
         g_year_missing = g_year_missing.replace(" ","").split(",")

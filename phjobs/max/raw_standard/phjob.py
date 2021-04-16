@@ -33,8 +33,8 @@ def execute(**kwargs):
     from pyspark.sql import functions as func
     from pyspark.sql import DataFrame    # %%
     # ===========  测试用的参数 ============
-    g_project_name ="贝达"
-    g_out_dir = "202012_test"
+    # g_project_name ="贝达"
+    # g_out_dir = "202012_test"
     # g_depend_job_names_keys = '["data_adding_monthly#raw_data_adding_final#raw_data_adding_final"]'
     # %%
     # =========== 输入 输出 ============
