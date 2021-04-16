@@ -64,7 +64,7 @@ def execute(**kwargs):
     # %%
     # 是否运行此job
     if g_monthly_update == "True":
-         return
+        return
     
     # =========== 数据准备 测试用=============
     # 读取 market
@@ -90,53 +90,54 @@ def execute(**kwargs):
                         .withColumn('SEG', col('SEG').cast(IntegerType())) \
                         .withColumn('CITY_TIER', col('CITY_TIER').cast(StringType()))
     '''
-# =========== 数据读取 =============
-# 1、读取 raw_data_adding_final
-df_raw_data_adding_final = spark.read.parquet(p_raw_data_adding_final)
-df_raw_data_adding_final = df_raw_data_adding_final.persist()
-
-# 2、读取 universe 数据
-# 2、读取 universe 数据
-def createView(company, table_name, model,
-        time="2021-04-06", 
-        base_path = "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX"):
-            
-            definite_path = "{base_path}/{model}/TIME={time}/COMPANY={company}"
-            dim_path = definite_path.format(
-                base_path = base_path,
-                model = model,
-                time = time,
-                company = company
-            )
-            spark.read.parquet(dim_path).createOrReplaceTempView(table_name)
-            
-createView(g_project_name, "hospital_dimesion", "DIMENSION/HOSPITAL_DIMENSION", "2021-04-06")
-createView(g_project_name, "hospital_fact", "FACT/HOSPITAL_FACT", "2021-04-06")
-createView(g_project_name, "cpa_gyc_mapping", "DIMENSION/MAPPING/CPA_GYC_MAPPING/STANDARD", "2021-04-06")
-createView(g_project_name, "product_dimesion", "DIMENSION/PRODUCT_DIMENSION", "2021-04-06")
-createView(g_project_name, "mnf_dimesion", "DIMENSION/MNF_DIMENSION", "2021-04-06")
-createView(g_project_name, "product_rel_dimesion", "DIMENSION/PRODUCT_RELATIONSHIP_DIMENSION", "2021-04-06")
-createView(g_project_name, "raw_data_fact", "FACT/RAW_DATA_FACT", "2021-04-06")
-
-base_universe_sql = """
-    SELECT PHA_ID AS PHA, HOSPITAL_ID, HOSP_NAME, 
-            PROVINCE, CITY, CITYGROUP AS CITY_TIER, 
-            REGION, TOTAL AS BEDSIZE, SEG, BID_SAMPLE AS PANEL FROM (
-        SELECT 
-            PHA_ID, HOSPITAL_ID, HOSP_NAME, 
-            PROVINCE, CITY, CITYGROUP, 
-            REGION, TAG, VALUE, SEG 
-        FROM hospital_dimesion AS hdim 
-            INNER JOIN hospital_fact AS hfct
-            ON hdim.ID == hfct.HOSPITAL_ID WHERE (CATEGORY = 'BEDCAPACITY' AND TAG = 'TOTAL') OR (CATEGORY = 'IS' AND TAG = 'BID_SAMPLE')
-    )
-    PIVOT (
-        SUM(VALUE)
-        FOR TAG in ('TOTAL', 'BID_SAMPLE')
-    )
-"""
-
-df_universe = spark.sql(base_universe_sql)
+    # %%
+    # =========== 数据读取 =============
+    # 1、读取 raw_data_adding_final
+    df_raw_data_adding_final = spark.read.parquet(p_raw_data_adding_final)
+    df_raw_data_adding_final = df_raw_data_adding_final.persist()
+    
+    # 2、读取 universe 数据
+    # 2、读取 universe 数据
+    def createView(company, table_name, model,
+            time="2021-04-06", 
+            base_path = "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX"):
+                
+                definite_path = "{base_path}/{model}/TIME={time}/COMPANY={company}"
+                dim_path = definite_path.format(
+                    base_path = base_path,
+                    model = model,
+                    time = time,
+                    company = company
+                )
+                spark.read.parquet(dim_path).createOrReplaceTempView(table_name)
+                
+    createView(g_project_name, "hospital_dimesion", "DIMENSION/HOSPITAL_DIMENSION", "2021-04-06")
+    createView(g_project_name, "hospital_fact", "FACT/HOSPITAL_FACT", "2021-04-06")
+    createView(g_project_name, "cpa_gyc_mapping", "DIMENSION/MAPPING/CPA_GYC_MAPPING/STANDARD", "2021-04-06")
+    createView(g_project_name, "product_dimesion", "DIMENSION/PRODUCT_DIMENSION", "2021-04-06")
+    createView(g_project_name, "mnf_dimesion", "DIMENSION/MNF_DIMENSION", "2021-04-06")
+    createView(g_project_name, "product_rel_dimesion", "DIMENSION/PRODUCT_RELATIONSHIP_DIMENSION", "2021-04-06")
+    createView(g_project_name, "raw_data_fact", "FACT/RAW_DATA_FACT", "2021-04-06")
+    
+    base_universe_sql = """
+        SELECT PHA_ID AS PHA, HOSPITAL_ID, HOSP_NAME, 
+                PROVINCE, CITY, CITYGROUP AS CITY_TIER, 
+                REGION, TOTAL AS BEDSIZE, SEG, BID_SAMPLE AS PANEL FROM (
+            SELECT 
+                PHA_ID, HOSPITAL_ID, HOSP_NAME, 
+                PROVINCE, CITY, CITYGROUP, 
+                REGION, TAG, VALUE, SEG 
+            FROM hospital_dimesion AS hdim 
+                INNER JOIN hospital_fact AS hfct
+                ON hdim.ID == hfct.HOSPITAL_ID WHERE (CATEGORY = 'BEDCAPACITY' AND TAG = 'TOTAL') OR (CATEGORY = 'IS' AND TAG = 'BID_SAMPLE')
+        )
+        PIVOT (
+            SUM(VALUE)
+            FOR TAG in ('TOTAL', 'BID_SAMPLE')
+        )
+    """
+    
+    df_universe = spark.sql(base_universe_sql)
     # %%
     # =========== 数据执行 =============
     df_markets = df_markets.select("MARKET", "MOLECULE_STD").distinct()
