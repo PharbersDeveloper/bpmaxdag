@@ -30,6 +30,7 @@ def execute(**kwargs):
     _input = str(kwargs["input_dim_path"]) + "TIME=" + _time + "/COMPANY=" + _company
     _hospital_seg_panel_input = str(kwargs["seg_panel_paths"]).replace(" ", "").split(",")
     _output = str(kwargs["output_fact_path"])
+    _output_mapping = str(kwargs["output_mapping_path"])
     _version = str(kwargs["version"])
     
     fact_mapping = [
@@ -100,8 +101,8 @@ def execute(**kwargs):
     gid = udf(general_id, StringType())
     convert_col = udf(convert_col_value, StringType())
     
-    # dim_df = spark.read.parquet(_input)
-    dim_df = spark.read.parquet("s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/HOSPITAL_DIMENSION/TIME=2021-04-06/COMPANY=贝达/")
+    dim_df = spark.read.parquet(_input)
+    # dim_df = spark.read.parquet("s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/HOSPITAL_DIMENSION/TIME=2021-04-06/COMPANY=贝达/")
     dim_df.persist()
     
     def seg_panel_mapping(path):
@@ -130,14 +131,27 @@ def execute(**kwargs):
             .withColumn("VERSION", lit(_version)) \
             .drop(item["COLUMN"])
     
-     
-    fact_df = reduce(lambda x, y: x.union(y), list(map(fact_table, fact_mapping)))
-    # fact_df.persist()
-    # fact_df.filter("TAG == 'SEG' and CATEGORY == 'CPA' and PHA_ID == 'PHA0000037'").show()
-    # print(fact_df.count())
+    
+    fact_df = reduce(lambda dfl, dfr: dfl.union(dfr), list(map(fact_table, fact_mapping)))
+    fact_df.persist()
+    print(fact_df.count())
+    
+    hospital_market_mapping_df = fact_df.selectExpr("ID AS HOSPITAL_FACT_ID", "PHA_ID", "MARKET_TEMP AS TAG", "CATEGORY", "TIME", "COMPANY", "VERSION")
+    print(hospital_market_mapping_df.count())
+    
+    fact_df.drop("MARKET_TEMP") \
+        .write \
+        .partitionBy("TIME", "COMPANY") \
+        .mode("append") \
+        .parquet(_output)
     
     
-    hospital_market_mapping_df = fact_df.selectExpr("ID AS HOSPITAL_FACT_ID", "PHA_ID", "MARKET_TEMP AS TAG", "CATEGORY")
+    hospital_market_mapping_df \
+        .write \
+        .partitionBy("TIME", "COMPANY") \
+        .mode("append") \
+        .parquet(_output_mapping)
+    
     
     
     # fact_df.drop("COMPANY").drop("TIME").drop("MARKET_TEMP").createOrReplaceTempView("hospital_fact")

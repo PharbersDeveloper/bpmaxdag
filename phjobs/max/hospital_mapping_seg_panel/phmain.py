@@ -20,10 +20,11 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--company')
 @click.option('--version')
 @click.option('--output_fact_path')
+@click.option('--output_mapping_path')
 def debug_execute(**kwargs):
     try:
         args = {"name": "hospital_mapping_seg_panel"}
-        outputs = ["output_fact_path"]
+        outputs = ["output_fact_path", "output_mapping_path"]
 
         args.update(kwargs)
         result = exec_before(**args)

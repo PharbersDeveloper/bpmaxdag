@@ -40,6 +40,8 @@ spec:
     outputs:
       - key: output_fact_path
         value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/FACT/HOSPITAL_FACT/"
+      - key: output_mapping_path
+        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/MAPPING/HOSPITAL_MARKET_SEG_PANEL_MAPPING/"
 
 
 
