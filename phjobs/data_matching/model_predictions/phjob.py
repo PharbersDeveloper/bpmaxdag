@@ -142,11 +142,12 @@ def get_depends_file_path(kwargs, job_name, job_key):
 
 def get_final_result_path(kwargs, tm, final_key):
     path_prefix = kwargs["final_prefix"]
-    if kwargs["run_id"]:
-        tm = tm
-    else:
+    if kwargs["run_id"] == None:
         tm = "test"
+    else:
+        tm = str(tm)
     final_result_path = path_prefix + "/" + tm +"/" + final_key 
+    print(final_result_path)
         
     return final_result_path
 

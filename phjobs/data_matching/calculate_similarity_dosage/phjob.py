@@ -117,15 +117,15 @@ def execute_calculate_dosage_similarity(dosage,master_dosage,dosage_standard):
     df = pd.DataFrame(frame)
     def calculate_similarity(s1,s2,s3):
         try:
-            if jaro_winkler_similarity(s1,s3) > 0.95 :
-                sim_value = float(jaro_winkler_similarity(s1,s3))
-            elif s1 in s2:
+            if s1 in s2:
                 sim_value = float(1.0)
+            elif jaro_winkler_similarity(s1,s3) > 0.95 :
+                sim_value = float(jaro_winkler_similarity(s1,s3))
             else:
                 sim_value = float(0.0)
         except:
             sim_value = float(0.0)
-    return sim_value
+        return sim_value
     
     df['dosage_sim'] = df.apply(lambda x: calculate_similarity(x.dosage, x.master_dosage,x.dosage_standard), axis=1)
     return df['dosage_sim']
