@@ -32,8 +32,7 @@ def execute(**kwargs):
     from pyspark.sql import functions as func
     import os
     from pyspark.sql.functions import pandas_udf, PandasUDFType
-    import time
-
+    import time    # %%
     # 输入
     if minimum_product_sep == "kong":
         minimum_product_sep = ""
@@ -47,7 +46,7 @@ def execute(**kwargs):
     
     # 输出
     need_clean_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_check/need_cleaning_raw.csv'
-
+    # %%
     # =========  数据执行  =============
     all_raw_data = spark.read.parquet(all_raw_data_path)
     
@@ -77,7 +76,4 @@ def execute(**kwargs):
         need_clean = need_clean.repartition(1)
         need_clean.write.format("csv").option("header", "true") \
             .mode("overwrite").save(need_clean_path) 
-
-
-
 

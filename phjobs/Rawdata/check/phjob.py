@@ -39,8 +39,7 @@ def execute(**kwargs):
     from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, greatest, least, col
     import time
     import pandas as pd
-    import numpy as np
-
+    import numpy as np    # %%
     '''
     project_name = 'Gilead'
     outdir = '202101'
@@ -48,7 +47,7 @@ def execute(**kwargs):
     current_year = '2021'
     minimum_product_sep = "|"
     '''
-
+    # %%
     # 输入
     current_year = int(current_year)
     current_month = int(current_month)
@@ -86,7 +85,7 @@ def execute(**kwargs):
     check_16_path = raw_data_check_path + '/check_16_各医院各产品价格与所在地区对比.csv'
     #tmp_1_path  = raw_data_check_path + '/tmp_1'
     #tmp_2_path  = raw_data_check_path + '/tmp_2'
-
+    # %%
     # ================= 数据执行 ==================	
     
     MTH = current_year*100 + current_month
@@ -109,7 +108,7 @@ def execute(**kwargs):
         mat_month = [i for i in range((current_year - 1)*100 + 12 - diff , (current_year - 1)*100 + 12 + 1)] + [i for i in range(MTH - current_month + 1 , MTH)]
     else:
         mat_month = [i for i in range(MTH - current_month + 1 , MTH)][-twelve:]
-
+    # %%
     # ==== 一. 数据准备  ==== 
     
     def deal_ID_length(df):
@@ -208,7 +207,7 @@ def execute(**kwargs):
     Raw_data_1 = Raw_data_1.groupby('ID', 'Date', 'min2', '通用名','商品名','Pack_ID') \
                             .agg(func.sum('Sales').alias('Sales'), func.sum('Units').alias('Units')) \
                             .withColumnRenamed('min2', 'Prod_Name')
-
+    # %%
     #========== check_1 ==========
     
     # 每个月产品个数(min2)
@@ -225,7 +224,7 @@ def execute(**kwargs):
     check_1 = check_1.repartition(1)
     check_1.write.format("csv").option("header", "true") \
         .mode("overwrite").save(check_1_path)
-
+    # %%
     #========== check_2 ==========
     
     # 各产品历史月份销量
@@ -242,7 +241,7 @@ def execute(**kwargs):
     check_2 = check_2.repartition(1)
     check_2.write.format("csv").option("header", "true") \
         .mode("overwrite").save(check_2_path)
-
+    # %%
     #========== check_3 ==========
     
     # 历史医院个数
@@ -259,7 +258,7 @@ def execute(**kwargs):
     check_3 = check_3.repartition(1)
     check_3.write.format("csv").option("header", "true") \
         .mode("overwrite").save(check_3_path)
-
+    # %%
     #========== check_5 ==========
     
     # 最近12期每家医院每个月的销量规模
@@ -293,7 +292,7 @@ def execute(**kwargs):
     check_5 = check_5.repartition(1)
     check_5.write.format("csv").option("header", "true") \
         .mode("overwrite").save(check_5_path)
-
+    # %%
     #========== check_6 ==========
     
     # 最近12期每家医院每个月的销量规模
@@ -314,7 +313,7 @@ def execute(**kwargs):
                                                     .otherwise(check_6_2.Check)) 
     
     check_6 = check_6_1.join(check_6_2, on='ID', how='left').orderBy('ID')
-
+    # %%
     #========== check_7 ==========
     
     # 最近12期每家医院每个月每个产品(Packid)的平均价格
@@ -353,7 +352,7 @@ def execute(**kwargs):
     check_7 = check_7.withColumn('Pack_ID', func.when(check_7.Pack_ID == 0, func.lit(None)).otherwise(check_7.Pack_ID))
     
     check_7.groupby('Check').count().show()
-
+    # %%
     #========== check_8 ==========
     
     # 每个月产品个数
@@ -375,7 +374,7 @@ def execute(**kwargs):
     check_8 = check_8.repartition(1)
     check_8.write.format("csv").option("header", "true") \
         .mode("overwrite").save(check_8_path)
-
+    # %%
     #========== check_9 ==========
     
     # 全部医院的全部产品金额、份额、排名与历史月份对比(含缺失医院)
@@ -400,7 +399,7 @@ def execute(**kwargs):
     check_9_3 = check_9_3.repartition(1)
     check_9_3.write.format("csv").option("header", "true") \
         .mode("overwrite").save(check_9_3_path)
-
+    # %%
     #========== check_10 ==========
     
     # group by 产品和月份，count 医院ID，省份
@@ -413,7 +412,7 @@ def execute(**kwargs):
     check_10 = check_10.repartition(1)
     check_10.write.format("csv").option("header", "true") \
         .mode("overwrite").save(check_10_path)
-
+    # %%
     #========== check_贡献率等级相关 ==========
     
     @udf(DoubleType())
@@ -486,8 +485,7 @@ def execute(**kwargs):
         check_num = check_num.orderBy(col('min_diff').desc(), col('mean_adj').desc())
         
         return check_num
-
-    
+    # %%
     Raw_data = deal_ID_length(Raw_data)
     
     #========== check_11 金额==========
@@ -507,7 +505,7 @@ def execute(**kwargs):
     check_11 = check_11.repartition(1)
     check_11.write.format("csv").option("header", "true") \
         .mode("overwrite").save(check_11_path)
-
+    # %%
     #========== check_12 金额==========
     if g_id_molecule == 'True':
         schema = StructType([
@@ -527,7 +525,7 @@ def execute(**kwargs):
         check_12 = check_12.repartition(1)
         check_12.write.format("csv").option("header", "true") \
             .mode("overwrite").save(check_12_path)
-
+    # %%
     #========== check_13 数量==========
     
     schema = StructType([
@@ -546,7 +544,7 @@ def execute(**kwargs):
     check_13 = check_13.repartition(1)
     check_13.write.format("csv").option("header", "true") \
         .mode("overwrite").save(check_13_path)
-
+    # %%
     #========== check_14 数量==========
     if g_id_molecule == 'True':
         schema = StructType([
@@ -566,7 +564,7 @@ def execute(**kwargs):
         check_14 = check_14.repartition(1)
         check_14.write.format("csv").option("header", "true") \
             .mode("overwrite").save(check_14_path)
-
+    # %%
     #========== check_15 价格==========
     if g_id_molecule == 'True':
         check_15_a = Raw_data.where(Raw_data.Date > (current_year-1)*100+current_month-1) \
@@ -594,7 +592,7 @@ def execute(**kwargs):
         check_15 = check_15.repartition(1)
         check_15.write.format("csv").option("header", "true") \
             .mode("overwrite").save(check_15_path)
-
+    # %%
     #========== check_16 价格==========
     check_16_a = Raw_data.join(province_city_mapping.select('ID','Province').distinct(), on='ID', how='left')
     check_16_b = check_16_a.groupBy('Date', 'min1', 'Province') \
@@ -611,7 +609,7 @@ def execute(**kwargs):
     check_16 = check_16.repartition(1)
     check_16.write.format("csv").option("header", "true") \
         .mode("overwrite").save(check_16_path)
-
+    # %%
     #========== 汇总检查结果 ==========
     
     # 汇总检查结果
@@ -626,5 +624,4 @@ def execute(**kwargs):
     check_result = check_result.repartition(1)
     check_result.write.format("csv").option("header", "true") \
         .mode("overwrite").save(check_result_path)
-
 

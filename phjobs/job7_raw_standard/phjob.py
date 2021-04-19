@@ -209,25 +209,25 @@ def execute(max_path, extract_path, project_name, if_two_source, out_dir, minimu
     
     # 3. 生成min1
     # Mylan不重新生成min1，其他项目生成min1
-    if project_name != "Mylan":
-    	if "min1" in raw_data.columns:
-    	    raw_data = raw_data.drop("min1")
-    	raw_data = raw_data.withColumn('Brand', func.when((raw_data.Brand.isNull()) | (raw_data.Brand == 'NA'), raw_data.Molecule).otherwise(raw_data.Brand))
-    	raw_data = raw_data.withColumn("min1", func.when(raw_data[minimum_product_columns[0]].isNull(), func.lit("NA")).
-    	                                   otherwise(raw_data[minimum_product_columns[0]]))
-    	for col in minimum_product_columns[1:]:
-    	    raw_data = raw_data.withColumn(col, raw_data[col].cast(StringType()))
-    	    raw_data = raw_data.withColumn("min1", func.concat(
-    	        raw_data["min1"],
-    	        func.lit(minimum_product_sep),
-    	        func.when(func.isnull(raw_data[col]), func.lit("NA")).otherwise(raw_data[col])))	    
+    # if project_name != "Mylan":
+    if "min1" in raw_data.columns:
+        raw_data = raw_data.drop("min1")
+    raw_data = raw_data.withColumn('Brand', func.when((raw_data.Brand.isNull()) | (raw_data.Brand == 'NA'), raw_data.Molecule).otherwise(raw_data.Brand))
+    raw_data = raw_data.withColumn("min1", func.when(raw_data[minimum_product_columns[0]].isNull(), func.lit("NA")).
+                                       otherwise(raw_data[minimum_product_columns[0]]))
+    for col in minimum_product_columns[1:]:
+        raw_data = raw_data.withColumn(col, raw_data[col].cast(StringType()))
+        raw_data = raw_data.withColumn("min1", func.concat(
+            raw_data["min1"],
+            func.lit(minimum_product_sep),
+            func.when(func.isnull(raw_data[col]), func.lit("NA")).otherwise(raw_data[col])))	    
     
     # 三. 标准化raw_data
     
     # 2. product_map 匹配 min2 ：获得 PACK_ID, 通用名, 标准商品名, 标准剂型, 标准规格, 标准包装数量, 标准生产企业
-    if project_name == "Mylan":
-        product_map = product_map.drop('PACK_ID')
-        raw_data = raw_data.withColumnRenamed('Pack_ID', 'PACK_ID')
+    # if project_name == "Mylan":
+    #    product_map = product_map.drop('PACK_ID')
+    #    raw_data = raw_data.withColumnRenamed('Pack_ID', 'PACK_ID')
     data_standard = raw_data.join(product_map, on='min1', how="left")
     
     # 市场名匹配

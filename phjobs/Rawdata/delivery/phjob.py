@@ -33,8 +33,7 @@ def execute(**kwargs):
     from pyspark.sql import functions as func
     import os
     from pyspark.sql.functions import pandas_udf, PandasUDFType, col, udf
-    from pyspark.sql import Window
-
+    from pyspark.sql import Window    # %%
     '''
     project_name = "XLT"
     time_left = "202001"
@@ -43,11 +42,11 @@ def execute(**kwargs):
     extract_path = "s3a://ph-stream/common/public/max_result/0.0.5/rawdata_standard"
     max_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/"
     '''
-
+    # %%
     # 样本数据交付
-
+    # %%
     ## 输入输出
-
+    # %%
     # 输入
     time_left = int(time_left)
     time_right = int(time_right)
@@ -77,11 +76,11 @@ def execute(**kwargs):
     if project_name == 'XLT':
         out_noPTD_path = max_path + "/" + project_name + "/" + out_dir + "/Delivery/待清洗PTD系数.csv"
     # tmp_path = max_path + "/" + project_name + "/" + out_dir + "/Delivery/tmp"
-
+    # %%
     ## 数据执行
-
+    # %%
     ### 一. 函数定义
-
+    # %%
     # ==========  数据执行  ============
     
     # ====  一. 函数定义  ====
@@ -93,7 +92,7 @@ def execute(**kwargs):
         df = df.withColumn("ID", func.regexp_replace("ID", "\\.0", ""))
         df = df.withColumn("ID", func.when(func.length(df.ID) < 7, func.lpad(df.ID, 6, "0")).otherwise(df.ID))
         return df
-
+    # %%
     # NHWA
     if project_name == "NHWA":
         @udf(StringType())
@@ -159,9 +158,9 @@ def execute(**kwargs):
             else:
                 newname = "-"
             return newname
-
+    # %%
     ### 二. 数据准备
-
+    # %%
     # ====  二. 数据准备  ====  
     
     # 1. hospital_map：ID - 医院名称
@@ -195,18 +194,18 @@ def execute(**kwargs):
                                 .withColumnRenamed("新版名称", "统一名称") \
                                 .dropDuplicates(['ID'])
 
-
+    # %%
     # 2. province_city_mapping ：ID - 匹配省市
     province_city_mapping = spark.read.parquet(province_city_mapping_path)
     province_city_mapping = deal_ID_length(province_city_mapping)
     province_city_mapping = province_city_mapping.select('ID', 'Province', 'City').distinct()
-
+    # %%
     # 3. cpa_pha_mapping ：ID - 匹配PHA
     cpa_pha_mapping = spark.read.parquet(cpa_pha_mapping_path)
     cpa_pha_mapping = cpa_pha_mapping.where(cpa_pha_mapping["推荐版本"] == 1) \
             .select("ID", "PHA").distinct()
     cpa_pha_mapping = deal_ID_length(cpa_pha_mapping)
-
+    # %%
     # 4. product_map 文件
     product_map = spark.read.parquet(product_map_path)
     # a. 列名清洗统一
@@ -268,11 +267,11 @@ def execute(**kwargs):
     else:
         product_map = product_map \
                     .select("min1", "PACK_ID", "通用名", "标准商品名", "标准剂型", "标准规格", "标准包装数量", "标准生产企业", 'Route', 'min2') 
-
+    # %%
     ### 三.样本数据处理
-
+    # %%
     #### 1. 提取交付数据
-
+    # %%
     # =====  Raw =====
     
     # 1. 读取交付数据
@@ -294,9 +293,9 @@ def execute(**kwargs):
         else:
             data_standard = data_standard.union(df)
         index += 1
-
+    # %%
     #### 2. 信息匹配
-
+    # %%
     # 2. 信息匹配
     data_standard = deal_ID_length(data_standard)
     data_standard_map_info = data_standard.select("Date", "ID", "Brand", "Form", "Specifications", "Pack_Number", "Manufacturer", 
@@ -378,9 +377,9 @@ def execute(**kwargs):
                                                         .join(mofang_map, on='mofang_prod', how='left') \
                                                         .join(CPA_GYC_hospital_map_old, on='ID', how='left') \
                                                         .join(city_tier, on='City', how='left').fillna("5", 'BMS_Segment').persist()        
-
+    # %%
     #### 3.列名统一
-
+    # %%
     # 列名统一
     if project_name == 'NHWA':
         rename_list = {'Date':'年月', 'City':'城市', 'Province':'省份', 'ID':'医院编码',
@@ -413,9 +412,9 @@ def execute(**kwargs):
         else:
             data_standard_delivery_out = data_standard_map_info.select('年月', '省份', '城市', '医院编码', '金额', '数量', '通用名', '商品名', '剂型',
                                                           '规格', '包装数量', '生产企业', '医院名称', '等级', 'PHA编码', '给药途径')
-
+    # %%
     #### 4.最终交付处理
-
+    # %%
     if project_name == 'XLT':
         
         # 筛选分子
@@ -445,7 +444,7 @@ def execute(**kwargs):
         
         out = out.select("Date","Hosp_name","ID","Panel_ID","商品名","商品名+SKU","城市","市场","年","月","省份","区域","医院编号",
                           "销售金额","销售数量(片)","销售数量(盒)","通用名","规格","包装数量","南北中国",'PTD系数')
-
+    # %%
     if project_name in ['贝达', '康哲', '奥鸿', '京新', '海坤', '汇宇', 'Tide']:
         out = data_standard_delivery_out.select("年月", "省份", "城市", "医院编码", "医院名称", "等级", "通用名", "商品名", "剂型", "规格", 
                                                            "包装数量", "生产企业", "金额", "数量")
@@ -457,7 +456,7 @@ def execute(**kwargs):
     if project_name in ['Gilead']:
         out = data_standard_delivery_out.select("年月", "省份", "城市", "医院编码", "医院名称", "等级", "通用名", "商品名", "剂型", "规格", 
                                                            "包装数量", "生产企业", "金额", "数量", "给药途径")
-
+    # %%
     # NHWA 处理较多
     if project_name == 'NHWA':
         df = data_standard_delivery.groupby('年月', '省份', '城市', '医院编码', '分子名', '标准商品名', '剂型',
@@ -488,21 +487,18 @@ def execute(**kwargs):
         out = df2.select('医院编码', '医院编码_标准', '医院名称', 'min2', '销售金额', '销售数量', '市场I', '规格', '剂型', '包装数量', '商品名+SKU', 
                   '标准商品名', '生产企业_标准', '分子名', '毫克数', '年', '月', '省份', '城市', 'BMS_Segment', '市场II', '市场III', 'ACC1/ACC2', '区域', 
                    '销售毫克数', 'power', '医院名称II', '药品索引')
-
+    # %%
     #### 5.结果输出
-
+    # %%
     # 结果输出
     out = out.repartition(1)
     out.write.format("csv").option("header", "true") \
            .mode("overwrite").save(out_path)
-
+    # %%
     #out.count()
-
+    # %%
     #out.agg(func.sum('销售金额'), func.sum('销售数量(片)'), func.sum('销售数量(盒)')).collect()
-
+    # %%
     #out.agg(*[func.count(func.when(func.isnull(c), c)).alias(c) for c in out.columns]).show()
-
+    # %%
     #out.show(5)
-
-
-
