@@ -134,10 +134,11 @@ def execute(**kwargs):
     
     fact_df = reduce(lambda dfl, dfr: dfl.union(dfr), list(map(fact_table, fact_mapping)))
     fact_df.persist()
-    print(fact_df.count())
+    logger.info("Fact Table Count ===> " + str(fact_df.count()))
+    
     
     hospital_market_mapping_df = fact_df.selectExpr("ID AS HOSPITAL_FACT_ID", "PHA_ID", "MARKET_TEMP AS TAG", "CATEGORY", "TIME", "COMPANY", "VERSION")
-    print(hospital_market_mapping_df.count())
+    logger.info("Hospital Market Mapping DF Count ===> " + str(hospital_market_mapping_df.count()))
     
     fact_df.drop("MARKET_TEMP") \
         .write \

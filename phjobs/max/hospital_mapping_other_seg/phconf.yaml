@@ -21,7 +21,8 @@ spec:
       - key: time
         value: "2021-04-14"
       - key: other_seg_paths
-        value: "abc"
+        # value: "s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/universe_onc,s3a://ph-max-auto/v0.0.1-2020-06-08/汇宇/universe_base_肿瘤"
+        value: "s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/universe_onc"
       - key: company
         value: "贝达"
       - key: version
