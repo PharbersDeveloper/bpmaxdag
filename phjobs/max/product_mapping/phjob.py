@@ -33,20 +33,23 @@ def execute(**kwargs):
 
     
     
+    
+    
+    
+    
+    
+    
     import os
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
     from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col    
     # %%
     # 测试
-    """
+    '''
     g_project_name = '贝达'
-    g_out_dir = '202012'
+    g_out_dir = '202012_test'
     g_minimum_product_sep='|'
-    result_path_prefix = get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
-    depends_path = get_depends_path({"name":job_name, "dag_name":dag_name, 
-                                     "run_id":run_id, "depend_job_names_keys":depend_job_names_keys })
-    """
+    '''
 
     # %%
     logger.debug('job2_product_mapping')
@@ -103,6 +106,7 @@ def execute(**kwargs):
     logger.debug('数据执行-start：product_mapping')
     
     # df_raw_data = spark.read.parquet(p_hospital_mapping_out)
+    
     struct_type = StructType([ StructField('PHA', StringType(), True),
                                 StructField('ID', StringType(), True),
                                 StructField('YEAR_MONTH', IntegerType(), True),
@@ -130,6 +134,7 @@ def execute(**kwargs):
                                 )
     df_raw_data = spark.read.format("parquet").load(p_hospital_mapping_out, schema=struct_type)
     
+    
     if g_project_name != "Mylan":
         df_raw_data = df_raw_data.withColumn("BRAND", func.when((col('BRAND').isNull()) | (col('BRAND') == 'NA'), col('MOLECULE')).
                                    otherwise(col('BRAND')))
@@ -138,7 +143,7 @@ def execute(**kwargs):
     
     # MIN 生成
     df_raw_data = df_raw_data.withColumn('tmp', func.concat_ws(g_minimum_product_sep, 
-                                        *[func.when(col(i).isNull(), func.lit("NA")).otherwise(col(i)) for i in g_minimum_product_columns]))
+                                *[func.when(col(i).isNull(), func.lit("NA")).otherwise(col(i)) for i in g_minimum_product_columns]))
        
     # Mylan不重新生成 MIN，其他项目生成MIN（遗留问题，测试后可与其他项目一样）
     if g_project_name == "Mylan":

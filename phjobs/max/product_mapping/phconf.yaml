@@ -21,13 +21,13 @@ spec:
       - key: g_minimum_product_columns
         value: BRAND, FORM, SPECIFICATIONS, PACK_NUMBER, MANUFACTURER
       - key: g_minimum_product_sep
-        value: |
+        value: '|'
       - key: g_minimum_product_newname
         value: MIN
       - key: g_need_cleaning_cols
         value: MOLECULE, BRAND, FORM, SPECIFICATIONS, PACK_NUMBER, MANUFACTURER, MIN, ROUTE, CORP
       - key: depend_job_names_keys
-        value: ['hospital_mapping#hospital_mapping_out#hospital_mapping_out']
+        value: ["hospital_mapping#hospital_mapping_out#hospital_mapping_out"]
       - key: dag_name
         value: Max
       - key: run_id
