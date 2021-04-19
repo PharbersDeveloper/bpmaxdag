@@ -31,16 +31,23 @@ def execute(**kwargs):
     g_need_cleaning_out = kwargs['g_need_cleaning_out']
     ### output args ###
 
+    
+    
     import os
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
-    from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col    # %%
+    from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col    
+    # %%
     # 测试
-    '''
+    """
     g_project_name = '贝达'
     g_out_dir = '202012'
     g_minimum_product_sep='|'
-    '''
+    result_path_prefix = get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
+    depends_path = get_depends_path({"name":job_name, "dag_name":dag_name, 
+                                     "run_id":run_id, "depend_job_names_keys":depend_job_names_keys })
+    """
+
     # %%
     logger.debug('job2_product_mapping')
     # 注意：
@@ -60,6 +67,7 @@ def execute(**kwargs):
     # 输出
     p_product_mapping_out = result_path_prefix + g_product_mapping_out
     p_need_cleaning = result_path_prefix + g_need_cleaning_out
+
     # %%
     # =========== 数据准备 测试用=============
     df_product_map = spark.read.parquet(product_map_path)
@@ -88,11 +96,39 @@ def execute(**kwargs):
                         .withColumnRenamed('pfc', 'PACK_ID')
     df_product_map = df_product_map.withColumn('PACK_NUMBER_STD', col('PACK_NUMBER_STD').cast(IntegerType())) \
                             .withColumn('PACK_ID', col('PACK_ID').cast(IntegerType()))
-    df_product_map
+    
+
     # %%
     # =========== 数据执行 =============
     logger.debug('数据执行-start：product_mapping')
-    df_raw_data = spark.read.parquet(p_hospital_mapping_out)
+    
+    # df_raw_data = spark.read.parquet(p_hospital_mapping_out)
+    struct_type = StructType([ StructField('PHA', StringType(), True),
+                                StructField('ID', StringType(), True),
+                                StructField('YEAR_MONTH', IntegerType(), True),
+                                StructField('RAW_HOSP_NAME', StringType(), True),
+                                StructField('BRAND', StringType(), True),
+                                StructField('FORM', StringType(), True),
+                                StructField('SPECIFICATIONS', StringType(), True),
+                                StructField('PACK_NUMBER', IntegerType(), True),
+                                StructField('MANUFACTURER', StringType(), True),
+                                StructField('MOLECULE', StringType(), True),
+                                StructField('SOURCE', StringType(), True),
+                                StructField('CORP', StringType(), True),
+                                StructField('ROUTE', StringType(), True),
+                                StructField('ORG_MEASURE', StringType(), True),
+                                StructField('SALES', DoubleType(), True),
+                                StructField('UNITS', DoubleType(), True),
+                                StructField('UNITS_BOX', DoubleType(), True),
+                                StructField('PATH', StringType(), True),
+                                StructField('SHEET', StringType(), True),
+                                StructField('CITY', StringType(), True),
+                                StructField('PROVINCE', StringType(), True),
+                                StructField('CITY_TIER', DoubleType(), True),
+                                StructField('MONTH', IntegerType(), True),
+                                StructField('YEAR', IntegerType(), True) ]
+                                )
+    df_raw_data = spark.read.format("parquet").load(p_hospital_mapping_out, schema=struct_type)
     
     if g_project_name != "Mylan":
         df_raw_data = df_raw_data.withColumn("BRAND", func.when((col('BRAND').isNull()) | (col('BRAND') == 'NA'), col('MOLECULE')).
@@ -123,6 +159,7 @@ def execute(**kwargs):
     
     # df_raw_data 信息匹配
     df_raw_data = df_raw_data.join(df_product_map_for_rawdata, on="MIN", how="left")
+
     # %%
     # =========== 输出 =============
     df_need_cleaning = df_need_cleaning.repartition(2)
@@ -137,3 +174,4 @@ def execute(**kwargs):
     logger.debug("输出 product_mapping 结果：" + p_product_mapping_out)
     
     logger.debug('数据执行-Finish')
+
