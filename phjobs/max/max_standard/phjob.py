@@ -345,12 +345,12 @@ def execute(**kwargs):
     # 根据日期分桶写出
     df_max_standard_all = df_max_standard_all.repartition("DATE_COPY")
     df_max_standard_all.write.format("parquet").partitionBy("DATE_COPY") \
-    .mode("overwrite").save(p_result_max_standard)
+    .mode("overwrite").save(p_max_standard)
     
     # 输出brief结果
     df_max_standard_brief = df_max_standard_brief.repartition(1)
     df_max_standard_brief.write.format("parquet") \
-    .mode("overwrite").save(p_result_max_standard_brief)
+    .mode("overwrite").save(p_max_standard_brief)
 
     # %%
     # ### 数据校准
