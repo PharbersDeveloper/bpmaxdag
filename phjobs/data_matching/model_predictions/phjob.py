@@ -41,9 +41,7 @@ def execute(**kwargs):
                   kwargs["g_sharehold_pack_qty"],\
                   kwargs["g_sharehold_manufacturer_name"]]
 ###########------------input---------######################
-    model_path = r"s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs/manual__2021-04-16T07_19_46.469214+00_00/cleaning_data_model_training/model_result/"
-    df_of_features_path = r"s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs/manual__2021-04-16T07_19_46.469214+00_00/cleaning_data_model_training/data_of_features/"
-    path_of_no_exist_pack_check_id = r"s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs/manual__2021-04-16T07_19_46.469214+00_00/cleaning_data_normalization/raw_table_of_no_exist_pack_check_id/"
+
 ###############-------------output---------------##################
     job_id = get_job_id(kwargs)
     run_id = get_run_id(kwargs)
@@ -52,11 +50,11 @@ def execute(**kwargs):
     positive_result_path = result_path_prefix + kwargs["positive_result"]
     negative_result_path = result_path_prefix + kwargs["negative_result"]
     ## rusult 目录文件
-#     tm = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
-    final_predictions = get_final_result_path(kwargs, run_id, kwargs["final_predictions"])
-    final_positive_path = get_final_result_path(kwargs, run_id, kwargs["final_positive"])
-    final_negative_path = get_final_result_path(kwargs, run_id, kwargs["final_negative"])
-    final_report_path = get_final_result_path(kwargs, run_id, kwargs["final_report"])
+    tm = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
+    final_predictions = get_final_result_path(kwargs, tm, kwargs["final_predictions"])
+    final_positive_path = get_final_result_path(kwargs, tm, kwargs["final_positive"])
+    final_negative_path = get_final_result_path(kwargs, tm, kwargs["final_negative"])
+    final_report_path = get_final_result_path(kwargs, tm, kwargs["final_report"])
 ###################------------output------------#######################
 
 #################------------loading files--------------#################
@@ -142,9 +140,15 @@ def get_depends_file_path(kwargs, job_name, job_key):
     run_id = get_run_id(kwargs)
     return get_result_path(kwargs, run_id, job_name) + job_key
 
-def get_final_result_path(kwargs, run_id, final_key):
+def get_final_result_path(kwargs, tm, final_key):
     path_prefix = kwargs["final_prefix"]
-    return path_prefix + "/" + run_id +"/" + final_key
+    if kwargs["run_id"]:
+        tm = tm
+    else:
+        tm = "test"
+    final_result_path = path_prefix + "/" + tm +"/" + final_key 
+        
+    return final_result_path
 
 def get_depends_path(kwargs):
     depends_lst = eval(kwargs["depend_job_names_keys"])

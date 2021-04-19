@@ -45,8 +45,8 @@ def execute(**kwargs):
     output_model_path = result_path_prefix + kwargs["model_result"]
     validate_path = result_path_prefix + kwargs["model_validate"]
     data_of_features_path = result_path_prefix + kwargs["data_of_features"]
-#     tm = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
-    final_path = get_final_result_path(kwargs, run_id, kwargs["final_model"])
+    tm = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
+    final_path = get_final_result_path(kwargs, tm, kwargs["final_model"])
 #############--------output-----------#################
 
 ###########-------loading files-----------#################
@@ -109,10 +109,15 @@ def get_depends_file_path(kwargs, job_name, job_key):
     return get_result_path(kwargs, run_id, job_name) + job_key
 
 
-def get_final_result_path(kwargs, run_id, final_key):
+def get_final_result_path(kwargs, tm, final_key):
     path_prefix = kwargs["final_prefix"]
-    return path_prefix + "/" + run_id + "/" + final_key
-
+    if kwargs["run_id"]:
+        tm = tm
+    else:
+        tm = "test"
+    final_result_path = path_prefix + "/" + tm +"/" + final_key 
+        
+    return final_result_path
 
 def get_depends_path(kwargs):
     depends_lst = eval(kwargs["depend_job_names_keys"])
