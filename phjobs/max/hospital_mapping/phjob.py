@@ -28,6 +28,8 @@ def execute(**kwargs):
 
     
     
+    
+    
     import os
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
@@ -40,7 +42,7 @@ def execute(**kwargs):
     # g_out_dir = '202012'
     # result_path_prefix = get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
     # depends_path = get_depends_path({"name":job_name, "dag_name":dag_name, 
-    #                                  "run_id":run_id, })
+    #                                   "run_id":run_id})
     
 
     # %%
@@ -91,27 +93,7 @@ def execute(**kwargs):
     
     
     # df_raw_data
-    # df_raw_data = spark.read.parquet(raw_data_path)
-    struct_1 = StructType( [ StructField('Date', IntegerType(), True),
-                                StructField('ID', StringType(), True),
-                                StructField('Raw_Hosp_Name', StringType(), True),
-                                StructField('Brand', StringType(), True),
-                                StructField('Form', StringType(), True),
-                                StructField('Specifications', StringType(), True),
-                                StructField('Pack_Number', IntegerType(), True),
-                                StructField('Manufacturer', StringType(), True),
-                                StructField('Molecule', StringType(), True),
-                                StructField('Source', StringType(), True),
-                                StructField('Corp', StringType(), True),
-                                StructField('Route', StringType(), True),
-                                StructField('ORG_Measure', StringType(), True),
-                                StructField('Sales', DoubleType(), True),
-                                StructField('Units', DoubleType(), True),
-                                StructField('Units_Box', DoubleType(), True),
-                                StructField('Path', StringType(), True),
-                                StructField('Sheet', StringType(), True)  ] )
-    
-    df_raw_data = spark.read.format("parquet").load(raw_data_path, schema= struct_1)
+    df_raw_data = spark.read.parquet(raw_data_path)
     df_raw_data = df_raw_data.withColumnRenamed('Form', 'FORM') \
                         .withColumnRenamed('Specifications', 'SPECIFICATIONS') \
                         .withColumnRenamed('Pack_Number', 'PACK_NUMBER') \
@@ -129,10 +111,14 @@ def execute(**kwargs):
                         .withColumnRenamed('Raw_Hosp_Name', 'RAW_HOSP_NAME') \
                         .withColumnRenamed('Date', 'DATE') \
                         .withColumnRenamed('Brand', 'BRAND')
+    df_raw_data = df_raw_data.withColumn('DATE', col('DATE').cast(IntegerType())) \
+                        .withColumn('PACK_NUMBER', col('PACK_NUMBER').cast(IntegerType())) \
+                        .withColumn('SALES', col('SALES').cast(DoubleType())) \
+                        .withColumn('UNITS', col('UNITS').cast(DoubleType())) \
+                        .withColumn('UNITS_BOX', col('UNITS_BOX').cast(DoubleType()))
     
     
     df_raw_data = dealIDlength(df_raw_data)
-
     # %%
     # =========== 数据读取 =============
     time = "2021-04-06"
