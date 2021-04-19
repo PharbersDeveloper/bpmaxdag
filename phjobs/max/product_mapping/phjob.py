@@ -47,6 +47,7 @@ def execute(**kwargs):
     depends_path = get_depends_path({"name":job_name, "dag_name":dag_name, 
                                      "run_id":run_id, "depend_job_names_keys":depend_job_names_keys })
     """
+
     # %%
     logger.debug('job2_product_mapping')
     # 注意：

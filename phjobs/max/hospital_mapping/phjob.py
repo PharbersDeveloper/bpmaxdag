@@ -109,8 +109,7 @@ def execute(**kwargs):
                                 StructField('Units', DoubleType(), True),
                                 StructField('Units_Box', DoubleType(), True),
                                 StructField('Path', StringType(), True),
-                                StructField('Sheet', StringType(), True)
-                                 ] )
+                                StructField('Sheet', StringType(), True)  ] )
     
     df_raw_data = spark.read.format("parquet").load(raw_data_path, schema= struct_1)
     df_raw_data = df_raw_data.withColumnRenamed('Form', 'FORM') \
@@ -189,7 +188,7 @@ def execute(**kwargs):
         """
     df_universe = spark.sql(base_universe_sql)
     
-    df_cpa_pha_mapping = spark.sql(mapping_sql)
+    # df_cpa_pha_mapping = spark.sql(mapping_sql)
 
     # %%
     # =========== 数据执行 =============
