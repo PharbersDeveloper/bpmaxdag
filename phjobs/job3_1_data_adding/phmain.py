@@ -4,6 +4,8 @@ import click
 
 @click.command()
 @click.option('--owner')
+@click.option('--dag_name')
+@click.option('--job_full_name')
 @click.option('--run_id')
 @click.option('--job_id')
 @click.option('--max_path')
@@ -24,7 +26,7 @@ import click
 @click.option('--if_add_data')
 @click.option('--a')
 @click.option('--b')
-def debug_execute(owner, run_id, job_id, a, b, max_path, project_name, model_month_right, max_month, year_missing, current_year, first_month, current_month, if_others, 
+def debug_execute(owner, dag_name, job_full_name, run_id, job_id, a, b, max_path, project_name, model_month_right, max_month, year_missing, current_year, first_month, current_month, if_others, 
 monthly_update, not_arrived_path, published_path, out_path, out_dir, need_test, if_add_data):
     execute(max_path, project_name, model_month_right, max_month, year_missing, current_year, first_month, current_month, if_others, 
     monthly_update, not_arrived_path, published_path, out_path, out_dir, need_test, if_add_data)

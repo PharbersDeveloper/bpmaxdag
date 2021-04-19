@@ -9,6 +9,8 @@ import click
 
 @click.command()
 @click.option('--owner')
+@click.option('--dag_name')
+@click.option('--job_full_name')
 @click.option('--run_id')
 @click.option('--job_id')
 @click.option('--max_path')
@@ -29,7 +31,7 @@ import click
 @click.option('--use_d_weight')
 @click.option('--a')
 @click.option('--b')
-def debug_execute(owner, run_id, job_id, a, b, max_path, project_name, if_base, time_left, time_right, left_models, left_models_time_left, right_models, right_models_time_right, all_models, universe_choice, if_others, out_path, out_dir, need_test, use_d_weight):
+def debug_execute(owner, dag_name, job_full_name, run_id, job_id, a, b, max_path, project_name, if_base, time_left, time_right, left_models, left_models_time_left, right_models, right_models_time_right, all_models, universe_choice, if_others, out_path, out_dir, need_test, use_d_weight):
 	execute(max_path, project_name, if_base, time_left, time_right, left_models, left_models_time_left, right_models, right_models_time_right, all_models, universe_choice, if_others, out_path, out_dir, need_test, use_d_weight)
 
 

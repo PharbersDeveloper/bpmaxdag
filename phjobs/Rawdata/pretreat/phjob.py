@@ -38,8 +38,7 @@ def execute(**kwargs):
     import os
     from pyspark.sql.functions import pandas_udf, PandasUDFType, udf
     import time
-    import re
-
+    import re    # %%
     '''
     max_path = 's3a://ph-max-auto/v0.0.1-2020-06-08/'
     project_name = 'Gilead'
@@ -48,7 +47,7 @@ def execute(**kwargs):
     cut_time_left = '202101'
     cut_time_right = '202101'
     '''
-
+    # %%
     # 输入
     if if_two_source != "False" and if_two_source != "True":
         phlogger.error('wrong input: if_two_source, False or True') 
@@ -78,9 +77,9 @@ def execute(**kwargs):
     std_names = ["Date", "ID", "Raw_Hosp_Name", "Brand", "Form", "Specifications", "Pack_Number", "Manufacturer", 
     "Molecule", "Source", "Corp", "Route", "ORG_Measure"]
     
-    if project_name == 'Mylan':
-        std_names = ["Date", "ID", "Raw_Hosp_Name", "Brand", "Form", "Specifications", "Pack_Number", "Manufacturer", 
-        "Molecule", "Source", "Corp", "Route", "ORG_Measure", "min1", "Pack_ID"]
+    # if project_name == 'Mylan':
+    #    std_names = ["Date", "ID", "Raw_Hosp_Name", "Brand", "Form", "Specifications", "Pack_Number", "Manufacturer", 
+    #    "Molecule", "Source", "Corp", "Route", "ORG_Measure", "min1", "Pack_ID"]
     
     # 输出
     same_sheet_dup_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_check/same_sheet_dup.csv'
@@ -108,7 +107,7 @@ def execute(**kwargs):
     
     history_raw_data_delivery_path = max_path + '/' + project_name + '/' + history_outdir + '/raw_data_delivery'    
     raw_data_delivery_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_delivery'
-
+    # %%
     # =============  数据执行 ==============
     raw_data = spark.read.csv(raw_data_path, header=True)    
     if 'Corp' not in raw_data.columns:
@@ -153,7 +152,7 @@ def execute(**kwargs):
     raw_data = raw_data.withColumn("S_Molecule", func.when(raw_data.Mole_New.isNull(), raw_data.Molecule).otherwise(raw_data.Mole_New)) \
                         .drop('Mole_Old', 'Mole_New')
 
-
+    # %%
     # 2. 跨sheet去重
     # 2.1 path来自不同月份文件夹：'Date, S_Molecule' 优先最大月份文件夹来源的数据，生成去重后结果 raw_data_dedup_bymonth
     
@@ -223,7 +222,7 @@ def execute(**kwargs):
         df = df.withColumn("ID", func.regexp_replace("ID", "\\.0", ""))
         df = df.withColumn("ID", func.when(distinguish_cpa_gyc(df.ID, 7), func.lpad(df.ID, 6, "0")).otherwise(df.ID))
         return df
-
+    # %%
     # 3. 跨源去重，跨源去重优先保留CPA医院
     if if_two_source == 'True':
         # drop_dup_hospital
@@ -288,7 +287,7 @@ def execute(**kwargs):
     
         raw_data_dedup_std = drop_dup_hospital(raw_data_dedup, cpa_pha_mapping_common)                  
         raw_data_dedup = drop_dup_hospital(raw_data_dedup, cpa_pha_mapping)    
-
+    # %%
     # 4. 与历史数据合并
     def union_raw_data(raw_data_dedup, history_raw_data_path, all_raw_data_path):
         history_raw_data = spark.read.parquet(history_raw_data_path)
@@ -319,7 +318,7 @@ def execute(**kwargs):
         all_raw_data = all_raw_data.repartition(2)
         all_raw_data.write.format("parquet") \
             .mode("overwrite").save(all_raw_data_path)
-
+    # %%
     # 与历史数据合并
     if if_union == 'True':
         # 用于max计算
@@ -353,4 +352,3 @@ def execute(**kwargs):
             # 备份生成手动修改前的交付结果
             raw_data_dedup.write.format("parquet") \
                 .mode("overwrite").save(raw_data_delivery_path)
-
