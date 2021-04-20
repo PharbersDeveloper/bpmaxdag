@@ -16,19 +16,18 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--run_id')
 @click.option('--job_full_name')
 @click.option('--job_id')
-@click.option('--g_path_max')
-@click.option('--g_path_extract')
 @click.option('--g_project_name')
+@click.option('--depend_job_names_keys')
+@click.option('--dag_name')
+@click.option('--run_id')
+@click.option('--max_path')
 @click.option('--g_out_dir')
-@click.option('--g_dag_name')
-@click.option('--g_run_id')
-@click.option('--g_depend_job_names_keys')
-@click.option('--g_max_standard')
-@click.option('--g_max_standard_brief')
+@click.option('--a')
+@click.option('--b')
 def debug_execute(**kwargs):
     try:
         args = {"name": "max_standard"}
-        outputs = ["g_max_standard", "g_max_standard_brief"]
+        outputs = ["a", "b"]
 
         args.update(kwargs)
         result = exec_before(**args)
