@@ -27,7 +27,7 @@ spec:
       - key: g_add_47
         value: False
       - key: depend_job_names_keys
-        value: ["data_adding_monthly#raw_data_adding_final#raw_data_adding_final"]
+        value: ['data_adding_monthly#raw_data_adding_final#raw_data_adding_final']
       - key: g_monthly_update
         value: Empty
       - key: dag_name

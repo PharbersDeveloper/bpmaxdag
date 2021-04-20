@@ -30,15 +30,21 @@ def execute(**kwargs):
     g_panel = kwargs['g_panel']
     ### output args ###
 
+    
+    
     from pyspark.sql.functions import col
-    from pyspark.sql.types import DoubleType, IntegerType, StringType
-    from pyspark.sql import  functions as func    # %%
+    from pyspark.sql.types import DoubleType, IntegerType, StringType, StructType, StructField
+    from pyspark.sql import  functions as func    
+    # %%
     # 测试用的参数
     '''
     g_project_name ="贝达"
     g_model_month_left="201901"
     g_model_month_right="201912"
     g_add_47="True"
+    result_path_prefix = get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
+    depends_path = get_depends_path({"name":job_name, "dag_name":dag_name, 
+                                     "run_id":run_id, "depend_job_names_keys":depend_job_names_keys})                         
     '''
     # %%
     logger.debug('panel_model')
@@ -58,9 +64,11 @@ def execute(**kwargs):
             
     # 输出
     p_panel_result = result_path_prefix + g_panel
+
     # %%
     logger.debug( p_panel_result)
     logger.debug(p_new_hospital)
+
     # %%
     # 是否运行此job
     if g_monthly_update == "True":
@@ -90,11 +98,44 @@ def execute(**kwargs):
                         .withColumn('SEG', col('SEG').cast(IntegerType())) \
                         .withColumn('CITY_TIER', col('CITY_TIER').cast(StringType()))
     '''
+
     # %%
     # =========== 数据读取 =============
     # 1、读取 raw_data_adding_final
-    df_raw_data_adding_final = spark.read.parquet(p_raw_data_adding_final)
-    df_raw_data_adding_final = df_raw_data_adding_final.persist()
+    # df_raw_data_adding_final = spark.read.parquet(p_raw_data_adding_final)
+    struct_type_data_adding_final = StructType([ StructField('MIN', StringType(), True),
+                                                    StructField('PHA', StringType(), True),
+                                                    StructField('ID', StringType(), True),
+                                                    StructField('YEAR_MONTH', DoubleType(), True),
+                                                    StructField('RAW_HOSP_NAME', StringType(), True),
+                                                    StructField('BRAND', StringType(), True),
+                                                    StructField('FORM', StringType(), True),
+                                                    StructField('SPECIFICATIONS', StringType(), True),
+                                                    StructField('PACK_NUMBER', StringType(), True),
+                                                    StructField('MANUFACTURER', StringType(), True),
+                                                    StructField('MOLECULE', StringType(), True),
+                                                    StructField('SOURCE', StringType(), True),
+                                                    StructField('CORP', StringType(), True),
+                                                    StructField('ROUTE', StringType(), True),
+                                                    StructField('ORG_MEASURE', StringType(), True),
+                                                    StructField('SALES', DoubleType(), True),
+                                                    StructField('UNITS', DoubleType(), True),
+                                                    StructField('UNITS_BOX', DoubleType(), True),
+                                                    StructField('PATH', StringType(), True),
+                                                    StructField('SHEET', StringType(), True),
+                                                    StructField('CITY', StringType(), True),
+                                                    StructField('PROVINCE', StringType(), True),
+                                                    StructField('CITY_TIER', DoubleType(), True),
+                                                    StructField('MONTH', IntegerType(), True),
+                                                    StructField('YEAR', IntegerType(), True),
+                                                    StructField('MIN_STD', StringType(), True),
+                                                    StructField('MOLECULE_STD', StringType(), True),
+                                                    StructField('ROUTE_STD', StringType(), True),
+                                                    StructField('BRAND_STD', StringType(), True),
+                                                    StructField('MOLECULE_STD_FOR_GR', StringType(), True),
+                                                    StructField('ADD_FLAG', IntegerType(), True) ])
+    df_raw_data_adding_final = spark.read.format("parquet").load(p_raw_data_adding_final)
+    # df_raw_data_adding_final = df_raw_data_adding_final.persist()
     
     # 2、读取 universe 数据
     # 2、读取 universe 数据
@@ -138,10 +179,12 @@ def execute(**kwargs):
     """
     
     df_universe = spark.sql(base_universe_sql)
+
     # %%
     # =========== 数据执行 =============
     df_markets = df_markets.select("MARKET", "MOLECULE_STD").distinct()
     df_universe = df_universe.select("PHA", "HOSP_NAME", "PROVINCE", "CITY").distinct()
+
     # %%
     # 生成 panel
     # S_Molecule -> MOLECULE_STD
@@ -167,11 +210,13 @@ def execute(**kwargs):
     df_panel_add_data = df_panel_add_data \
         .join(df_original_date_molecule, on=["DATE", "MOLECULE_STD"], how="inner") \
         .join(df_original_date_min_std, on=["DATE", "MIN_STD"], how="inner")
+
     # %%
     # 生成 panel_filtered
     # 早于model所用时间（历史数据），用new_hospital补数;
     # 处于model所用时间（模型数据），不补数；
     # 晚于model所用时间（月更新数据），用unpublished和not arrived补数
+
     # %%
     ####  模型
     df_new_hospital = spark.read.parquet(p_new_hospital)
@@ -239,6 +284,7 @@ def execute(**kwargs):
     df_panel_filtered = df_panel_filtered.repartition(2)
     df_panel_filtered.write.format("parquet") \
         .mode("overwrite").save(p_panel_result)
+
     # %%
     ##### 检查更新 Code 后 和原来的数据结果是否一置
     

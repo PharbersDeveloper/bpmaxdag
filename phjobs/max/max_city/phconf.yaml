@@ -21,7 +21,7 @@ spec:
       - key: g_minimum_product_columns
         value: BRAND, FORM, SPECIFICATIONS, PACK_NUMBER, MANUFACTURER
       - key: g_minimum_product_sep
-        value: |
+        value: 
       - key: g_minimum_product_newname
         value: MIN
       - key: g_if_two_source
@@ -39,7 +39,7 @@ spec:
       - key: g_market
         value: Empty
       - key: depend_job_names_keys
-        value: ["max_weight#max_weight_result#max_weight_result"]
+        value: ['max_weight#max_weight_result#max_weight_result']
       - key: g_max_path
         value: s3a://ph-max-auto/v0.0.1-2020-06-08/
       - key: g_out_dir
