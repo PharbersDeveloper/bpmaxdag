@@ -17,40 +17,40 @@ spec:
     config: phconf.yaml
     args:
       - key: g_project_name
-        value: Empty
+        value: 'Empty'
       - key: g_minimum_product_columns
-        value: BRAND, FORM, SPECIFICATIONS, PACK_NUMBER, MANUFACTURER
+        value: 'BRAND, FORM, SPECIFICATIONS, PACK_NUMBER, MANUFACTURER'
       - key: g_minimum_product_sep
         value: '|'
       - key: g_minimum_product_newname
-        value: MIN
+        value: 'MIN'
       - key: g_if_two_source
-        value: False
+        value: 'False'
       - key: g_hospital_level
-        value: False
+        value: 'False'
       - key: g_bedsize
-        value: True
+        value: 'True'
       - key: p_id_bedsize
-        value: Empty
+        value: 'Empty'
       - key: g_time_left
-        value: Empty
+        value: 'Empty'
       - key: g_time_right
-        value: Empty
+        value: 'Empty'
       - key: g_market
-        value: Empty
+        value: 'Empty'
       - key: depend_job_names_keys
-        value: ['max_weight#max_weight_result#max_weight_result']
+        value: '["max_weight#max_weight_result#max_weight_result"]'
       - key: g_max_path
-        value: s3a://ph-max-auto/v0.0.1-2020-06-08/
+        value: 's3a://ph-max-auto/v0.0.1-2020-06-08/'
       - key: g_out_dir
-        value: Empty
+        value: 'Empty'
       - key: dag_name
-        value: Max
+        value: 'Max'
       - key: run_id
-        value: max_test_beida_202012
+        value: 'max_test_beida_202012'
     outputs:
       - key: g_max_result_city
-        value: max_city_result
+        value: 'max_city_result'
 
 
 

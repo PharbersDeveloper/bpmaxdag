@@ -31,14 +31,6 @@ def execute(**kwargs):
     g_need_cleaning_out = kwargs['g_need_cleaning_out']
     ### output args ###
 
-    
-    
-    
-    
-    
-    
-    
-    
     import os
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
@@ -135,8 +127,8 @@ def execute(**kwargs):
     df_raw_data = spark.read.format("parquet").load(p_hospital_mapping_out, schema=struct_type)
     
     
-    if g_project_name != "Mylan":
-        df_raw_data = df_raw_data.withColumn("BRAND", func.when((col('BRAND').isNull()) | (col('BRAND') == 'NA'), col('MOLECULE')).
+    # if g_project_name != "Mylan":
+    df_raw_data = df_raw_data.withColumn("BRAND", func.when((col('BRAND').isNull()) | (col('BRAND') == 'NA'), col('MOLECULE')).
                                    otherwise(col('BRAND')))
         
     df_raw_data = df_raw_data.withColumn('PACK_NUMBER', col('PACK_NUMBER').cast(StringType()))
@@ -146,10 +138,10 @@ def execute(**kwargs):
                                 *[func.when(col(i).isNull(), func.lit("NA")).otherwise(col(i)) for i in g_minimum_product_columns]))
        
     # Mylan不重新生成 MIN，其他项目生成MIN（遗留问题，测试后可与其他项目一样）
-    if g_project_name == "Mylan":
-        df_raw_data = df_raw_data.drop("tmp")
-    else:
-        df_raw_data = df_raw_data.withColumnRenamed("tmp", g_minimum_product_newname)
+    # if g_project_name == "Mylan":
+    #     df_raw_data = df_raw_data.drop("tmp")
+    # else:
+    df_raw_data = df_raw_data.withColumnRenamed("tmp", g_minimum_product_newname)
         
     # df_product_map
     df_product_map_for_needclean = df_product_map.select("MIN").distinct()

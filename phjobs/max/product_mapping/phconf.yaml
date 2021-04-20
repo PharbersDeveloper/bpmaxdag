@@ -17,30 +17,30 @@ spec:
     config: phconf.yaml
     args:
       - key: g_project_name
-        value: Empty
+        value: 'Empty'
       - key: g_minimum_product_columns
-        value: BRAND, FORM, SPECIFICATIONS, PACK_NUMBER, MANUFACTURER
+        value: 'BRAND, FORM, SPECIFICATIONS, PACK_NUMBER, MANUFACTURER'
       - key: g_minimum_product_sep
         value: '|'
       - key: g_minimum_product_newname
-        value: MIN
+        value: 'MIN'
       - key: g_need_cleaning_cols
-        value: MOLECULE, BRAND, FORM, SPECIFICATIONS, PACK_NUMBER, MANUFACTURER, MIN, ROUTE, CORP
+        value: 'MOLECULE, BRAND, FORM, SPECIFICATIONS, PACK_NUMBER, MANUFACTURER, MIN, ROUTE, CORP'
       - key: depend_job_names_keys
-        value: ["hospital_mapping#hospital_mapping_out#hospital_mapping_out"]
+        value: '["hospital_mapping#hospital_mapping_out#hospital_mapping_out"]'
       - key: dag_name
-        value: Max
+        value: 'Max'
       - key: run_id
-        value: max_test_beida_202012
+        value: 'max_test_beida_202012'
       - key: max_path
-        value: s3a://ph-max-auto/v0.0.1-2020-06-08/
+        value: 's3a://ph-max-auto/v0.0.1-2020-06-08/'
       - key: g_out_dir
-        value: Empty
+        value: 'Empty'
     outputs:
       - key: g_product_mapping_out
-        value: product_mapping_out
+        value: 'product_mapping_out'
       - key: g_need_cleaning_out
-        value: need_cleaning_out
+        value: 'need_cleaning_out'
 
 
 

@@ -28,6 +28,8 @@ def execute(**kwargs):
     g_rawdata_standard_brief = kwargs['g_rawdata_standard_brief']
     ### output args ###
 
+    
+    
     from pyspark.sql.types import IntegerType, DoubleType, StringType, StructType, StructType
     from pyspark.sql.functions import col
     from pyspark.sql import functions as func
@@ -62,6 +64,7 @@ def execute(**kwargs):
     
     # print(p_raw_data_standard)
     # print(p_raw_data_standard_brief)
+
     # %%
     # ===========  数据执行 ============
     
@@ -272,22 +275,22 @@ def execute(**kwargs):
     
     # # 3. 生成 MIN
     # Mylan不重新生成 MIN，其他项目生成 MIN
-    if g_project_name != "Mylan":
-        if "MIN" in df_raw_data_join_universe.columns:
-            df_raw_data_join_universe = df_raw_data_join_universe.drop("MIN")
-        df_raw_data_join_universe = df_raw_data_join_universe.withColumn('BRAND', func.when((df_raw_data_join_universe.BRAND.isNull()) \
-                                                | (df_raw_data_join_universe.BRAND == 'NA'), 
-                                                    df_raw_data_join_universe.MOLECULE).otherwise(df_raw_data_join_universe.BRAND))  
+    # if g_project_name != "Mylan":
+    if "MIN" in df_raw_data_join_universe.columns:
+        df_raw_data_join_universe = df_raw_data_join_universe.drop("MIN")
+    df_raw_data_join_universe = df_raw_data_join_universe.withColumn('BRAND', func.when((df_raw_data_join_universe.BRAND.isNull()) \
+                                            | (df_raw_data_join_universe.BRAND == 'NA'), 
+                                                df_raw_data_join_universe.MOLECULE).otherwise(df_raw_data_join_universe.BRAND))  
     
-        df_raw_data_join_universe = df_raw_data_join_universe.withColumn('MIN', func.concat_ws(g_minimum_product_sep, 
-                                        *[func.when(col(i).isNull(), func.lit("NA")).otherwise(col(i)) for i in g_minimum_product_columns]))
+    df_raw_data_join_universe = df_raw_data_join_universe.withColumn('MIN', func.concat_ws(g_minimum_product_sep, 
+                                    *[func.when(col(i).isNull(), func.lit("NA")).otherwise(col(i)) for i in g_minimum_product_columns]))
 
     # %%
     # 三. 标准化df_raw_data_join_universe
     # 2. df_product_map 匹配 MIN ：获得 PACK_ID, MOLECULE_STD, 标准商品名, 标准剂型, 标准规格, 标准包装数量, 标准生产企业
-    if g_project_name == "Mylan":
-        df_product_map = df_product_map.drop('PACK_ID')
-        df_raw_data_join_universe = df_raw_data_join_universe.withColumnRenamed('Pack_ID', 'PACK_ID')
+    # if g_project_name == "Mylan":
+    #    df_product_map = df_product_map.drop('PACK_ID')
+    #    df_raw_data_join_universe = df_raw_data_join_universe.withColumnRenamed('Pack_ID', 'PACK_ID')
     df_data_standard = df_raw_data_join_universe.join(df_product_map, on='MIN', how="left")
     
     

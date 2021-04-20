@@ -36,14 +36,11 @@ def execute(**kwargs):
     g_max_result_city = kwargs['g_max_result_city']
     ### output args ###
 
-    
-    
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType,StructField
     from pyspark.sql import functions as func
     from pyspark.sql.functions import col
     import boto3
-    import os    
-    # %%
+    import os        # %%
     '''
     g_project_name = "贝达"
     g_market = 'BD1'
@@ -51,10 +48,9 @@ def execute(**kwargs):
     g_time_right = "202012"
     g_out_dir = "202012_test"
     g_if_two_source = "True"
-    result_path_prefix = get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
-    depends_path = get_depends_path({"name":job_name, "dag_name":dag_name, 
                                      "run_id":run_id, "depend_job_names_keys":depend_job_names_keys})
     '''
+
     # %%
     # 输入
     g_minimum_product_columns = g_minimum_product_columns.replace(" ","").split(",")
@@ -244,8 +240,8 @@ def execute(**kwargs):
         df_raw_data = df_raw_data.join(df_cpa_pha_mapping, on="ID", how="left")
     
         # job2: df_raw_data 处理，生成min1，用product_map 匹配获得min2（MIN_STD），同job2
-        if g_project_name != "Mylan":
-            df_raw_data = df_raw_data.withColumn("BRAND", func.when((col('BRAND').isNull()) | (col('BRAND') == 'NA'), col('MOLECULE')).
+        # if g_project_name != "Mylan":
+        df_raw_data = df_raw_data.withColumn("BRAND", func.when((col('BRAND').isNull()) | (col('BRAND') == 'NA'), col('MOLECULE')).
                                        otherwise(col('BRAND')))
     
         # MIN 生成
@@ -253,10 +249,10 @@ def execute(**kwargs):
                                 *[func.when(col(i).isNull(), func.lit("NA")).otherwise(col(i)) for i in g_minimum_product_columns]))
        
         # Mylan不重新生成minimum_product_newname: min1，其他项目生成min1
-        if g_project_name == "Mylan":
-            df_raw_data = df_raw_data.drop("tmp")
-        else:
-            df_raw_data = df_raw_data.withColumnRenamed("tmp", g_minimum_product_newname)
+        # if g_project_name == "Mylan":
+        #    df_raw_data = df_raw_data.drop("tmp")
+        # else:
+        df_raw_data = df_raw_data.withColumnRenamed("tmp", g_minimum_product_newname)
     
         df_product_map_for_rawdata = df_product_map.select("MIN", "MIN_STD", "MOLECULE_STD").distinct()
         
