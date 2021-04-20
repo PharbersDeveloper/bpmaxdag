@@ -27,6 +27,8 @@ def execute(**kwargs):
     b = kwargs['b']
     ### output args ###
 
+    
+    
     from pyspark.sql import functions as func
     from pyspark.sql.functions import col
     from pyspark.sql.types import IntegerType, DoubleType, StructType, StructField    # %%
@@ -37,7 +39,6 @@ def execute(**kwargs):
     ## 没有更新过的job6结果
     ## p_max_result = 's3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012_test/MAX_result/MAX_result_202001_202012_city_level/'
     # print(depends_path)
-
     # %%
     # ========== 输入 输出 =========
     # 通用匹配文件
@@ -48,9 +49,11 @@ def execute(**kwargs):
     # job-6 结果作为输入
     p_max_result = depends_path["max_city_result"]
     
+    
     # 输出
     p_max_standard =  result_path_prefix + "max_standard"
     p_max_standard_brief = result_path_prefix  + "max_standard_brief"
+
     # %%
     # ========== 数据 mapping =========
     
@@ -63,6 +66,7 @@ def execute(**kwargs):
         .withColumnRenamed( "标准省份名称",  "PROVINCE_STD")\
         .withColumnRenamed( "标准城市名称", "CITY_STD")
     # df_max_city_normalize
+
     # %%
     # 2. df_master_data_map：PACK_ID - MOLECULE_STD - ACT, 无缺失
     df_master_data_map = spark.read.csv(p_master_data_map, header=True)
@@ -77,6 +81,7 @@ def execute(**kwargs):
     num2 = df_pack_id_master_map.dropDuplicates(["PACK_ID"]).count()
     logger.debug(num1 - num2)
     df_pack_id_master_map = df_pack_id_master_map.dropDuplicates(["PACK_ID"])
+
     # %%
     # 3. product_map_all_ATC: 有补充的新的 PACK_ID - 标准MOLECULE_STD - ACT （0是缺失）
     df_molecule_act_map = spark.read.csv(p_molecule_act, header=True)

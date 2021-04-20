@@ -36,11 +36,14 @@ def execute(**kwargs):
     g_max_result_city = kwargs['g_max_result_city']
     ### output args ###
 
-    from pyspark.sql.types import StringType, IntegerType, DoubleType
+    
+    
+    from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType,StructField
     from pyspark.sql import functions as func
     from pyspark.sql.functions import col
     import boto3
-    import os    # %%
+    import os    
+    # %%
     '''
     g_project_name = "贝达"
     g_market = 'BD1'
@@ -48,6 +51,9 @@ def execute(**kwargs):
     g_time_right = "202012"
     g_out_dir = "202012_test"
     g_if_two_source = "True"
+    result_path_prefix = get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
+    depends_path = get_depends_path({"name":job_name, "dag_name":dag_name, 
+                                     "run_id":run_id, "depend_job_names_keys":depend_job_names_keys})
     '''
     # %%
     # 输入
@@ -74,7 +80,7 @@ def execute(**kwargs):
     p_cpa_pha_mapping_common = g_max_path + "/Common_files/cpa_pha_mapping"
     
     out_path_dir = g_max_path + "/" + g_project_name + '/' + g_out_dir
-    product_map_path = out_path_dir + "/prod_mapping"
+    p_product_map = out_path_dir + "/prod_mapping"
     
     if g_if_two_source == "False":
         p_raw_data_std = out_path_dir + "/product_mapping_out"
@@ -87,6 +93,7 @@ def execute(**kwargs):
                 
     # 输出
     p_max_result_city = result_path_prefix + g_max_result_city
+
     # %%
     # # =========== 数据准备，测试用 =============
     def dealIDlength(df):
@@ -100,7 +107,7 @@ def execute(**kwargs):
     
     # 1、df_product_map
     # g_if_two_source == "True"
-    df_product_map = spark.read.parquet(product_map_path)
+    df_product_map = spark.read.parquet(p_product_map)
     for i in df_product_map.columns:
         if i in ["标准通用名", "通用名_标准", "药品名称_标准", "S_Molecule_Name"]:
             df_product_map = df_product_map.withColumnRenamed(i, "通用名")
@@ -127,6 +134,7 @@ def execute(**kwargs):
     df_product_map = df_product_map.withColumn('PACK_NUMBER_STD', col('PACK_NUMBER_STD').cast(IntegerType())) \
                             .withColumn('PACK_ID', col('PACK_ID').cast(IntegerType()))
     df_product_map	
+
     # %%
     # 2、df_product_map
     # g_if_two_source == "True"
@@ -134,6 +142,7 @@ def execute(**kwargs):
     df_cpa_pha_mapping = df_cpa_pha_mapping.withColumnRenamed('推荐版本', 'COMMEND').where(col("COMMEND") == 1) \
                                     .select('ID', 'PHA').distinct()
     df_cpa_pha_mapping = dealIDlength(df_cpa_pha_mapping)
+
     # %%
     # 3、market_mapping
     df_market = spark.read.parquet(p_market)
@@ -143,6 +152,7 @@ def execute(**kwargs):
                             .select("MARKET", "MOLECULE_STD").distinct()
     if df_market.select("MARKET").dtypes[0][1] == "double":
         df_market = df_market.withColumn("MARKET", col("MARKET").cast(IntegerType()))
+
     # %%
     # 4、province_city_mapping
     df_province_city_mapping = spark.read.parquet(p_province_city_mapping)
@@ -151,7 +161,8 @@ def execute(**kwargs):
     df_province_city_mapping = df_province_city_mapping.withColumnRenamed('Procince', 'PROVINCE') \
                                             .withColumnRenamed('City', 'CITY') \
                                             .select('ID', 'PROVINCE', 'CITY')
-    df_province_city_mapping
+    # df_province_city_mapping
+
     # %%
     # 5、province_city_mapping
     df_cpa_pha_mapping_common = spark.read.parquet(p_cpa_pha_mapping_common)
@@ -160,13 +171,15 @@ def execute(**kwargs):
                                                 .withColumnRenamed("PHA", "PHA_COMMON") \
                                                 .select("ID", "PHA_COMMON").distinct()
     df_cpa_pha_mapping_common = dealIDlength(df_cpa_pha_mapping_common)
+
     # %%
     # 6.ID_Bedsize
     df_ID_Bedsize = spark.read.parquet(p_id_bedsize)
     df_ID_Bedsize = dealIDlength(df_ID_Bedsize)
     df_ID_Bedsize = df_ID_Bedsize.withColumnRenamed("Bedsize", "BEDSIZE") \
                            .select("ID", "BEDSIZE").distinct()
-    df_ID_Bedsize
+    # df_ID_Bedsize
+
     # %%
     # 7.raw_data
     df_raw_data = spark.read.parquet(p_raw_data_std)
@@ -209,6 +222,7 @@ def execute(**kwargs):
                         .withColumn('UNITS', col('UNITS').cast(DoubleType())) \
                         .withColumn('UNITS_BOX', col('UNITS_BOX').cast(DoubleType()))
     df_raw_data = dealIDlength(df_raw_data)
+
     # %%
     # =========== 数据执行 =============
     '''
@@ -250,6 +264,7 @@ def execute(**kwargs):
         df_raw_data = df_raw_data.join(df_product_map_for_rawdata, on="MIN", how="left")
                                 #.drop("MOLECULE_STD") \
                                 #.withColumnRenamed("MOLECULE_STD", "MOLECULE_STD")
+
     # %%
     # 2、匹配：市场名
     df_raw_data = df_raw_data.join(df_market, on="MOLECULE_STD", how="left")
@@ -295,10 +310,23 @@ def execute(**kwargs):
             .agg({"SALES":"sum", "UNITS":"sum"}) \
             .withColumnRenamed("sum(SALES)", "PREDICT_SALES") \
             .withColumnRenamed("sum(UNITS)", "PREDICT_UNIT")
+
     # %%
     # 二. max文件处理
     #（以前是每个市场进行循环，目前只分析一个市场一个时间单位的数据）
-    df_max_result = spark.read.parquet(p_max_weight_result)
+    # df_max_result = spark.read.parquet(p_max_weight_result)
+    strcut_type_max_weight_result = StructType([ StructField('PHA', StringType(), True),
+                                                    StructField('PROVINCE', StringType(), True),
+                                                    StructField('CITY', StringType(), True),
+                                                    StructField('DATE', IntegerType(), True),
+                                                    StructField('MOLECULE_STD', StringType(), True),
+                                                    StructField('MIN_STD', StringType(), True),
+                                                    StructField('BEDSIZE', DoubleType(), True),
+                                                    StructField('PANEL', DoubleType(), True),
+                                                    StructField('SEG', DoubleType(), True),
+                                                    StructField('PREDICT_SALES', DoubleType(), True),
+                                                    StructField('PREDICT_UNIT', DoubleType(), True) ])
+    df_max_result = spark.read.format("parquet").load(p_max_weight_result, schema=strcut_type_max_weight_result)
     # 1、max_result 筛选 BEDSIZE > 99， 且医院不在df_raw_data_PHA 中
     if g_bedsize == "True":
         df_max_result = df_max_result.where(col('BEDSIZE') > 99)
@@ -321,7 +349,7 @@ def execute(**kwargs):
     
     df_max_result = df_max_result.withColumn("MARKET", func.lit(g_market))
     
-    # max_result_all = spark.read.parquet(max_result_city_tmp_path)
+
     # %%
     # 三. 合并df_raw_data 和 max文件处理
     if g_hospital_level == "True":
@@ -355,14 +383,19 @@ def execute(**kwargs):
         max_result_city = max_result_city.select("PROVINCE", "CITY", "DATE", "MIN_STD", "MOLECULE_STD", "PANEL", "MARKET", 
                                                  "PREDICT_SALES", "PREDICT_UNIT")
         
-    max_result_city = max_result_city.withColumnRenamed("MOLECULE_STD", "MOLECULE")
+    max_result_city = max_result_city.withColumnRenamed("MOLECULE_STD", "MOLECULE") \
+                                    .withColumn("DATE", col("DATE").cast("int"))
+
     # %%
     # 输出
     max_result_city = max_result_city.repartition(2)
     max_result_city.write.format("parquet") \
         .mode("overwrite").save(p_max_result_city)
+
     # %%
     # max_result_city.agg(func.sum('PREDICT_SALES'),func.sum('PREDICT_UNIT')).show()
+
     # %%
     # df=spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012_test/MAX_result/MAX_result_202001_202012_city_level/')
     # df.where(df.Date==202012).agg(func.sum('Predict_Sales'),func.sum('Predict_Unit')).show()
+

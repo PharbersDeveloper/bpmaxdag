@@ -32,11 +32,14 @@ def execute(**kwargs):
     g_raw_data_adding_final = kwargs['g_raw_data_adding_final']
     ### output args ###
 
+    
+    
     import pandas as pd
     import os
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
-    from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col    # %%
+    from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col    
+    # %%
     # 测试输入
     '''
     g_project_name = '贝达'
@@ -44,7 +47,11 @@ def execute(**kwargs):
     g_year = "2020"
     g_model_month_right = '201912'
     g_current_month = '12'
+    result_path_prefix = get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
+    depends_path = get_depends_path({"name":job_name, "dag_name":dag_name, 
+                                     "run_id":run_id, "depend_job_names_keys":depend_job_names_keys})
     '''
+
     # %%
     logger.debug('数据执行-start：补数-月更新')
     # 是否运行此job
@@ -76,6 +83,7 @@ def execute(**kwargs):
     # 输出
     p_adding_data =  result_path_prefix + g_adding_data
     p_raw_data_adding_final =  result_path_prefix + g_raw_data_adding_final
+
     # %%
     # =========== 数据准备，测试用 =============
     df_products_of_interest = spark.read.csv(p_products_of_interest, header=True)
@@ -97,6 +105,7 @@ def execute(**kwargs):
     
     df_not_arrived =  spark.read.csv(p_not_arrived, header=True)
     df_not_arrived = df_not_arrived.withColumnRenamed('Date', 'DATE')
+
     # %%
     # =========== 数据准备 =============
     def unpivot(df, keys):
@@ -154,7 +163,39 @@ def execute(**kwargs):
         not_arrived_all = not_arrived_current
     
     # raw_data中每个年月的非CPA医院列表
-    df_raw_data = spark.read.parquet(p_product_mapping)        
+    # df_raw_data = spark.read.parquet(p_product_mapping)
+    struct_type_product_mapping = StructType([ StructField('MIN', StringType(), True),
+                                                StructField('PHA', StringType(), True),
+                                                StructField('ID', StringType(), True),
+                                                StructField('YEAR_MONTH', IntegerType(), True),
+                                                StructField('RAW_HOSP_NAME', StringType(), True),
+                                                StructField('BRAND', StringType(), True),
+                                                StructField('FORM', StringType(), True),
+                                                StructField('SPECIFICATIONS', StringType(), True),
+                                                StructField('PACK_NUMBER', StringType(), True),
+                                                StructField('MANUFACTURER', StringType(), True),
+                                                StructField('MOLECULE', StringType(), True),
+                                                StructField('SOURCE', StringType(), True),
+                                                StructField('CORP', StringType(), True),
+                                                StructField('ROUTE', StringType(), True),
+                                                StructField('ORG_MEASURE', StringType(), True),
+                                                StructField('SALES', DoubleType(), True),
+                                                StructField('UNITS', DoubleType(), True),
+                                                StructField('UNITS_BOX', DoubleType(), True),
+                                                StructField('PATH', StringType(), True),
+                                                StructField('SHEET', StringType(), True),
+                                                StructField('CITY', StringType(), True),
+                                                StructField('PROVINCE', StringType(), True),
+                                                StructField('CITY_TIER', DoubleType(), True),
+                                                StructField('MONTH', IntegerType(), True),
+                                                StructField('YEAR', IntegerType(), True),
+                                                StructField('MIN_STD', StringType(), True),
+                                                StructField('MOLECULE_STD', StringType(), True),
+                                                StructField('ROUTE_STD', StringType(), True),
+                                                StructField('BRAND_STD', StringType(), True) ])
+    df_raw_data = spark.read.format("parquet").load(p_product_mapping, schema=struct_type_product_mapping)
+    
+    
     df_original_range_raw_noncpa = df_raw_data.where(col('Source') != 'CPA').select('ID', 'YEAR_MONTH').distinct() \
                                         .withColumnRenamed('YEAR_MONTH', 'Date')
     # 出版医院 减去 未到名单(月更)
@@ -172,11 +213,12 @@ def execute(**kwargs):
                                             .withColumn('YEAR', func.substring(col('Date'), 0, 4)) \
                                             .withColumn('MONTH', func.substring(col('Date'), 5, 2).cast(IntegerType())) \
                                             .select('PHA', 'YEAR', 'MONTH').distinct()
+
     # %%
     # =========== 数据执行 =============
     logger.debug('数据执行-start')
     # 1.数据准备
-    df_raw_data = spark.read.parquet(p_product_mapping)
+    # df_raw_data = spark.read.parquet(p_product_mapping)
     
     g_products_of_interest = df_products_of_interest.toPandas()["POI"].values.tolist()
     
@@ -185,14 +227,27 @@ def execute(**kwargs):
                                    func.when(col("BRAND_STD").isin(g_products_of_interest), col("BRAND_STD")).
                                    otherwise(col('MOLECULE_STD')))
     
-    df_price = spark.read.parquet(p_price)
+    # df_price = spark.read.parquet(p_price)
+    struct_type_price = StructType( [   StructField('MIN_STD', StringType(), True),
+                                        StructField('YEAR_MONTH', IntegerType(), True),
+                                        StructField('CITY_TIER', DoubleType(), True),
+                                        StructField('PRICE', DoubleType(), True) ])
+    df_price = spark.read.format("parquet").load(p_price, schema=struct_type_price )
     df_price = df_price.withColumnRenamed('PRICE', 'PRICE_TIER')
     
     df_growth_rate = spark.read.parquet(p_growth_rate)
+    df_growth_rate = spark.read.format("parquet").load(p_growth_rate, schema=struct_type_growth_rate)
     df_growth_rate.persist()
     
-    df_price_city = spark.read.parquet(p_price_city)
+    # df_price_city = spark.read.parquet(p_price_city)
+    struct_type_price_city = StructType( [  StructField('MIN_STD', StringType(), True),
+                                            StructField('YEAR_MONTH', IntegerType(), True),
+                                            StructField('CITY',StringType(), True),
+                                            StructField('PROVINCE', StringType(), True),
+                                            StructField('PRICE', DoubleType(), True) ] )
+    df_price_city = spark.read.format("parquet").load(p_price_city, schema=struct_type_price_city)
     df_price_city = df_price_city.withColumnRenamed('PRICE', 'PRICE_CITY')
+
     # %%
     # 补数函数
     def addDate(df_raw_data, df_growth_rate):
@@ -290,6 +345,7 @@ def execute(**kwargs):
                                                     .na.fill({'UNITS': 0})
     
         return df_current_adding_data, df_original_range
+
     # %%
     logger.debug('补数')
     # 2. 执行函数 addDate, 月更新每月分别补数，每次补数1个月
@@ -306,6 +362,7 @@ def execute(**kwargs):
             .mode("overwrite").save(p_adding_data)
     
         df_adding_data = spark.read.parquet(p_adding_data)
+
     # %%
     # 3. 合并补数部分和原始部分:: 只有当前年当前月的结果
     if g_if_add_data == "True":
@@ -316,6 +373,7 @@ def execute(**kwargs):
     
     df_raw_data_adding_final = df_raw_data_adding \
             .where((col('YEAR') == g_year) & (col('MONTH') == g_month))
+
     # %%
     # =========== 输出 =============
     df_raw_data_adding_final = df_raw_data_adding_final.repartition(2)
@@ -325,8 +383,11 @@ def execute(**kwargs):
     logger.debug("输出 raw_data_adding_final：" + p_raw_data_adding_final)
     
     logger.debug('数据执行-Finish')
+
     # %%
     # check = spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012_test/raw_data_adding_final/')
     # check.where(col('Year')==2020).where(col('Month')==12).groupby('add_flag').agg(func.sum('Sales'), func.sum('Units')).show()
+
     # %%
     # df_raw_data_adding_final.groupby('ADD_FLAG').agg(func.sum('SALES'), func.sum('UNITS')).show()
+

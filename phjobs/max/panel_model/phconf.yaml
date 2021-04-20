@@ -27,7 +27,7 @@ spec:
       - key: g_add_47
         value: False
       - key: depend_job_names_keys
-        value: ["data_adding_model#raw_data_adding_final#raw_data_adding_final", "data_adding_model#new_hospital#new_hospital"]
+        value: ['data_adding_model#raw_data_adding_final#raw_data_adding_final', 'data_adding_model#new_hospital#new_hospital']
       - key: g_monthly_update
         value: Empty
       - key: dag_name

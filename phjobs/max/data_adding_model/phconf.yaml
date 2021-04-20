@@ -23,7 +23,7 @@ spec:
       - key: g_model_month_right
         value: Empty
       - key: depend_job_names_keys
-        value: ["growth_model#growth_rate#growth_rate", "price#price#price", "price#price_city#price_city", "product_mapping#product_mapping_out#product_mapping_out"]
+        value: ['growth_model#growth_rate#growth_rate', 'price#price#price', 'price#price_city#price_city', 'product_mapping#product_mapping_out#product_mapping_out']
       - key: g_monthly_update
         value: Empty
       - key: dag_name

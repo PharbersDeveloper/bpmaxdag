@@ -31,11 +31,14 @@ def execute(**kwargs):
     g_max_out = kwargs['g_max_out']
     ### output args ###
 
-    from pyspark.sql.types import StringType, IntegerType, DoubleType
+    
+    
+    from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
-    from pyspark.sql.functions import col    # %%
+    from pyspark.sql.functions import col    
+    # %%
     # 测试输入
-    '''
+    
     '''
     g_project_name = "贝达"
     g_market = 'BD1'
@@ -43,7 +46,10 @@ def execute(**kwargs):
     g_factor = 'factor_BD1'
     g_universe_ot = 'universe_ot_BD1'
     g_monthly_update = 'True'
-
+    result_path_prefix = get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
+    depends_path = get_depends_path({"name":job_name, "dag_name":dag_name, 
+                                     "run_id":run_id, "depend_job_names_keys":depend_job_names_keys}) 
+    '''
     # %%
     logger.debug('数据执行-start：max放大')
     
@@ -70,12 +76,12 @@ def execute(**kwargs):
     
     if g_use_d_weight:
         p_PHA_weight_default = max_path + "/" + g_project_name + '/PHA_weight_default'
+
     # %%
     # # =========== 数据准备，测试用 =============
     # 1、panel 文件
     '''
     df_original_panel = spark.read.parquet(p_panel)
-    df_original_panel
     df_original_panel = df_original_panel.withColumnRenamed('ID', 'ID') \
                         .withColumnRenamed('Date', 'DATE') \
                         .withColumnRenamed('Prod_Name', 'MIN_STD') \
@@ -97,6 +103,7 @@ def execute(**kwargs):
     df_original_panel = df_original_panel.where((col('MARKET') == g_market) & 
                                           (col('DATE') >= time_left) & (col('DATE') <= time_right)).cache()
     '''
+
     # %%
     # 2.医院权重文件	 
     df_PHA_weight = spark.read.parquet(p_PHA_weight)
@@ -123,10 +130,10 @@ def execute(**kwargs):
     
     df_PHA_weight = df_PHA_weight.select('PROVINCE_WEIGHT', 'CITY_WEIGHT', 'MARKET', 'WEIGHT', 'PHA')
     df_PHA_weight_market = df_PHA_weight.where(df_PHA_weight.MARKET == g_market)
+
     # %%
     # 3. universe 文件
-    '''
-    '''
+    
     df_universe = spark.read.parquet(p_universe)
     df_universe = df_universe.withColumnRenamed('Panel_ID', 'PHA') \
                         .withColumnRenamed('BEDSIZE', 'BEDSIZE') \
@@ -135,7 +142,7 @@ def execute(**kwargs):
                         .withColumnRenamed('City', 'CITY') \
                         .withColumnRenamed('Province', 'PROVINCE') \
                         .withColumnRenamed('Est_DrugIncome_RMB', 'EST_DRUGINCOME_RMB')
-    df_universe
+    # print(df_universe)
 
     # %%
     # 4. factor 文件
@@ -143,7 +150,8 @@ def execute(**kwargs):
     df_factor = df_factor.withColumnRenamed('City', 'CITY') \
                 .withColumnRenamed('Province', 'PROVINCE') \
                 .withColumnRenamed('factor_new', 'FACTOR')
-    df_factor
+    # print(df_factor)
+
     # %%
     # 5. universe_ot_ 文件
     df_universe_outlier = spark.read.parquet(p_universe_ot)
@@ -153,11 +161,26 @@ def execute(**kwargs):
                                         .withColumnRenamed('PANEL', 'PANEL') \
                                         .withColumnRenamed('Est_DrugIncome_RMB', 'EST_DRUGINCOME_RMB')
     df_universe_outlier = df_universe_outlier.select("PHA", "EST_DRUGINCOME_RMB", "PANEL", "SEG", "BEDSIZE")
-    df_universe_outlier
+    # df_universe_outlier
+
     # %%
     # =========== 数据读取 =============
     # 1、读取 panel
-    df_original_panel = spark.read.parquet(p_panel)
+    # df_original_panel = spark.read.parquet(p_panel)
+    struct_type_panel = StructType([ StructField('ID', StringType(), True),
+                                        StructField('DATE', IntegerType(), True),
+                                        StructField('MIN_STD', StringType(), True),
+                                        StructField('MARKET', StringType(), True),
+                                        StructField('HOSP_NAME', StringType(), True),
+                                        StructField('PHA', StringType(), True),
+                                        StructField('MOLECULE_STD', StringType(), True),
+                                        StructField('PROVINCE', StringType(), True),
+                                        StructField('CITY', StringType(), True),
+                                        StructField('ADD_FLAG', IntegerType(), True),
+                                        StructField('ROUTE_STD', StringType(), True),
+                                        StructField('SALES', DoubleType(), True),
+                                        StructField('UNITS', DoubleType(), True) ])
+    df_original_panel = spark.read.format("parquet").load(p_panel, schema=struct_type_panel)
     df_original_panel = df_original_panel.select("ID", "DATE", "MIN_STD", "MARKET", "HOSP_NAME", 
                                            "PHA", "MOLECULE_STD", "PROVINCE", "CITY", "ADD_FLAG", "ROUTE_STD",
                                            "SALES", "UNITS")
@@ -203,9 +226,11 @@ def execute(**kwargs):
     """
     df_universe = spark.sql(base_universe_sql)
     '''
+
     # %%
     # =========== 数据执行 =============
     df_universe = df_universe.select("PHA", "BEDSIZE", "PANEL", "SEG", 'CITY', 'PROVINCE', 'EST_DRUGINCOME_RMB')
+
     # %%
     # == 放大过程 ==
     # 每次只执行一个月(模型年是一年)的一个market的数据
@@ -241,6 +266,7 @@ def execute(**kwargs):
     df_panel_seg_weight = df_panel_seg_weight.join(df_panel_drugincome, on="SEG", how="left").cache() # TEST
     df_panel_seg_weight = df_panel_seg_weight.withColumnRenamed('PROVINCE_WEIGHT', 'PROVINCE') \
                     .withColumnRenamed('CITY_WEIGHT', 'CITY')
+
     # %%
     # 将非样本的segment和factor等信息合并起来：get_uni_with_factor
     if 'PROVINCE' in df_factor.columns:
@@ -254,6 +280,7 @@ def execute(**kwargs):
         .withColumn("FACTOR", func.when(func.isnull(col('FACTOR')), func.lit(1)).otherwise(col('FACTOR'))) \
         .where(col('PANEL') == 0) \
         .select('PROVINCE', 'CITY', 'PHA', 'EST_DRUGINCOME_RMB', 'SEG', 'BEDSIZE', 'PANEL', 'FACTOR').cache()
+
     # %%
     # 为这些非样本医院匹配上样本金额、产品、年月、所在segment的drugincome之和
     # 优先有权重的结果
@@ -280,14 +307,18 @@ def execute(**kwargs):
                 'SEG', 'PREDICT_SALES', 'PREDICT_UNIT')
     # 合并样本部分
     df_max_result = df_max_result.union(df_panel.select(df_max_result.columns))
+
     # %%
     # =========== 输出结果 =============
     df_max_result = df_max_result.repartition(2)
     df_max_result.write.format("parquet") \
                     .mode("overwrite").save(result_path_prefix + g_max_out)
     logger.debug('数据执行-Finish')
+
     # %%
     # df_max_result.agg(func.sum('Predict_Sales'), func.sum('Predict_Unit')).show()
+
     # %%
     # df=spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012_test/MAX_result/MAX_result_202001_202012_BD1_hosp_level/')
     # df.where(col('Date')==202012).agg(func.sum('Predict_Sales'), func.sum('Predict_Unit')).show()
+
