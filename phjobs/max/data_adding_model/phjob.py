@@ -178,8 +178,7 @@ def execute(**kwargs):
                                             .withColumn('MONTH', func.substring(col('DATE'), 5, 2).cast(IntegerType())) \
                                             .select('PHA', 'YEAR', 'MONTH').distinct()
 
-df_growth_rate = spark.read.parquet(p_growth_rate)
-# df_growth_rate
+
     # %%
     # =========== 数据执行 =============
     logger.debug('数据执行-start')
@@ -201,15 +200,7 @@ df_growth_rate = spark.read.parquet(p_growth_rate)
     df_price = spark.read.format("parquet").load(p_price, schema=struct_type_price )
     df_price = df_price.withColumnRenamed('PRICE', 'PRICE_TIER')
     
-    # df_growth_rate = spark.read.parquet(p_growth_rate)
-    struct_type_growth_rate = StructType( [ StructField('MOLECULE_STD_FOR_GR', StringType(), True),
-                                            StructField('CITYGROUP', DoubleType(), True),
-                                            StructField('YEAR_2017', DoubleType(), True),
-                                            StructField('YEAR_2018', DoubleType(), True),
-                                            StructField('YEAR_2019', DoubleType(), True),
-                                            StructField('GR1718', DoubleType(), True),
-                                            StructField('GR1819', DoubleType(), True) ] )
-    df_growth_rate = spark.read.format("parquet").load(p_growth_rate, schema=struct_type_growth_rate)
+    df_growth_rate = spark.read.parquet(p_growth_rate)
     df_growth_rate.persist()
     
     # df_price_city = spark.read.parquet(p_price_city)
