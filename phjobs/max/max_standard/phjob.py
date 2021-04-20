@@ -15,7 +15,7 @@ def execute(**kwargs):
     
     ### input args ###
     g_project_name = kwargs['g_project_name']
-    g_depend_job_names_keys = kwargs['g_depend_job_names_keys']
+    depend_job_names_keys = kwargs['depend_job_names_keys']
     dag_name = kwargs['dag_name']
     run_id = kwargs['run_id']
     max_path = kwargs['max_path']
@@ -39,7 +39,7 @@ def execute(**kwargs):
     g_out_dir="202012_test"
     result_path_prefix = get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
     depends_path = get_depends_path({"name":job_name, "dag_name":dag_name, 
-                                     "run_id":run_id, "depend_job_names_keys":g_depend_job_names_keys}) 
+                                     "run_id":run_id, "depend_job_names_keys":depend_job_names_keys}) 
     ## 没有更新过的job6结果
     ## p_max_result = 's3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012_test/MAX_result/MAX_result_202001_202012_city_level/'
     # print(depends_path)
