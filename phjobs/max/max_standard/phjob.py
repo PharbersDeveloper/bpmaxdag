@@ -31,14 +31,21 @@ def execute(**kwargs):
     
     from pyspark.sql import functions as func
     from pyspark.sql.functions import col
-    from pyspark.sql.types import IntegerType, DoubleType, StructType, StructField    # %%
+    from pyspark.sql.types import IntegerType, StringType, DoubleType, StructType, StructField    
+    # %%
     # 测试用的参数
-    # g_project_name ="贝达"
-    # g_out_dir="202012_test"
-    
+    '''
+    g_project_name ="贝达"
+    g_out_dir="202012_test"
+    result_path_prefix = get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
+    depends_path = get_depends_path({"name":job_name, "dag_name":dag_name, 
+                                     "run_id":run_id, "depend_job_names_keys":depend_job_names_keys}) 
     ## 没有更新过的job6结果
     ## p_max_result = 's3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012_test/MAX_result/MAX_result_202001_202012_city_level/'
     # print(depends_path)
+    '''
+    
+
     # %%
     # ========== 输入 输出 =========
     # 通用匹配文件
@@ -226,17 +233,26 @@ def execute(**kwargs):
 
     # %%
     # 读取max 的结果
-    df_max_result = spark.read.parquet(p_max_result )
-    df_max_result =  df_max_result.withColumnRenamed('Date', 'DATE') \
-            .withColumnRenamed('Province', 'PROVINCE') \
-            .withColumnRenamed('City', 'CITY') \
-            .withColumnRenamed('Prod_Name', 'MIN_STD') \
-            .withColumnRenamed('Molecule', 'MOLECULE') \
-            .withColumnRenamed('PANEL', 'PANEL') \
-            .withColumnRenamed('DOI', 'MARKET') \
-            .withColumnRenamed('Predict_Sales', 'PREDICT_SALES') \
-            .withColumnRenamed('Predict_Unit', 'PREDICT_UNIT')
-    
+    # df_max_result = spark.read.parquet(p_max_result )
+    # df_max_result =  df_max_result.withColumnRenamed('Date', 'DATE') \
+    #         .withColumnRenamed('Province', 'PROVINCE') \
+    #         .withColumnRenamed('City', 'CITY') \
+    #         .withColumnRenamed('Prod_Name', 'MIN_STD') \
+    #         .withColumnRenamed('Molecule', 'MOLECULE') \
+    #         .withColumnRenamed('PANEL', 'PANEL') \
+    #         .withColumnRenamed('DOI', 'MARKET') \
+    #         .withColumnRenamed('Predict_Sales', 'PREDICT_SALES') \
+    #         .withColumnRenamed('Predict_Unit', 'PREDICT_UNIT')
+    struct_type_max_result = StructType([  StructField('PROVINCE', StringType(), True),
+                                            StructField('CITY', StringType(), True),
+                                            StructField('DATE', IntegerType(), True),
+                                            StructField('MIN_STD', StringType(), True),
+                                            StructField('MOLECULE', StringType(), True),
+                                            StructField('PANEL', DoubleType(), True),
+                                            StructField('MARKET', StringType(), True),
+                                            StructField('PREDICT_SALES', DoubleType(), True),
+                                            StructField('PREDICT_UNIT', DoubleType(), True)  ] )
+    df_max_result = spark.read.format("parquet").load(p_max_result, schema=struct_type_max_result)
     df_max_result =  df_max_result.withColumnRenamed('MIN_STD', 'MIN_STD_MAX') 
 
     # %%
