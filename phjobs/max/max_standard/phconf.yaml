@@ -18,7 +18,7 @@ spec:
     args:
       - key: g_project_name
         value: 'Empty'
-      - key: depend_job_names_keys
+      - key: g_depend_job_names_keys
         value: '["max_city#max_city_result#max_city_result"]'
       - key: dag_name
         value: 'Max'
