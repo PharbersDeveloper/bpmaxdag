@@ -21,7 +21,7 @@ spec:
       - key: g_minimum_product_columns
         value: BRAND, FORM, SPECIFICATIONS, PACK_NUMBER, MANUFACTURER
       - key: g_minimum_product_sep
-        value: 
+        value: '|'
       - key: g_minimum_product_newname
         value: MIN
       - key: g_if_two_source
