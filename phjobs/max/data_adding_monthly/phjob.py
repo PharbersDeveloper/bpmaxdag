@@ -236,7 +236,6 @@ def execute(**kwargs):
     df_price = df_price.withColumnRenamed('PRICE', 'PRICE_TIER')
     
     df_growth_rate = spark.read.parquet(p_growth_rate)
-    df_growth_rate = spark.read.format("parquet").load(p_growth_rate, schema=struct_type_growth_rate)
     df_growth_rate.persist()
     
     # df_price_city = spark.read.parquet(p_price_city)
