@@ -272,7 +272,7 @@ def execute(**kwargs):
             "COLUMN": "SPECIALTY_DETAIL"
         },
     ]
-
+    
     def fact_table(item):
         fact = dim.selectExpr("ID as HOSPITAL_ID", "PANEL_ID") \
             .join(hosp_mapping, [col("PANEL_ID") == col("PHA_ID")], "left_outer") \

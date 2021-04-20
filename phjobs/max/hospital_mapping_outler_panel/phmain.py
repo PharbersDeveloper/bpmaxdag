@@ -14,14 +14,12 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--owner')
 @click.option('--run_id')
 @click.option('--job_id')
-@click.option('--input_dim_path')
+@click.option('--input_outler_paths')
 @click.option('--time')
-@click.option('--panel_paths')
-@click.option('--mkt_mapping_paths')
-@click.option('--company')
+@click.option('--drop_matchers')
+@click.option('--hospital_univers')
 @click.option('--version')
-@click.option('--output_fact_path')
-@click.option('--output_mapping_panel_path')
+@click.option('--output_outler_path')
 def debug_execute(**kwargs):
     try:
         args = {"name": "hospital_mapping_outler_panel"}

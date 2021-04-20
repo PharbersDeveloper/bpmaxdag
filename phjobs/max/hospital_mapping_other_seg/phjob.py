@@ -27,7 +27,7 @@ def execute(**kwargs):
     
     _input = str(kwargs["inpit_dim_path"])
     _time = str(kwargs["time"])
-    _other_seg_paths = str(kwargs["other_seg_paths"]).split(",")
+    _other_seg_paths = str(kwargs["other_seg_paths"]).replace(" ", "").split(",")
     _company = str(kwargs["company"])
     _version = str(kwargs["version"])
     
