@@ -17,16 +17,26 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--job_full_name')
 @click.option('--job_id')
 @click.option('--g_project_name')
+@click.option('--g_minimum_product_columns')
+@click.option('--g_minimum_product_sep')
+@click.option('--g_minimum_product_newname')
+@click.option('--g_if_two_source')
+@click.option('--g_hospital_level')
+@click.option('--g_bedsize')
+@click.option('--p_id_bedsize')
+@click.option('--g_time_left')
+@click.option('--g_time_right')
+@click.option('--g_market')
+@click.option('--depend_job_names_keys')
+@click.option('--g_max_path')
+@click.option('--g_out_dir')
 @click.option('--dag_name')
 @click.option('--run_id')
-@click.option('--max_path')
-@click.option('--if_others')
-@click.option('--g_out_dir')
-@click.option('--g_hospital_mapping_out')
+@click.option('--g_max_result_city')
 def debug_execute(**kwargs):
     try:
-        args = {"name": "hospital_mapping"}
-        outputs = ["g_hospital_mapping_out"]
+        args = {"name": "max_city"}
+        outputs = ["g_max_result_city"]
 
         args.update(kwargs)
         result = exec_before(**args)

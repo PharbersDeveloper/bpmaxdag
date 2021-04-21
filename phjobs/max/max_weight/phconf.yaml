@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: PhJob
 metadata:
-  name: hospital_mapping
+  name: max_weight
   description: "pharbers job description"
   labels:
-    name: hospital_mapping
+    name: max_weight
     runtime: python3
     command: submit
 spec:
@@ -18,19 +18,29 @@ spec:
     args:
       - key: g_project_name
         value: Empty
+      - key: g_market
+        value: Empty
+      - key: g_universe
+        value: Empty
+      - key: g_factor
+        value: Empty
+      - key: g_universe_ot
+        value: Empty
+      - key: g_use_d_weight
+        value: Empty
+      - key: g_monthly_update
+        value: Empty
+      - key: depend_job_names_keys
+        value: ['panel_model#panel_result#panel_model_out', 'panel_monthly#panel_result#panel_monthly_out']
       - key: dag_name
         value: Max
       - key: run_id
         value: max_test_beida_202012
       - key: max_path
         value: s3a://ph-max-auto/v0.0.1-2020-06-08/
-      - key: if_others
-        value: False
-      - key: g_out_dir
-        value: Empty
     outputs:
-      - key: g_hospital_mapping_out
-        value: hospital_mapping_out
+      - key: g_max_out
+        value: max_weight_result
 
 
 

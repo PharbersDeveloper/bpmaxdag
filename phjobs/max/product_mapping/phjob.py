@@ -3,202 +3,172 @@
 
 This is job template for Pharbers Max Job
 """
-from phcli.ph_logs.ph_logs import phs3logger
-import os
-from pyspark.sql import SparkSession
-from pyspark.sql.types import *
-from pyspark.sql.types import StringType, IntegerType
-from pyspark.sql import functions as func
 
-def execute(max_path, project_name, minimum_product_columns, minimum_product_sep, minimum_product_newname, need_cleaning_cols, if_others, out_path, out_dir, need_test):
-    logger = phs3logger()
-    os.environ["PYSPARK_PYTHON"] = "python3"
-    spark = SparkSession.builder \
-        .master("yarn") \
-        .appName("data from s3") \
-        .config("spark.driver.memory", "1g") \
-        .config("spark.executor.cores", "1") \
-        .config("spark.executor.instance", "1") \
-        .config("spark.executor.memory", "1g") \
-        .config('spark.sql.codegen.wholeStage', False) \
-        .getOrCreate()
+from phcli.ph_logs.ph_logs import phs3logger, LOG_DEBUG_LEVEL
 
-    access_key = os.getenv("AWS_ACCESS_KEY_ID")
-    secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
-    if access_key is not None:
-        spark._jsc.hadoopConfiguration().set("fs.s3a.access.key", access_key)
-        spark._jsc.hadoopConfiguration().set("fs.s3a.secret.key", secret_key)
-        spark._jsc.hadoopConfiguration().set("fs.s3a.impl","org.apache.hadoop.fs.s3a.S3AFileSystem")
-        spark._jsc.hadoopConfiguration().set("com.amazonaws.services.s3.enableV4", "true")
-        # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
-        spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
 
-    logger.info('job2_product_mapping')
+def execute(**kwargs):
+    logger = phs3logger(kwargs["job_id"], LOG_DEBUG_LEVEL)
+    spark = kwargs['spark']()
+    result_path_prefix = kwargs["result_path_prefix"]
+    depends_path = kwargs["depends_path"]
     
+    ### input args ###
+    g_project_name = kwargs['g_project_name']
+    g_minimum_product_columns = kwargs['g_minimum_product_columns']
+    g_minimum_product_sep = kwargs['g_minimum_product_sep']
+    g_minimum_product_newname = kwargs['g_minimum_product_newname']
+    g_need_cleaning_cols = kwargs['g_need_cleaning_cols']
+    depend_job_names_keys = kwargs['depend_job_names_keys']
+    dag_name = kwargs['dag_name']
+    run_id = kwargs['run_id']
+    max_path = kwargs['max_path']
+    g_out_dir = kwargs['g_out_dir']
+    ### input args ###
+    
+    ### output args ###
+    g_product_mapping_out = kwargs['g_product_mapping_out']
+    g_need_cleaning_out = kwargs['g_need_cleaning_out']
+    ### output args ###
+
+    import os
+    from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
+    from pyspark.sql import functions as func
+    from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col    
+    # %%
+    # 测试
+    '''
+    g_project_name = '贝达'
+    g_out_dir = '202012_test'
+    g_minimum_product_sep='|'
+    '''
+
+    # %%
+    logger.debug('job2_product_mapping')
     # 注意：
     # Mylan不做Brand判断，写死了
-    # Mylan不重新生成minimum_product_newname: min1
-
+    # Mylan不重新生成g_minimum_product_newname: MIN
+    
     # 输入
-    product_map_path = out_path + "/" + project_name + '/' + out_dir + "/prod_mapping"
+    p_hospital_mapping_out = depends_path['hospital_mapping_out']
+    g_need_cleaning_cols = g_need_cleaning_cols.replace(" ","").split(",")
+    g_minimum_product_columns = g_minimum_product_columns.replace(" ","").split(",")
+    if g_minimum_product_sep == "kong":
+        g_minimum_product_sep = ""
     
-    if if_others == "True":
-        out_dir = out_dir + "/others_box/"
-    out_path_dir = out_path + "/" + project_name + '/' + out_dir
+    # 测试用
+    product_map_path = max_path + "/" + g_project_name + '/' + g_out_dir + "/prod_mapping"
     
-    hospital_mapping_out_path = out_path_dir + "/hospital_mapping_out"
-    need_cleaning_cols = need_cleaning_cols.replace(" ","").split(",")
-    minimum_product_columns = minimum_product_columns.replace(" ","").split(",")
-    if minimum_product_sep == "kong":
-        minimum_product_sep = ""
     # 输出
-    product_mapping_out_path = out_path_dir + "/product_mapping_out"
-    need_cleaning_path = out_path_dir + "/need_cleaning"
+    p_product_mapping_out = result_path_prefix + g_product_mapping_out
+    p_need_cleaning = result_path_prefix + g_need_cleaning_out
 
-    # =========== 数据检查 =============
-    logger.info('数据检查-start')
-
-    # 存储文件的缺失列
-    misscols_dict = {}
-
-    # product_map file
-    # product_map_path = "/common/projects/max/Sankyo/prod_mapping"
-    product_map = spark.read.parquet(product_map_path)
-    colnames_product_map = product_map.columns
-    misscols_dict.setdefault("product_map", [])
-    if ("标准通用名" not in colnames_product_map) and ("通用名_标准"  not in colnames_product_map)  \
-    and ("药品名称_标准"  not in colnames_product_map) and ("通用名"  not in colnames_product_map) \
-    and ("S_Molecule_Name"  not in colnames_product_map):
-        misscols_dict["product_map"].append("标准通用名")
-    if "min1" not in colnames_product_map:
-        misscols_dict["product_map"].append("min1")
-    if ("min2" not in colnames_product_map) and ("min1_标准" not in colnames_product_map):
-        misscols_dict["product_map"].append("min2")
-    if ("标准商品名" not in colnames_product_map) and ("商品名_标准"  not in colnames_product_map) \
-    and ("S_Product_Name"  not in colnames_product_map):
-        misscols_dict["product_map"].append("标准商品名")
-
-    # 判断输入文件是否有缺失列
-    misscols_dict_final = {}
-    for eachfile in misscols_dict.keys():
-        if len(misscols_dict[eachfile]) != 0:
-            misscols_dict_final[eachfile] = misscols_dict[eachfile]
-    # 如果有缺失列，则报错，停止运行
-    if misscols_dict_final:
-        logger.error('miss columns: %s' % (misscols_dict_final))
-        raise ValueError('miss columns: %s' % (misscols_dict_final))
-
-    logger.info('数据检查-Pass')
-
-    # =========== 数据执行 =============
-    logger.info('数据执行-start')
-
-    # raw_data_job1_out_path = "/user/ywyuan/max/Sankyo/raw_data_job1_out"
-    raw_data = spark.read.parquet(hospital_mapping_out_path)
-    if project_name != "Mylan":
-        raw_data = raw_data.withColumn("Brand", func.when((raw_data.Brand.isNull()) | (raw_data.Brand == 'NA'), raw_data.Molecule).
-                                   otherwise(raw_data.Brand))
-
-    # concat_multi_cols
-    # minimum_product_columns = ["Brand", "Form", "Specifications", "Pack_Number", "Manufacturer"]
-    # minimum_product_sep = ""
-    # minimum_product_newname = "min1"
-    for colname, coltype in raw_data.dtypes:
-        if coltype == "logical":
-            raw_data = raw_data.withColumn(colname, raw_data[colname].cast(StringType()))
+    # %%
+    # =========== 数据准备 测试用=============
+    df_product_map = spark.read.parquet(product_map_path)
+    for i in df_product_map.columns:
+        if i in ["标准通用名", "通用名_标准", "药品名称_标准", "S_Molecule_Name"]:
+            df_product_map = df_product_map.withColumnRenamed(i, "通用名")
+        if i in ["商品名_标准", "S_Product_Name"]:
+            df_product_map = df_product_map.withColumnRenamed(i, "标准商品名")
+        if i in ["标准途径"]:
+            df_product_map = df_product_map.withColumnRenamed(i, "std_route")
+        if i in ["min1_标准"]:
+            df_product_map = df_product_map.withColumnRenamed(i, "min2")
+    if "std_route" not in df_product_map.columns:
+        df_product_map = df_product_map.withColumn("std_route", func.lit(''))
+        
+    df_product_map = df_product_map.withColumnRenamed('min1', 'MIN') \
+                        .withColumnRenamed('min2', 'MIN_STD') \
+                        .withColumnRenamed('通用名', 'MOLECULE_STD') \
+                        .withColumnRenamed('标准商品名', 'BRAND_STD') \
+                        .withColumnRenamed('标准剂型', 'FORM_STD') \
+                        .withColumnRenamed('标准规格', 'SPECIFICATIONS_STD') \
+                        .withColumnRenamed('标准包装数量', 'PACK_NUMBER_STD') \
+                        .withColumnRenamed('标准生产企业', 'MANUFACTURER_STD') \
+                        .withColumnRenamed('标准集团', 'CORP_STD') \
+                        .withColumnRenamed('std_route', 'ROUTE_STD') \
+                        .withColumnRenamed('pfc', 'PACK_ID')
+    df_product_map = df_product_map.withColumn('PACK_NUMBER_STD', col('PACK_NUMBER_STD').cast(IntegerType())) \
+                            .withColumn('PACK_ID', col('PACK_ID').cast(IntegerType()))
     
-    raw_data = raw_data.withColumn("tmp", func.when(func.isnull(raw_data[minimum_product_columns[0]]), func.lit("NA")).
-                                   otherwise(raw_data[minimum_product_columns[0]]))
 
-    for col in minimum_product_columns[1:]:
-        raw_data = raw_data.withColumn(col, raw_data[col].cast(StringType()))
-        raw_data = raw_data.withColumn("tmp", func.concat(
-            raw_data["tmp"],
-            func.lit(minimum_product_sep),
-            func.when(func.isnull(raw_data[col]), func.lit("NA")).otherwise(raw_data[col])))
+    # %%
+    # =========== 数据执行 =============
+    logger.debug('数据执行-start：product_mapping')
+    
+    # df_raw_data = spark.read.parquet(p_hospital_mapping_out)
+    
+    struct_type = StructType([ StructField('PHA', StringType(), True),
+                                StructField('ID', StringType(), True),
+                                StructField('YEAR_MONTH', IntegerType(), True),
+                                StructField('RAW_HOSP_NAME', StringType(), True),
+                                StructField('BRAND', StringType(), True),
+                                StructField('FORM', StringType(), True),
+                                StructField('SPECIFICATIONS', StringType(), True),
+                                StructField('PACK_NUMBER', IntegerType(), True),
+                                StructField('MANUFACTURER', StringType(), True),
+                                StructField('MOLECULE', StringType(), True),
+                                StructField('SOURCE', StringType(), True),
+                                StructField('CORP', StringType(), True),
+                                StructField('ROUTE', StringType(), True),
+                                StructField('ORG_MEASURE', StringType(), True),
+                                StructField('SALES', DoubleType(), True),
+                                StructField('UNITS', DoubleType(), True),
+                                StructField('UNITS_BOX', DoubleType(), True),
+                                StructField('PATH', StringType(), True),
+                                StructField('SHEET', StringType(), True),
+                                StructField('CITY', StringType(), True),
+                                StructField('PROVINCE', StringType(), True),
+                                StructField('CITY_TIER', DoubleType(), True),
+                                StructField('MONTH', IntegerType(), True),
+                                StructField('YEAR', IntegerType(), True) ]
+                                )
+    df_raw_data = spark.read.format("parquet").load(p_hospital_mapping_out, schema=struct_type)
+    
+    
+    # if g_project_name != "Mylan":
+    df_raw_data = df_raw_data.withColumn("BRAND", func.when((col('BRAND').isNull()) | (col('BRAND') == 'NA'), col('MOLECULE')).
+                                   otherwise(col('BRAND')))
+        
+    df_raw_data = df_raw_data.withColumn('PACK_NUMBER', col('PACK_NUMBER').cast(StringType()))
+    
+    # MIN 生成
+    df_raw_data = df_raw_data.withColumn('tmp', func.concat_ws(g_minimum_product_sep, 
+                                *[func.when(col(i).isNull(), func.lit("NA")).otherwise(col(i)) for i in g_minimum_product_columns]))
+       
+    # Mylan不重新生成 MIN，其他项目生成MIN（遗留问题，测试后可与其他项目一样）
+    # if g_project_name == "Mylan":
+    #     df_raw_data = df_raw_data.drop("tmp")
+    # else:
+    df_raw_data = df_raw_data.withColumnRenamed("tmp", g_minimum_product_newname)
+        
+    # df_product_map
+    df_product_map_for_needclean = df_product_map.select("MIN").distinct()
+    df_product_map_for_rawdata = df_product_map.select("MIN", "MIN_STD", "MOLECULE_STD", "ROUTE_STD", "BRAND_STD").distinct()
+    
+    
+    # df_raw_data 待清洗数据
+    df_need_cleaning = df_raw_data.join(df_product_map_for_needclean, on="MIN", how="left_anti") \
+                        .select(g_need_cleaning_cols) \
+                        .distinct()
+    logger.debug('待清洗行数: ' + str(df_need_cleaning.count()))
+    
+    # df_raw_data 信息匹配
+    df_raw_data = df_raw_data.join(df_product_map_for_rawdata, on="MIN", how="left")
 
-    # Mylan不重新生成minimum_product_newname: min1，其他项目生成min1
-    if project_name == "Mylan":
-        raw_data = raw_data.drop("tmp")
-    else:
-        if minimum_product_newname in raw_data.columns:
-            raw_data = raw_data.drop(minimum_product_newname)
-        raw_data = raw_data.withColumnRenamed("tmp", minimum_product_newname)
+    # %%
+    # =========== 输出 =============
+    df_need_cleaning = df_need_cleaning.repartition(2)
+    df_need_cleaning.write.format("parquet") \
+        .mode("overwrite").save(p_need_cleaning)
+    logger.debug("已输出待清洗文件至: " + p_need_cleaning)
+        
+        
+    df_raw_data = df_raw_data.repartition(2)
+    df_raw_data.write.format("parquet") \
+        .mode("overwrite").save(p_product_mapping_out)
+    logger.debug("输出 product_mapping 结果：" + p_product_mapping_out)
+    
+    logger.debug('数据执行-Finish')
 
-    # product_map
-    for col in product_map.columns:
-        if col in ["标准通用名", "通用名_标准", "药品名称_标准", "S_Molecule_Name"]:
-            product_map = product_map.withColumnRenamed(col, "通用名")
-        if col in ["商品名_标准", "S_Product_Name"]:
-            product_map = product_map.withColumnRenamed(col, "标准商品名")
-        if col in ["标准途径"]:
-            product_map = product_map.withColumnRenamed(col, "std_route")
-        if col in ["min1_标准"]:
-            product_map = product_map.withColumnRenamed(col, "min2")
-    if "std_route" not in product_map.columns:
-        product_map = product_map.withColumn("std_route", func.lit(''))
-
-    product_map_for_needclean = product_map.select("min1").distinct()
-    product_map_for_rawdata = product_map.select("min1", "min2", "通用名", "std_route", "标准商品名").distinct()
-
-    # 输出待清洗
-    need_cleaning = raw_data.join(product_map_for_needclean, on="min1", how="left_anti") \
-        .select(need_cleaning_cols) \
-        .distinct()
-    logger.info('待清洗行数: ' + str(need_cleaning.count()))
-
-    if need_cleaning.count() > 0:
-        need_cleaning = need_cleaning.repartition(2)
-        need_cleaning.write.format("parquet") \
-            .mode("overwrite").save(need_cleaning_path)
-        logger.info("已输出待清洗文件至:  " + need_cleaning_path)
-
-    raw_data = raw_data.join(product_map_for_rawdata, on="min1", how="left") \
-        .drop("S_Molecule") \
-        .withColumnRenamed("通用名", "S_Molecule")
-
-    product_mapping_out = raw_data.repartition(2)
-    product_mapping_out.write.format("parquet") \
-        .mode("overwrite").save(product_mapping_out_path)
-
-    logger.info("输出 product_mapping 结果：" + product_mapping_out_path)
-
-    logger.info('数据执行-Finish')
-
-    # =========== 数据验证 =============
-    # 与原R流程运行的结果比较正确性
-    if int(need_test) > 0:
-        logger.info('数据验证-start')
-
-        my_out = raw_data
-
-        if project_name == "Sanofi":
-            R_out_path = "/common/projects/max/AZ_Sanofi/product_mapping/raw_data_with_std_product"
-        elif project_name == "AZ":
-            R_out_path = "/common/projects/max/AZ_Sanofi/product_mapping/raw_data_with_std_product_az"
-        elif project_name == "Sankyo":
-            R_out_path = "/user/ywyuan/max/Sankyo/Rout/product_mapping_out"
-        R_out = spark.read.parquet(R_out_path)
-
-        # 检查内容：列缺失，列的类型，列的值
-        for colname, coltype in R_out.dtypes:
-            # 列是否缺失
-            if colname not in my_out.columns:
-                logger.warning ("miss columns:", colname)
-            else:
-                # 数据类型检查
-                if my_out.select(colname).dtypes[0][1] != coltype:
-                    logger.warning("different type columns: " + colname + ", " + my_out.select(colname).dtypes[0][1] + ", " + "right type: " + coltype)
-
-                # 数值列的值检查
-                if coltype == "double" or coltype == "int":
-                    sum_my_out = my_out.groupBy().sum(colname).toPandas().iloc[0, 0]
-                    sum_R = R_out.groupBy().sum(colname).toPandas().iloc[0, 0]
-                    # logger.info(colname, sum_raw_data, sum_R)
-                    if (sum_my_out - sum_R) != 0:
-                        logger.warning("different value(sum) columns: " + colname + ", " + str(sum_my_out) + ", " + "right value: " + str(sum_R))
-
-        logger.info('数据验证-Finish')
-
-    # =========== return =============
-    return raw_data

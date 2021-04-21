@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: PhJob
 metadata:
-  name: hospital_mapping
+  name: max_standard
   description: "pharbers job description"
   labels:
-    name: hospital_mapping
+    name: max_standard
     runtime: python3
     command: submit
 spec:
@@ -17,20 +17,22 @@ spec:
     config: phconf.yaml
     args:
       - key: g_project_name
-        value: Empty
+        value: 'Empty'
+      - key: depend_job_names_keys
+        value: '["max_city#max_city_result#max_city_result"]'
       - key: dag_name
-        value: Max
+        value: 'Max'
       - key: run_id
-        value: max_test_beida_202012
+        value: 'max_test_beida_202012'
       - key: max_path
-        value: s3a://ph-max-auto/v0.0.1-2020-06-08/
-      - key: if_others
-        value: False
+        value: 's3a://ph-max-auto/v0.0.1-2020-06-08/'
       - key: g_out_dir
-        value: Empty
+        value: 'Empty'
     outputs:
-      - key: g_hospital_mapping_out
-        value: hospital_mapping_out
+      - key: a
+        value: 'abcde'
+      - key: b
+        value: '6789'
 
 
 

@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: PhJob
 metadata:
-  name: product_mapping
+  name: raw_standard
   description: "pharbers job description"
   labels:
-    name: product_mapping
+    name: raw_standard
     runtime: python3
     command: submit
 spec:
@@ -18,16 +18,10 @@ spec:
     args:
       - key: g_project_name
         value: 'Empty'
-      - key: g_minimum_product_columns
-        value: 'BRAND, FORM, SPECIFICATIONS, PACK_NUMBER, MANUFACTURER'
       - key: g_minimum_product_sep
         value: '|'
-      - key: g_minimum_product_newname
-        value: 'MIN'
-      - key: g_need_cleaning_cols
-        value: 'MOLECULE, BRAND, FORM, SPECIFICATIONS, PACK_NUMBER, MANUFACTURER, MIN, ROUTE, CORP'
-      - key: depend_job_names_keys
-        value: '["hospital_mapping#hospital_mapping_out#hospital_mapping_out"]'
+      - key: g_minimum_product_columns
+        value: 'Brand, Form, Specifications, Pack_Number, Manufacturer'
       - key: dag_name
         value: 'Max'
       - key: run_id
@@ -37,10 +31,10 @@ spec:
       - key: g_out_dir
         value: 'Empty'
     outputs:
-      - key: g_product_mapping_out
-        value: 'product_mapping_out'
-      - key: g_need_cleaning_out
-        value: 'need_cleaning_out'
+      - key: g_rawdata_standard
+        value: 'rawdata_standard'
+      - key: g_rawdata_standard_brief
+        value: 'rawdata_standard_brief'
 
 
 

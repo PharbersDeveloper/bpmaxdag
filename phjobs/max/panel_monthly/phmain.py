@@ -17,16 +17,20 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--job_full_name')
 @click.option('--job_id')
 @click.option('--g_project_name')
+@click.option('--g_model_month_right')
+@click.option('--g_year')
+@click.option('--g_current_month')
+@click.option('--g_add_47')
+@click.option('--depend_job_names_keys')
+@click.option('--g_monthly_update')
 @click.option('--dag_name')
 @click.option('--run_id')
 @click.option('--max_path')
-@click.option('--if_others')
-@click.option('--g_out_dir')
-@click.option('--g_hospital_mapping_out')
+@click.option('--g_panel')
 def debug_execute(**kwargs):
     try:
-        args = {"name": "hospital_mapping"}
-        outputs = ["g_hospital_mapping_out"]
+        args = {"name": "panel_monthly"}
+        outputs = ["g_panel"]
 
         args.update(kwargs)
         result = exec_before(**args)
