@@ -110,15 +110,25 @@ def loading_files(spark,input_path):
 
 def combine_similarity_cols(df_max_sim):
     
-    df_max_sim = df_max_sim.withColumn("array_sim", array(df_max_sim.eff_dosage,df_max_sim.eff_mnf,df_max_sim.eff_mole))
+    df_max_sim = df_max_sim.withColumn("array_sim", array(df_max_sim.eff_dosage,\
+                                                          df_max_sim.eff_mnf,\
+                                                          df_max_sim.eff_mole,\
+                                                          df_max_sim.eff_pack,\
+                                                         df_max_sim.eff_spec))
     
     return df_max_sim
+
+#增加平滑系数
 
 @pandas_udf(DoubleType(),PandasUDFType.SCALAR)
 def get_array_max_value(inputCol):
     frame = {"inputCol":inputCol}
     df = pd.DataFrame(frame)
-    df['output'] = df.apply(lambda x: np.sum(x.inputCol), axis=1)
+    df['output'] = df.apply(lambda x: np.sum([x.inputCol[0]*0.2,\
+                                             x.inputCol[1]*0.3,\
+                                             x.inputCol[2]*0.3,\
+                                             x.inputCol[3]*0.1,\
+                                             x.inputCol[4]*0.1]), axis=1)
     return df['output']
 
 def get_max_similarity(df_max_sim):
@@ -133,7 +143,7 @@ def extract_max_similaritey(df_max_sim):
     window_max = Window.partitionBy("ID")
     
     df_max_sim = df_max_sim.withColumn("max_eff",F.max("array_sim").over(window_max))\
-                                .where(F.col("array_sim") == F.col("max_eff"))\
+                                .where(F.col("array_sim") >= F.col("max_eff")*0.7)\
                                 .drop("max_eff")
     
     return df_max_sim

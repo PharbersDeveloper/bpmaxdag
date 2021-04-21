@@ -34,6 +34,10 @@ def execute(**kwargs):
     ########## == loading files == #############
     df_standard_table = loading_files(spark, path_standard_table)
     
+    df_standard_table = df_standard_table.withColumnRenamed("Prd_desc_ZB1","PRODUCT_NAME")
+    
+    print(df_standard_table.printSchema())
+    
     ######### == loading files == #############
     
     
@@ -63,10 +67,10 @@ def wirte_files(df_standard_table, path_output):
     
     try:
         df_standard_table.write.mode("overwrite").parquet(path_output)
-        status_info = r"Write Success"
+        status_info = fr"{path_output}  Write Success"
         
     except:
-        status_info = r"Write Failed"
+        status_info = fr"{path_output}  Write Failed"
     print(status_info)
     
     return status_info

@@ -319,19 +319,19 @@ def extract_spec_values_and_units_from_chcType(origin_col):
 
     def extract_chc_values_and_unit(input_string):
 
-        pattern_gross = r'(\d+(\.\d+)?)([GUMYLIKAX]+):\d+'
-        pattern_gross_type2 = r'(\d+(\.\d+)?)([IGUMYLKAX]+)[\(].*?:.*?\d+[GUMYLKAX]+(?=[\)])'
+        pattern_gross = r'(\d+(\.\d+)?)([GUMYLIKAX]+)[:：]\d+'
+        pattern_gross_type2 = r'(\d+(\.\d+)?)([IGUMYLKAX]+)[\(].*?[:：].*?\d+[GUMYLKAX]+(?=[\)])'
         pattern_gross_type3 = r"(\d+(\.\d+)?)([IGUMYLKAX]+)[\(].*?\/(?=\d+).*[GUMYLKAX]+(?=[\)])"
         pattern_gross_type4 = r'(\d+(\.\d+)?)([IGUMYLKAX]+)\(相当于.*\)'
         pattern_gross_type5 = r'(\d+(\.\d+)?)([IGUMYLKAX]+)'
         #类型1  0.643G(0.6G:0.043G)
         if len(re.findall(pattern_gross_type2,input_string)) != 0:
-            valid_pattern = r'\(.*?:(\d+(\.\d+)?)([IGUMYLKAX]+)(?=\))'
+            valid_pattern = r'\(.*?[:：](\d+(\.\d+)?)([IGUMYLKAX]+)(?=\))'
             output_file = add_chc_gross_and_valid(input_gross_pattern=pattern_gross_type2,input_valid_pattern=valid_pattern,input_string=input_string)
 
         #类型2 15G:15MG
         elif len(re.findall(pattern_gross,input_string)) != 0:
-            valid_pattern = r':(\d+(\.\d+)?)([GUMYLIKAX]+)'
+            valid_pattern = r'[:：](\d+(\.\d+)?)([GUMYLIKAX]+)'
 
             output_file = add_chc_gross_and_valid(input_gross_pattern=pattern_gross, input_valid_pattern=valid_pattern,
                                               input_string=input_string)
@@ -392,7 +392,7 @@ def extract_spec_values_and_units_from_qiluType(origin_col):
     df = pd.DataFrame(frame)
     
     def make_elements_of_list_into_one_string(origin_list):
-        placeholder_word = ' '
+        placeholder_word = '[:：]'
         output_sentence = reduce(lambda x, y: x + f"{placeholder_word}" + y, origin_list)
         return output_sentence
     
@@ -424,13 +424,13 @@ def extract_spec_values_and_units_from_qiluType(origin_col):
     def extract_qilu_values_and_unit(input_string):
 
         pattern_gross = r'(\d+(\.\d+)?)(\w+).*[(].*[)]'
-        pattern_gross_type2 = r'(\d+(\.\d+)?)(\w+)[∶]'
+        pattern_gross_type2 = r'(\d+(\.\d+)?)(\w+)[∶：]'
         pattern_gross_type3 = r"(\d+(\.\d+)?)[万]U"
         pattern_gross_type4 = r'(\d+(\.\d+)?)([GUMYLKAX]+)'
         
         #类型一 50ml∶单硝酸异山梨酯20mg,葡萄糖12.5g 、 1ml：0.1mg
         if len(re.findall(pattern_gross_type2,input_string)) != 0:
-            valid_split_pattern = r'∶'
+            valid_split_pattern = r''
             valid_pattern = r'(\d+(\.\d+)?)([GUMYLKAX]+)'
             output_file = add_qilu_gross_and_valid(gross_pattern=pattern_gross_type2, valid_split_pattern=valid_split_pattern,\
                                                    valid_pattern=valid_pattern, input_string=input_string)
@@ -802,7 +802,7 @@ def get_pca_inter(df_cleanning,df_second_interfere):
     return df_cleanning 
 
 def select_cpa_col(df_cleanning):
-    cpa_cols =['MOLE_NAME','PRODUCT_NAME', 'DOSAGE', 'SPEC', 'PACK_QTY', 'MANUFACTURER_NAME', 'PACK_ID_CHECK', 'ID','SPEC_ORIGINAL','SPEC_VALID','SPEC_GROSS']
+    cpa_cols =['MOLE_NAME','PRODUCT_NAME','DOSAGE', 'SPEC', 'PACK_QTY', 'MANUFACTURER_NAME', 'PACK_ID_CHECK', 'ID','SPEC_ORIGINAL','SPEC_VALID','SPEC_GROSS']
     df_cleanning = df_cleanning.select(cpa_cols)
     return df_cleanning
 
