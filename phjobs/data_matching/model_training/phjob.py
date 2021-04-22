@@ -228,7 +228,10 @@ def get_training_and_test_data(input_data):
 def get_element_for_pipeline(input_data_frame):
     
     labelIndexer = StringIndexer(inputCol="label", outputCol="indexedLabel").fit(input_data_frame)
-    featureIndexer = VectorIndexer(inputCol="features", outputCol="indexedFeatures", maxCategories=6).fit(input_data_frame)
+    featureIndexer = VectorIndexer(inputCol="features",\
+                                   outputCol="indexedFeatures",\
+                                   maxCategories=6,\
+                                   handleInvalid="skip").fit(input_data_frame)
 
     # Train a DecisionTree model.
     dt = DecisionTreeClassifier(labelCol="indexedLabel", featuresCol="indexedFeatures")
