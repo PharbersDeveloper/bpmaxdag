@@ -34,7 +34,6 @@ def execute(**kwargs):
     ########## == loading files == #############
     df_standard_table = loading_files(spark, path_standard_table)
     
-    df_standard_table = df_standard_table.withColumnRenamed("Prd_desc_ZB1","PRODUCT_NAME")
     
     print(df_standard_table.printSchema())
     

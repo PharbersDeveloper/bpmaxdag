@@ -111,10 +111,10 @@ def calculate_mole_similarity_after_mapping(mole_name,master_mole,mole_name_stan
     df = pd.DataFrame(frame)
     def calculate_similarity(s1,s2,s3):
         try:
-            if s1 in s2:
-                sim_value = float(1)
-            elif float(jaro_winkler_similarity(s1,s3)) >= 0.95: 
+            if float(jaro_winkler_similarity(s1,s3)) >= 0.95:
                 sim_value = float(jaro_winkler_similarity(s1,s3))
+            elif s1 in s2:
+                sim_value = float(0.995)
             else:
                 sim_value = float(0.0) 
         except:

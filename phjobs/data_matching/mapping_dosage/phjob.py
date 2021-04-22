@@ -45,6 +45,7 @@ def execute(**kwargs):
 
 ###################=======loading files==========#################
     df_cross_dosage = load_cross_result(spark, path_cross_result)
+    
     df_mapping_dosage = loading_files(spark, path_mapping_path)
     
 ####################=======loading files==========#################
@@ -64,6 +65,7 @@ def execute(**kwargs):
     df_dosage.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
     
 ####################### == RESULT == #####################
+    
     return {}
 
 

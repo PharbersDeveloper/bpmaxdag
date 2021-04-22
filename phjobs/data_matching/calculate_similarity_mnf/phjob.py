@@ -117,8 +117,10 @@ def execute_calculate_mnf_similarity(mnf_name,master_manufacture,mnf_name_standa
     df = pd.DataFrame(frame)
     def calculate_similarity(s1,s2,s3):
         try:
-            if s1 in s2:
-                sim_value = float(1)
+            if float(jaro_winkler_similarity(s1,s3)) >= 0.95:
+                sim_value = float(jaro_winkler_similarity(s1,s3))
+            elif s1 in s2:
+                sim_value = float(0.995)
             else:
                 sim_value = float(jaro_winkler_similarity(s1,s3))
         except:
