@@ -61,10 +61,9 @@ def execute(**kwargs):
 #     df = df_pos.join(df_raw,df_pos.ID == df_raw.ID_ORIGINAL,'left')
 #     df.repartition(1).write.mode("overwrite").csv("s3a://ph-max-auto/2020-08-11/data_matching/temp/mzhang/0421_pos_test",header=True)
     
-    url = r"s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs/manual__2021-04-21T09_34_29.804083+00_00/cross_join_cutting/cross_result/"
-    df = spark.read.parquet(url)
-    df = df.select("ID").distinct()
-    print(df.count())
+    url = r"s3a://ph-max-auto/2020-08-11/data_matching/refactor/results/2021-04-22_13-06-21/Report/"
+    df = spark.read.csv(url,header=True)
+    df.show()
     
 #####################-------test---------------################
 
