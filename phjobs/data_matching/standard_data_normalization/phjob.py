@@ -40,14 +40,19 @@ def execute(**kwargs):
 
 ###########--------------load file----------------------- ################
     df_standard = load_standard_prod(spark, path_master_prod)
-    df_standard.write.mode("overwrite").parquet(origin_path)
+    write_files(input_dataframe=df_standard,\
+                path_of_write=origin_path,\
+                file_type="parquet",\
+                repartition_num=10)
 ###########--------------load file----------------------- ################
+
 
 #########--------------main function--------------------################# 
 
     #dosage处理
     df_standard = make_dosage_standardization(df_standard)
 
+    
     #spec转成结构化数据
     df_standard = make_spec_become_structured(df_standard)
     
@@ -60,9 +65,13 @@ def execute(**kwargs):
     #spec array转string类型
     df_standard = make_spec_become_string(df_standard)
     
+    write_files(input_dataframe=df_standard,\
+                path_of_write=result_path,\
+                file_type="parquet",\
+                repartition_num=10)
     
-    df_standard.write.mode("overwrite").parquet(result_path)
 #########--------------main function--------------------################# 
+    
     return {}
 
 ################--------------------- functions ---------------------################
@@ -416,4 +425,18 @@ def make_spec_from_array_into_string(spec_standard):
     df['out_put_col'] = df.apply(lambda x: make_elements_of_list_into_one_string(x.spec_standard), axis=1)
     return df['out_put_col']
 
+###### 写入文件
+def write_files(input_dataframe, path_of_write, file_type, repartition_num):
+    
+    try:
+        if file_type.lower() == "parquet":
+            input_dataframe.repartition(repartition_num).write.mode("overwrite").parquet(path_of_write)
+        else:
+            input_dataframe.repartition(1).write.mode("overwrite").csv(path_of_write,header=True)
+        message = fr"{path_of_write} {file_type} Write Success!"
+    except:
+        message = fr"{path_of_write} {file_type} Write Failed!"
+    print(message)
+    return message
 ################-----------------------functions---------------------------################
+

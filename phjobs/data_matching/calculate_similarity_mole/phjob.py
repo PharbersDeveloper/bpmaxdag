@@ -51,8 +51,6 @@ def execute(**kwargs):
 ############# == loading files == #####################
     
 ############# == main functions == #####################
-    print(df_seg_mole.printSchema())
-
     
     df_sim_mole = Get_similarity_of_RawColAndStandardCol(input_dataframe=df_seg_mole,\
                                            RawColWords="MOLE_NAME_WORDS",\
@@ -66,7 +64,6 @@ def execute(**kwargs):
     df_sim_mole = Cause_ArrayStructureCol_Become_StringStructureCol(input_dataframe=df_sim_mole,\
                                                                    inputCol="MOLE_NAME_STANDARD_WORDS")
     
-    df_sim_mole.show(500)
 
 ############# == main functions == #####################
 
@@ -76,7 +73,6 @@ def execute(**kwargs):
                 file_type="parquet",\
                 repartition_num=g_repartition_shared)
 ########## === RESULT === ##############
-    
 
     return {}
 
