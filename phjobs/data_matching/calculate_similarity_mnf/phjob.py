@@ -6,11 +6,12 @@ This is job template for Pharbers Max Job
 
 from phcli.ph_logs.ph_logs import phs3logger, LOG_DEBUG_LEVEL
 import uuid
+from itertools import product
 import pandas as pd
 import numpy as np
 from pyspark.sql import Window
 from pyspark.sql.types import DoubleType ,StringType
-from pyspark.sql.functions import pandas_udf, PandasUDFType 
+from pyspark.sql.functions import pandas_udf, PandasUDFType ,col
 from pyspark.sql.functions import array_join 
 from pyspark.sql import functions as F 
 from itertools import product
@@ -30,7 +31,7 @@ def execute(**kwargs):
     
 ############# ------- input ----------- #####################
     depends = get_depends_path(kwargs)
-    path_mapping_mnf = depends["input_mapping_mnf"]
+    path_seg_mnf = depends["input_seg_mnf"]
     
 ############# ------- input ------------ ####################
 
@@ -44,21 +45,33 @@ def execute(**kwargs):
 
 ############# == loading files == #####################
 
-    df_mapping_mnf = load_mapping_mnf_result(spark, path_mapping_mnf)
-    
+    df_seg_mnf = loading_files(spark,\
+                               path_of_file=path_seg_mnf,\
+                               file_type="parquet")
 ############# == loading files == #####################
-
+    
 ############# == main functions == #####################
 
-    df_sim_mnf = calculate_mnf_similarity(df_mapping_mnf)
+    df_sim_mnf = Get_similarity_of_RawColAndStandardCol(input_dataframe=df_seg_mnf,\
+                                           RawColWords="MANUFACTURER_NAME_WORDS",\
+                                           StandardColWords="MANUFACTURER_NAME_STANDARD_WORDS",\
+                                           PrefixOfEffectiveness="Effectiveness")
     
     
-    df_sim_mnf = let_array_become_string(df_sim_mnf)
+    df_sim_mnf = Cause_ArrayStructureCol_Become_StringStructureCol(input_dataframe=df_sim_mnf,\
+                                                                   inputCol="MANUFACTURER_NAME_WORDS")
+    
+    df_sim_mnf = Cause_ArrayStructureCol_Become_StringStructureCol(input_dataframe=df_sim_mnf,\
+                                                                   inputCol="MANUFACTURER_NAME_STANDARD_WORDS")
+    
 
 ############# == main functions == #####################
 
 ########## === RESULT === ##############
-    df_sim_mnf.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
+    write_files(input_dataframe=df_sim_mnf,\
+                path_of_write=result_path,\
+                file_type="parquet",\
+                repartition_num=g_repartition_shared)
 ########## === RESULT === ##############
 
     return {}
@@ -103,48 +116,86 @@ def get_depends_path(kwargs):
 
 
 #### == loding files == ###
-def load_mapping_mnf_result(spark, path_mapping_mnf):
-    df_mapping_mnf = spark.read.parquet(path_mapping_mnf)
-    return df_mapping_mnf  
+def loading_files(spark, path_of_file, file_type):
+    
+    try:
+        if file_type.lower() == 'parquet':
+            output_dataframe = spark.read.parquet(path_of_file)
+        else:
+            output_dataframe = spark.read.csv(path_of_file)
+        message = fr"{path_of_file} {file_type} Loading Success!"
+    except:
+        output_dataframe = None
+        message = fr"{path_of_file} {file_type} Loading Failed!"
+    print(message)
+    return output_dataframe
+
 
 
 #### 相似性计算 ########
 @pandas_udf(DoubleType(),PandasUDFType.SCALAR)
-def execute_calculate_mnf_similarity(mnf_name,master_manufacture,mnf_name_standard):
-    frame = {"mnf_name":mnf_name,
-            "master_manufacture":master_manufacture,
-            "mnf_name_standard":mnf_name_standard}
-    df = pd.DataFrame(frame)
-    def calculate_similarity(s1,s2,s3):
-        try:
-            if float(jaro_winkler_similarity(s1,s3)) >= 0.95:
-                sim_value = float(jaro_winkler_similarity(s1,s3))
-            elif s1 in s2:
-                sim_value = float(0.995)
-            else:
-                sim_value = float(jaro_winkler_similarity(s1,s3))
-        except:
-            sim_value = float(0.0)
-        return sim_value
+
+def calulate_similarity_of_RawColAndStandardCol(RawCol,StandardCol):
     
-    df['mnf_sim'] = df.apply(lambda x: calculate_similarity(x.mnf_name, x.master_manufacture,x.mnf_name_standard), axis=1)
-    return df['mnf_sim']
+    frame = {"RawCol":RawCol,
+            "StandardCol":StandardCol}
+    df = pd.DataFrame(frame)
+    
+    def Get_sim_value_data(input_raw, input_standard):
+        all_possible_result = list(product(input_raw, input_standard))
+        all_possible_sim_value = list(map(lambda x: jaro_winkler_similarity(x[0],x[-1]), all_possible_result))
+        all_possible_array_value = np.array(all_possible_sim_value)
+        all_possible_matrix_value = all_possible_array_value.reshape(int(len(input_raw)),int(len(input_standard)))
+        max_similarity_value = list(map(lambda x: max(x), all_possible_matrix_value))
+        return max_similarity_value
+    
+    def Solve_sim_value_data(raw_sentence, standard_sentence):
+        max_similarity_value = Get_sim_value_data(raw_sentence, standard_sentence)
+        high_similarity_data = list(filter(lambda x: x >= 0.5, max_similarity_value))
+        low_similarity_data = [x for x in max_similarity_value if x not in high_similarity_data]
+        high_similarity_rate = len(high_similarity_data) / len(max_similarity_value)
+        if high_similarity_rate >= 0.5:
+            similarity_value = np.mean(high_similarity_data)
+        else:
+            similarity_value = np.mean(low_similarity_data)
+        return similarity_value
+    
+    df['output_similarity_value'] = df.apply(lambda x: float(Solve_sim_value_data(x.RawCol,x.StandardCol)), axis=1)
+    return df['output_similarity_value']
+
 
 
 ##### == calculate_similarity == #######
-def calculate_mnf_similarity(df_mapping_mnf):
+def Get_similarity_of_RawColAndStandardCol(input_dataframe,\
+                                           RawColWords,\
+                                           StandardColWords,\
+                                           PrefixOfEffectiveness):
     
-    df_sim_mnf = df_mapping_mnf.withColumn("eff_mnf", execute_calculate_mnf_similarity(df_mapping_mnf.MANUFACTURER_NAME,\
-                                                                                       df_mapping_mnf.MASTER_MANUFACTURE,\
-                                                                                      df_mapping_mnf.MANUFACTURER_NAME_STANDARD))
+    EffectivenessName = (PrefixOfEffectiveness + '_' + RawColWords.split('_')[0]).upper()
     
-    return df_sim_mnf
+    output_dataframe = input_dataframe.withColumn(EffectivenessName,\
+                                                 calulate_similarity_of_RawColAndStandardCol(col(RawColWords),col(StandardColWords)))
+    
+    return output_dataframe
 
+##### == array 变 string
+def Cause_ArrayStructureCol_Become_StringStructureCol(input_dataframe,inputCol):
+    
+    output_dataframe = input_dataframe.withColumn(inputCol,array_join(col(inputCol),delimiter=' '))
+    
+    
+    return output_dataframe
 
-
-def let_array_become_string(df_sim_mnf):
+###### 写入文件
+def write_files(input_dataframe, path_of_write, file_type, repartition_num):
     
-    df_sim_mnf = df_sim_mnf.withColumn("MASTER_MANUFACTURE",array_join(df_sim_mnf.MASTER_MANUFACTURE,delimiter=' '))
-    
-    
-    return df_sim_mnf
+    try:
+        if file_type.lower() == "parquet":
+            input_dataframe.repartition(repartition_num).write.mode("overwrite").parquet(path_of_write)
+        else:
+            input_dataframe.repartition(1).write.mode("overwrite").csv(path_of_write,header=True)
+        message = fr"{path_of_write} {file_type} Write Success!"
+    except:
+        message = fr"{path_of_write} {file_type} Write Failed!"
+    print(message)
+    return message
