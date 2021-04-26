@@ -44,13 +44,13 @@ def execute(**kwargs):
     df_labeling = Make_label_OrNot(input_signal_of_data=signal_of_data,\
                                   input_dataframe=df_labeling)
     
-    '''
+    
     df_labeling = make_label(df_labeling)
 
     df_labeling.repartition(10).write.mode("overwrite").parquet(result_path)
     logger.info("第二轮完成，写入完成")
 ###########---------mian functions ----------######################
-    '''
+   
 
     return {}
 
@@ -130,13 +130,12 @@ def Judge_TrainingData_OrNot(input_dataframe,inputCheckCol):
 
 def Make_label_OrNot(input_signal_of_data,input_dataframe):
     
-    
     while input_signal_of_data == True:
         
         output_dataframe = make_label(input_dataframe)
         message = r"dataframe need make lable!"
     else:
-        
+        output_dataframe = input_dataframe
         message = r"do not need make lable!"
     print(message)
         
