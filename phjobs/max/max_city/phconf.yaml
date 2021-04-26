@@ -32,9 +32,11 @@ spec:
         value: 'True'
       - key: p_id_bedsize
         value: 'Empty'
-      - key: g_time_left
+      - key: g_monthly_update
         value: 'Empty'
-      - key: g_time_right
+      - key: g_year
+        value: 'Empty'
+      - key: g_month
         value: 'Empty'
       - key: g_market
         value: 'Empty'
