@@ -178,7 +178,7 @@ def get_similarity_of_notCut(raw,standard):
 
 def get_maximum_similarity(df_sim_spec):
     
-    df_sim_spec = df_sim_spec.withColumn("EFFECTIVENESS_SPEC",get_max_sim_from_both(df_sim_spec.spec_before_cut,df_sim_spec.eff_spec))
+    df_sim_spec = df_sim_spec.withColumn("EFFECTIVENESS_SPEC",get_max_sim_from_both(df_sim_spec.spec_before_cut,df_sim_spec.EFFECTIVENESS_SPEC))
     
     return df_sim_spec 
 

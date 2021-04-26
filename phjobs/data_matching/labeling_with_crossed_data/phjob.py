@@ -37,12 +37,20 @@ def execute(**kwargs):
 ##########-----------loading files--------############
 
 ###########---------mian functions ----------######################
-
+    
+    signal_of_data = Judge_TrainingData_OrNot(input_dataframe=df_labeling,\
+                                           inputCheckCol="PACK_ID_CHECK")
+    
+    df_labeling = Make_label_OrNot(input_signal_of_data=signal_of_data,\
+                                  input_dataframe=df_labeling)
+    
+    '''
     df_labeling = make_label(df_labeling)
 
     df_labeling.repartition(10).write.mode("overwrite").parquet(result_path)
     logger.info("第二轮完成，写入完成")
 ###########---------mian functions ----------######################
+    '''
 
     return {}
 
@@ -91,6 +99,7 @@ def get_depends_path(kwargs):
 def loading_files(spark, input_path):
     
     df = spark.read.parquet(input_path)
+    print(df.printSchema())
     
     return df
 
@@ -102,15 +111,36 @@ def make_label(df_result):
     .drop("PACK_ID_CHECK_NUM", "PACK_ID_STANDARD_NUM")
     return df_result
 
-# def rename_cols(df_labeling):
+
+def Judge_TrainingData_OrNot(input_dataframe,inputCheckCol):
     
-#     df_labeling = df_labeling.withColumnRenamed("eff_mole","EFFTIVENESS_MOLE")\
-#                             .withColumnRenamed("eff_prod","EFFTIVENESS_PRODUCT")\
-#                             .withColumnRenamed("eff_dosage","EFFTIVENESS_DOSAGE")\
-#                             .withColumnRenamed("eff_spec","EFFTIVENESS_SPEC")\
-#                             .withColumnRenamed("eff_pack","EFFTIVENESS_PACK_QTY")\
-#                             .withColumnRenamed("eff_mnf","EFFTIVENESS_MANUFACTURER")
-#     print(df_labeling.printSchema())
-#     return df_labeling
+    Cols_of_data = list(map(lambda x: x.upper(),input_dataframe.columns))
+    
+    Check_col = inputCheckCol.upper()
+    
+    if Check_col in Cols_of_data:
+        signal = True
+    else:
+        signal = None
+    
+    print(signal)
+    
+    return signal
+
+
+def Make_label_OrNot(input_signal_of_data,input_dataframe):
+    
+    
+    while input_signal_of_data == True:
+        
+        output_dataframe = make_label(input_dataframe)
+        message = r"dataframe need make lable!"
+    else:
+        
+        message = r"do not need make lable!"
+    print(message)
+        
+    return output_dataframe
+
 
 ################-----------------------------------------------------################
