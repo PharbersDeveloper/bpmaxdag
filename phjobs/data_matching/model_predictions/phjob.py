@@ -324,8 +324,8 @@ def generate_output_report(spark,input_report_data):
 
 def similarity(df, shareholds):
     df = df.withColumn("SIMILARITY", \
-                       (df.EFFTIVENESS_MOLE_NAME * shareholds[0] + df.EFFTIVENESS_PRODUCT_NAME * shareholds[1] + df.EFFTIVENESS_DOSAGE * shareholds[2] \
-                        + df.EFFTIVENESS_SPEC * shareholds[3] + df.EFFTIVENESS_PACK_QTY * shareholds[4] + df.EFFTIVENESS_MANUFACTURER * shareholds[5]))
+                       (df.EFFECTIVENESS_MOLE * shareholds[0] + df.EFFECTIVENESS_PRODUCT * shareholds[1] + df.EFFECTIVENESS_DOSAGE * shareholds[2] \
+                        + df.EFFECTIVENESS_SPEC * shareholds[3] + df.EFFECTIVENESS_PACK_QTY * shareholds[4] + df.EFFECTIVENESS_MANUFACTURER * shareholds[5]))
     windowSpec = Window.partitionBy("ID").orderBy(desc("SIMILARITY"), desc("EFFECTIVENESS_MOLE"), desc("EFFECTIVENESS_DOSAGE"), desc("PACK_ID_STANDARD"))
     df = df.withColumn("RANK", row_number().over(windowSpec))
     df = df.where((df.RANK <= 5) | (df.label == 1.0))
