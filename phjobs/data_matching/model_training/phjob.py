@@ -175,7 +175,7 @@ def judge_state_of_model(input_model_path):
 def generate_features(input_data_frame):
     
     assembler = VectorAssembler( \
-                                inputCols=["EFFECTIVENESS_MOLE", "EFFTIVENESS_PRODUCT", "EFFTIVENESS_DOSAGE", "EFFECTIVENESS_SPEC", \
+                                inputCols=["EFFECTIVENESS_MOLE", "EFFTIVENESS_PRODUCT", "EFFECTIVENESS_DOSAGE", "EFFECTIVENESS_SPEC", \
                                            "EFFECTIVENESS_PACK_QTY", "EFFECTIVENESS_MANUFACTURER"], \
                                 outputCol="features")
     data_frame = assembler.transform(input_data_frame)
