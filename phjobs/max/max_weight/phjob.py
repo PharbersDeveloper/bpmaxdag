@@ -31,8 +31,6 @@ def execute(**kwargs):
     g_max_out = kwargs['g_max_out']
     ### output args ###
 
-    
-    
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
     from pyspark.sql.functions import col    
@@ -45,10 +43,7 @@ def execute(**kwargs):
     g_universe = 'universe_onc'
     g_factor = 'factor_BD1'
     g_universe_ot = 'universe_ot_BD1'
-    g_monthly_update = 'True'
-    result_path_prefix = get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
-    depends_path = get_depends_path({"name":job_name, "dag_name":dag_name, 
-                                     "run_id":run_id, "depend_job_names_keys":depend_job_names_keys}) 
+    g_monthly_update = 'False'
     '''
     # %%
     logger.debug('数据执行-start：max放大')
@@ -169,6 +164,7 @@ def execute(**kwargs):
     # df_original_panel = spark.read.parquet(p_panel)
     struct_type_panel = StructType([ StructField('ID', StringType(), True),
                                         StructField('DATE', IntegerType(), True),
+                                        StructField('PACK_ID', StringType(), True),
                                         StructField('MIN_STD', StringType(), True),
                                         StructField('MARKET', StringType(), True),
                                         StructField('HOSP_NAME', StringType(), True),
@@ -181,7 +177,7 @@ def execute(**kwargs):
                                         StructField('SALES', DoubleType(), True),
                                         StructField('UNITS', DoubleType(), True) ])
     df_original_panel = spark.read.format("parquet").load(p_panel, schema=struct_type_panel)
-    df_original_panel = df_original_panel.select("ID", "DATE", "MIN_STD", "MARKET", "HOSP_NAME", 
+    df_original_panel = df_original_panel.select("ID", "DATE", 'PACK_ID', "MIN_STD", "MARKET", "HOSP_NAME", 
                                            "PHA", "MOLECULE_STD", "PROVINCE", "CITY", "ADD_FLAG", "ROUTE_STD",
                                            "SALES", "UNITS")
     '''
@@ -240,7 +236,7 @@ def execute(**kwargs):
     df_universe_panel_all = df_universe.where(df_universe.PANEL == 1).select('PHA', 'BEDSIZE', 'PANEL', 'SEG')
     
     df_panel = df_original_panel.join(df_universe_panel_all, on='PHA', how="inner") \
-        .groupBy('PHA', 'PROVINCE', 'CITY', 'DATE', 'MOLECULE_STD', 'MIN_STD', 'BEDSIZE', 'PANEL', 'SEG') \
+        .groupBy('PHA', 'PROVINCE', 'CITY', 'DATE', 'MOLECULE_STD', 'MIN_STD', 'BEDSIZE', 'PANEL', 'SEG', 'PACK_ID') \
         .agg(func.sum("SALES").alias("PREDICT_SALES"), func.sum("UNITS").alias("PREDICT_UNIT")).cache()
     
     # 2、df_panel_seg：整理成seg层面，包含了所有在universe_ot的panel列标记为1的医院，可以用来得到非样本医院的max
@@ -251,7 +247,7 @@ def execute(**kwargs):
     # df_universe_outlier 中 panel=1 的医院，对应的 raw_data 金额
     df_original_panel_tmp = df_original_panel.join(df_universe_outlier, on='PHA', how='left').cache()
     df_panel_seg = df_original_panel_tmp.where(col('PANEL') == 1) \
-                                .groupBy('DATE', 'MIN_STD', 'SEG', 'MOLECULE_STD') \
+                                .groupBy('DATE', 'MIN_STD', 'SEG', 'MOLECULE_STD', 'PACK_ID') \
                                 .agg(func.sum("SALES").alias("SALES_PANEL"), func.sum("UNITS").alias("UNITS_PANEL")).cache()
     df_panel_seg = df_panel_seg.join(df_panel_drugincome, on="SEG", how="left").cache()
     # 3、PHA_city 权重计算
@@ -261,7 +257,7 @@ def execute(**kwargs):
     df_original_panel_weight = df_original_panel_weight.withColumn('SALES_WEIGHT', col('SALES') * col('WEIGHT')) \
                                                 .withColumn('UNITS_WEIGHT', col('UNITS') * col('WEIGHT'))
     df_panel_seg_weight = df_original_panel_weight.where(col('PANEL') == 1) \
-        .groupBy('DATE', 'MIN_STD', 'SEG', 'MOLECULE_STD', 'PROVINCE_WEIGHT', 'CITY_WEIGHT') \
+        .groupBy('DATE', 'MIN_STD', 'SEG', 'MOLECULE_STD', 'PROVINCE_WEIGHT', 'CITY_WEIGHT', 'PACK_ID') \
         .agg(func.sum("SALES_WEIGHT").alias("SALES_PANEL_WEIGHT"), func.sum("UNITS_WEIGHT").alias("UNITS_PANEL_WEIGHT")).cache() # TEST
     df_panel_seg_weight = df_panel_seg_weight.join(df_panel_drugincome, on="SEG", how="left").cache() # TEST
     df_panel_seg_weight = df_panel_seg_weight.withColumnRenamed('PROVINCE_WEIGHT', 'PROVINCE') \
@@ -304,7 +300,7 @@ def execute(**kwargs):
     df_max_result = df_max_result.withColumn("PREDICT_SALES", col('PREDICT_SALES') * col('FACTOR')) \
         .withColumn("PREDICT_UNIT", col('PREDICT_UNIT') * col('FACTOR')) \
         .select('PHA', 'PROVINCE', 'CITY', 'DATE', 'MOLECULE_STD', 'MIN_STD', 'BEDSIZE', 'PANEL',
-                'SEG', 'PREDICT_SALES', 'PREDICT_UNIT')
+                'SEG', 'PREDICT_SALES', 'PREDICT_UNIT', 'PACK_ID')
     # 合并样本部分
     df_max_result = df_max_result.union(df_panel.select(df_max_result.columns))
 
@@ -317,8 +313,12 @@ def execute(**kwargs):
 
     # %%
     # df_max_result.agg(func.sum('Predict_Sales'), func.sum('Predict_Unit')).show()
-
     # %%
+    # 月更
     # df=spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012_test/MAX_result/MAX_result_202001_202012_BD1_hosp_level/')
     # df.where(col('Date')==202012).agg(func.sum('Predict_Sales'), func.sum('Predict_Unit')).show()
 
+    # %%
+    # 模型
+    # df=spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/201912_test/MAX_result/MAX_result_201701_201912_BD1_hosp_level')
+    # df.where(col('Date')>=201901).where(col('Date')<=201912).agg(func.sum('Predict_Sales'), func.sum('Predict_Unit')).show()
