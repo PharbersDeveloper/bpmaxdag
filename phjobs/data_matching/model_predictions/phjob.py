@@ -309,6 +309,8 @@ def generate_output_report(spark,input_report_data):
                                      lit(str(input_report_data["negative"])))
     df_report = df_report.withColumn("matching_rate",\
                                      lit(str(input_report_data["matching_rate"])))
+    df_report = df_report.withColumn("Accuracy",\
+                                     lit(str(input_report_data["Accuracy"])))
     df_report = df_report.withColumn("Precision",\
                                      lit(str(input_report_data["Precision"])))
     df_report = df_report.withColumn("Recall",\

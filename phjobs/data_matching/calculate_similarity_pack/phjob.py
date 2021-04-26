@@ -157,6 +157,6 @@ def calulate_pack_similarity_after_seg(raw_pack,standard_pack):
 ##### == calulate_similarity == #######
 def calulate_pack_similarity(df_seg_pack):
     
-    df_seg_pack = df_seg_pack.withColumn("eff_pack",Get_spec_similarity(df_seg_pack.PACK_QTY,df_seg_pack.PACK_QTY_STANDARD))
+    df_seg_pack = df_seg_pack.withColumn("EFFECTIVENESS_PACK_QTY",Get_spec_similarity(df_seg_pack.PACK_QTY,df_seg_pack.PACK_QTY_STANDARD))
     
     return df_seg_pack

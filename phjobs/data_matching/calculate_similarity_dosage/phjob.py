@@ -119,7 +119,7 @@ def execute_calculate_dosage_similarity(dosage,master_dosage,dosage_standard):
         try:
             if s1 in s2:
                 sim_value = float(1.0)
-            elif jaro_winkler_similarity(s1,s3) > 0.95 :
+            elif jaro_winkler_similarity(s1,s3) > 0.9 :
                 sim_value = float(jaro_winkler_similarity(s1,s3))
             else:
                 sim_value = float(0.0)
@@ -133,7 +133,7 @@ def execute_calculate_dosage_similarity(dosage,master_dosage,dosage_standard):
 ##### == calculate_similarity == #######
 def calculate_dosage_similarity(df_mapping_dosage):
     
-    df_sim_dosage = df_mapping_dosage.withColumn("eff_dosage", execute_calculate_dosage_similarity(df_mapping_dosage.DOSAGE,\
+    df_sim_dosage = df_mapping_dosage.withColumn("EFFECTIVENESS_DOSAGE", execute_calculate_dosage_similarity(df_mapping_dosage.DOSAGE,\
                                                                                        df_mapping_dosage.MASTER_DOSAGE,\
                                                                                       df_mapping_dosage.DOSAGE_STANDARD))
     

@@ -149,13 +149,13 @@ def calulate_spec_similarity_after_seg(raw_spec,standard_spec):
 ##### == calulate_similarity == #######
 def calulate_spec_similarity(df_seg_spec):
     
-    df_sim_spec = df_seg_spec.withColumn("eff_spec",calulate_spec_similarity_after_seg(df_seg_spec.SPEC_CUT_WORDS,df_seg_spec.SPEC_CUT_STANDARD_WORDS))
-    df_sim_spec = df_sim_spec.withColumn("eff_spec",\
+    df_sim_spec = df_seg_spec.withColumn("EFFECTIVENESS_SPEC",calulate_spec_similarity_after_seg(df_seg_spec.SPEC_CUT_WORDS,df_seg_spec.SPEC_CUT_STANDARD_WORDS))
+    df_sim_spec = df_sim_spec.withColumn("EFFECTIVENESS_SPEC",\
                                          modify_first_spec_effectiveness(df_sim_spec.SPEC_STANDARD_GROSS,\
                                                                          df_sim_spec.SPEC_STANDARD_VALID,\
                                                                         df_sim_spec.SPEC_GROSS,\
                                                                         df_sim_spec.SPEC_VALID,\
-                                                                        df_sim_spec.eff_spec))
+                                                                        df_sim_spec.EFFECTIVENESS_SPEC))
     return df_sim_spec
 
 #### == 计算分词前文本相似度 == #####
@@ -178,7 +178,7 @@ def get_similarity_of_notCut(raw,standard):
 
 def get_maximum_similarity(df_sim_spec):
     
-    df_sim_spec = df_sim_spec.withColumn("eff_spec",get_max_sim_from_both(df_sim_spec.spec_before_cut,df_sim_spec.eff_spec))
+    df_sim_spec = df_sim_spec.withColumn("EFFECTIVENESS_SPEC",get_max_sim_from_both(df_sim_spec.spec_before_cut,df_sim_spec.eff_spec))
     
     return df_sim_spec 
 

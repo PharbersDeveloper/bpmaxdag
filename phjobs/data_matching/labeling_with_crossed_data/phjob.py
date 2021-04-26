@@ -37,8 +37,9 @@ def execute(**kwargs):
 ##########-----------loading files--------############
 
 ###########---------mian functions ----------######################
+
     df_labeling = make_label(df_labeling)
-    df_labeling = rename_cols(df_labeling)
+
     df_labeling.repartition(10).write.mode("overwrite").parquet(result_path)
     logger.info("第二轮完成，写入完成")
 ###########---------mian functions ----------######################
@@ -101,15 +102,15 @@ def make_label(df_result):
     .drop("PACK_ID_CHECK_NUM", "PACK_ID_STANDARD_NUM")
     return df_result
 
-def rename_cols(df_labeling):
+# def rename_cols(df_labeling):
     
-    df_labeling = df_labeling.withColumnRenamed("eff_mole","EFFTIVENESS_MOLE_NAME")\
-                            .withColumnRenamed("eff_prod","EFFTIVENESS_PRODUCT_NAME")\
-                            .withColumnRenamed("eff_dosage","EFFTIVENESS_DOSAGE")\
-                            .withColumnRenamed("eff_spec","EFFTIVENESS_SPEC")\
-                            .withColumnRenamed("eff_pack","EFFTIVENESS_PACK_QTY")\
-                            .withColumnRenamed("eff_mnf","EFFTIVENESS_MANUFACTURER")
-    print(df_labeling.printSchema())
-    return df_labeling
+#     df_labeling = df_labeling.withColumnRenamed("eff_mole","EFFTIVENESS_MOLE")\
+#                             .withColumnRenamed("eff_prod","EFFTIVENESS_PRODUCT")\
+#                             .withColumnRenamed("eff_dosage","EFFTIVENESS_DOSAGE")\
+#                             .withColumnRenamed("eff_spec","EFFTIVENESS_SPEC")\
+#                             .withColumnRenamed("eff_pack","EFFTIVENESS_PACK_QTY")\
+#                             .withColumnRenamed("eff_mnf","EFFTIVENESS_MANUFACTURER")
+#     print(df_labeling.printSchema())
+#     return df_labeling
 
 ################-----------------------------------------------------################
