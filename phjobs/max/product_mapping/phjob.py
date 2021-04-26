@@ -31,18 +31,21 @@ def execute(**kwargs):
     g_need_cleaning_out = kwargs['g_need_cleaning_out']
     ### output args ###
 
+    
+    
     import os
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
     from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col    
     # %%
     # 测试
-    '''
-    g_project_name = '贝达'
-    g_out_dir = '202012_test'
-    g_minimum_product_sep='|'
-    '''
-
+    
+    # g_project_name = '贝达'
+    # g_out_dir = '202012_test'
+    # g_minimum_product_sep='|'
+    # result_path_prefix = get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
+    # depends_path = get_depends_path({"name":job_name, "dag_name":dag_name, 
+    #                                  "run_id":run_id, "depend_job_names_keys":depend_job_names_keys })
     # %%
     logger.debug('job2_product_mapping')
     # 注意：
@@ -51,8 +54,8 @@ def execute(**kwargs):
     
     # 输入
     p_hospital_mapping_out = depends_path['hospital_mapping_out']
-    g_need_cleaning_cols = g_need_cleaning_cols.replace(" ","").split(",")
-    g_minimum_product_columns = g_minimum_product_columns.replace(" ","").split(",")
+    # g_need_cleaning_cols = g_need_cleaning_cols.replace(" ","").split(",")
+    # g_minimum_product_columns = g_minimum_product_columns.replace(" ","").split(",")
     if g_minimum_product_sep == "kong":
         g_minimum_product_sep = ""
     
@@ -64,107 +67,38 @@ def execute(**kwargs):
     p_need_cleaning = result_path_prefix + g_need_cleaning_out
 
     # %%
-    # =========== 数据准备 测试用=============
-    df_product_map = spark.read.parquet(product_map_path)
-    for i in df_product_map.columns:
-        if i in ["标准通用名", "通用名_标准", "药品名称_标准", "S_Molecule_Name"]:
-            df_product_map = df_product_map.withColumnRenamed(i, "通用名")
-        if i in ["商品名_标准", "S_Product_Name"]:
-            df_product_map = df_product_map.withColumnRenamed(i, "标准商品名")
-        if i in ["标准途径"]:
-            df_product_map = df_product_map.withColumnRenamed(i, "std_route")
-        if i in ["min1_标准"]:
-            df_product_map = df_product_map.withColumnRenamed(i, "min2")
-    if "std_route" not in df_product_map.columns:
-        df_product_map = df_product_map.withColumn("std_route", func.lit(''))
-        
-    df_product_map = df_product_map.withColumnRenamed('min1', 'MIN') \
-                        .withColumnRenamed('min2', 'MIN_STD') \
-                        .withColumnRenamed('通用名', 'MOLECULE_STD') \
-                        .withColumnRenamed('标准商品名', 'BRAND_STD') \
-                        .withColumnRenamed('标准剂型', 'FORM_STD') \
-                        .withColumnRenamed('标准规格', 'SPECIFICATIONS_STD') \
-                        .withColumnRenamed('标准包装数量', 'PACK_NUMBER_STD') \
-                        .withColumnRenamed('标准生产企业', 'MANUFACTURER_STD') \
-                        .withColumnRenamed('标准集团', 'CORP_STD') \
-                        .withColumnRenamed('std_route', 'ROUTE_STD') \
-                        .withColumnRenamed('pfc', 'PACK_ID')
-    df_product_map = df_product_map.withColumn('PACK_NUMBER_STD', col('PACK_NUMBER_STD').cast(IntegerType())) \
-                            .withColumn('PACK_ID', col('PACK_ID').cast(IntegerType()))
-    
-
-    # %%
     # =========== 数据执行 =============
     logger.debug('数据执行-start：product_mapping')
     
     # df_raw_data = spark.read.parquet(p_hospital_mapping_out)
-    
-    struct_type = StructType([ StructField('PHA', StringType(), True),
+    struct_type = StructType( [ StructField('PHA', StringType(), True),
                                 StructField('ID', StringType(), True),
+                                StructField('PACK_ID', StringType(), True),
+                                StructField('MANUFACTURER_STD', StringType(), True),
                                 StructField('YEAR_MONTH', IntegerType(), True),
-                                StructField('RAW_HOSP_NAME', StringType(), True),
-                                StructField('BRAND', StringType(), True),
-                                StructField('FORM', StringType(), True),
-                                StructField('SPECIFICATIONS', StringType(), True),
-                                StructField('PACK_NUMBER', IntegerType(), True),
-                                StructField('MANUFACTURER', StringType(), True),
-                                StructField('MOLECULE', StringType(), True),
-                                StructField('SOURCE', StringType(), True),
-                                StructField('CORP', StringType(), True),
-                                StructField('ROUTE', StringType(), True),
-                                StructField('ORG_MEASURE', StringType(), True),
+                                StructField('MOLECULE_STD', StringType(), True),
+                                StructField('BRAND_STD', StringType(), True),
+                                StructField('PACK_NUMBER_STD', IntegerType(), True),
+                                StructField('FORM_STD', StringType(), True),
+                                StructField('SPECIFICATIONS_STD', StringType(), True),
                                 StructField('SALES', DoubleType(), True),
                                 StructField('UNITS', DoubleType(), True),
-                                StructField('UNITS_BOX', DoubleType(), True),
-                                StructField('PATH', StringType(), True),
-                                StructField('SHEET', StringType(), True),
                                 StructField('CITY', StringType(), True),
                                 StructField('PROVINCE', StringType(), True),
                                 StructField('CITY_TIER', DoubleType(), True),
                                 StructField('MONTH', IntegerType(), True),
-                                StructField('YEAR', IntegerType(), True) ]
-                                )
+                                StructField('YEAR', IntegerType(), True) ])
     df_raw_data = spark.read.format("parquet").load(p_hospital_mapping_out, schema=struct_type)
     
-    
-    # if g_project_name != "Mylan":
-    df_raw_data = df_raw_data.withColumn("BRAND", func.when((col('BRAND').isNull()) | (col('BRAND') == 'NA'), col('MOLECULE')).
-                                   otherwise(col('BRAND')))
-        
-    df_raw_data = df_raw_data.withColumn('PACK_NUMBER', col('PACK_NUMBER').cast(StringType()))
-    
-    # MIN 生成
-    df_raw_data = df_raw_data.withColumn('tmp', func.concat_ws(g_minimum_product_sep, 
-                                *[func.when(col(i).isNull(), func.lit("NA")).otherwise(col(i)) for i in g_minimum_product_columns]))
-       
-    # Mylan不重新生成 MIN，其他项目生成MIN（遗留问题，测试后可与其他项目一样）
-    # if g_project_name == "Mylan":
-    #     df_raw_data = df_raw_data.drop("tmp")
-    # else:
-    df_raw_data = df_raw_data.withColumnRenamed("tmp", g_minimum_product_newname)
-        
-    # df_product_map
-    df_product_map_for_needclean = df_product_map.select("MIN").distinct()
-    df_product_map_for_rawdata = df_product_map.select("MIN", "MIN_STD", "MOLECULE_STD", "ROUTE_STD", "BRAND_STD").distinct()
-    
-    
-    # df_raw_data 待清洗数据
-    df_need_cleaning = df_raw_data.join(df_product_map_for_needclean, on="MIN", how="left_anti") \
-                        .select(g_need_cleaning_cols) \
-                        .distinct()
-    logger.debug('待清洗行数: ' + str(df_need_cleaning.count()))
-    
-    # df_raw_data 信息匹配
-    df_raw_data = df_raw_data.join(df_product_map_for_rawdata, on="MIN", how="left")
+    ## 生成 MIN_STD列
+    # df_raw_data = df_raw_data.withColumn(g_minimum_product_newname,
+    # F.format_string("%s", g_minimum_product_columns.replace(", ", g_minimum_product_sep ) ) )
+    df_raw_data = df_raw_data.withColumn("MIN_STD", func.format_string("%s|%s|%s|%s|%s", "BRAND_STD","FORM_STD",
+                                            "SPECIFICATIONS_STD", "PACK_NUMBER_STD", "MANUFACTURER_STD"))
 
     # %%
     # =========== 输出 =============
-    df_need_cleaning = df_need_cleaning.repartition(2)
-    df_need_cleaning.write.format("parquet") \
-        .mode("overwrite").save(p_need_cleaning)
-    logger.debug("已输出待清洗文件至: " + p_need_cleaning)
-        
-        
+    
     df_raw_data = df_raw_data.repartition(2)
     df_raw_data.write.format("parquet") \
         .mode("overwrite").save(p_product_mapping_out)
@@ -172,3 +106,41 @@ def execute(**kwargs):
     
     logger.debug('数据执行-Finish')
 
+    # %%
+    
+    # df_data_old = spark.read.parquet("s3a://ph-max-auto/2020-08-11/Max/refactor/runs/max_test_beida_202012_bk/product_mapping/product_mapping_out")
+    # df_data_old = df_data_old.withColumn("YEAR_MONTH", col("YEAR_MONTH").cast("int")).distinct()
+    
+    
+    # print("OLD: %s      NEW:%s "%(df_data_old.count(), df_raw_data.count() ))
+    
+    # # print( df_data_old.select("DATE").distinct().count(), max_result_city.select("DATE").distinct().count() )
+    
+    # df_data_old = df_data_old.withColumnRenamed("SALES", "SALES_OLD")\
+    #                             .withColumnRenamed("UNIT", "UNIT_OLD")
+    
+    # compare = df_raw_data.join( df_data_old, on=['PHA', 'ID', 'YEAR_MONTH', 'MIN_STD',
+    #                                                  'CITY', 'PROVINCE', 'CITY_TIER', 'MONTH', 'YEAR'],how="inner")
+    
+    # print( compare)
+    # print( compare.count())
+    
+    # print( df_data_old )
+    # print(df_raw_data)
+    # df_data_old.show(1,vertical=True)
+    # df_raw_data.show(1, vertical=True)
+    # %%
+    #### 匹配的上的有何差别
+    # compare_error = compare.withColumn("Error", compare["SALES"]- compare["SALES_OLD"] )\
+    #           .select("Error")
+    # print(compare_error.count() )
+    
+    # print(  compare_error.where( func.abs( compare_error["Error"]) >0.01 ) \
+    #           .count() )
+    
+    # print( compare.withColumn("Error_2", compare["PREDICT_UNIT"]- compare["PREDICT_UNIT_OLD"] ).select("Error_2").distinct().collect() )
+
+    # %%
+    # df_raw_data.join( df_data_old, on=['PHA', 'ID', 'MANUFACTURER_STD', 'YEAR_MONTH', 'MOLECULE_STD', 
+    #                                                  'BRAND_STD', 'PACK_NUMBER_STD', 'FORM_STD', 'SPECIFICATIONS_STD', 
+    #                                                  'CITY', 'PROVINCE', 'CITY_TIER', 'MONTH', 'YEAR'],how="anti").show(1,vertical=True)
