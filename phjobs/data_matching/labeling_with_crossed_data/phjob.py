@@ -133,10 +133,10 @@ def Make_label_OrNot(input_signal_of_data,input_dataframe):
     while input_signal_of_data == True:
         
         output_dataframe = make_label(input_dataframe)
-        message = r"dataframe need make lable!"
+        message = r" need make lable!"
     else:
         output_dataframe = input_dataframe
-        message = r"do not need make lable!"
+        message = r" not need make lable!"
     print(message)
         
     return output_dataframe
