@@ -35,6 +35,7 @@ def execute(**kwargs):
 ###########----------loading files-------------############
     df_labeling = loading_files(spark, path_combine_Cols)
 ##########-----------loading files--------############
+    
 
 ###########---------mian functions ----------######################
     
@@ -130,13 +131,13 @@ def Judge_TrainingData_OrNot(input_dataframe,inputCheckCol):
 
 def Make_label_OrNot(input_signal_of_data,input_dataframe):
     
-    while input_signal_of_data == True:
+    if input_signal_of_data == True:
         
-        output_dataframe = make_label(input_dataframe)
         message = r" need make lable!"
+        output_dataframe = make_label(input_dataframe)
     else:
-        output_dataframe = input_dataframe
         message = r" not need make lable!"
+        output_dataframe = input_dataframe
     print(message)
         
     return output_dataframe
