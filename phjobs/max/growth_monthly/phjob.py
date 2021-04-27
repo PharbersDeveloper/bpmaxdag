@@ -33,6 +33,8 @@ def execute(**kwargs):
 
     
     
+    
+    
     import pandas as pd
     import os
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
@@ -40,21 +42,19 @@ def execute(**kwargs):
     from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col    
     # %%
     # 测试用
-    '''
-    g_project_name = '贝达'
-    g_month = "12"
-    g_year = "2020"
-    g_current_month = "12"
-    result_path_prefix = get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
-    depends_path = get_depends_path({"name":job_name, "dag_name":dag_name, 
-                                     "run_id":run_id, "depend_job_names_keys":depend_job_names_keys } )
-    '''
-
+    
+    # g_project_name = '贝达'
+    # g_month = "12"
+    # g_year = "2020"
+    # g_current_month = "12"
+    # result_path_prefix=get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
+    # depends_path=get_depends_path({"name":job_name, "dag_name":dag_name, 
+    #                                  "run_id":run_id, "depend_job_names_keys":depend_job_names_keys })
     # %%
     logger.debug('数据执行-start：计算增长率-月更新')
     # 是否运行此job
-    # if g_monthly_update == "False":
-    #      return
+    if g_monthly_update == "False":
+         return
         
     # =========== 输入 输出 =============   
     # 输入
@@ -96,35 +96,25 @@ def execute(**kwargs):
     # =========== 数据执行 =============
     # raw_data 处理（products_of_interest 可以写成参数，在前一个job筛选）
     # df_raw_data = spark.read.parquet(p_product_mapping_out)
-    struct_type = StructType([StructField('MIN', StringType(), True),
-                                StructField('PHA', StringType(), True),
+    
+    struct_type = StructType( [ StructField('PHA', StringType(), True),
                                 StructField('ID', StringType(), True),
+                                StructField('PACK_ID', StringType(), True),
+                                StructField('MANUFACTURER_STD', StringType(), True),
                                 StructField('YEAR_MONTH', IntegerType(), True),
-                                StructField('RAW_HOSP_NAME', StringType(), True),
-                                StructField('BRAND', StringType(), True),
-                                StructField('FORM', StringType(), True),
-                                StructField('SPECIFICATIONS', StringType(), True),
-                                StructField('PACK_NUMBER', StringType(), True),
-                                StructField('MANUFACTURER', StringType(), True),
-                                StructField('MOLECULE', StringType(), True),
-                                StructField('SOURCE', StringType(), True),
-                                StructField('CORP', StringType(), True),
-                                StructField('ROUTE', StringType(), True),
-                                StructField('ORG_MEASURE', StringType(), True),
+                                StructField('MOLECULE_STD', StringType(), True),
+                                StructField('BRAND_STD', StringType(), True),
+                                StructField('PACK_NUMBER_STD', IntegerType(), True),
+                                StructField('FORM_STD', StringType(), True),
+                                StructField('SPECIFICATIONS_STD', StringType(), True),
                                 StructField('SALES', DoubleType(), True),
                                 StructField('UNITS', DoubleType(), True),
-                                StructField('UNITS_BOX', DoubleType(), True),
-                                StructField('PATH', StringType(), True),
-                                StructField('SHEET', StringType(), True),
                                 StructField('CITY', StringType(), True),
                                 StructField('PROVINCE', StringType(), True),
                                 StructField('CITY_TIER', DoubleType(), True),
                                 StructField('MONTH', IntegerType(), True),
                                 StructField('YEAR', IntegerType(), True),
-                                StructField('MIN_STD', StringType(), True),
-                                StructField('MOLECULE_STD', StringType(), True),
-                                StructField('ROUTE_STD', StringType(), True),
-                                StructField('BRAND_STD', StringType(), True)])
+                                StructField('MIN_STD', StringType(), True)])
     df_raw_data = spark.read.format("parquet").load(p_product_mapping_out, schema=struct_type)
     
     df_products_of_interest = spark.read.csv(p_products_of_interest, header=True)
@@ -210,3 +200,35 @@ def execute(**kwargs):
                              func.sum('GR1718'),func.sum('GR1819'),func.sum('GR1920')).show()
     '''
 
+    # %%
+    ## 比较结果
+    # df_data_old = spark.read.parquet('s3a://ph-max-auto/2020-08-11/Max/refactor/runs/max_test_beida_202012_bk/growth_monthly/growth_rate')
+    # df_data_old = df_data_old.withColumnRenamed('GR1718', 'GR1718_OLD')\
+    #                         .withColumnRenamed('GR1819', 'GR1819_OLD')\
+    #                         .withColumnRenamed('GR1920', 'GR1920_OLD')
+    
+    # compare = df_growth_rate_month.join(df_data_old, on=['MOLECULE_STD_FOR_GR', 'CITYGROUP', 'YEAR_2017', 'YEAR_2018', 'YEAR_2019', 'YEAR_2020', 
+    #                                     'MONTH_FOR_ADD', 'YEAR_FOR_ADD'], how="anti")
+    # print(df_growth_rate_month.count(), df_data_old.count(), compare.count() )
+    # compare.show()
+    
+    # compare_2 = df_data_old.join(df_growth_rate_month, on=['MOLECULE_STD_FOR_GR', 'CITYGROUP', 'YEAR_2017', 'YEAR_2018', 'YEAR_2019', 'YEAR_2020', 
+    #                                     'MONTH_FOR_ADD', 'YEAR_FOR_ADD'], how="anti")
+    # compare_2.show()
+    
+    
+    # compare = df_growth_rate_month.join(df_data_old, on=['MOLECULE_STD_FOR_GR', 'CITYGROUP', 'MONTH_FOR_ADD', 'YEAR_FOR_ADD'], how="inner")
+    # print(df_growth_rate_month.count(), df_data_old.count(), compare.count() )
+    
+    # for i in ["GR1718", "GR1819", "GR1920"]:
+    #     s = compare.withColumn("Error", compare[i]-compare[i+"_OLD"]).select("Error").distinct().collect()
+    #     print(s)
+    # %%
+    # df_growth_rate_month.count()
+    # df_growth_rate_month.show(1, vertical=True)
+    # compare_2 = df_data_old.join(df_growth_rate_month, on=['MOLECULE_STD_FOR_GR', 'CITYGROUP', 'YEAR_2017', 'YEAR_2018', 'YEAR_2019', 'YEAR_2020', 
+    #                                     'MONTH_FOR_ADD', 'YEAR_FOR_ADD'], how="anti")
+    
+    # compare_2 = df_data_old.join(df_growth_rate_month, on=['MOLECULE_STD_FOR_GR', 'CITYGROUP', 'MONTH_FOR_ADD', 'YEAR_FOR_ADD'], how="anti")
+    # compare_2.select("MOLECULE_STD_FOR_GR", "CITYGROUP").show()
+    # compare_2.show(1, vertical=True)

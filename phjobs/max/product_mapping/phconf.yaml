@@ -19,11 +19,11 @@ spec:
       - key: g_project_name
         value: 'Empty'
       - key: g_minimum_product_columns
-        value: 'BRAND, FORM, SPECIFICATIONS, PACK_NUMBER, MANUFACTURER'
+        value: 'BRAND_STD, FORM_STD, SPECIFICATIONS_STD, PACK_NUMBER_STD, MANUFACTURER_STD'
       - key: g_minimum_product_sep
         value: '|'
       - key: g_minimum_product_newname
-        value: 'MIN'
+        value: 'MIN_STD'
       - key: g_need_cleaning_cols
         value: 'MOLECULE, BRAND, FORM, SPECIFICATIONS, PACK_NUMBER, MANUFACTURER, MIN, ROUTE, CORP'
       - key: depend_job_names_keys

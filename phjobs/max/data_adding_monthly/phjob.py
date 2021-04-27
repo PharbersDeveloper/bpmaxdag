@@ -34,6 +34,8 @@ def execute(**kwargs):
 
     
     
+    
+    
     import pandas as pd
     import os
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
@@ -41,17 +43,15 @@ def execute(**kwargs):
     from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col    
     # %%
     # 测试输入
-    '''
-    g_project_name = '贝达'
-    g_month = "12"
-    g_year = "2020"
-    g_model_month_right = '201912'
-    g_current_month = '12'
-    result_path_prefix = get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
-    depends_path = get_depends_path({"name":job_name, "dag_name":dag_name, 
-                                     "run_id":run_id, "depend_job_names_keys":depend_job_names_keys})
-    '''
-
+    
+    # g_project_name = '贝达'
+    # g_month = "12"
+    # g_year = "2020"
+    # g_model_month_right = '201912'
+    # g_current_month = '12'
+    # result_path_prefix=get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
+    # depends_path=get_depends_path({"name":job_name, "dag_name":dag_name, 
+    #                                  "run_id":run_id, "depend_job_names_keys":depend_job_names_keys })
     # %%
     logger.debug('数据执行-start：补数-月更新')
     # 是否运行此job
@@ -164,40 +164,71 @@ def execute(**kwargs):
     
     # raw_data中每个年月的非CPA医院列表
     # df_raw_data = spark.read.parquet(p_product_mapping)
-    struct_type_product_mapping = StructType([ StructField('MIN', StringType(), True),
-                                                StructField('PHA', StringType(), True),
-                                                StructField('ID', StringType(), True),
-                                                StructField('YEAR_MONTH', IntegerType(), True),
-                                                StructField('RAW_HOSP_NAME', StringType(), True),
-                                                StructField('BRAND', StringType(), True),
-                                                StructField('FORM', StringType(), True),
-                                                StructField('SPECIFICATIONS', StringType(), True),
-                                                StructField('PACK_NUMBER', StringType(), True),
-                                                StructField('MANUFACTURER', StringType(), True),
-                                                StructField('MOLECULE', StringType(), True),
-                                                StructField('SOURCE', StringType(), True),
-                                                StructField('CORP', StringType(), True),
-                                                StructField('ROUTE', StringType(), True),
-                                                StructField('ORG_MEASURE', StringType(), True),
-                                                StructField('SALES', DoubleType(), True),
-                                                StructField('UNITS', DoubleType(), True),
-                                                StructField('UNITS_BOX', DoubleType(), True),
-                                                StructField('PATH', StringType(), True),
-                                                StructField('SHEET', StringType(), True),
-                                                StructField('CITY', StringType(), True),
-                                                StructField('PROVINCE', StringType(), True),
-                                                StructField('CITY_TIER', DoubleType(), True),
-                                                StructField('MONTH', IntegerType(), True),
-                                                StructField('YEAR', IntegerType(), True),
-                                                StructField('MIN_STD', StringType(), True),
-                                                StructField('MOLECULE_STD', StringType(), True),
-                                                StructField('ROUTE_STD', StringType(), True),
-                                                StructField('BRAND_STD', StringType(), True) ])
-    df_raw_data = spark.read.format("parquet").load(p_product_mapping, schema=struct_type_product_mapping)
+    # struct_type_product_mapping = StructType([ StructField('MIN', StringType(), True),
+    #                                             StructField('PHA', StringType(), True),
+    #                                             StructField('ID', StringType(), True),
+    #                                             StructField('YEAR_MONTH', IntegerType(), True),
+    #                                             StructField('RAW_HOSP_NAME', StringType(), True),
+    #                                             StructField('BRAND', StringType(), True),
+    #                                             StructField('FORM', StringType(), True),
+    #                                             StructField('SPECIFICATIONS', StringType(), True),
+    #                                             StructField('PACK_NUMBER', StringType(), True),
+    #                                             StructField('MANUFACTURER', StringType(), True),
+    #                                             StructField('MOLECULE', StringType(), True),
+    #                                             StructField('SOURCE', StringType(), True),
+    #                                             StructField('CORP', StringType(), True),
+    #                                             StructField('ROUTE', StringType(), True),
+    #                                             StructField('ORG_MEASURE', StringType(), True),
+    #                                             StructField('SALES', DoubleType(), True),
+    #                                             StructField('UNITS', DoubleType(), True),
+    #                                             StructField('UNITS_BOX', DoubleType(), True),
+    #                                             StructField('PATH', StringType(), True),
+    #                                             StructField('SHEET', StringType(), True),
+    #                                             StructField('CITY', StringType(), True),
+    #                                             StructField('PROVINCE', StringType(), True),
+    #                                             StructField('CITY_TIER', DoubleType(), True),
+    #                                             StructField('MONTH', IntegerType(), True),
+    #                                             StructField('YEAR', IntegerType(), True),
+    #                                             StructField('MIN_STD', StringType(), True),
+    #                                             StructField('MOLECULE_STD', StringType(), True),
+    #                                             StructField('ROUTE_STD', StringType(), True),
+    #                                             StructField('BRAND_STD', StringType(), True) ])
+    # df_raw_data = spark.read.format("parquet").load(p_product_mapping, schema=struct_type_product_mapping)
+    
+    # df_original_range_raw_noncpa = df_raw_data.where(col('Source') != 'CPA').select('ID', 'YEAR_MONTH').distinct() \
+    #                                     .withColumnRenamed('YEAR_MONTH', 'Date')
     
     
-    df_original_range_raw_noncpa = df_raw_data.where(col('Source') != 'CPA').select('ID', 'YEAR_MONTH').distinct() \
-                                        .withColumnRenamed('YEAR_MONTH', 'Date')
+    # df_raw_data = spark.read.parquet(p_product_mapping)
+    
+    #################################################### 新的表里没有 Source这一列了
+    
+    struct_type = StructType( [ StructField('PHA', StringType(), True),
+                                StructField('ID', StringType(), True),
+                                StructField('PACK_ID', StringType(), True),
+                                StructField('MANUFACTURER_STD', StringType(), True),
+                                StructField('YEAR_MONTH', IntegerType(), True),
+                                StructField('MOLECULE_STD', StringType(), True),
+                                StructField('BRAND_STD', StringType(), True),
+                                StructField('PACK_NUMBER_STD', IntegerType(), True),
+                                StructField('FORM_STD', StringType(), True),
+                                StructField('SPECIFICATIONS_STD', StringType(), True),
+                                StructField('SALES', DoubleType(), True),
+                                StructField('UNITS', DoubleType(), True),
+                                StructField('CITY', StringType(), True),
+                                StructField('PROVINCE', StringType(), True),
+                                StructField('CITY_TIER', DoubleType(), True),
+                                StructField('MONTH', IntegerType(), True),
+                                StructField('YEAR', IntegerType(), True) ])
+    df_raw_data = spark.read.format("parquet").load(p_product_mapping, schema=struct_type)
+    df_raw_data = df_raw_data.withColumn("MIN_STD", func.format_string("%s|%s|%s|%s|%s", "BRAND_STD","FORM_STD",
+                                            "SPECIFICATIONS_STD", "PACK_NUMBER_STD", "MANUFACTURER_STD"))
+    
+    df_original_range_raw_noncpa = df_raw_data.select('ID', 'YEAR_MONTH').distinct() \
+                                        .withColumnRenamed('YEAR_MONTH', 'DATE')
+    ################################################### 
+    
+    
     # 出版医院 减去 未到名单(月更)
     df_original_range_raw = df_published_all.join(not_arrived_all, on=['ID', 'Date'], how='left_anti')
     
@@ -227,6 +258,7 @@ def execute(**kwargs):
                                    func.when(col("BRAND_STD").isin(g_products_of_interest), col("BRAND_STD")).
                                    otherwise(col('MOLECULE_STD')))
     
+    ## 读取 price
     # df_price = spark.read.parquet(p_price)
     struct_type_price = StructType( [   StructField('MIN_STD', StringType(), True),
                                         StructField('YEAR_MONTH', IntegerType(), True),
@@ -235,9 +267,11 @@ def execute(**kwargs):
     df_price = spark.read.format("parquet").load(p_price, schema=struct_type_price )
     df_price = df_price.withColumnRenamed('PRICE', 'PRICE_TIER')
     
+    ## 读取 growth_rate
     df_growth_rate = spark.read.parquet(p_growth_rate)
     df_growth_rate.persist()
     
+    ## 读取 price_city
     # df_price_city = spark.read.parquet(p_price_city)
     struct_type_price_city = StructType( [  StructField('MIN_STD', StringType(), True),
                                             StructField('YEAR_MONTH', IntegerType(), True),
@@ -389,4 +423,21 @@ def execute(**kwargs):
 
     # %%
     # df_raw_data_adding_final.groupby('ADD_FLAG').agg(func.sum('SALES'), func.sum('UNITS')).show()
-
+    # df_raw_data_adding_final.show(1, vertical=True)
+    # %%
+    # df_data_old = spark.read.parquet("s3a://ph-max-auto/2020-08-11/Max/refactor/runs/max_test_beida_202012_bk/data_adding_monthly/raw_data_adding_final")
+    # print (df_data_old.distinct().count() ) 
+    # df_data_old.select("YEAR").distinct().show()
+    
+    # df_data_old = df_data_old.withColumnRenamed("SALES", "SALES_OLD")\
+    #                             .withColumnRenamed("UNITS", "UNITS_OLD").distinct()
+    
+    
+    # compare = df_raw_data_adding_final.join( df_data_old, on=["PHA", "ID", "MIN_STD", "YEAR", "MONTH", "PROVINCE", "CITY", "MOLECULE_STD" ] ,how="inner")
+    # print(df_raw_data_adding_final.count(), df_data_old.count(), compare.count() )
+    # compare.withColumn("Error", compare["SALES"]- compare["SALES_OLD"] ).select("Error").distinct().collect()
+    # compare.withColumn("Error", compare["UNITS"]- compare["UNITS_OLD"] ).select("Error").distinct().collect()
+    
+    ###### 有些会存在 province 和 city 为 NULL的情况
+    # compare = df_raw_data_adding_final.join( df_data_old, on=["PHA", "ID", "MIN_STD", "YEAR", "MONTH", "PROVINCE", "CITY", "MOLECULE_STD" ] ,how="anti")
+    # compare.show()
