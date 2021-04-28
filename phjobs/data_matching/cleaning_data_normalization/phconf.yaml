@@ -20,13 +20,13 @@ spec:
       - key: path_prefix
         value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs
       - key: path_cleaning_data
-        value: s3a://ph-max-auto/2020-08-11/data_matching/temp/mzhang/0421_raw_data
+        value: s3a://ph-max-auto/2020-08-11/data_matching/temp/mzhang/0421_raw_data/ 
       - key: path_human_interfere
         value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/HUMAN_INTERFERE
       - key: path_second_human_interfere
         value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DF_CONF/0.3
       - key: source_data_type
-        value: az
+        value: chc
     outputs:
       - key: cleaning_result
         value: cleaning_result

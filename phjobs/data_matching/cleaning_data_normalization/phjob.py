@@ -51,18 +51,21 @@ def execute(**kwargs):
 #########---------------load file------------------------################
 
 #########--------------main function--------------------#################   
-    #剔除无pack_check_id 的数据
-    print(df_cleanning.printSchema())
-    df_of_no_exist_pack_check_id = get_df_of_no_pack_check_id(input_df=df_cleanning,\
-                                                           input_col="PACK_ID_CHECK")
-    df_cleanning = get_df_of_has_pack_check_id(input_df=df_cleanning,\
-                                                           input_col="PACK_ID_CHECK")
+    
+    signal_of_file = Judge_TrainingData_OrNot(input_dataframe=df_cleanning,\
+                                             inputCheckCol="PACK_ID_CHECK")
+   
+    df_cleanning = Choose_Data_By_SignalOfFile(input_signal_of_file=signal_of_file,\
+                                               input_dataframe=df_cleanning,\
+                                              output_path_of_no_CheckId=raw_df_of_no_pack_check_id_path)
+    
     #spec预处理
     df_cleanning = make_spec_pre_treatment(df_cleanning)
-
+    
     #源数据判断
     df_cleanning = judge_source_type(df_cleanning, source_data_type)
-
+    
+    
     #cpa中spec转化成结构化数据
     df_cleanning = make_cpa_spec_become_structured(df_cleanning)
 
@@ -77,18 +80,13 @@ def execute(**kwargs):
 
     df_cleanning = get_inter(df_cleanning,df_second_interfere)
     
-    df_cleanning = select_cpa_col(df_cleanning)
+    df_cleanning = select_cpa_col(input_singal_of_file=signal_of_file,\
+                                  input_dataframe=df_cleanning)
     df_cleanning.write.mode("overwrite").parquet(result_path)
     
 ########------------main fuction-------------------------################
-
-
-######### == RESULT == ###########
-######### ***** 缺pack_check_id数据
-    write_files(input_df_info=df_of_no_exist_pack_check_id,\
-                path_output=raw_df_of_no_pack_check_id_path)
     
-######### == RESULT == ###########
+   
     return {}
 
 
@@ -137,6 +135,38 @@ def pudf_id_generator(oid):
 def load_second_interfere(spark,second_interfere_path):
     df_second_interfere = spark.read.parquet(second_interfere_path)
     return df_second_interfere
+
+#### == 判断数据类型
+def Judge_TrainingData_OrNot(input_dataframe,inputCheckCol):
+    
+    Cols_of_data = list(map(lambda x: x.upper(),input_dataframe.columns))
+    
+    Check_col = inputCheckCol.upper()
+    
+    if Check_col in Cols_of_data:
+        signal = True
+    else:
+        signal = False
+    
+    return signal
+#### ==  选择数据
+def Choose_Data_By_SignalOfFile(input_signal_of_file,input_dataframe,output_path_of_no_CheckId):
+    
+    if input_signal_of_file == True:
+        df_of_no_exist_pack_check_id = get_df_of_no_pack_check_id(input_df=input_dataframe,\
+                                                           input_col="PACK_ID_CHECK")
+        output_df = get_df_of_has_pack_check_id(input_df=input_dataframe,\
+                                                           input_col="PACK_ID_CHECK")
+        write_files(input_df_info=df_of_no_exist_pack_check_id,\
+                path_output=output_path_of_no_CheckId)
+        
+        message = "训练数据"
+    else:
+        output_df = input_dataframe
+        message = "测试数据"
+    print(message)
+    
+    return output_df
 
 #过滤数据
 def get_df_of_no_pack_check_id(input_df,input_col):
@@ -191,7 +221,7 @@ def judge_source_type(df_cleanning,source_data_type):
     elif source_data_type.upper() == "EISAI":
         df_cleanning = make_eisai_spec_become_normal(df_cleanning)
     else:
-        print("source_data_error!")
+        df_cleanning = make_chc_spec_become_normal(df_cleanning)
     
     return df_cleanning
 
@@ -205,9 +235,11 @@ def make_cpa_spec_become_structured(df):
 #处理chc
 def make_chc_spec_become_normal(df_cleanning):
          
+    ###spec 预处理
     remove_pattern = r'([×*].*)'
 
     df_cleanning = df_cleanning.withColumn("SPEC", regexp_replace(col("SPEC"),remove_pattern,""))
+    
     df_cleanning = df_cleanning.withColumn("SPEC", regexp_replace("SPEC", r"(万单位)", "0000U"))\
                                 .withColumn("SPEC", regexp_replace("SPEC", r"(μ)", "u"))\
                                 .withColumn("SPEC", regexp_replace("SPEC", r"(μg|毫克)", "mg"))\
@@ -226,6 +258,7 @@ def make_chc_spec_become_normal(df_cleanning):
                                 .withColumn("SPEC", regexp_replace("SPEC", r"(复方)","CO"))\
                                 .withColumn("SPEC", regexp_replace("SPEC", r"(微)","U"))
     df_cleanning = df_cleanning.withColumn("SPEC", upper(df_cleanning.SPEC))
+    
     df_cleanning = df_cleanning.withColumn("SPEC",extract_spec_values_and_units_from_chcType(col("SPEC")) )
    
     return df_cleanning
@@ -318,7 +351,7 @@ def extract_spec_values_and_units_from_chcType(origin_col):
         return file
 
     def extract_chc_values_and_unit(input_string):
-
+        input_string = str(input_string)
         pattern_gross = r'(\d+(\.\d+)?)([GUMYLIKAX]+)[:：]\d+'
         pattern_gross_type2 = r'(\d+(\.\d+)?)([IGUMYLKAX]+)[\(].*?[:：].*?\d+[GUMYLKAX]+(?=[\)])'
         pattern_gross_type3 = r"(\d+(\.\d+)?)([IGUMYLKAX]+)[\(].*?\/(?=\d+).*[GUMYLKAX]+(?=[\)])"
@@ -360,7 +393,6 @@ def extract_spec_values_and_units_from_chcType(origin_col):
     df['output_col'] = df.apply(lambda x:extract_chc_values_and_unit(x.origin_col) ,axis=1)
     
     return df['output_col']
-
 
 @pandas_udf(StringType(),PandasUDFType.SCALAR)
 def remove_spec_spaces_between_values_and_units(origin_col):
@@ -801,10 +833,16 @@ def get_pca_inter(df_cleanning,df_second_interfere):
                                             .withColumnRenamed("new", "MOLE_NAME")
     return df_cleanning 
 
-def select_cpa_col(df_cleanning):
-    cpa_cols =['MOLE_NAME','PRODUCT_NAME','DOSAGE', 'SPEC', 'PACK_QTY', 'MANUFACTURER_NAME', 'PACK_ID_CHECK', 'ID','SPEC_ORIGINAL','SPEC_VALID','SPEC_GROSS']
-    df_cleanning = df_cleanning.select(cpa_cols)
-    return df_cleanning
+def select_cpa_col(input_singal_of_file,input_dataframe):
+    
+    if input_singal_of_file == True:
+        cols = ['MOLE_NAME','PRODUCT_NAME','DOSAGE', 'SPEC', 'PACK_QTY', 'MANUFACTURER_NAME', 'PACK_ID_CHECK', 'ID','SPEC_ORIGINAL','SPEC_VALID','SPEC_GROSS'] 
+    else:
+        cols = ['MOLE_NAME','PRODUCT_NAME','DOSAGE', 'SPEC', 'PACK_QTY', 'MANUFACTURER_NAME', 'ID','SPEC_ORIGINAL','SPEC_VALID','SPEC_GROSS']
+        
+    output_dataframe = input_dataframe.select(cols)
+    
+    return output_dataframe
 
 """
 读取人工干预表
