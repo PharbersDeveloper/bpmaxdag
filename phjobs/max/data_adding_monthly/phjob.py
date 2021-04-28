@@ -218,7 +218,8 @@ def execute(**kwargs):
                                 StructField('PROVINCE', StringType(), True),
                                 StructField('CITY_TIER', DoubleType(), True),
                                 StructField('MONTH', IntegerType(), True),
-                                StructField('YEAR', IntegerType(), True) ])
+                                StructField('YEAR', IntegerType(), True),
+                                StructField('MOLECULE_STD_FOR_GR', StringType(), True)])
     df_raw_data = spark.read.format("parquet").load(p_product_mapping, schema=struct_type)
     df_raw_data = df_raw_data.withColumn("MIN_STD", func.format_string("%s|%s|%s|%s|%s", "BRAND_STD","FORM_STD",
                                             "SPECIFICATIONS_STD", "PACK_NUMBER_STD", "MANUFACTURER_STD"))
