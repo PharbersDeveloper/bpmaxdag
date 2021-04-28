@@ -36,6 +36,8 @@ def execute(**kwargs):
     
     
     
+    
+    
     import pandas as pd
     import os
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
@@ -52,6 +54,7 @@ def execute(**kwargs):
     # result_path_prefix=get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
     # depends_path=get_depends_path({"name":job_name, "dag_name":dag_name, 
     #                                  "run_id":run_id, "depend_job_names_keys":depend_job_names_keys })
+
     # %%
     logger.debug('数据执行-start：补数-月更新')
     # 是否运行此job
@@ -64,14 +67,13 @@ def execute(**kwargs):
     
     # 输入
     g_model_month_right = int(g_model_month_right)
-    p_product_mapping = depends_path['product_mapping_out']
+    p_product_mapping = depends_path['deal_poi_out']
     p_growth_rate = depends_path['growth_rate']
     p_price = depends_path['price']
     p_price_city = depends_path['price_city']
     
     # 测试输入
     g_current_month = int(g_current_month)
-    p_products_of_interest = max_path + "/" + g_project_name + "/poi.csv"
     p_cpa_pha_mapping = max_path + "/" + g_project_name + "/cpa_pha_mapping"
     
     # 月更新相关参数
@@ -86,9 +88,6 @@ def execute(**kwargs):
 
     # %%
     # =========== 数据准备，测试用 =============
-    df_products_of_interest = spark.read.csv(p_products_of_interest, header=True)
-    df_products_of_interest = df_products_of_interest.withColumnRenamed('poi', 'POI')
-    
     def dealIDlength(df):
         # ID不足7位的补足0到6位
         # 国药诚信医院编码长度是7位数字，cpa医院编码是6位数字。
@@ -250,13 +249,6 @@ def execute(**kwargs):
     logger.debug('数据执行-start')
     # 1.数据准备
     # df_raw_data = spark.read.parquet(p_product_mapping)
-    
-    g_products_of_interest = df_products_of_interest.toPandas()["POI"].values.tolist()
-    
-    # df_raw_data 处理
-    df_raw_data = df_raw_data.withColumn("MOLECULE_STD_FOR_GR",
-                                   func.when(col("BRAND_STD").isin(g_products_of_interest), col("BRAND_STD")).
-                                   otherwise(col('MOLECULE_STD')))
     
     ## 读取 price
     # df_price = spark.read.parquet(p_price)
@@ -424,6 +416,7 @@ def execute(**kwargs):
     # %%
     # df_raw_data_adding_final.groupby('ADD_FLAG').agg(func.sum('SALES'), func.sum('UNITS')).show()
     # df_raw_data_adding_final.show(1, vertical=True)
+
     # %%
     # df_data_old = spark.read.parquet("s3a://ph-max-auto/2020-08-11/Max/refactor/runs/max_test_beida_202012_bk/data_adding_monthly/raw_data_adding_final")
     # print (df_data_old.distinct().count() ) 
@@ -441,3 +434,4 @@ def execute(**kwargs):
     ###### 有些会存在 province 和 city 为 NULL的情况
     # compare = df_raw_data_adding_final.join( df_data_old, on=["PHA", "ID", "MIN_STD", "YEAR", "MONTH", "PROVINCE", "CITY", "MOLECULE_STD" ] ,how="anti")
     # compare.show()
+

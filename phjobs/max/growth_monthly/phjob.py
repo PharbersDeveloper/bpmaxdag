@@ -32,9 +32,6 @@ def execute(**kwargs):
     ### output args ###
 
     
-    
-    
-    
     import pandas as pd
     import os
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
@@ -50,6 +47,7 @@ def execute(**kwargs):
     # result_path_prefix=get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
     # depends_path=get_depends_path({"name":job_name, "dag_name":dag_name, 
     #                                  "run_id":run_id, "depend_job_names_keys":depend_job_names_keys })
+
     # %%
     logger.debug('数据执行-start：计算增长率-月更新')
     # 是否运行此job
@@ -75,8 +73,7 @@ def execute(**kwargs):
     
     
     # 输入
-    p_products_of_interest = max_path + g_project_name + "/poi.csv"
-    p_product_mapping_out = depends_path['product_mapping_out']
+    p_product_mapping_out = depends_path['deal_poi_out']
             
     # 输出
     p_growth_rate = result_path_prefix + g_growth_rate
@@ -116,13 +113,6 @@ def execute(**kwargs):
                                 StructField('YEAR', IntegerType(), True),
                                 StructField('MIN_STD', StringType(), True)])
     df_raw_data = spark.read.format("parquet").load(p_product_mapping_out, schema=struct_type)
-    
-    df_products_of_interest = spark.read.csv(p_products_of_interest, header=True)
-    g_products_of_interest = df_products_of_interest.toPandas()["poi"].values.tolist()
-    
-    df_raw_data = df_raw_data.withColumn("MOLECULE_STD_FOR_GR",
-                                   func.when(col("BRAND_STD").isin(g_products_of_interest), col("BRAND_STD")).
-                                   otherwise(col('MOLECULE_STD')))
 
     # %%
     # 计算样本分子增长率(月更和模型函数相同)
@@ -223,6 +213,7 @@ def execute(**kwargs):
     # for i in ["GR1718", "GR1819", "GR1920"]:
     #     s = compare.withColumn("Error", compare[i]-compare[i+"_OLD"]).select("Error").distinct().collect()
     #     print(s)
+
     # %%
     # df_growth_rate_month.count()
     # df_growth_rate_month.show(1, vertical=True)
@@ -232,3 +223,4 @@ def execute(**kwargs):
     # compare_2 = df_data_old.join(df_growth_rate_month, on=['MOLECULE_STD_FOR_GR', 'CITYGROUP', 'MONTH_FOR_ADD', 'YEAR_FOR_ADD'], how="anti")
     # compare_2.select("MOLECULE_STD_FOR_GR", "CITYGROUP").show()
     # compare_2.show(1, vertical=True)
+

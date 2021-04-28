@@ -26,14 +26,11 @@ def execute(**kwargs):
     g_price_city = kwargs['g_price_city']
     ### output args ###
 
-    
-    
     import pandas as pd
     import os
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
-    from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col    
-    # %%
+    from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col        # %%
     #测试用
     
     # g_project_name='贝达'
@@ -47,18 +44,11 @@ def execute(**kwargs):
     products_of_interest_path = max_path + "/" + g_project_name + "/poi.csv"
     
     # 输入
-    p_product_mapping_out = depends_path['product_mapping_out']
+    p_product_mapping_out = depends_path['deal_poi_out']
             
     # 输出
     p_price = result_path_prefix + g_price
     p_price_city = result_path_prefix + g_price_city
-
-    # %%
-    # =========== 数据准备，测试用 =============
-    
-    
-    df_products_of_interest = spark.read.csv(products_of_interest_path, header=True)
-    df_products_of_interest = df_products_of_interest.withColumnRenamed('poi', 'POI')
 
     # %%
     # =========== 数据执行 =============
@@ -83,13 +73,6 @@ def execute(**kwargs):
                                 StructField('YEAR', IntegerType(), True), 
                                 StructField('MIN_STD', StringType(), True) ])
     df_raw_data = spark.read.format("parquet").load(p_product_mapping_out, schema=struct_type)
-    
-    
-    g_products_of_interest = df_products_of_interest.toPandas()["POI"].values.tolist()
-    
-    df_raw_data = df_raw_data.withColumn("MOLECULE_STD_FOR_GR",
-                                   func.when(col("BRAND_STD").isin(g_products_of_interest), col("BRAND_STD")).
-                                   otherwise(col('MOLECULE_STD')))
     # %%
     # 1 价格计算：补数部分的数量需要用价格得出
     # 1.1 CITY_TIER 层面的价格
@@ -125,8 +108,10 @@ def execute(**kwargs):
 
     # %%
     # df_price.agg(func.sum('PRICE')).show()
+
     # %%
     # df_price_city.agg(func.sum('PRICE')).show()
+
     # %%
     # df=spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012_test/price/')
     # df.agg(func.sum('Price')).show()
@@ -147,21 +132,26 @@ def execute(**kwargs):
     
     # compare = df_price_city.join(df_test, on=["MIN_STD", "YEAR_MONTH", "CITY", "PROVINCE" ], how="inner")
     # print(compare.count())
+
     # %%
     
     ## 比较 PRICE 是否一致
     # compare_error = compare.withColumn("Error", compare["PRICE"]-compare["PRICE_OLD"])
     # compare_error.where( func.abs(compare_error["Error"])>0.01 ).count() 
+
     # %% 
     # 找到CITY 中有 NULL 列
     # df_price_city.filter( df_price_city.CITY.isNull() ).show()
     # df_test.filter( df_test.CITY.isNull() ).show()
+
     # %%
     ## 找两张表的差
     # compare = df_price_city.join(df_test, on=["MIN_STD", "YEAR_MONTH", "CITY", "PROVINCE" ], how="anti")
     # compare = df_test.join(df_price_city, on=["MIN_STD", "YEAR_MONTH", "CITY", "PROVINCE" ], how="anti")
     # compare.show()
+
     # %%
     ## 比较旧结果和新结果在 price 上差异
     # compare = df_price_city.join(df_test, on=["MIN_STD", "YEAR_MONTH", "CITY", "PROVINCE" ], how="inner")
     # compare.withColumn("Error", compare.PRICE-compare.PRICE_OLD).select("Errow").distinct().show()
+

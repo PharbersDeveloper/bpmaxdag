@@ -28,10 +28,6 @@ def execute(**kwargs):
     g_growth_rate = kwargs['g_growth_rate']
     ### output args ###
 
-    
-    
-    
-    
     import pandas as pd
     import os
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
@@ -61,10 +57,7 @@ def execute(**kwargs):
     g_year_missing = [int(i) for i in g_year_missing]
     g_model_month_right = int(g_model_month_right)
     g_max_month = int(g_max_month)
-    p_product_mapping_out = depends_path['product_mapping_out']
-    
-    # 测试输入
-    products_of_interest_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/" + g_project_name + "/poi.csv"
+    p_product_mapping_out = depends_path['deal_poi_out']
     
     # 输出
     p_growth_rate = result_path_prefix + g_growth_rate
@@ -93,13 +86,6 @@ def execute(**kwargs):
                                 StructField('YEAR', IntegerType(), True),
                                 StructField('MIN_STD', StringType(), True)])
     df_raw_data = spark.read.format("parquet").load(p_product_mapping_out, schema=struct_type)
-    
-    df_products_of_interest = spark.read.csv(products_of_interest_path, header=True)
-    g_products_of_interest = df_products_of_interest.toPandas()["poi"].values.tolist()
-    
-    df_raw_data = df_raw_data.withColumn("MOLECULE_STD_FOR_GR",
-                                   func.when(col("BRAND_STD").isin(g_products_of_interest), col("BRAND_STD")).
-                                   otherwise(col('MOLECULE_STD')))
     
     df_raw_data = df_raw_data.where(col('YEAR') < ((g_model_month_right // 100) + 1))
 
@@ -213,5 +199,7 @@ def execute(**kwargs):
     # compare_error.where( compare_error["Error"]>0.01).collect()
     # compare_error =  compare.withColumn("Error_2", compare.GR1819 - compare.GR1819_old)
     # compare_error.where( compare_error["Error_2"]>0.01).collect()
+
     # %%
     # df_growth_rate.join( df_data_old, on=["MOLECULE_STD_FOR_GR", "CITYGROUP" ], how="anti").show(3)
+

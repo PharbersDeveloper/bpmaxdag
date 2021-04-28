@@ -34,6 +34,8 @@ def execute(**kwargs):
     
     
     
+    
+    
     import pandas as pd
     import os
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
@@ -56,13 +58,12 @@ def execute(**kwargs):
     
     logger.debug('数据执行-start：补数-模型')
     # 输入
-    p_product_mapping = depends_path['product_mapping_out']
+    p_product_mapping = depends_path['deal_poi_out']
     p_growth_rate = depends_path['growth_rate']
     p_price = depends_path['price']
     p_price_city = depends_path['price_city']
     g_model_month_right = int(g_model_month_right)
     # 测试输入
-    p_products_of_interest = max_path + "/" + g_project_name + "/poi.csv"
     p_cpa_pha_mapping = max_path + "/" + g_project_name + "/cpa_pha_mapping"
     
     # 跑模型年年份要小于等于g_model_month_right，只需要输入哪些年要补数
@@ -75,10 +76,6 @@ def execute(**kwargs):
 
     # %%
     # =========== 数据准备，测试用 =============
-    # products_of_interest 文件
-    df_products_of_interest = spark.read.csv(p_products_of_interest, header=True)
-    df_products_of_interest = df_products_of_interest.withColumnRenamed('poi', 'POI')
-    
     def dealIDlength(df):
         # ID不足7位的补足0到6位
         # 国药诚信医院编码长度是7位数字，cpa医院编码是6位数字。
@@ -211,13 +208,7 @@ def execute(**kwargs):
     # =========== 数据执行 =============
     logger.debug('数据执行-start')
     # 1.数据准备
-    
-    g_products_of_interest = df_products_of_interest.toPandas()["POI"].values.tolist()
-    
-    # df_raw_data 处理
-    df_raw_data = df_raw_data.withColumn("MOLECULE_STD_FOR_GR",
-                                   func.when(col("BRAND_STD").isin(g_products_of_interest), col("BRAND_STD")).
-                                   otherwise(col('MOLECULE_STD')))
+    # df_raw_data = spark.read.parquet(p_product_mapping)
     
     ### 读取price
     # df_price = spark.read.parquet(p_price)
@@ -437,6 +428,7 @@ def execute(**kwargs):
     # compare = df_new_hospital.join(df_data_host_old, on=["PHA"], how="inner")
     # print(compare.count(), df_data_host_old.count(), df_new_hospital.count() )
     # df_data_host_old.distinct().count()
+
     # %%
     
     # df_data_old = spark.read.parquet("s3a://ph-max-auto/2020-08-11/Max/refactor/runs/max_test_beida_202012_bk/data_adding_model/raw_data_adding_final")
@@ -452,3 +444,4 @@ def execute(**kwargs):
     
     # compare.withColumn("Error", compare["SALES"]- compare["SALES_OLD"] ).select("Error").distinct().collect()
     # compare.withColumn("Error", compare["UNITS"]- compare["UNITS_OLD"] ).select("Error").distinct().collect()
+
