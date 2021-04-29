@@ -117,6 +117,8 @@ def execute(**kwargs):
             )
     """
     df_universe = spark.sql(base_universe_sql)
+    # df_universe = spark.read.parquet("s3a://ph-max-auto/2020-08-11/Max/refactor/runs/max_test_beida_202012/temporary/universe_PANEL_ID")
+    # df_universe = spark.read.parquet("s3a://ph-max-auto/2020-08-11/Max/refactor/runs/max_test_beida_202012/temporary/universe_PHA_ID")
     # %%
     
     raw_data_sql = """
@@ -129,8 +131,7 @@ def execute(**kwargs):
                 LEFT JOIN hospital_dimesion AS HD ON RW.HOSPITAL_ID == HD.ID
                 LEFT JOIN product_dimesion AS PD ON RW.PRODUCT_ID == PD.ID
                 LEFT JOIN mnf_dimesion AS MD ON PD.MNF_ID == MD.ID
-                LEFT JOIN product_rel_dimesion AS PRM ON PD.PACK_ID == PRM.ID
-                WHERE PRM.CATEGORY = 'IMS PACKID'
+                LEFT JOIN product_rel_dimesion AS PRM ON PD.PACK_ID == PRM.ID  AND  PRM.CATEGORY = 'IMS PACKID'
         """
     
     df_raw_data = spark.sql(raw_data_sql)
@@ -205,7 +206,7 @@ def execute(**kwargs):
     # print( compare.withColumn("Error_2", compare["UNITS"]- compare["UNITS_OLD"] ).select("Error_2").distinct().collect() )
 
     # %%
-    # 匹配不上的行是什么情况
-    # df_raw_data.join( df_data_old, on=['PHA', 'ID', 'MANUFACTURER_STD', 'YEAR_MONTH', 'MOLECULE_STD', 
+    # # 匹配不上的行是什么情况
+    # df_data_old.join( df_raw_data, on=['PHA', 'ID', 'MANUFACTURER_STD', 'YEAR_MONTH', 'MOLECULE_STD', 
     #                                                  'BRAND_STD', 'PACK_NUMBER_STD', 'FORM_STD', 'SPECIFICATIONS_STD', 
     #                                                  'CITY', 'PROVINCE', 'CITY_TIER', 'MONTH', 'YEAR'],how="anti").show(2, vertical=True)

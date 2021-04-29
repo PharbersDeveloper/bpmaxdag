@@ -33,6 +33,8 @@ def execute(**kwargs):
 
     
     
+    
+    
     import os
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
@@ -46,6 +48,7 @@ def execute(**kwargs):
     # result_path_prefix = get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
     # depends_path = get_depends_path({"name":job_name, "dag_name":dag_name, 
     #                                  "run_id":run_id, "depend_job_names_keys":depend_job_names_keys })
+
     # %%
     logger.debug('job2_product_mapping')
     # 注意：
@@ -114,21 +117,25 @@ def execute(**kwargs):
     
     # print("OLD: %s      NEW:%s "%(df_data_old.count(), df_raw_data.count() ))
     
-    # # print( df_data_old.select("DATE").distinct().count(), max_result_city.select("DATE").distinct().count() )
-    
     # df_data_old = df_data_old.withColumnRenamed("SALES", "SALES_OLD")\
     #                             .withColumnRenamed("UNIT", "UNIT_OLD")
     
-    # compare = df_raw_data.join( df_data_old, on=['PHA', 'ID', 'YEAR_MONTH', 'MIN_STD',
+    #### 都匹配
+    # compare = df_raw_data.join( df_data_old, on=['PHA', 'ID', 'YEAR_MONTH', 'MIN_STD', 
     #                                                  'CITY', 'PROVINCE', 'CITY_TIER', 'MONTH', 'YEAR'],how="inner")
     
-    # print( compare)
+    ### 存在CITY为NUll的时候
+    # df_data_old = df_data_old.where( df_data_old["CITY"].isNull() )
+    # df_raw_data = df_raw_data.where(df_raw_data["CITY"].isNull() )
+    # compare = df_raw_data.join( df_data_old, on=["ID", "MIN_STD",  "YEAR_MONTH"],how="inner")
+    
     # print( compare.count())
     
     # print( df_data_old )
     # print(df_raw_data)
     # df_data_old.show(1,vertical=True)
     # df_raw_data.show(1, vertical=True)
+
     # %%
     #### 匹配的上的有何差别
     # compare_error = compare.withColumn("Error", compare["SALES"]- compare["SALES_OLD"] )\
@@ -141,6 +148,9 @@ def execute(**kwargs):
     # print( compare.withColumn("Error_2", compare["PREDICT_UNIT"]- compare["PREDICT_UNIT_OLD"] ).select("Error_2").distinct().collect() )
 
     # %%
-    # df_raw_data.join( df_data_old, on=['PHA', 'ID', 'MANUFACTURER_STD', 'YEAR_MONTH', 'MOLECULE_STD', 
-    #                                                  'BRAND_STD', 'PACK_NUMBER_STD', 'FORM_STD', 'SPECIFICATIONS_STD', 
-    #                                                  'CITY', 'PROVINCE', 'CITY_TIER', 'MONTH', 'YEAR'],how="anti").show(1,vertical=True)
+    ## 匹配不上是因为什么
+    # cant_mapping = df_data_old.join( df_data_old, on=['PHA', 'ID', 'YEAR_MONTH', 'MIN_STD', 
+    #                                                  'CITY', 'PROVINCE', 'CITY_TIER', 'MONTH', 'YEAR'],how="anti")
+    # print(cant_mapping.count())
+    # print(cant_mapping.select("ID", "MIN_STD",  "YEAR_MONTH").distinct().count())
+    # cant_mapping.show(1,vertical=True)
