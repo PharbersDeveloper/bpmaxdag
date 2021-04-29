@@ -838,7 +838,7 @@ def select_cpa_col(input_singal_of_file,input_dataframe):
     if input_singal_of_file == True:
         cols = ['MOLE_NAME','PRODUCT_NAME','DOSAGE', 'SPEC', 'PACK_QTY', 'MANUFACTURER_NAME', 'PACK_ID_CHECK', 'ID','SPEC_ORIGINAL','SPEC_VALID','SPEC_GROSS'] 
     else:
-        cols = ['MOLE_NAME','PRODUCT_NAME','DOSAGE', 'SPEC', 'PACK_QTY', 'MANUFACTURER_NAME', 'ID','SPEC_ORIGINAL','SPEC_VALID','SPEC_GROSS']
+        cols = ['MOLE_NAME','PRODUCT_NAME','DOSAGE', 'SPEC', 'PACK_QTY', 'PACK_ID_MOFANG','MANUFACTURER_NAME', 'ID','SPEC_ORIGINAL','SPEC_VALID','SPEC_GROSS']
         
     output_dataframe = input_dataframe.select(cols)
     

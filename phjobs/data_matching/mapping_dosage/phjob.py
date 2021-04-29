@@ -110,7 +110,7 @@ def load_cross_result(spark,path_cross_result):
     if "PACK_ID_CHECK" in df_seg_dosage.columns:
         cols = ["ID","INDEX","DOSAGE","DOSAGE_STANDARD","PACK_ID_CHECK","PACK_ID_STANDARD"]
     else:
-        cols = ["ID","INDEX","DOSAGE","DOSAGE_STANDARD","PACK_ID_STANDARD"]
+        cols = ["ID","INDEX","DOSAGE","DOSAGE_STANDARD","PACK_ID_MOFANG","PACK_ID_STANDARD"]
     
     df_seg_dosage = df_seg_dosage.select(cols)
     
