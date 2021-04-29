@@ -405,7 +405,7 @@ def Generate_data_of_report(spark,\
 def Generate_data_of_prediction(input_dataframe_of_predictions):
     
     input_dataframe_of_predictions = input_dataframe_of_predictions.drop("indexedFeatures","rawPrediction",\
-                                         "probability")
+                                         "probability","features")
     
     col_of_prediction = ("prediction" + "_id").upper()
     df_prediction = input_dataframe_of_predictions.withColumn(col_of_prediction,when(col("prediction") == 1.0,col("PACK_ID_STANDARD")).otherwise("未匹配"))

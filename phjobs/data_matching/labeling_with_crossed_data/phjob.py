@@ -31,7 +31,7 @@ def execute(**kwargs):
     result_path_prefix = get_result_path(kwargs, run_id, job_id)
     result_path = result_path_prefix + kwargs["label_result"]
 ############-------------output------------#############
-    path_combine_Cols = r"s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs/manual__2021-04-28T09_00_25.473720+00_00/calculate_similarity_prod/similarity_prod_result/"
+
 ###########----------loading files-------------############
     df_labeling = loading_files(spark, path_combine_Cols)
 ##########-----------loading files--------############
