@@ -150,17 +150,22 @@ def calulate_similarity_of_RawColAndStandardCol(RawCol,StandardCol):
         return max_similarity_value
     
     def Solve_sim_value_data(raw_sentence, standard_sentence):
-        max_similarity_value = Get_sim_value_data(raw_sentence, standard_sentence)
-        high_similarity_data = list(filter(lambda x: x >= 0.5, max_similarity_value))
-        low_similarity_data = [x for x in max_similarity_value if x not in high_similarity_data]
-        high_similarity_rate = len(high_similarity_data) / len(max_similarity_value)
-        if high_similarity_rate >= 0.5:
-            similarity_value = np.mean(high_similarity_data)
-        else:
-            similarity_value = np.mean(low_similarity_data)
+        
+        try:
+            max_similarity_value = Get_sim_value_data(raw_sentence, standard_sentence)
+            high_similarity_data = list(filter(lambda x: x >= 0.5, max_similarity_value))
+            low_similarity_data = [x for x in max_similarity_value if x not in high_similarity_data]
+            high_similarity_rate = len(high_similarity_data) / len(max_similarity_value)
+            if high_similarity_rate >= 0.5:
+                similarity_value = np.mean(high_similarity_data)
+            else:
+                similarity_value = np.mean(low_similarity_data)
+        except:
+            similarity_value = 0.0
         return similarity_value
     
     df['output_similarity_value'] = df.apply(lambda x: float(Solve_sim_value_data(x.RawCol,x.StandardCol)), axis=1)
+    
     return df['output_similarity_value']
 
 
@@ -190,6 +195,7 @@ def Cause_ArrayStructureCol_Become_StringStructureCol(input_dataframe,inputCol):
 def write_files(input_dataframe, path_of_write, file_type, repartition_num):
     
     try:
+        
         if file_type.lower() == "parquet":
             input_dataframe.repartition(repartition_num).write.mode("overwrite").parquet(path_of_write)
         else:
@@ -197,5 +203,6 @@ def write_files(input_dataframe, path_of_write, file_type, repartition_num):
         message = fr"{path_of_write} {file_type} Write Success!"
     except:
         message = fr"{path_of_write} {file_type} Write Failed!"
+   
     print(message)
     return message
