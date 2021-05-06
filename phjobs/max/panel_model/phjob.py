@@ -17,23 +17,20 @@ def execute(**kwargs):
     g_project_name = kwargs['g_project_name']
     g_model_month_left = kwargs['g_model_month_left']
     g_model_month_right = kwargs['g_model_month_right']
-    g_paths_foradding = kwargs['g_paths_foradding']
     g_add_47 = kwargs['g_add_47']
     depend_job_names_keys = kwargs['depend_job_names_keys']
     g_monthly_update = kwargs['g_monthly_update']
     dag_name = kwargs['dag_name']
     run_id = kwargs['run_id']
     max_path = kwargs['max_path']
+    g_city_47 = kwargs['g_city_47']
+    g_province_47 = kwargs['g_province_47']
     ### input args ###
     
     ### output args ###
     g_panel = kwargs['g_panel']
     ### output args ###
 
-    
-    
-    
-    
     from pyspark.sql.functions import col
     from pyspark.sql.types import DoubleType, IntegerType, StringType, StructType, StructField
     from pyspark.sql import  functions as func    
@@ -47,6 +44,7 @@ def execute(**kwargs):
     # result_path_prefix=get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
     # depends_path=get_depends_path({"name":job_name, "dag_name":dag_name, 
     #                                  "run_id":run_id, "depend_job_names_keys":depend_job_names_keys })
+
     # %%
     logger.debug('panel_model')
     # 输入
@@ -59,9 +57,11 @@ def execute(**kwargs):
         logger.error('wrong input: g_add_47, False or True') 
         raise ValueError('wrong input: g_add_47, False or True')
         
+    l_city = g_city_47.replace(' ','').split(',')
+    l_province = g_province_47.replace(' ','').split(',')
+        
     # 月更新相关输入
     # monthly_update == "False":
-    p_notarrive_unpublished = g_paths_foradding.replace(", ",",").split(",")
             
     # 输出
     p_panel_result = result_path_prefix + g_panel
@@ -81,6 +81,7 @@ def execute(**kwargs):
     df_markets = df_market.withColumnRenamed("标准通用名", "MOLECULE_STD") \
                             .withColumnRenamed("model", "MARKET") \
                             .withColumnRenamed("mkt", "MARKET")
+
     # %%
     # =========== 数据读取 =============
     # 1、读取 raw_data_adding_final
@@ -153,6 +154,7 @@ def execute(**kwargs):
     ## SQL 读太慢了
     # df_universe = spark.read.parquet("s3a://ph-max-auto/2020-08-11/Max/refactor/runs/max_test_beida_202012/temporary/universe")
     # df_universe = spark.read.parquet("s3a://ph-max-auto/2020-08-11/Max/refactor/runs/max_test_beida_202012/temporary/universe_PHA_ID")
+
     # %%
     # =========== 数据执行 =============
     df_markets = df_markets.select("MARKET", "MOLECULE_STD").distinct()
@@ -188,75 +190,36 @@ def execute(**kwargs):
     df_original_date_min_std = df_panel_raw_data.select("DATE", "MIN_STD").distinct()
     df_panel_add_data = df_panel_add_data \
         .join(df_original_date_molecule, on=["DATE", "MOLECULE_STD"], how="inner") \
-        .join(df_original_date_min_std, on=["DATE", "MIN_STD"], how="inner")
+        .join(df_original_date_min_std, on=["DATE", "MIN_STD"], how="inner").persist()
 
     # %%
     # 生成 panel_filtered
     # 早于model所用时间（历史数据），用new_hospital补数;
     # 处于model所用时间（模型数据），不补数；
     # 晚于model所用时间（月更新数据），用unpublished和not arrived补数
-
+    # 取消Sanofi AZ 特殊处理（20210506）
     # %%
     ####  模型
     df_new_hospital = spark.read.parquet(p_new_hospital)
     df_new_hospital = df_new_hospital.toPandas()["PHA"].tolist()
     
-    if g_project_name == "Sanofi" or g_project_name == "AZ":
-        kct = [u'北京市', u'长春市', u'长沙市', u'常州市', u'成都市', u'重庆市', u'大连市', u'福厦泉市', u'广州市',
-               u'贵阳市', u'杭州市', u'哈尔滨市', u'济南市', u'昆明市', u'兰州市', u'南昌市', u'南京市', u'南宁市', u'宁波市',
-               u'珠三角市', u'青岛市', u'上海市', u'沈阳市', u'深圳市', u'石家庄市', u'苏州市', u'太原市', u'天津市', u'温州市',
-               u'武汉市', u'乌鲁木齐市', u'无锡市', u'西安市', u'徐州市', u'郑州市', u'合肥市', u'呼和浩特市', u'福州市', u'厦门市',
-               u'泉州市', u'珠海市', u'东莞市', u'佛山市', u'中山市']
-        city_list = [u'北京市', u'上海市', u'天津市', u'重庆市', u'广州市', u'深圳市', u'西安市', u'大连市', u'成都市', u'厦门市', u'沈阳市']
-        province_list = [u'河北省', u'福建省', u'河北', u"福建"]
+    # l_city = [u'北京市', u'上海市', u'天津市', u'重庆市', u'广州市', u'深圳市', u'西安市', u'大连市', u'成都市', u'厦门市', u'沈阳市']
+    # l_province = [u'河北省', u'福建省', u'河北', u"福建"]
+    
+    if g_project_name == u"贝达" or g_project_name == "Sanofi" or g_project_name == "AZ":
+        df_panel_add_data = df_panel_add_data.where(df_panel_add_data.MOLECULE_STD != u"奥希替尼")
+    
+    # 去除 l_city和 l_province
+    if g_add_47 == "False":
         df_panel_add_data = df_panel_add_data \
-            .where( df_panel_add_data.CITY.isin(city_list)) \
-            .where( df_panel_add_data.PROVINCE.isin(province_list)) \
-            .where( ( (df_panel_add_data.CITY.isin(kct)) & (df_panel_add_data.MOLECULE_STD == u"奥希替尼")))
-        
-        
-        # 晚于model所用时间（月更新数据），用unpublished和not arrived补数
-        for index, eachfile in enumerate(p_notarrive_unpublished):
-            if index == 0:
-                # Notarrive_unpublished = pd.read_excel(eachfile, dtype=str)
-                df_notarrive_unpublished = spark.read.csv(eachfile, header=True)
-            else:
-                # tmp_file = pd.read_excel(eachfile, dtype=str)
-                df_tmp_file =  spark.read.csv(eachfile, header=True)
-                df_notarrive_unpublished = df_notarrive_unpublished.union(df_tmp_file)
+            .where( df_panel_add_data.CITY.isin(l_city)) \
+            .where( df_panel_add_data.PROVINCE.isin(l_province))
     
-        df_future_range = df_notarrive_unpublished.withColumn("DATE", df_notarrive_unpublished["DATE"].cast(DoubleType()))
-    
-        df_panel_add_data_future = df_panel_add_data.where(df_panel_add_data.Date > int(g_model_month_right)) \
-            .join(future_range, on=["Date", "ID"], how="inner") \
-            .select(df_panel_raw_data.columns)
-        
-        # 早于model所用时间（历史数据），用df_new_hospital补数;
-        df_panel_add_data_history = df_panel_add_data.where(df_panel_add_data.HOSP_ID.isin(df_new_hospital)) \
-            .where(df_panel_add_data.Date < int(g_model_month_left)) \
-            .select(df_panel_raw_data.columns)
-        
-        df_panel_filtered = (df_panel_raw_data.union(df_panel_add_data_history)).union(df_panel_add_data_future)
-            
-            
-    else:
-        city_list = [u'北京市', u'上海市', u'天津市', u'重庆市', u'广州市', u'深圳市', u'西安市', u'大连市', u'成都市', u'厦门市', u'沈阳市']
-        province_list = [u'河北省', u'福建省', u'河北', u"福建"]
-        
-        if g_project_name == u"贝达":
-            df_panel_add_data = df_panel_add_data.where(df_panel_add_data.MOLECULE_STD != u"奥希替尼")
-        
-        # 去除 city_list和 province_list
-        if g_add_47 == "False":
-            df_panel_add_data = df_panel_add_data \
-                .where( df_panel_add_data.CITY.isin(city_list)) \
-                .where( df_panel_add_data.PROVINCE.isin(province_list))
-            
-        df_panel_add_data_history = df_panel_add_data \
-            .where(df_panel_add_data.PHA.isin(df_new_hospital)) \
-            .where(df_panel_add_data.DATE < int(g_model_month_left)) \
-            .select(df_panel_raw_data.columns)
-        df_panel_filtered = df_panel_raw_data.union(df_panel_add_data_history)
+    df_panel_add_data_history = df_panel_add_data \
+        .where(df_panel_add_data.PHA.isin(df_new_hospital)) \
+        .where(df_panel_add_data.DATE < int(g_model_month_left)) \
+        .select(df_panel_raw_data.columns)
+    df_panel_filtered = df_panel_raw_data.union(df_panel_add_data_history)
 
     # %%
     ##### 输出保存的结果
@@ -282,6 +245,7 @@ def execute(**kwargs):
     
     # compare.withColumn("Error", compare["SALES"]- compare["SALES_OLD"] ).select("Error").distinct().collect()
     # compare.withColumn("Error_2", compare["UNITS"]- compare["UNITS_OLD"] ).select("Error_2").distinct().collect()
+
     # %%
     ##### 检查更新 Code 后 和原来的数据结果是否一置
     

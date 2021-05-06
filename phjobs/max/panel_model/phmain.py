@@ -19,13 +19,14 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--g_project_name')
 @click.option('--g_model_month_left')
 @click.option('--g_model_month_right')
-@click.option('--g_paths_foradding')
 @click.option('--g_add_47')
 @click.option('--depend_job_names_keys')
 @click.option('--g_monthly_update')
 @click.option('--dag_name')
 @click.option('--run_id')
 @click.option('--max_path')
+@click.option('--g_city_47')
+@click.option('--g_province_47')
 @click.option('--g_panel')
 def debug_execute(**kwargs):
     try:
