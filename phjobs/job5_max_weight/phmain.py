@@ -3,15 +3,18 @@
 
 This is job template for Pharbers Max Job
 """
-from phjob import execute
 import click
+import traceback
+from phjob import execute
+from phcli.ph_logs.ph_logs import phs3logger
+from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 
 
 @click.command()
 @click.option('--owner')
 @click.option('--dag_name')
-@click.option('--job_full_name')
 @click.option('--run_id')
+@click.option('--job_full_name')
 @click.option('--job_id')
 @click.option('--max_path')
 @click.option('--project_name')
@@ -31,9 +34,29 @@ import click
 @click.option('--use_d_weight')
 @click.option('--a')
 @click.option('--b')
-def debug_execute(owner, dag_name, job_full_name, run_id, job_id, a, b, max_path, project_name, if_base, time_left, time_right, left_models, left_models_time_left, right_models, right_models_time_right, all_models, universe_choice, if_others, out_path, out_dir, need_test, use_d_weight):
-	execute(max_path, project_name, if_base, time_left, time_right, left_models, left_models_time_left, right_models, right_models_time_right, all_models, universe_choice, if_others, out_path, out_dir, need_test, use_d_weight)
+def debug_execute(**kwargs):
+    try:
+        args = {"name": "alfred"}
+        outputs = ["a", "b"]
+
+        args.update(kwargs)
+        result = exec_before(**args)
+
+        args.update(result if isinstance(result, dict) else {})
+        result = execute(**args)
+
+        args.update(result if isinstance(result, dict) else {})
+        result = exec_after(outputs=outputs, **args)
+
+        return result
+    except Exception as e:
+        logger = phs3logger(kwargs["job_id"])
+        logger.error(traceback.format_exc())
+        print(traceback.format_exc())
+        raise e
 
 
 if __name__ == '__main__':
     debug_execute()
+
+
