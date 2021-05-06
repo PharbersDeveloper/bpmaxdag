@@ -5,50 +5,54 @@ metadata:
   description: "pharbers job description"
   labels:
     name: alfred
+    runtime: python3
+    command: submit
 spec:
   containers:
     repository: local
     runtime: python3
-    command: "submit"
+    command: submit
     timeout: 720.0
     code: phmain.py
     config: phconf.yaml
     args:
       - key: max_path
-        value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
+        value: s3a://ph-max-auto/v0.0.1-2020-06-08/
       - key: project_name
-        value: "Empty"
+        value: Empty
       - key: if_base
-        value: "False"
+        value: False
       - key: time_left
-        value: "0"
+        value: 0
       - key: time_right
-        value: "0"
+        value: 0
       - key: left_models
-        value: "Empty"
+        value: Empty
       - key: left_models_time_left
-        value: "Empty"
+        value: Empty
       - key: right_models
-        value: "Empty"
+        value: Empty
       - key: right_models_time_right
-        value: "Empty"
+        value: Empty
       - key: all_models
-        value: "Empty"
+        value: Empty
       - key: universe_choice
-        value: "Empty"
+        value: Empty
       - key: if_others
-        value: "False"
+        value: False
       - key: out_path
-        value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
+        value: s3a://ph-max-auto/v0.0.1-2020-06-08/
       - key: out_dir
-        value: "Empty"  
+        value: Empty
       - key: need_test
         value: 0
       - key: use_d_weight
-        value: "Empty"
+        value: Empty
     outputs:
       - key: a
         value: abcde
       - key: b
         value: 6789
+
+
 

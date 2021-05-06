@@ -3,47 +3,50 @@
 
 This is job template for Pharbers Max Job
 """
-from phcli.ph_logs.ph_logs import phs3logger
-import os
-import pandas as pd
 
-from pyspark.sql import SparkSession
-from pyspark.sql.types import *
-from pyspark.sql.types import StringType, IntegerType, DoubleType
-from pyspark.sql import functions as func
+from phcli.ph_logs.ph_logs import phs3logger, LOG_DEBUG_LEVEL
 
 
-def execute(max_path, project_name, model_month_left, model_month_right, if_others, current_year, current_month, 
-paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_union, out_path, out_dir, need_test, add_47):
-    logger = phs3logger()
-    os.environ["PYSPARK_PYTHON"] = "python3"
-    spark = SparkSession.builder \
-        .master("yarn") \
-        .appName("data from s3") \
-        .config("spark.driver.memory", "1g") \
-        .config("spark.executor.cores", "1") \
-        .config("spark.executor.instance", "1") \
-        .config("spark.executor.memory", "1g") \
-        .config('spark.sql.codegen.wholeStage', False) \
-        .getOrCreate()
+def execute(**kwargs):
+    logger = phs3logger(kwargs["job_id"], LOG_DEBUG_LEVEL)
+    spark = kwargs['spark']()
+    result_path_prefix = kwargs["result_path_prefix"]
+    depends_path = kwargs["depends_path"]
+    
+    ### input args ###
+    max_path = kwargs['max_path']
+    project_name = kwargs['project_name']
+    model_month_left = kwargs['model_month_left']
+    model_month_right = kwargs['model_month_right']
+    if_others = kwargs['if_others']
+    current_year = kwargs['current_year']
+    current_month = kwargs['current_month']
+    paths_foradding = kwargs['paths_foradding']
+    not_arrived_path = kwargs['not_arrived_path']
+    published_path = kwargs['published_path']
+    panel_for_union = kwargs['panel_for_union']
+    monthly_update = kwargs['monthly_update']
+    out_path = kwargs['out_path']
+    out_dir = kwargs['out_dir']
+    need_test = kwargs['need_test']
+    add_47 = kwargs['add_47']
+    ### input args ###
+    
+    ### output args ###
+    a = kwargs['a']
+    b = kwargs['b']
+    ### output args ###
 
-    access_key = os.getenv("AWS_ACCESS_KEY_ID")
-    secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
-    if access_key is not None:
-        spark._jsc.hadoopConfiguration().set("fs.s3a.access.key", access_key)
-        spark._jsc.hadoopConfiguration().set("fs.s3a.secret.key", secret_key)
-        spark._jsc.hadoopConfiguration().set("fs.s3a.impl","org.apache.hadoop.fs.s3a.S3AFileSystem")
-        spark._jsc.hadoopConfiguration().set("com.amazonaws.services.s3.enableV4", "true")
-        # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
-        spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
-
-    logger.info('job4_panel')
+    import os
+    import pandas as pd
+    from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
+    from pyspark.sql import functions as func    # %%
+    logger.debug('job4_panel')
     
     if if_others == "True":
         out_dir = out_dir + "/others_box/"
     
     out_path_dir = out_path + "/" + project_name + '/' + out_dir
-
     # 输入
     universe_path = max_path + "/" + project_name + "/universe_base"
     market_path  = max_path + "/" + project_name + "/mkt_mapping"
@@ -84,12 +87,11 @@ paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_uni
     else:
         panel_path = out_path_dir + "/panel_result"
 
+    # %%
     # =========== 数据检查 =============
-    logger.info('数据检查-start')
-
+    logger.debug('数据检查-start')
     # 存储文件的缺失列
     misscols_dict = {}
-
     # universe file
     universe = spark.read.parquet(universe_path)
     colnames_universe = universe.columns
@@ -102,7 +104,6 @@ paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_uni
         misscols_dict["universe"].append("City")
     if "Province" not in colnames_universe:
         misscols_dict["universe"].append("Province")
-
     # market file
     market = spark.read.parquet(market_path)
     colnames_market = market.columns
@@ -111,7 +112,6 @@ paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_uni
         misscols_dict["market"].append("标准通用名")
     if ("model" not in colnames_market) and ("mkt" not in colnames_market):
         misscols_dict["market"].append("model")
-
     # raw_data_adding_final file
     raw_data_adding_final = spark.read.parquet(raw_data_adding_final_path)
     colnames_adding = raw_data_adding_final.columns
@@ -122,7 +122,6 @@ paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_uni
     for each in colnamelist:
         if each not in colnames_adding:
             misscols_dict["adding_data"].append(each)
-
     # 判断输入文件是否有缺失列
     misscols_dict_final = {}
     for eachfile in misscols_dict.keys():
@@ -130,15 +129,13 @@ paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_uni
             misscols_dict_final[eachfile] = misscols_dict[eachfile]
     # 如果有缺失列，则报错，停止运行
     if misscols_dict_final:
-        logger.error('miss columns: %s' % (misscols_dict_final))
+        logger.debug('miss columns: %s' % (misscols_dict_final))
         raise ValueError('miss columns: %s' % (misscols_dict_final))
+    logger.debug('数据检查-Pass')
 
-    logger.info('数据检查-Pass')
-
+    # %%
     # =========== 数据执行 =============
-
-    logger.info('数据执行-start')
-
+    logger.debug('数据执行-start')
     # read_universe
     universe = spark.read.parquet(universe_path)
     if "CITYGROUP" in universe.columns:
@@ -153,117 +150,70 @@ paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_uni
         universe = universe.withColumn("HOSP_NAME",func.lit("0"))
     universe = universe.select("PHA", "HOSP_NAME", "Province", "City").distinct()
     universe.persist()
-
     # 读取 market
     market = spark.read.parquet(market_path)
     markets = market.withColumnRenamed("标准通用名", "通用名") \
         .withColumnRenamed("model", "mkt") \
         .select("mkt", "通用名").distinct()
-
     # 读取 raw_data_adding_final
     raw_data_adding_final = spark.read.parquet(raw_data_adding_final_path)
     raw_data_adding_final.persist()
-
     # 生成 panel
     panel = raw_data_adding_final \
         .join(markets, raw_data_adding_final["S_Molecule"] == markets["通用名"], how="left") \
         .drop("Province", "City") \
         .join(universe, on="PHA", how="left") \
         .withColumn("Date", raw_data_adding_final.Year * 100 + raw_data_adding_final.Month)
-
     panel = panel \
         .groupBy("ID", "Date", "min2", "mkt", "HOSP_NAME", "PHA", "S_Molecule", "Province", "City", "add_flag", "std_route") \
         .agg(func.sum("Sales").alias("Sales"), func.sum("Units").alias("Units"))
-
     # 对 panel 列名重新命名
     old_names = ["ID", "Date", "min2", "mkt", "HOSP_NAME", "PHA", "S_Molecule", "Province", "City", "add_flag", "std_route"]
     new_names = ["ID", "Date", "Prod_Name", "DOI", "Hosp_name", "HOSP_ID", "Molecule", "Province", "City", "add_flag", "std_route"]
     for index, name in enumerate(old_names):
         panel = panel.withColumnRenamed(name, new_names[index])
-
     panel = panel \
         .withColumn("Prod_CNAME", panel.Prod_Name) \
         .withColumn("Strength", panel.Prod_Name) \
         .withColumn("DOIE", panel.DOI) \
         .withColumn("Date", panel["Date"].cast(DoubleType()))
-
     # 拆分 panel_raw_data， panel_add_data
     panel_raw_data = panel.where(panel.add_flag == 0)
     panel_raw_data.persist()
     panel_add_data = panel.where(panel.add_flag == 1)
     panel_add_data.persist()
-
     original_Date_molecule = panel_raw_data.select("Date", "Molecule").distinct()
     original_Date_ProdName = panel_raw_data.select("Date", "Prod_Name").distinct()
-
     panel_add_data = panel_add_data \
         .join(original_Date_molecule, on=["Date", "Molecule"], how="inner") \
         .join(original_Date_ProdName, on=["Date", "Prod_Name"], how="inner")
-
     # new_hospital = pd.read_excel(new_hospital_path)
     if monthly_update == "False":
         new_hospital = spark.read.parquet(new_hospital_path)
         new_hospital = new_hospital.toPandas()["PHA"].tolist()
-
     # 生成 panel_filtered
     # 早于model所用时间（历史数据），用new_hospital补数;
     # 处于model所用时间（模型数据），不补数；
     # 晚于model所用时间（月更新数据），用unpublished和not arrived补数
-    if project_name == "Sanofi" or project_name == "AZ":
-        kct = [u'北京市', u'长春市', u'长沙市', u'常州市', u'成都市', u'重庆市', u'大连市', u'福厦泉市', u'广州市',
-               u'贵阳市', u'杭州市', u'哈尔滨市', u'济南市', u'昆明市', u'兰州市', u'南昌市', u'南京市', u'南宁市', u'宁波市',
-               u'珠三角市', u'青岛市', u'上海市', u'沈阳市', u'深圳市', u'石家庄市', u'苏州市', u'太原市', u'天津市', u'温州市',
-               u'武汉市', u'乌鲁木齐市', u'无锡市', u'西安市', u'徐州市', u'郑州市', u'合肥市', u'呼和浩特市', u'福州市', u'厦门市',
-               u'泉州市', u'珠海市', u'东莞市', u'佛山市', u'中山市']
-        city_list = [u'北京市', u'上海市', u'天津市', u'重庆市', u'广州市', u'深圳市', u'西安市', u'大连市', u'成都市', u'厦门市', u'沈阳市']
-        Province_list = [u'河北省', u'福建省', u'河北', u"福建"]
-
+    # 取消Sanofi AZ 特殊处理（20210506）
+    city_list = [u'北京市', u'上海市', u'天津市', u'重庆市', u'广州市', u'深圳市', u'西安市', u'大连市', u'成都市', u'厦门市', u'沈阳市']
+    Province_list = [u'河北省', u'福建省', u'河北', u"福建"]
+    
+    if monthly_update == "False":
+        if project_name == u"贝达" or project_name == "Sanofi" or project_name == "AZ":
+            panel_add_data = panel_add_data.where(panel_add_data.Molecule != u"奥希替尼")
+    # 去除 city_list和 Province_list
+    if add_47 == "False":
         panel_add_data = panel_add_data \
             .where(~panel_add_data.City.isin(city_list)) \
-            .where(~panel_add_data.Province.isin(Province_list)) \
-            .where(~(~(panel_add_data.City.isin(kct)) & (panel_add_data.Molecule == u"奥希替尼")))
-        if monthly_update == "False":
-            # 晚于model所用时间（月更新数据），用unpublished和not arrived补数
-            for index, eachfile in enumerate(Notarrive_unpublished_paths):
-                if index == 0:
-                    # Notarrive_unpublished = pd.read_excel(eachfile, dtype=str)
-                    Notarrive_unpublished = spark.read.csv(eachfile, header=True)
-                else:
-                    # tmp_file = pd.read_excel(eachfile, dtype=str)
-                    tmp_file =  spark.read.csv(eachfile, header=True)
-                    Notarrive_unpublished = Notarrive_unpublished.union(tmp_file)
+            .where(~panel_add_data.Province.isin(Province_list))
     
-            future_range = Notarrive_unpublished.withColumn("Date", Notarrive_unpublished["Date"].cast(DoubleType()))
-    
-            panel_add_data_future = panel_add_data.where(panel_add_data.Date > int(model_month_right)) \
-                .join(future_range, on=["Date", "ID"], how="inner") \
-                .select(panel_raw_data.columns)
-            # 早于model所用时间（历史数据），用new_hospital补数;
-            panel_add_data_history = panel_add_data.where(panel_add_data.HOSP_ID.isin(new_hospital)) \
-                .where(panel_add_data.Date < int(model_month_left)) \
-                .select(panel_raw_data.columns)
-            panel_filtered = (panel_raw_data.union(panel_add_data_history)).union(panel_add_data_future)
-
-    else:
-        city_list = [u'北京市', u'上海市', u'天津市', u'重庆市', u'广州市', u'深圳市', u'西安市', u'大连市', u'成都市', u'厦门市', u'沈阳市']
-        Province_list = [u'河北省', u'福建省', u'河北', u"福建"]
-        
-        if monthly_update == "False":
-            if project_name == u"贝达":
-                panel_add_data = panel_add_data.where(panel_add_data.Molecule != u"奥希替尼")
-
-        # 去除 city_list和 Province_list
-        if add_47 == "False":
-            panel_add_data = panel_add_data \
-                .where(~panel_add_data.City.isin(city_list)) \
-                .where(~panel_add_data.Province.isin(Province_list))
-            
-        if monthly_update == "False":
-            panel_add_data_history = panel_add_data \
-                .where(panel_add_data.HOSP_ID.isin(new_hospital)) \
-                .where(panel_add_data.Date < int(model_month_left)) \
-                .select(panel_raw_data.columns)
-            panel_filtered = panel_raw_data.union(panel_add_data_history)
+    if monthly_update == "False":
+        panel_add_data_history = panel_add_data \
+            .where(panel_add_data.HOSP_ID.isin(new_hospital)) \
+            .where(panel_add_data.Date < int(model_month_left)) \
+            .select(panel_raw_data.columns)
+        panel_filtered = panel_raw_data.union(panel_add_data_history)
     
     if monthly_update == "True":
         # unpublished文件
@@ -282,7 +232,6 @@ paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_uni
         
         df = pd.DataFrame(data=unpublished_dict)
         df = df[["ID","Date"]]
-
         schema = StructType([StructField("ID", StringType(), True), StructField("Date", StringType(), True)])
         unpublished = spark.createDataFrame(df, schema)
         unpublished = unpublished.select("ID","Date")
@@ -307,20 +256,17 @@ paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_uni
         
     # panel_filtered.groupBy("add_flag").agg({"Sales": "sum"}).show()
     # panel_filtered.groupBy("add_flag").agg({"Sales": "sum"}).show()
-
     panel_filtered = panel_filtered.repartition(2)
     panel_filtered.write.format("parquet") \
         .mode("overwrite").save(panel_path)
+    logger.debug("输出 panel_filtered 结果：" + panel_path)
+    logger.debug('数据执行-Finish')
 
-    logger.info("输出 panel_filtered 结果：" + panel_path)
-
-    logger.info('数据执行-Finish')
-
+    # %%
     # =========== 数据验证 =============
     # 与原R流程运行的结果比较正确性: Sanofi与Sankyo测试通过
     if int(need_test) > 0:
-        logger.info('数据验证-start')
-
+        logger.debug('数据验证-start')
         my_out = spark.read.parquet(panel_path)
         
         if project_name == "Sanofi":
@@ -335,10 +281,8 @@ paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_uni
             R_out_path = "/common/projects/max/京新/panel-result/panel-result_京新_202004"
         
         R_out = spark.read.parquet(R_out_path)
-
         if project_name == "AZ" or project_name == "Astellas" or project_name == "京新":
             R_out = R_out.where(R_out.Date/100 < 2020)
-
         # 检查内容：列缺失，列的类型，列的值
         for colname, coltype in R_out.dtypes:
             # 列是否缺失
@@ -347,15 +291,13 @@ paths_foradding, not_arrived_path, published_path, monthly_update, panel_for_uni
             else:
                 # 数据类型检查
                 if my_out.select(colname).dtypes[0][1] != coltype:
-                    logger.warning("different type columns: " + colname + ", " + my_out.select(colname).dtypes[0][1] + ", " + "right type: " + coltype)
+                    logger.debug("different type columns: " + colname + ", " + my_out.select(colname).dtypes[0][1] + ", " + "right type: " + coltype)
                 # 数值列的值检查
                 if coltype == "double" or coltype == "int":
                     sum_my_out = my_out.groupBy().sum(colname).toPandas().iloc[0, 0]
                     sum_R = R_out.groupBy().sum(colname).toPandas().iloc[0, 0]
-                    # logger.info(colname, sum_raw_data, sum_R)
+                    # print(colname, sum_raw_data, sum_R)
                     if (sum_my_out - sum_R) != 0:
-                        logger.warning("different value(sum) columns: " + colname + ", " + str(sum_my_out) + ", " + "right value: " + str(sum_R))
-
-        logger.info('数据验证-Finish')
-
+                        logger.debug("different value(sum) columns: " + colname + ", " + str(sum_my_out) + ", " + "right value: " + str(sum_R))
+        logger.debug('数据验证-Finish')
 
