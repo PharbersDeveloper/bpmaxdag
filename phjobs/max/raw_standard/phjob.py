@@ -306,6 +306,7 @@ def execute(**kwargs):
     #     .withColumnRenamed("model", "MARKET") \
     #     .select("MARKET", "MOLECULE_STD").distinct()
     df_market_map = df_market_map.withColumnRenamed("标准通用名", "MOLECULE_STD") \
+        .withColumnRenamed("model", "MARKET") \
         .withColumnRenamed("mkt", "MARKET") \
         .select("MARKET", "MOLECULE_STD").distinct()
     
@@ -425,8 +426,8 @@ def execute(**kwargs):
     # a = ['DATE', 'ID', 'RAW_HOSP_NAME', 'BRAND', 'FORM', 'SPECIFICATIONS', 'PACK_NUMBER', 'MANUFACTURER', 'MOLECULE', 'SOURCE', 'SALES', 'UNITS', 'UNITS_BOX', 'PHA', 'PHA_HOSPITAL_NAME', 'PROVINCE', 'CITY', 'MIN', 'MARKET', 'MOLECULE_STD_MASTER', 'BRAND_STD', 'FORM_STD', 'SPECIFICATIONS_STD', 'PACK_NUMBER_STD', 'MANUFACTURER_STD', 'PROVINCE_STD', 'CITY_STD', 'PACK_ID', 'ATC', 'PROJECT', 'DATE_COPY']
     # b = ['Date', 'ID', 'Raw_Hosp_Name', 'Brand', 'Form', 'Specifications', 'Pack_Number', 'Manufacturer', 'Molecule', 'Source', 'Sales', 'Units', 'Units_Box', 'PHA', 'PHA医院名称', 'Province', 'City', 'min1', 'DOI', '标准通用名', '标准商品名', '标准剂型', '标准规格', '标准包装数量', '标准生产企业', '标准省份名称', '标准城市名称', 'PACK_ID', 'ATC', 'project', 'Date_copy']
     # df_result_rawdata_standard =  df_result_rawdata_standard.select([col(i).alias(j)   for i,j in zip(b,a)])
-    
-    
+
+    # %%
     
     ## 列长度一样
     # print("New and Old 的列数目是否一致", len(df_result_rawdata_standard.columns) == len( df_raw_data_standard.columns ) )
@@ -459,22 +460,23 @@ def execute(**kwargs):
     # df_result_rawdata_standard.select("DATE").where( df_result_rawdata_standard.DATE >=202101  ).distinct().show()
     # df_result_rawdata_standard.select("DATE").where( (df_result_rawdata_standard.DATE >=202001)| ((df_result_rawdata_standard.DATE >=202101) )   ).distinct().show()
     # 17，18，19，20，21(只有1月的)
-    
-    
-
     # %%
     
     # df_result_rawdata_standard_2017 =  df_result_rawdata_standard.where( (df_result_rawdata_standard.DATE >=201701)& ((df_result_rawdata_standard.DATE < 201801) )   )
     # df_raw_data_standard_2017 =  df_raw_data_standard.where( (df_raw_data_standard.DATE >=201701) & ((df_raw_data_standard.DATE < 201801) )   ) \
-    #                         .withColumnRenamed("SALES", "SALES_2" )
+    #   .withColumnRenamed("SALES", "SALES_2" )
+    
+    # # 比较每个月的样本数目是否一致
     # # for i in a:
     # #     print(i, df_result_rawdata_standard_2017.select(i).distinct().count(), df_result_rawdata_standard_2017.select(i).distinct().count() )
         
+    # # 比较单独一年，新旧 结果是否一致    
     # sales_error = df_result_rawdata_standard_2017.join( df_raw_data_standard_2017, on=["DATE", "ID", "UNITS", "PHA", "MOLECULE", "PROVINCE","CITY", "MIN"],  how="inner")
     # # print( df_raw_data_standard_2017.count(),  sales_error.count() )
     # sales_error.withColumn("Error", sales_error.SALES - sales_error.SALES_2 ).select("Error").show()  #.distinct().collect()
     
     
+    ## 循环比较每个年，新旧结果是否一致
     # for i in [201701,201801, 201901, 202001 ]:
     #     df_result_rawdata_standard_2017 =  df_result_rawdata_standard.where( (df_result_rawdata_standard.DATE >=i )& ((df_result_rawdata_standard.DATE < (i+100) ) )   )
     #     df_raw_data_standard_2017 =  df_raw_data_standard.where( (df_raw_data_standard.DATE >=i ) & ((df_raw_data_standard.DATE < (i+100)  ) )   ) \
