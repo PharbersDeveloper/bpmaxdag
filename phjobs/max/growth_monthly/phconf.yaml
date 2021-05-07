@@ -23,7 +23,7 @@ spec:
       - key: g_year
         value: Empty
       - key: depend_job_names_keys
-        value: ["product_mapping#product_mapping_out#product_mapping_out"]
+        value: ["deal_poi#deal_poi_out#deal_poi_out"]
       - key: g_current_month
         value: Empty
       - key: g_monthly_update

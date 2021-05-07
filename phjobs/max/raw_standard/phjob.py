@@ -30,14 +30,19 @@ def execute(**kwargs):
 
     
     
+    
+    
     from pyspark.sql.types import IntegerType, DoubleType, StringType, StructType, StructType
     from pyspark.sql.functions import col
     from pyspark.sql import functions as func
-    from pyspark.sql import DataFrame    # %%
+    from pyspark.sql import DataFrame    
+    # %%
     # ===========  测试用的参数 ============
     # g_project_name ="贝达"
     # g_out_dir = "202012_test"
     # g_depend_job_names_keys = '["data_adding_monthly#raw_data_adding_final#raw_data_adding_final"]'
+    # result_path_prefix = get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
+
     # %%
     # =========== 输入 输出 ============
     
@@ -297,8 +302,12 @@ def execute(**kwargs):
     
     # 市场名匹配
     df_market_map = spark.read.parquet(p_market)
+    # df_market_map = df_market_map.withColumnRenamed("标准通用名", "MOLECULE_STD") \
+    #     .withColumnRenamed("model", "MARKET") \
+    #     .select("MARKET", "MOLECULE_STD").distinct()
     df_market_map = df_market_map.withColumnRenamed("标准通用名", "MOLECULE_STD") \
         .withColumnRenamed("model", "MARKET") \
+        .withColumnRenamed("mkt", "MARKET") \
         .select("MARKET", "MOLECULE_STD").distinct()
     
     
@@ -412,21 +421,17 @@ def execute(**kwargs):
     # ===========  数据校准  ============
     # p_result_rawdata_standard = "s3a://ph-stream/common/public/max_result/0.0.5/rawdata_standard/贝达_rawdata_standard"
     # df_result_rawdata_standard = spark.read.parquet( p_result_rawdata_standard )
-    # df_result_rawdata_standard.persist()
     
-    
-    
-    # print( df_raw_data_standard.columns)
-    # print( df_result_rawdata_standard.columns )
     
     # a = ['DATE', 'ID', 'RAW_HOSP_NAME', 'BRAND', 'FORM', 'SPECIFICATIONS', 'PACK_NUMBER', 'MANUFACTURER', 'MOLECULE', 'SOURCE', 'SALES', 'UNITS', 'UNITS_BOX', 'PHA', 'PHA_HOSPITAL_NAME', 'PROVINCE', 'CITY', 'MIN', 'MARKET', 'MOLECULE_STD_MASTER', 'BRAND_STD', 'FORM_STD', 'SPECIFICATIONS_STD', 'PACK_NUMBER_STD', 'MANUFACTURER_STD', 'PROVINCE_STD', 'CITY_STD', 'PACK_ID', 'ATC', 'PROJECT', 'DATE_COPY']
     # b = ['Date', 'ID', 'Raw_Hosp_Name', 'Brand', 'Form', 'Specifications', 'Pack_Number', 'Manufacturer', 'Molecule', 'Source', 'Sales', 'Units', 'Units_Box', 'PHA', 'PHA医院名称', 'Province', 'City', 'min1', 'DOI', '标准通用名', '标准商品名', '标准剂型', '标准规格', '标准包装数量', '标准生产企业', '标准省份名称', '标准城市名称', 'PACK_ID', 'ATC', 'project', 'Date_copy']
     # df_result_rawdata_standard =  df_result_rawdata_standard.select([col(i).alias(j)   for i,j in zip(b,a)])
-    # print( df_result_rawdata_standard.columns )
-    
+
+    # %%
     
     ## 列长度一样
-    # len(df_result_rawdata_standard.columns) == len( df_raw_data_standard.columns )
+    # print("New and Old 的列数目是否一致", len(df_result_rawdata_standard.columns) == len( df_raw_data_standard.columns ) )
+    # print("New and Old 的样本数目是否一致", df_result_rawdata_standard.count(), df_raw_data_standard.count() )
     # df_result_rawdata_standard.show(1, vertical=True)
     
     # 日期数目不同
@@ -441,42 +446,45 @@ def execute(**kwargs):
     # print("result   lines number: ", df_result_rawdata_standard.count() )
     # print("raw data lines number: ", df_raw_data_standard.count() )
     ### 限定月份数目
-    # print("result   lines number: ", df_result_rawdata_standard.where( (df_result_rawdata_standard.Date >=202001)& ((df_result_rawdata_standard.Date < 202101) )   ).count() )
+    # print("result   lines number: ", df_result_rawdata_standard.where( (df_result_rawdata_standard.DATE >=202001)& ((df_result_rawdata_standard.DATE < 202101) )   ).count() )
     # print("raw data lines number: ", df_raw_data_standard.where( (df_raw_data_standard.DATE >=202001) & ((df_raw_data_standard.DATE < 202101) )   ).count() )
-    # print("result   lines number: ", df_result_rawdata_standard.where( (df_result_rawdata_standard.Date >=201901)& ((df_result_rawdata_standard.Date < 202001) )   ).count() )
+    # print("result   lines number: ", df_result_rawdata_standard.where( (df_result_rawdata_standard.DATE >=201901)& ((df_result_rawdata_standard.DATE < 202001) )   ).count() )
     # print("raw data lines number: ", df_raw_data_standard.where( (df_raw_data_standard.DATE >=201901) & ((df_raw_data_standard.DATE < 202001) )   ).count() )
-    # print("result   lines number: ", df_result_rawdata_standard.where( (df_result_rawdata_standard.Date >=201801)& ((df_result_rawdata_standard.Date < 201901) )   ).count() )
+    # print("result   lines number: ", df_result_rawdata_standard.where( (df_result_rawdata_standard.DATE >=201801)& ((df_result_rawdata_standard.DATE < 201901) )   ).count() )
     # print("raw data lines number: ", df_raw_data_standard.where( (df_raw_data_standard.DATE >=201801) & ((df_raw_data_standard.DATE < 201901) )   ).count() )
-    # print("result   lines number: ", df_result_rawdata_standard.where( (df_result_rawdata_standard.Date >=201701)& ((df_result_rawdata_standard.Date < 201801) )   ).count() )
+    # print("result   lines number: ", df_result_rawdata_standard.where( (df_result_rawdata_standard.DATE >=201701)& ((df_result_rawdata_standard.DATE < 201801) )   ).count() )
     # print("raw data lines number: ", df_raw_data_standard.where( (df_raw_data_standard.DATE >=201701) & ((df_raw_data_standard.DATE < 201801) )   ).count() )
     
     
-    # df_result_rawdata_standard.select("Date").distinct().show()
-    # df_result_rawdata_standard.select("Date").where( df_result_rawdata_standard.Date >=202101  ).distinct().show()
-    # df_result_rawdata_standard.select("Date").where( (df_result_rawdata_standard.Date >=202001)| ((df_result_rawdata_standard.Date >=202101) )   ).distinct().show()
+    # df_result_rawdata_standard.select("DATE").distinct().show()
+    # df_result_rawdata_standard.select("DATE").where( df_result_rawdata_standard.DATE >=202101  ).distinct().show()
+    # df_result_rawdata_standard.select("DATE").where( (df_result_rawdata_standard.DATE >=202001)| ((df_result_rawdata_standard.DATE >=202101) )   ).distinct().show()
     # 17，18，19，20，21(只有1月的)
-    
+    # %%
     
     # df_result_rawdata_standard_2017 =  df_result_rawdata_standard.where( (df_result_rawdata_standard.DATE >=201701)& ((df_result_rawdata_standard.DATE < 201801) )   )
     # df_raw_data_standard_2017 =  df_raw_data_standard.where( (df_raw_data_standard.DATE >=201701) & ((df_raw_data_standard.DATE < 201801) )   ) \
-    #                         .withColumnRenamed("SALES", "SALES_2" )
+    #   .withColumnRenamed("SALES", "SALES_2" )
+    
+    # # 比较每个月的样本数目是否一致
     # # for i in a:
     # #     print(i, df_result_rawdata_standard_2017.select(i).distinct().count(), df_result_rawdata_standard_2017.select(i).distinct().count() )
         
+    # # 比较单独一年，新旧 结果是否一致    
     # sales_error = df_result_rawdata_standard_2017.join( df_raw_data_standard_2017, on=["DATE", "ID", "UNITS", "PHA", "MOLECULE", "PROVINCE","CITY", "MIN"],  how="inner")
     # # print( df_raw_data_standard_2017.count(),  sales_error.count() )
     # sales_error.withColumn("Error", sales_error.SALES - sales_error.SALES_2 ).select("Error").show()  #.distinct().collect()
     
     
+    ## 循环比较每个年，新旧结果是否一致
     # for i in [201701,201801, 201901, 202001 ]:
     #     df_result_rawdata_standard_2017 =  df_result_rawdata_standard.where( (df_result_rawdata_standard.DATE >=i )& ((df_result_rawdata_standard.DATE < (i+100) ) )   )
     #     df_raw_data_standard_2017 =  df_raw_data_standard.where( (df_raw_data_standard.DATE >=i ) & ((df_raw_data_standard.DATE < (i+100)  ) )   ) \
     #                             .withColumnRenamed("SALES", "SALES_2" )
-    #     # for i in a:
-    #     #     print(i, df_result_rawdata_standard_2017.select(i).distinct().count(), df_result_rawdata_standard_2017.select(i).distinct().count() )
-    
+        
     #     sales_error = df_result_rawdata_standard_2017.join( df_raw_data_standard_2017, on=["DATE", "ID", "UNITS", "PHA", "MOLECULE", "PROVINCE","CITY", "MIN"],  how="inner")
-    #     # print( df_raw_data_standard_2017.count(),  sales_error.count() )
+    #     print( "Old-lines: %s   New-lines: %s   inner-lines: %s"% ( df_result_rawdata_standard_2017.count(), 
+    #           df_raw_data_standard_2017.count(),  sales_error.count() ) )
     #     coo =  sales_error.withColumn("Error", sales_error.SALES - sales_error.SALES_2 ).select("Error").distinct().collect()
     #     print(coo)
 

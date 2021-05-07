@@ -24,13 +24,14 @@ def execute(**kwargs):
     dag_name = kwargs['dag_name']
     run_id = kwargs['run_id']
     max_path = kwargs['max_path']
+    g_city_47 = kwargs['g_city_47']
+    g_province_47 = kwargs['g_province_47']
     ### input args ###
     
     ### output args ###
     g_panel = kwargs['g_panel']
     ### output args ###
 
-    
     
     from pyspark.sql.functions import col
     from pyspark.sql.types import IntegerType, StringType, StructType, StructField, DoubleType    
@@ -39,16 +40,15 @@ def execute(**kwargs):
     
     # %%
     # 测试用的参数
-    '''
-    g_project_name ="贝达"
-    g_model_month_right="201912"
-    g_year=2020
-    g_current_month="12"
-    g_add_47="True"
-    result_path_prefix = get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
-    depends_path = get_depends_path({"name":job_name, "dag_name":dag_name, 
-                                     "run_id":run_id, "depend_job_names_keys":depend_job_names_keys})
-    '''
+    
+    # g_project_name ="贝达"
+    # g_model_month_right="201912"
+    # g_year=2020
+    # g_current_month="12"
+    # g_add_47="True"
+    # result_path_prefix=get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
+    # depends_path=get_depends_path({"name":job_name, "dag_name":dag_name, 
+    #                                  "run_id":run_id, "depend_job_names_keys":depend_job_names_keys })
 
     # %%
     logger.debug('panel_monthly')
@@ -65,7 +65,10 @@ def execute(**kwargs):
     if g_add_47 != "False" and g_add_47 != "True":
         logger.error('wrong input: g_add_47, False or True') 
         raise ValueError('wrong input: g_add_47, False or True')
-        
+    
+    l_city = g_city_47.replace(' ','').split(',')
+    l_province = g_province_47.replace(' ','').split(',')
+    
     # 月更新相关输入
     # if monthly_update == "True":
     g_year = int(g_year)
@@ -92,61 +95,32 @@ def execute(**kwargs):
     df_markets = df_market.withColumnRenamed("标准通用名", "MOLECULE_STD") \
                             .withColumnRenamed("model", "MARKET") \
                             .withColumnRenamed("mkt", "MARKET")
-    
-    # 读取 df_universe
-    '''
-    df_universe = spark.read.parquet(p_universe)
-    df_universe = df_universe.withColumnRenamed('Panel_ID', 'PHA') \
-                        .withColumnRenamed('CITYGROUP', 'CITY_TIER') \
-                        .withColumnRenamed('Province', 'PROVINCE') \
-                        .withColumnRenamed('City', 'CITY') \
-                        .withColumnRenamed('Hosp_name', 'HOSP_NAME') \
-                        .withColumnRenamed('PANEL', 'PANEL') \
-                        .withColumnRenamed('BEDSIZE', 'BEDSIZE') \
-                        .withColumnRenamed('Seg', 'SEG')
-    df_universe = df_universe.select('PHA', 'CITY_TIER', 'PROVINCE', 'CITY', 'HOSP_NAME', 'PANEL', 'BEDSIZE', 'SEG')
-    df_universe = df_universe.withColumn('PANEL', col('PANEL').cast(IntegerType())) \
-                        .withColumn('BEDSIZE', col('BEDSIZE').cast(IntegerType())) \
-                        .withColumn('SEG', col('SEG').cast(IntegerType())) \
-                        .withColumn('CITY_TIER', col('CITY_TIER').cast(StringType()))
-    '''
 
     # %%
     # =========== 数据读取 =============
     # 1、读取 raw_data_adding_final
     # df_raw_data_adding_final = spark.read.parquet(p_raw_data_adding_final)
-    truct_type_data_adding_final = StructType([ StructField('MIN', StringType(), True),
-                                                    StructField('PHA', StringType(), True),
+    struct_type_data_adding_final = StructType([  StructField('PHA', StringType(), True),
                                                     StructField('ID', StringType(), True),
+                                                    StructField('PACK_ID', StringType(), True),
+                                                    StructField('MANUFACTURER_STD', StringType(), True),
                                                     StructField('YEAR_MONTH', DoubleType(), True),
-                                                    StructField('RAW_HOSP_NAME', StringType(), True),
-                                                    StructField('BRAND', StringType(), True),
-                                                    StructField('FORM', StringType(), True),
-                                                    StructField('SPECIFICATIONS', StringType(), True),
-                                                    StructField('PACK_NUMBER', StringType(), True),
-                                                    StructField('MANUFACTURER', StringType(), True),
-                                                    StructField('MOLECULE', StringType(), True),
-                                                    StructField('SOURCE', StringType(), True),
-                                                    StructField('CORP', StringType(), True),
-                                                    StructField('ROUTE', StringType(), True),
-                                                    StructField('ORG_MEASURE', StringType(), True),
+                                                    StructField('MOLECULE_STD', StringType(), True),
+                                                    StructField('BRAND_STD', StringType(), True),
+                                                    StructField('PACK_NUMBER_STD', IntegerType(), True),
+                                                    StructField('FORM_STD', StringType(), True),
+                                                    StructField('SPECIFICATIONS_STD', StringType(), True),
                                                     StructField('SALES', DoubleType(), True),
                                                     StructField('UNITS', DoubleType(), True),
-                                                    StructField('UNITS_BOX', DoubleType(), True),
-                                                    StructField('PATH', StringType(), True),
-                                                    StructField('SHEET', StringType(), True),
                                                     StructField('CITY', StringType(), True),
                                                     StructField('PROVINCE', StringType(), True),
                                                     StructField('CITY_TIER', DoubleType(), True),
                                                     StructField('MONTH', IntegerType(), True),
                                                     StructField('YEAR', IntegerType(), True),
                                                     StructField('MIN_STD', StringType(), True),
-                                                    StructField('MOLECULE_STD', StringType(), True),
-                                                    StructField('ROUTE_STD', StringType(), True),
-                                                    StructField('BRAND_STD', StringType(), True),
                                                     StructField('MOLECULE_STD_FOR_GR', StringType(), True),
                                                     StructField('ADD_FLAG', IntegerType(), True) ])
-    df_raw_data_adding_final = spark.read.format("parquet").load(p_raw_data_adding_final)
+    df_raw_data_adding_final = spark.read.format("parquet").load(p_raw_data_adding_final, schema=struct_type_data_adding_final)
     # df_raw_data_adding_final = df_raw_data_adding_final.persist()
     
     # 2、读取 universe 数据
@@ -171,25 +145,48 @@ def execute(**kwargs):
     createView(g_project_name, "product_rel_dimesion", "DIMENSION/PRODUCT_RELATIONSHIP_DIMENSION", "2021-04-06")
     createView(g_project_name, "raw_data_fact", "FACT/RAW_DATA_FACT", "2021-04-06")
     
+    # base_universe_sql = """
+    #     SELECT PHA_ID AS PHA, HOSPITAL_ID, HOSP_NAME, 
+    #             PROVINCE, CITY, CITYGROUP AS CITY_TIER, 
+    #             REGION, TOTAL AS BEDSIZE, SEG, BID_SAMPLE AS PANEL FROM (
+    #         SELECT 
+    #             PHA_ID, HOSPITAL_ID, HOSP_NAME, 
+    #             PROVINCE, CITY, CITYGROUP, 
+    #             REGION, TAG, VALUE, SEG 
+    #         FROM hospital_dimesion AS hdim 
+    #             INNER JOIN hospital_fact AS hfct
+    #             ON hdim.ID == hfct.HOSPITAL_ID WHERE (CATEGORY = 'BEDCAPACITY' AND TAG = 'TOTAL') OR (CATEGORY = 'IS' AND TAG = 'BID_SAMPLE')
+    #     )
+    #     PIVOT (
+    #         SUM(VALUE)
+    #         FOR TAG in ('TOTAL', 'BID_SAMPLE')
+    #     )
+    # """
+    # df_universe = spark.sql(base_universe_sql)
+    
     base_universe_sql = """
-        SELECT PHA_ID AS PHA, HOSPITAL_ID, HOSP_NAME, 
+            SELECT PANEL_ID AS PHA, HOSPITAL_ID, HOSP_NAME, 
                 PROVINCE, CITY, CITYGROUP AS CITY_TIER, 
                 REGION, TOTAL AS BEDSIZE, SEG, BID_SAMPLE AS PANEL FROM (
             SELECT 
-                PHA_ID, HOSPITAL_ID, HOSP_NAME, 
+                hdim.PANEL_ID, HOSPITAL_ID, HOSP_NAME, 
                 PROVINCE, CITY, CITYGROUP, 
                 REGION, TAG, VALUE, SEG 
             FROM hospital_dimesion AS hdim 
                 INNER JOIN hospital_fact AS hfct
-                ON hdim.ID == hfct.HOSPITAL_ID WHERE (CATEGORY = 'BEDCAPACITY' AND TAG = 'TOTAL') OR (CATEGORY = 'IS' AND TAG = 'BID_SAMPLE')
-        )
-        PIVOT (
-            SUM(VALUE)
-            FOR TAG in ('TOTAL', 'BID_SAMPLE')
-        )
+                ON hdim.ID == hfct.HOSPITAL_ID
+            WHERE (CATEGORY = 'BEDCAPACITY' AND TAG = 'TOTAL') OR (CATEGORY = 'IS' AND TAG = 'BID_SAMPLE')
+            )
+            PIVOT (
+                SUM(VALUE)
+                FOR TAG in ('TOTAL', 'BID_SAMPLE')
+            )
     """
-    
     df_universe = spark.sql(base_universe_sql)
+    
+    ## SQL 读太慢了
+    # df_universe = spark.read.parquet("s3a://ph-max-auto/2020-08-11/Max/refactor/runs/max_test_beida_202012/temporary/universe_PANEL_ID")
+    # df_universe = spark.read.parquet("s3a://ph-max-auto/2020-08-11/Max/refactor/runs/max_test_beida_202012/temporary/universe_PHA_ID")
 
     # %%
     # =========== 数据执行 =============
@@ -205,10 +202,16 @@ def execute(**kwargs):
         .join(df_universe, on="PHA", how="left") \
         .withColumn("DATE", df_raw_data_adding_final.YEAR * 100 + df_raw_data_adding_final.MONTH)
     
-    df_panel = df_panel \
-        .groupBy("ID", "DATE", "MIN_STD", "MARKET", "HOSP_NAME", "PHA", "MOLECULE_STD", "PROVINCE", "CITY", "ADD_FLAG", "ROUTE_STD") \
-        .agg(func.sum("SALES").alias("SALES"), func.sum("UNITS").alias("UNITS"))
+    # df_panel = df_panel \
+    #     .groupBy("ID", "DATE", "MIN_STD", "MARKET", "HOSP_NAME", "PHA", "MOLECULE_STD", "PROVINCE", "CITY", "ADD_FLAG", "ROUTE_STD") \
+    #     .agg(func.sum("SALES").alias("SALES"), func.sum("UNITS").alias("UNITS"))
     
+    
+    ####################################################################
+    df_panel = df_panel \
+        .groupBy("ID", "DATE", "PACK_ID", "MIN_STD","MARKET", "HOSP_NAME", "PHA", "MOLECULE_STD", "PROVINCE", "CITY", "ADD_FLAG" ) \
+        .agg(func.sum("SALES").alias("SALES"), func.sum("UNITS").alias("UNITS"))
+    ####################################################################
     
     # 拆分 panel_raw_data， panel_add_data
     df_panel_raw_data = df_panel.where(df_panel.ADD_FLAG == 0)
@@ -228,30 +231,17 @@ def execute(**kwargs):
     # 早于model所用时间（历史数据），用new_hospital补数;
     # 处于model所用时间（模型数据），不补数；
     # 晚于model所用时间（月更新数据），用unpublished和not arrived补数
-
+    # 取消Sanofi AZ 特殊处理（20210506）
     # %%
     #### 月更新
-    if g_project_name == "Sanofi" or g_project_name == "AZ":
-        kct = [u'北京市', u'长春市', u'长沙市', u'常州市', u'成都市', u'重庆市', u'大连市', u'福厦泉市', u'广州市',
-               u'贵阳市', u'杭州市', u'哈尔滨市', u'济南市', u'昆明市', u'兰州市', u'南昌市', u'南京市', u'南宁市', u'宁波市',
-               u'珠三角市', u'青岛市', u'上海市', u'沈阳市', u'深圳市', u'石家庄市', u'苏州市', u'太原市', u'天津市', u'温州市',
-               u'武汉市', u'乌鲁木齐市', u'无锡市', u'西安市', u'徐州市', u'郑州市', u'合肥市', u'呼和浩特市', u'福州市', u'厦门市',
-               u'泉州市', u'珠海市', u'东莞市', u'佛山市', u'中山市']
-        city_list = [u'北京市', u'上海市', u'天津市', u'重庆市', u'广州市', u'深圳市', u'西安市', u'大连市', u'成都市', u'厦门市', u'沈阳市']
-        province_list = [u'河北省', u'福建省', u'河北', u"福建"]
+    # l_city = [u'北京市', u'上海市', u'天津市', u'重庆市', u'广州市', u'深圳市', u'西安市', u'大连市', u'成都市', u'厦门市', u'沈阳市']
+    # l_province = [u'河北省', u'福建省', u'河北', u"福建"]
+    
+    # 去除 city_list和 Province_list
+    if g_add_47 == "False":
         df_panel_add_data = df_panel_add_data \
-            .where(~df_panel_add_data.CITY.isin(city_list)) \
-            .where(~df_panel_add_data.PROVINCE.isin(province_list)) \
-            .where(~(~(df_panel_add_data.CITY.isin(kct)) & (df_panel_add_data.MOLECULE_STD == u"奥希替尼")))
-    else:
-        city_list = [u'北京市', u'上海市', u'天津市', u'重庆市', u'广州市', u'深圳市', u'西安市', u'大连市', u'成都市', u'厦门市', u'沈阳市']
-        Province_list = [u'河北省', u'福建省', u'河北', u"福建"]
-                    
-        # 去除 city_list和 Province_list
-        if g_add_47 == "False":
-            df_panel_add_data = df_panel_add_data \
-                .where(~df_panel_add_data.CITY.isin(city_list)) \
-                .where(~df_panel_add_data.PROVINCE.isin(province_list))
+            .where(~df_panel_add_data.CITY.isin(l_city)) \
+            .where(~df_panel_add_data.PROVINCE.isin(l_province))
             
     
     # unpublished文件
@@ -289,7 +279,7 @@ def execute(**kwargs):
     
     df_panel_filtered = df_panel_raw_data.union(df_panel_add_data_future)
     
-    df_panel_filtered.persist()
+    # df_panel_filtered.persist()
 
     # %%
     # =========== 输出 =============
@@ -298,35 +288,59 @@ def execute(**kwargs):
         .mode("overwrite").save(p_result_panel)
 
     # %%
+    # df_data_old = spark.read.parquet('s3a://ph-max-auto/2020-08-11/Max/refactor/runs/max_test_beida_202012_bk/panel_monthly/panel_result')
+    # df_data_old.show(1, vertical=True)
+    
+    ##### 比较差值
+    # df_panel_filtered = df_panel_filtered.distinct()
+    # df_panel_filtered.show(1, vertical=True)
+    
+    # df_data_old = spark.read.parquet("s3a://ph-max-auto/2020-08-11/Max/refactor/runs/max_test_beida_202012_bk/panel_monthly/panel_result")
+    # df_data_old = df_data_old.withColumnRenamed("SALES", "SALES_OLD")\
+    #                             .withColumnRenamed("UNITS", "UNITS_OLD").distinct()
+    # # df_data_old.show(1,  vertical=True)
+    
+    # compare = df_panel_filtered.join( df_data_old, on=[ "ID", "MIN_STD", "PHA", "DATE",
+    #                                     "MARKET", "HOSP_NAME", "PROVINCE", "CITY", "MOLECULE_STD" ] ,how="inner")
+    # print(df_panel_filtered.count(), df_data_old.count(), compare.count() )
+    
+    # print( compare.withColumn("Error", compare["SALES"]- compare["SALES_OLD"] ).select("Error").distinct().collect() )
+    # print( compare.withColumn("Error_2", compare["UNITS"]- compare["UNITS_OLD"] ).select("Error_2").distinct().collect() )
+    
+    # #### 找到匹配不到的
+    # df_panel_filtered.join( df_data_old, on=[ "ID", "MIN_STD", "PHA", "DATE","MARKET",
+    #                                                    "HOSP_NAME", "PROVINCE", "CITY", "MOLECULE_STD" ] ,how="anti").show()
+    # df_panel_filtered.where(df_panel_filtered["ID"]==360161).count()
+
+    # %%
     # ############ 月更新结果比较
     # ## 原来月更新的job4 结果存储路径
     # p_result_month_old = "s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012_test/panel_result/"
     
-    # ### 读取原来的job4-month 的输出结果
+    # # ### 读取原来的job4-month 的输出结果
     # df_result_month_old = spark.read.parquet(p_result_month_old)
-    # df_result_month_old.select("Date").distinct().show()
+    # # df_result_month_old.select("Date").distinct().show()
     
     
-    # print( df_result_month_old.schema )
-    # # print( df_result_month_old.show(1, vertical=True))
+    # # print( df_result_month_old.schema )
+    # # # print( df_result_month_old.show(1, vertical=True))
     
     # df_result_month_202012 = df_result_month_old.where(  df_result_month_old.Date==202012.00  )
     # df_result_month_202012 = df_result_month_202012.withColumn("DATE", df_result_month_202012["Date"].cast(IntegerType()) )
     # df_result_month_202012 = df_result_month_202012.withColumnRenamed("Prod_Name", "MIN_STD" )\
     #                         .withColumnRenamed("Sales", "SalesOld")
     
-    # df_result_month_202012.persist()
-    # # df_result_month_202012.show(1, vertical=True) 
-    # df_result_month_202012.count()
+    # # df_result_month_202012.persist()
+    # # # df_result_month_202012.show(1, vertical=True) 
+    # # df_result_month_202012.count()
     
-    # compare  = df_panel_filtered.join( df_result_month_202012, on=["DATE", "ID", "MIN_STD"], how="left" )
-    # compare.persist()
+    # compare  = df_panel_filtered.join( df_result_month_202012, on=["DATE", "ID", "MIN_STD"], how="inner" )
+    # # compare.persist()
     
-    # print(compare.count() )
-    # # compare.show(1, vertical=True)
     
+    # print(compare.count(), df_panel_filtered.count(), df_result_month_202012.count() )
     # compare_result = compare.withColumn("sales_error", compare["SALES"] - compare["SalesOld"])
-    # # compare_result.where( compare_result.sales_error !=0.0).show(1, vertical=True)
+    # print( compare_result.where( func.abs( compare_result.sales_error) >0.01 ).count() )
     
     # compare_result.where( compare_result.sales_error !=0.0).select(["SALES", "SalesOld", "sales_error"] ).collect()
 

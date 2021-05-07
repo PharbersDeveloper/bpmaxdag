@@ -22,8 +22,9 @@ def execute(**kwargs):
     g_hospital_level = kwargs['g_hospital_level']
     g_bedsize = kwargs['g_bedsize']
     p_id_bedsize = kwargs['p_id_bedsize']
-    g_time_left = kwargs['g_time_left']
-    g_time_right = kwargs['g_time_right']
+    g_monthly_update = kwargs['g_monthly_update']
+    g_year = kwargs['g_year']
+    g_month = kwargs['g_month']
     g_market = kwargs['g_market']
     depend_job_names_keys = kwargs['depend_job_names_keys']
     g_max_path = kwargs['g_max_path']
@@ -40,7 +41,7 @@ def execute(**kwargs):
     from pyspark.sql import functions as func
     from pyspark.sql.functions import col
     import boto3
-    import os        # %%
+    import os           # %%
     '''
     g_project_name = "贝达"
     g_market = 'BD1'
@@ -48,9 +49,17 @@ def execute(**kwargs):
     g_time_right = "202012"
     g_out_dir = "202012_test"
     g_if_two_source = "True"
-                                     "run_id":run_id, "depend_job_names_keys":depend_job_names_keys})
+    result_path_prefix=get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
+    depends_path=get_depends_path({"name":job_name, "dag_name":dag_name, 
+                                         "run_id":run_id, "depend_job_names_keys":depend_job_names_keys })
+    
+    g_monthly_update = 'False'
+    g_year = '2019'
+    
+    # g_monthly_update = 'True'
+    # g_year = '2020'
+    # g_month = '12'
     '''
-
     # %%
     # 输入
     g_minimum_product_columns = g_minimum_product_columns.replace(" ","").split(",")
@@ -62,8 +71,9 @@ def execute(**kwargs):
     if g_hospital_level != "False" and g_hospital_level != "True":
         raise ValueError('g_hospital_level: False or True')
     
-    g_time_left = int(g_time_left)
-    g_time_right = int(g_time_right)
+    g_year = int(g_year)
+    if g_monthly_update == 'True':
+        g_month = int(g_month)
     
     p_province_city_mapping = g_max_path + "/" + g_project_name + '/province_city_mapping'
     p_market = g_max_path + "/" + g_project_name + '/mkt_mapping'
@@ -227,14 +237,14 @@ def execute(**kwargs):
     新：都统一读取raw，重新匹配
     '''
     # 一. raw文件处理
-    if g_if_two_source == "False":
-        df_raw_data = df_raw_data.where((col("DATE") >=g_time_left) & (col('DATE') <= g_time_right))
-    
+    if g_monthly_update == 'True':
+        df_raw_data = df_raw_data.where(col("DATE")  == g_year * 100 + g_month)
     else:
+        df_raw_data = df_raw_data.where((col("DATE") >= g_year * 100 + 1) & (col('DATE') <= g_year * 100 + 12))
+    
+    if g_if_two_source == "True":
         # 1、匹配产品信息和医院信息
         # job1: df_raw_data 处理，匹配PHA，部分job1
-        df_raw_data = df_raw_data.where((col('DATE') >=g_time_left) & (col('DATE') <= g_time_right))
-    
         # 匹配：cpa_pha_mapping
         df_raw_data = dealIDlength(df_raw_data)    
         df_raw_data = df_raw_data.join(df_cpa_pha_mapping, on="ID", how="left")
@@ -254,7 +264,7 @@ def execute(**kwargs):
         # else:
         df_raw_data = df_raw_data.withColumnRenamed("tmp", g_minimum_product_newname)
     
-        df_product_map_for_rawdata = df_product_map.select("MIN", "MIN_STD", "MOLECULE_STD").distinct()
+        df_product_map_for_rawdata = df_product_map.select("MIN", "MIN_STD", "MOLECULE_STD", "PACK_ID").distinct()
         
         # 匹配：
         df_raw_data = df_raw_data.join(df_product_map_for_rawdata, on="MIN", how="left")
@@ -296,13 +306,13 @@ def execute(**kwargs):
     # 9、计算：groupby        
     if g_hospital_level == "True":
         df_raw_data_city = df_raw_data \
-            .groupBy("PROVINCE", "CITY", "DATE", "MIN_STD", "PANEL", "MARKET", "MOLECULE_STD", "PHA") \
+            .groupBy("PROVINCE", "CITY", "DATE", "MIN_STD", "PANEL", "MARKET", "MOLECULE_STD", "PHA", "PACK_ID") \
             .agg({"SALES":"sum", "UNITS":"sum"}) \
             .withColumnRenamed("sum(SALES)", "PREDICT_SALES") \
             .withColumnRenamed("sum(UNITS)", "PREDICT_UNIT")
     else:
         df_raw_data_city = df_raw_data \
-            .groupBy("PROVINCE", "CITY", "DATE", "MIN_STD", "PANEL", "MARKET", "MOLECULE_STD") \
+            .groupBy("PROVINCE", "CITY", "DATE", "MIN_STD", "PANEL", "MARKET", "MOLECULE_STD", "PACK_ID") \
             .agg({"SALES":"sum", "UNITS":"sum"}) \
             .withColumnRenamed("sum(SALES)", "PREDICT_SALES") \
             .withColumnRenamed("sum(UNITS)", "PREDICT_UNIT")
@@ -317,12 +327,14 @@ def execute(**kwargs):
                                                     StructField('DATE', IntegerType(), True),
                                                     StructField('MOLECULE_STD', StringType(), True),
                                                     StructField('MIN_STD', StringType(), True),
+                                                    StructField('PACK_ID', StringType(), True),
                                                     StructField('BEDSIZE', DoubleType(), True),
                                                     StructField('PANEL', DoubleType(), True),
                                                     StructField('SEG', DoubleType(), True),
                                                     StructField('PREDICT_SALES', DoubleType(), True),
                                                     StructField('PREDICT_UNIT', DoubleType(), True) ])
     df_max_result = spark.read.format("parquet").load(p_max_weight_result, schema=strcut_type_max_weight_result)
+    
     # 1、max_result 筛选 BEDSIZE > 99， 且医院不在df_raw_data_PHA 中
     if g_bedsize == "True":
         df_max_result = df_max_result.where(col('BEDSIZE') > 99)
@@ -332,13 +344,13 @@ def execute(**kwargs):
     
     if g_hospital_level == "True":
         df_max_result = df_max_result \
-            .groupBy("PROVINCE", "CITY", "DATE", "MIN_STD", "PANEL", "MOLECULE_STD", "PHA") \
+            .groupBy("PROVINCE", "CITY", "DATE", "MIN_STD", "PANEL", "MOLECULE_STD", "PHA", 'PACK_ID') \
             .agg({"PREDICT_SALES":"sum", "PREDICT_UNIT":"sum"}) \
             .withColumnRenamed("sum(PREDICT_SALES)", "PREDICT_SALES") \
             .withColumnRenamed("sum(PREDICT_UNIT)", "PREDICT_UNIT")
     else:
         df_max_result = df_max_result \
-            .groupBy("PROVINCE", "CITY", "DATE", "MIN_STD", "PANEL", "MOLECULE_STD") \
+            .groupBy("PROVINCE", "CITY", "DATE", "MIN_STD", "PANEL", "MOLECULE_STD", 'PACK_ID') \
             .agg({"PREDICT_SALES":"sum", "PREDICT_UNIT":"sum"}) \
             .withColumnRenamed("sum(PREDICT_SALES)", "PREDICT_SALES") \
             .withColumnRenamed("sum(PREDICT_UNIT)", "PREDICT_UNIT")
@@ -350,34 +362,34 @@ def execute(**kwargs):
     # 三. 合并df_raw_data 和 max文件处理
     if g_hospital_level == "True":
         df_raw_data_city = df_raw_data_city.select("PHA", "PROVINCE", "CITY", "DATE", "MIN_STD", "MOLECULE_STD", "PANEL", "MARKET", 
-                                                   "PREDICT_SALES", "PREDICT_UNIT")
+                                                   "PREDICT_SALES", "PREDICT_UNIT", 'PACK_ID')
         max_result_all = df_max_result.select("PHA", "PROVINCE", "CITY", "DATE", "MIN_STD", "MOLECULE_STD", "PANEL", "MARKET", 
-                                               "PREDICT_SALES", "PREDICT_UNIT")
+                                               "PREDICT_SALES", "PREDICT_UNIT", 'PACK_ID')
     else:
         df_raw_data_city = df_raw_data_city.select("PROVINCE", "CITY", "DATE", "MIN_STD", "MOLECULE_STD", "PANEL", "MARKET", 
-                                                   "PREDICT_SALES", "PREDICT_UNIT")
+                                                   "PREDICT_SALES", "PREDICT_UNIT", 'PACK_ID')
         max_result_all = df_max_result.select("PROVINCE", "CITY", "DATE", "MIN_STD", "MOLECULE_STD", "PANEL", "MARKET", 
-                                               "PREDICT_SALES", "PREDICT_UNIT")
+                                               "PREDICT_SALES", "PREDICT_UNIT", 'PACK_ID')
     
     max_result_city = max_result_all.union(df_raw_data_city)
     
     # 四. 合并后再进行一次group
     if g_hospital_level == "True":
         max_result_city = max_result_city \
-            .groupBy("PROVINCE", "CITY", "DATE", "MIN_STD", "PANEL", "MOLECULE", "PHA", "MARKET") \
+            .groupBy("PROVINCE", "CITY", "DATE", "MIN_STD", "PANEL", "MOLECULE", "PHA", "MARKET", 'PACK_ID') \
             .agg({"PREDICT_SALES":"sum", "PREDICT_UNIT":"sum"}) \
             .withColumnRenamed("sum(PREDICT_SALES)", "PREDICT_SALES") \
             .withColumnRenamed("sum(PREDICT_UNIT)", "PREDICT_UNIT")
         max_result_city = max_result_city.select("PHA", "PROVINCE", "CITY", "DATE", "MIN_STD", "MOLECULE_STD", "PANEL", "MARKET", 
-                                                 "PREDICT_SALES", "PREDICT_UNIT")
+                                                 "PREDICT_SALES", "PREDICT_UNIT", 'PACK_ID')
     else:
         max_result_city = max_result_city \
-            .groupBy("PROVINCE", "CITY", "DATE", "MIN_STD", "PANEL", "MOLECULE_STD", "MARKET") \
+            .groupBy("PROVINCE", "CITY", "DATE", "MIN_STD", "PANEL", "MOLECULE_STD", "MARKET", 'PACK_ID') \
             .agg({"PREDICT_SALES":"sum", "PREDICT_UNIT":"sum"}) \
             .withColumnRenamed("sum(PREDICT_SALES)", "PREDICT_SALES") \
             .withColumnRenamed("sum(PREDICT_UNIT)", "PREDICT_UNIT")
         max_result_city = max_result_city.select("PROVINCE", "CITY", "DATE", "MIN_STD", "MOLECULE_STD", "PANEL", "MARKET", 
-                                                 "PREDICT_SALES", "PREDICT_UNIT")
+                                                 "PREDICT_SALES", "PREDICT_UNIT", 'PACK_ID')
         
     max_result_city = max_result_city.withColumnRenamed("MOLECULE_STD", "MOLECULE") \
                                     .withColumn("DATE", col("DATE").cast("int"))
@@ -392,6 +404,11 @@ def execute(**kwargs):
     # max_result_city.agg(func.sum('PREDICT_SALES'),func.sum('PREDICT_UNIT')).show()
 
     # %%
+    # 月更
     # df=spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012_test/MAX_result/MAX_result_202001_202012_city_level/')
     # df.where(df.Date==202012).agg(func.sum('Predict_Sales'),func.sum('Predict_Unit')).show()
 
+    # %%
+    # 模型
+    # df=spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/201912_test/MAX_result/MAX_result_201701_201912_city_level')
+    # df.where(col('Date')>=201901).where(col('Date')<=201912).agg(func.sum('Predict_Sales'), func.sum('Predict_Unit')).show()

@@ -27,9 +27,6 @@ def execute(**kwargs):
     ### output args ###
 
     
-    
-    
-    
     import os
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
@@ -43,7 +40,6 @@ def execute(**kwargs):
     # result_path_prefix = get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
     # depends_path = get_depends_path({"name":job_name, "dag_name":dag_name, 
     #                                   "run_id":run_id})
-    
 
     # %%
     logger.debug('job1_hospital_mapping')
@@ -60,22 +56,7 @@ def execute(**kwargs):
 
     # %%
     # =========== 数据准备 测试用=============
-    '''
-    df_universe = spark.read.parquet(universe_path)
-    df_universe = df_universe.withColumnRenamed('Panel_ID', 'PHA') \
-                        .withColumnRenamed('CITYGROUP', 'CITY_TIER') \
-                        .withColumnRenamed('Province', 'PROVINCE') \
-                        .withColumnRenamed('City', 'CITY') \
-                        .withColumnRenamed('Hosp_name', 'HOSP_NAME') \
-                        .withColumnRenamed('PANEL', 'PANEL') \
-                        .withColumnRenamed('BEDSIZE', 'BEDSIZE') \
-                        .withColumnRenamed('Seg', 'SEG')
-    df_universe = df_universe.select('PHA', 'CITY_TIER', 'PROVINCE', 'CITY', 'HOSP_NAME', 'PANEL', 'BEDSIZE', 'SEG')
-    df_universe = df_universe.withColumn('PANEL', col('PANEL').cast(IntegerType())) \
-                        .withColumn('BEDSIZE', col('BEDSIZE').cast(IntegerType())) \
-                        .withColumn('SEG', col('SEG').cast(IntegerType())) \
-                        .withColumn('CITY_TIER', col('CITY_TIER').cast(StringType()))
-    '''
+    
     def dealIDlength(df):
         # ID不足7位的补足0到6位
         # 国药诚信医院编码长度是7位数字，cpa医院编码是6位数字。
@@ -91,91 +72,72 @@ def execute(**kwargs):
     df_cpa_pha_mapping = df_cpa_pha_mapping.select('COMMEND', 'ID', 'PHA').where(col("COMMEND") == 1)
     df_cpa_pha_mapping = dealIDlength(df_cpa_pha_mapping)
     
-    
-    # df_raw_data
-    df_raw_data = spark.read.parquet(raw_data_path)
-    df_raw_data = df_raw_data.withColumnRenamed('Form', 'FORM') \
-                        .withColumnRenamed('Specifications', 'SPECIFICATIONS') \
-                        .withColumnRenamed('Pack_Number', 'PACK_NUMBER') \
-                        .withColumnRenamed('Manufacturer', 'MANUFACTURER') \
-                        .withColumnRenamed('Molecule', 'MOLECULE') \
-                        .withColumnRenamed('Source', 'SOURCE') \
-                        .withColumnRenamed('Corp', 'CORP') \
-                        .withColumnRenamed('Route', 'ROUTE') \
-                        .withColumnRenamed('ORG_Measure', 'ORG_MEASURE') \
-                        .withColumnRenamed('Sales', 'SALES') \
-                        .withColumnRenamed('Units', 'UNITS') \
-                        .withColumnRenamed('Units_Box', 'UNITS_BOX') \
-                        .withColumnRenamed('Path', 'PATH') \
-                        .withColumnRenamed('Sheet', 'SHEET') \
-                        .withColumnRenamed('Raw_Hosp_Name', 'RAW_HOSP_NAME') \
-                        .withColumnRenamed('Date', 'DATE') \
-                        .withColumnRenamed('Brand', 'BRAND')
-    df_raw_data = df_raw_data.withColumn('DATE', col('DATE').cast(IntegerType())) \
-                        .withColumn('PACK_NUMBER', col('PACK_NUMBER').cast(IntegerType())) \
-                        .withColumn('SALES', col('SALES').cast(DoubleType())) \
-                        .withColumn('UNITS', col('UNITS').cast(DoubleType())) \
-                        .withColumn('UNITS_BOX', col('UNITS_BOX').cast(DoubleType()))
-    
-    
-    df_raw_data = dealIDlength(df_raw_data)
+
     # %%
     # =========== 数据读取 =============
-    time = "2021-04-06"
-    company = g_project_name
-    base_path = "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX"
-    definite_path = "{base_path}/{model}/TIME={time}/COMPANY={company}"
-    dim_path = definite_path.format(
-        base_path = base_path,
-        model = "DIMENSION/HOSPITAL_DIMENSION",
-        time = time,
-        company = company
-    )
-    fact_path = definite_path.format(
-        base_path = base_path,
-        model = "FACT/HOSPITAL_FACT",
-        time = time,
-        company = company
-    )
-    cpa_gyc_mapping_path = definite_path.format(
-        base_path = base_path,
-        model = "/DIMENSION/MAPPING/CPA_GYC_MAPPING/STANDARD",
-        time = time,
-        company = company
-    )
     
-    spark.read.parquet(dim_path).createOrReplaceTempView("hospital_dimesion")
-    spark.read.parquet(fact_path).createOrReplaceTempView("hospital_fact")
-    spark.read.parquet(cpa_gyc_mapping_path).createOrReplaceTempView("cpa_gyc_mapping")
     
+    def createView(company, table_name, model,
+            time="2021-04-06", 
+            base_path = "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX"):
+                
+                definite_path = "{base_path}/{model}/TIME={time}/COMPANY={company}"
+                dim_path = definite_path.format(
+                    base_path = base_path,
+                    model = model,
+                    time = time,
+                    company = company
+                )
+                spark.read.parquet(dim_path).createOrReplaceTempView(table_name)
+                
+    createView(g_project_name, "hospital_dimesion", "DIMENSION/HOSPITAL_DIMENSION", "2021-04-06")
+    createView(g_project_name, "hospital_fact", "FACT/HOSPITAL_FACT", "2021-04-06")
+    createView(g_project_name, "cpa_gyc_mapping", "DIMENSION/MAPPING/CPA_GYC_MAPPING/STANDARD", "2021-04-06")
+    createView(g_project_name, "product_dimesion", "DIMENSION/PRODUCT_DIMENSION", "2021-04-06")
+    createView(g_project_name, "mnf_dimesion", "DIMENSION/MNF_DIMENSION", "2021-04-06")
+    createView(g_project_name, "product_rel_dimesion", "DIMENSION/PRODUCT_RELATIONSHIP_DIMENSION", "2021-04-06")
+    createView(g_project_name, "raw_data_fact", "FACT/RAW_DATA_FACT", "2021-04-06")
+    # %%
     base_universe_sql = """
-        SELECT PHA_ID AS PHA, HOSPITAL_ID, HOSP_NAME, 
+            SELECT PANEL_ID AS PHA, HOSPITAL_ID, HOSP_NAME, 
                 PROVINCE, CITY, CITYGROUP AS CITY_TIER, 
                 REGION, TOTAL AS BEDSIZE, SEG, BID_SAMPLE AS PANEL FROM (
             SELECT 
-                PHA_ID, HOSPITAL_ID, HOSP_NAME, 
+                hdim.PANEL_ID, HOSPITAL_ID, HOSP_NAME, 
                 PROVINCE, CITY, CITYGROUP, 
                 REGION, TAG, VALUE, SEG 
             FROM hospital_dimesion AS hdim 
                 INNER JOIN hospital_fact AS hfct
-                ON hdim.ID == hfct.HOSPITAL_ID WHERE (CATEGORY = 'BEDCAPACITY' AND TAG = 'TOTAL') OR (CATEGORY = 'IS' AND TAG = 'BID_SAMPLE')
-        )
-        PIVOT (
-            SUM(VALUE)
-            FOR TAG in ('TOTAL', 'BID_SAMPLE')
-        )
+                ON hdim.ID == hfct.HOSPITAL_ID
+            WHERE (CATEGORY = 'BEDCAPACITY' AND TAG = 'TOTAL') OR (CATEGORY = 'IS' AND TAG = 'BID_SAMPLE')
+            )
+            PIVOT (
+                SUM(VALUE)
+                FOR TAG in ('TOTAL', 'BID_SAMPLE')
+            )
     """
-    
-    mapping_sql = """
-            SELECT cgmap.VALUE AS ID, hdim.PANEL_ID AS PHA
-            FROM cpa_gyc_mapping AS cgmap 
-                INNER JOIN hospital_dimesion AS hdim 
-                ON hdim.ID == cgmap.HOSPITAL_ID
-        """
     df_universe = spark.sql(base_universe_sql)
+    # df_universe = spark.read.parquet("s3a://ph-max-auto/2020-08-11/Max/refactor/runs/max_test_beida_202012/temporary/universe_PANEL_ID")
+    # df_universe = spark.read.parquet("s3a://ph-max-auto/2020-08-11/Max/refactor/runs/max_test_beida_202012/temporary/universe_PHA_ID")
+    # %%
     
-    # df_cpa_pha_mapping = spark.sql(mapping_sql)
-
+    raw_data_sql = """
+            SELECT 
+                RW.RAW_CODE AS ID, PRM.VALUE AS PACK_ID,  MD.MNF_NAME AS MANUFACTURER_STD , RW.DATE, 
+                PD.MOLE_NAME AS MOLECULE_STD, PD.PROD_NAME_CH AS BRAND_STD, 
+                PD.PACK AS PACK_NUMBER_STD, PD.DOSAGE AS FORM_STD, PD.SPEC AS SPECIFICATIONS_STD, 
+                RW.SALES, RW.UNITS  
+            FROM raw_data_fact AS RW
+                LEFT JOIN hospital_dimesion AS HD ON RW.HOSPITAL_ID == HD.ID
+                LEFT JOIN product_dimesion AS PD ON RW.PRODUCT_ID == PD.ID
+                LEFT JOIN mnf_dimesion AS MD ON PD.MNF_ID == MD.ID
+                LEFT JOIN product_rel_dimesion AS PRM ON PD.PACK_ID == PRM.ID  AND  PRM.CATEGORY = 'IMS PACKID'
+        """
+    
+    df_raw_data = spark.sql(raw_data_sql)
+    df_raw_data = df_raw_data.withColumn('PACK_NUMBER_STD', col('PACK_NUMBER_STD').cast(IntegerType())) \
+                        .withColumn('SALES', col('SALES').cast(DoubleType())) \
+                        .withColumn('UNITS', col('UNITS').cast(DoubleType())) 
     # %%
     # =========== 数据执行 =============
     logger.debug('数据执行-start：hospital_mapping')
@@ -213,4 +175,38 @@ def execute(**kwargs):
 
     # %%
     # tmp.where(col('PHA_new').isNull()).show(100)
+    # print( df_raw_data.columns )
+    # %%
+    
+    # df_data_old = spark.read.parquet("s3a://ph-max-auto/2020-08-11/Max/refactor/runs/max_test_beida_202012_bk/hospital_mapping/hospital_mapping_out/")
+    # df_data_old = df_data_old.withColumn("YEAR_MONTH", col("YEAR_MONTH").cast("int")).distinct()
+    
+    # # print( df_data_old.select("DATE").distinct().count(), max_result_city.select("DATE").distinct().count() )
+    
+    # print("OLD: %s      NEW:%s "%(df_data_old.count(), df_raw_data.count() ))
+    
+    # df_data_old = df_data_old.withColumnRenamed("SALES", "SALES_OLD")\
+    #                             .withColumnRenamed("UNITS", "UNITS_OLD")
+    
+    # compare = df_raw_data.join( df_data_old, on=['PHA', 'ID', 'MANUFACTURER_STD', 'YEAR_MONTH', 'MOLECULE_STD', 
+    #                                                  'BRAND_STD', 'PACK_NUMBER_STD', 'FORM_STD', 'SPECIFICATIONS_STD', 
+    #                                                  'CITY', 'PROVINCE', 'CITY_TIER', 'MONTH', 'YEAR'],how="inner")
+    
+    # print( compare)
+    # print( compare.count())
+    # %%
+    #### 匹配的上的有何差别
+    # compare_error = compare.withColumn("Error", compare["SALES"]- compare["SALES_OLD"] )\
+    #           .select("Error")
+    # print(compare_error.distinct().count() )
+    
+    # print(  compare_error.where( func.abs( compare_error["Error"]) >0.01 ) \
+    #           .count() )
+    
+    # print( compare.withColumn("Error_2", compare["UNITS"]- compare["UNITS_OLD"] ).select("Error_2").distinct().collect() )
 
+    # %%
+    # # 匹配不上的行是什么情况
+    # df_data_old.join( df_raw_data, on=['PHA', 'ID', 'MANUFACTURER_STD', 'YEAR_MONTH', 'MOLECULE_STD', 
+    #                                                  'BRAND_STD', 'PACK_NUMBER_STD', 'FORM_STD', 'SPECIFICATIONS_STD', 
+    #                                                  'CITY', 'PROVINCE', 'CITY_TIER', 'MONTH', 'YEAR'],how="anti").show(2, vertical=True)

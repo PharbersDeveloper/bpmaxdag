@@ -29,7 +29,7 @@ spec:
       - key: g_if_add_data
         value: True
       - key: depend_job_names_keys
-        value: ['growth_monthly#growth_rate#growth_rate', 'price#price#price', 'price#price_city#price_city', 'product_mapping#product_mapping_out#product_mapping_out']
+        value: ["growth_monthly#growth_rate#growth_rate", "price#price#price", "price#price_city#price_city", "deal_poi#deal_poi_out#deal_poi_out"]
       - key: g_monthly_update
         value: Empty
       - key: dag_name
