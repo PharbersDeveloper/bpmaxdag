@@ -32,12 +32,6 @@ def execute(**kwargs):
     g_raw_data_adding_final = kwargs['g_raw_data_adding_final']
     ### output args ###
 
-    
-    
-    
-    
-    
-    
     import pandas as pd
     import os
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
@@ -276,6 +270,19 @@ def execute(**kwargs):
 
     # %%
     # 补数函数
+    schema = StructType([
+                StructField("PHA", StringType(), True),
+                StructField("MONTH", IntegerType(), True),
+                StructField("YEAR", IntegerType(), True)
+                ])
+    @pandas_udf(schema, PandasUDFType.GROUPED_MAP)
+    def pudf_minWeightYear(pdf):
+        minYEAR = int(pdf.sort_values(["WEIGHT"],ascending=True).head(1).reset_index(drop=True)['YEAR'][0])
+        PHA = pdf["PHA"][0]
+        MONTH = pdf["MONTH"][0]
+        return pd.DataFrame([[PHA] + [MONTH] + [minYEAR]], columns=["PHA", "MONTH", "YEAR"])
+    
+    
     def addDate(df_raw_data, df_growth_rate):
         # 1. 原始数据格式整理， 用于补数
         df_growth_rate = df_growth_rate.select(["CITYGROUP", "MOLECULE_STD_FOR_GR"] + 
@@ -315,9 +322,12 @@ def execute(**kwargs):
             .withColumn("WEIGHT", func.when((col('YEAR') > g_year), (col('YEAR') - g_year - 0.5)).
                         otherwise(col('YEAR') * (-1) + g_year))
         # 选择比重最小的年份：用于补数的 PHA-Month-Year
-        df_current_range_for_add = df_other_years_range.repartition(1).orderBy(col('WEIGHT').asc())
-        df_current_range_for_add = df_current_range_for_add.groupBy("PHA", "MONTH") \
-                                                    .agg(func.first(col('YEAR')).alias("YEAR"))
+        # orderBy 后 取 first 在 zhb的机器上跑回有随机取值发生
+        # df_current_range_for_add = df_other_years_range.repartition(1).orderBy(col('WEIGHT').asc())
+        # df_current_range_for_add = df_current_range_for_add.groupBy("PHA", "MONTH") \
+        #                                             .agg(func.first(col('YEAR')).alias("YEAR"))
+        df_current_range_for_add = df_other_years_range.select("PHA", "MONTH", "YEAR", "WEIGHT") \
+                                                        .groupBy("PHA", "MONTH").apply(pudf_minWeightYear)
     
         # 从 rawdata 根据 df_current_range_for_add 获取用于补数的数据
         df_current_raw_data_for_add = df_raw_data_for_add.where(col('YEAR') != g_year) \
