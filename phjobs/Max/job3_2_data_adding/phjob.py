@@ -42,16 +42,16 @@ def execute(**kwargs):
     from pyspark.sql import SparkSession
     from pyspark.sql.types import StringType, IntegerType, DoubleType
     from pyspark.sql import functions as func
-    from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col    # %%
-    '''
-    project_name = "Gilead"
-    model_month_right = "201912"
-    first_month = "1"
-    current_month = "1"
-    monthly_update = "True"
-    out_dir = "202101"
-    current_year = '2021'
-    '''
+    from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col        # %%
+    # 测试用
+    # project_name = "Gilead"
+    # model_month_right = "201912"
+    # first_month = "1"
+    # current_month = "1"
+    # monthly_update = "True"
+    # out_dir = "202101"
+    # current_year = '2021'
+
     # %%
     logger.debug('job3_data_adding')
     
@@ -109,6 +109,7 @@ def execute(**kwargs):
     raw_data_adding_path =  out_path_dir + "/raw_data_adding"
     new_hospital_path = out_path_dir + "/new_hospital"
     raw_data_adding_final_path =  out_path_dir + "/raw_data_adding_final"
+
     # %%
     # =========== 数据检查 =============
     
@@ -139,10 +140,11 @@ def execute(**kwargs):
             misscols_dict_final[eachfile] = misscols_dict[eachfile]
     # 如果有缺失列，则报错，停止运行
     if misscols_dict_final:
-        logger.error('miss columns: %s' % (misscols_dict_final))
+        logger.debug('miss columns: %s' % (misscols_dict_final))
         raise ValueError('miss columns: %s' % (misscols_dict_final))
     
     logger.debug('数据检查-Pass')
+
     # %%
     # =========== 数据准备 =============
     def unpivot(df, keys):
@@ -231,6 +233,7 @@ def execute(**kwargs):
                                             .withColumn('Year', func.substring(col('Date'), 0, 4)) \
                                             .withColumn('Month', func.substring(col('Date'), 5, 2).cast(IntegerType())) \
                                             .select('PHA', 'Year', 'Month').distinct()
+
     # %%
     # =========== 数据执行 =============
     logger.debug('数据执行-start')
@@ -375,7 +378,7 @@ def execute(**kwargs):
         return adding_data, original_range
     
     # 执行函数 add_data
-    if monthly_update == "False":
+    if monthly_update == "False" and if_add_data == "True":
         logger.debug('4 补数')
         # 补数：add_data
         add_data_out = add_data(raw_data, growth_rate)
@@ -416,7 +419,7 @@ def execute(**kwargs):
             logger.debug("输出 adding_data：" + adding_data_path)
     
     
-    if monthly_update == "False":
+    if monthly_update == "False" and if_add_data == "True":
         adding_data = adding_data.repartition(2)
         adding_data.write.format("parquet") \
             .mode("overwrite").save(adding_data_path)
@@ -440,48 +443,51 @@ def execute(**kwargs):
     # print("输出 raw_data_adding：" + raw_data_adding_path)
     
     if monthly_update == "False":
-        # 1.9 进一步为最后一年独有的医院补最后一年的缺失月（可能也要考虑第一年）:add_data_new_hosp
-        years = original_range.select("Year").distinct() \
-            .orderBy(original_range.Year) \
-            .toPandas()["Year"].values.tolist()
+        if if_add_data == "True":
+            # 1.9 进一步为最后一年独有的医院补最后一年的缺失月（可能也要考虑第一年）:add_data_new_hosp
+            years = original_range.select("Year").distinct() \
+                .orderBy(original_range.Year) \
+                .toPandas()["Year"].values.tolist()
     
-        # 只在最新一年出现的医院
-        new_hospital = (original_range.where(original_range.Year == max(years)).select("PHA").distinct()) \
-            .subtract(original_range.where(original_range.Year != max(years)).select("PHA").distinct())
-        logger.debug("以下是最新一年出现的医院:" + str(new_hospital.toPandas()["PHA"].tolist()))
-        # 输出
-        new_hospital = new_hospital.repartition(2)
-        new_hospital.write.format("parquet") \
-            .mode("overwrite").save(new_hospital_path)
+            # 只在最新一年出现的医院
+            new_hospital = (original_range.where(original_range.Year == max(years)).select("PHA").distinct()) \
+                .subtract(original_range.where(original_range.Year != max(years)).select("PHA").distinct())
+            logger.debug("以下是最新一年出现的医院:" + str(new_hospital.toPandas()["PHA"].tolist()))
+            # 输出
+            new_hospital = new_hospital.repartition(2)
+            new_hospital.write.format("parquet") \
+                .mode("overwrite").save(new_hospital_path)
     
-        logger.debug("输出 new_hospital：" + new_hospital_path)
+            logger.debug("输出 new_hospital：" + new_hospital_path)
     
-        # 最新一年没有的月份
-        missing_months = (original_range.where(original_range.Year != max(years)).select("Month").distinct()) \
-            .subtract(original_range.where(original_range.Year == max(years)).select("Month").distinct())
+            # 最新一年没有的月份
+            missing_months = (original_range.where(original_range.Year != max(years)).select("Month").distinct()) \
+                .subtract(original_range.where(original_range.Year == max(years)).select("Month").distinct())
     
-        # 如果最新一年有缺失月份，需要处理
-        if missing_months.count() == 0:
-            logger.debug("missing_months=0")
-            raw_data_adding_final = raw_data_adding
+            # 如果最新一年有缺失月份，需要处理
+            if missing_months.count() == 0:
+                logger.debug("missing_months=0")
+                raw_data_adding_final = raw_data_adding
+            else:
+                number_of_existing_months = 12 - missing_months.count()
+                # 用于groupBy的列名：raw_data_adding列名去除list中的列名
+                group_columns = set(raw_data_adding.columns) \
+                    .difference(set(['Month', 'Sales', 'Units', '季度', "sales_value__rmb_", "total_units", "counting_units", "year_month"]))
+                # 补数重新计算
+                adding_data_new = raw_data_adding \
+                    .where(raw_data_adding.add_flag == 1) \
+                    .where(raw_data_adding.PHA.isin(new_hospital["PHA"].tolist())) \
+                    .groupBy(list(group_columns)).agg({"Sales": "sum", "Units": "sum"})
+                adding_data_new = adding_data_new \
+                    .withColumn("Sales", adding_data_new["sum(Sales)"] / number_of_existing_months) \
+                    .withColumn("Units", adding_data_new["sum(Units)"] / number_of_existing_months) \
+                    .crossJoin(missing_months)
+                # 生成最终补数结果
+                same_names = list(set(raw_data_adding.columns).intersection(set(adding_data_new.columns)))
+                raw_data_adding_final = raw_data_adding.select(same_names) \
+                    .union(adding_data_new.select(same_names))
         else:
-            number_of_existing_months = 12 - missing_months.count()
-            # 用于groupBy的列名：raw_data_adding列名去除list中的列名
-            group_columns = set(raw_data_adding.columns) \
-                .difference(set(['Month', 'Sales', 'Units', '季度', "sales_value__rmb_", "total_units", "counting_units", "year_month"]))
-            # 补数重新计算
-            adding_data_new = raw_data_adding \
-                .where(raw_data_adding.add_flag == 1) \
-                .where(raw_data_adding.PHA.isin(new_hospital["PHA"].tolist())) \
-                .groupBy(list(group_columns)).agg({"Sales": "sum", "Units": "sum"})
-            adding_data_new = adding_data_new \
-                .withColumn("Sales", adding_data_new["sum(Sales)"] / number_of_existing_months) \
-                .withColumn("Units", adding_data_new["sum(Units)"] / number_of_existing_months) \
-                .crossJoin(missing_months)
-            # 生成最终补数结果
-            same_names = list(set(raw_data_adding.columns).intersection(set(adding_data_new.columns)))
-            raw_data_adding_final = raw_data_adding.select(same_names) \
-                .union(adding_data_new.select(same_names))
+            raw_data_adding_final = raw_data_adding
     elif monthly_update == "True":
         raw_data_adding_final = raw_data_adding \
         .where((raw_data_adding.Year == current_year) & (raw_data_adding.Month >= first_month) & (raw_data_adding.Month <= current_month) )
@@ -494,3 +500,4 @@ def execute(**kwargs):
     logger.debug("输出 raw_data_adding_final：" + raw_data_adding_final_path)
     
     logger.debug('数据执行-Finish')
+
