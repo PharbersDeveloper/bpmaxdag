@@ -41,13 +41,16 @@ def execute(**kwargs):
     d = kwargs['d']
     ### output args ###
 
+    
+    
     from pyspark.sql import SparkSession
     from pyspark.sql.types import StringType, IntegerType, DoubleType
     from pyspark.sql import functions as func
     from pyspark.sql.functions import col
     import boto3
     import os
-    import boto3    # %%
+    import boto3    
+    # %%
     '''
     project_name = "Gilead"
     time_left = "202001"
@@ -179,8 +182,8 @@ def execute(**kwargs):
     
         # job2: raw_data 处理，生成min1，用product_map 匹配获得min2（Prod_Name），同job2
         # if project_name != "Mylan":
-        raw_data = raw_data.withColumn("Brand", func.when(func.isnull(raw_data.Brand), raw_data.Molecule).
-                                   otherwise(raw_data.Brand))
+        raw_data = raw_data.withColumn("Brand", func.when((raw_data.Brand.isNull()) | (raw_data.Brand == 'NA'), raw_data.Molecule).
+                                       otherwise(raw_data.Brand))
     
         for colname, coltype in raw_data.dtypes:
             if coltype == "logical":
@@ -296,6 +299,7 @@ def execute(**kwargs):
             .withColumnRenamed("sum(Sales)", "Predict_Sales") \
             .withColumnRenamed("sum(Units)", "Predict_Unit") \
             .withColumnRenamed("S_Molecule", "Molecule") 
+
     # %%
     # 2. max文件处理
     index = 0
@@ -355,6 +359,7 @@ def execute(**kwargs):
         index = index + 1
     
     max_result_all = spark.read.parquet(max_result_city_tmp_path)
+
     # %%
     # 3. 合并raw_data 和 max文件处理
     if hospital_level == "True":
@@ -381,6 +386,7 @@ def execute(**kwargs):
             .withColumnRenamed("sum(Predict_Sales)", "Predict_Sales") \
             .withColumnRenamed("sum(Predict_Unit)", "Predict_Unit")
         max_result_city = max_result_city.select("Province", "City", "Date", "Prod_Name", "Molecule", "PANEL", "DOI", "Predict_Sales", "Predict_Unit")
+
     # %%
     # 5.输出判断是否已有 max_result_city_path 结果
     '''
@@ -410,8 +416,10 @@ def execute(**kwargs):
         max_result_city_final = spark.read.parquet(tmp_path)   
     else:
         max_result_city_final = max_result_city.repartition(2)
+
     # %%
     # max_result_city_final.groupby('PANEL').agg(func.sum('Predict_Sales')).show()
+
     # %%
     # hospital_level 的只输出csv
     if hospital_level == "False" and bedsize == "True":     
@@ -422,3 +430,4 @@ def execute(**kwargs):
     max_result_city_final = max_result_city_final.repartition(1)
     max_result_city_final.write.format("csv").option("header", "true") \
         .mode("overwrite").save(max_result_city_csv_path)
+
