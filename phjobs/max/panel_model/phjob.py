@@ -232,7 +232,7 @@ def execute(**kwargs):
     ##### 输出保存的结果
     df_panel_filtered = df_panel_filtered.repartition(1)
     df_panel_filtered.write.format("parquet").partitionBy("DATE") \
-                        .mode("append").save(p_result_panel)
+                        .mode("append").save(p_panel_result)
 
     # %%
     # df_panel_filtered.select("DATE").distinct().show()
