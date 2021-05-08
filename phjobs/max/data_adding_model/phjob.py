@@ -32,6 +32,8 @@ def execute(**kwargs):
     ### output args ###
 
     
+    
+    
     import pandas as pd
     import os
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
@@ -374,9 +376,10 @@ def execute(**kwargs):
                     .union(df_adding_data.withColumn("ADD_FLAG", func.lit(1)).select(df_raw_data.columns + ["ADD_FLAG"]))
     else:
         df_raw_data_adding = df_raw_data.withColumn("ADD_FLAG", func.lit(0))
+
     # %%
     # 4. 进一步为最后一年独有的医院补最后一年的缺失月数据:
-    if if_add_data == "True":
+    if g_if_add_data == "True":
         years = df_original_range.select("YEAR").distinct() \
                             .orderBy(df_original_range.YEAR) \
                             .toPandas()["YEAR"].values.tolist()
@@ -420,7 +423,7 @@ def execute(**kwargs):
 
     # %%
     # =========== 输出 =============
-    if if_add_data == "True":
+    if g_if_add_data == "True":
         df_new_hospital = df_new_hospital.repartition(2)
         df_new_hospital.write.format("parquet") \
             .mode("overwrite").save(p_new_hospital)
