@@ -39,19 +39,19 @@ def execute(**kwargs):
     # %%
     # 测试用
     
-    g_project_name = '贝达'
-    g_month = "12"
-    g_year = "2020"
-    g_current_month = "12"
-    result_path_prefix=get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
-    depends_path=get_depends_path({"name":job_name, "dag_name":dag_name, 
-                                     "run_id":run_id, "depend_job_names_keys":depend_job_names_keys })
+    # g_project_name = '贝达'
+    # g_month = "12"
+    # g_year = "2020"
+    # g_current_month = "12"
+    # result_path_prefix=get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
+    # depends_path=get_depends_path({"name":job_name, "dag_name":dag_name, 
+    #                                  "run_id":run_id, "depend_job_names_keys":depend_job_names_keys })
 
     # %%
     logger.debug('数据执行-start：计算增长率-月更新')
     # 是否运行此job
-    # if g_monthly_update == "False":
-    #      return
+    if g_monthly_update == "False":
+         return
         
     # =========== 输入 输出 =============   
     # 输入
