@@ -22,6 +22,8 @@ spec:
         value: '0'
       - key: g_year
         value: 'Empty'
+      - key: g_month
+        value: 'Empty'
       - key: g_current_month
         value: 'Empty'
       - key: g_add_47

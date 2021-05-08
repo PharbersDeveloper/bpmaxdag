@@ -17,6 +17,7 @@ def execute(**kwargs):
     g_project_name = kwargs['g_project_name']
     g_model_month_right = kwargs['g_model_month_right']
     g_year = kwargs['g_year']
+    g_month = kwargs['g_month']
     g_current_month = kwargs['g_current_month']
     g_add_47 = kwargs['g_add_47']
     depend_job_names_keys = kwargs['depend_job_names_keys']
@@ -46,6 +47,7 @@ def execute(**kwargs):
     # g_project_name ="贝达"
     # g_model_month_right="201912"
     # g_year=2020
+    # g_month=12
     # g_current_month="12"
     # g_add_47="True"
     # result_path_prefix=get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
@@ -74,6 +76,7 @@ def execute(**kwargs):
     # 月更新相关输入
     # if monthly_update == "True":
     g_year = int(g_year)
+    g_month = int(g_month)
     g_current_month = int(g_current_month)
     
     # if g_p_not_arrived == "Empty":
@@ -123,7 +126,7 @@ def execute(**kwargs):
                                                     StructField('MOLECULE_STD_FOR_GR', StringType(), True),
                                                     StructField('ADD_FLAG', IntegerType(), True) ])
     df_raw_data_adding_final = spark.read.format("parquet").load(p_raw_data_adding_final, schema=struct_type_data_adding_final)
-    df_raw_data_adding_final = df_raw_data_adding_final.where(col('YEAR_MONTH') == (g_year*100 + g_current_month))
+    df_raw_data_adding_final = df_raw_data_adding_final.where(col('YEAR_MONTH') == (g_year*100 + g_month))
     
     # 2、读取 universe 数据
     def createView(company, table_name, model,
