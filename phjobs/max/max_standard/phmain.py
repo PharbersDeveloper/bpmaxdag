@@ -24,6 +24,7 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--g_out_dir')
 @click.option('--g_year')
 @click.option('--g_month')
+@click.option('--g_monthly_update')
 @click.option('--a')
 @click.option('--b')
 def debug_execute(**kwargs):

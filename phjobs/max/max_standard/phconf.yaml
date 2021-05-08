@@ -32,6 +32,8 @@ spec:
         value: 'Empty'
       - key: g_month
         value: 'Empty'
+      - key: g_monthly_update
+        value: 'Empty'
     outputs:
       - key: a
         value: 'abcde'

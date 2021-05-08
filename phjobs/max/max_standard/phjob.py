@@ -22,6 +22,7 @@ def execute(**kwargs):
     g_out_dir = kwargs['g_out_dir']
     g_year = kwargs['g_year']
     g_month = kwargs['g_month']
+    g_monthly_update = kwargs['g_monthly_update']
     ### input args ###
     
     ### output args ###
