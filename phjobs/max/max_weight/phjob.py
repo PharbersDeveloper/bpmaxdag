@@ -25,26 +25,37 @@ def execute(**kwargs):
     dag_name = kwargs['dag_name']
     run_id = kwargs['run_id']
     max_path = kwargs['max_path']
+    g_year = kwargs['g_year']
+    g_month = kwargs['g_month']
     ### input args ###
     
     ### output args ###
     g_max_out = kwargs['g_max_out']
     ### output args ###
 
+    
+    
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
     from pyspark.sql.functions import col    
     # %%
     # 测试输入
     
-    '''
-    g_project_name = "贝达"
-    g_market = 'BD1'
-    g_universe = 'universe_onc'
-    g_factor = 'factor_BD1'
-    g_universe_ot = 'universe_ot_BD1'
-    g_monthly_update = 'False'
-    '''
+    # g_project_name = "贝达"
+    # g_market = 'BD1'
+    # g_universe = 'universe_onc'
+    # g_factor = 'factor_BD1'
+    # g_universe_ot = 'universe_ot_BD1'
+    # result_path_prefix=get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
+    # depends_path=get_depends_path({"name":job_name, "dag_name":dag_name, 
+    #                                  "run_id":run_id, "depend_job_names_keys":depend_job_names_keys })
+    # g_monthly_update = 'True'
+    # g_year = '2020'
+    # g_month = '12'
+    
+    # # g_monthly_update = 'False'
+    # # g_year = '2019'
+
     # %%
     logger.debug('数据执行-start：max放大')
     
@@ -63,14 +74,21 @@ def execute(**kwargs):
     p_factor = max_path + "/" + g_project_name + "/factor/" + g_factor
     p_universe_ot = max_path + "/" + g_project_name + "/universe/"+ g_universe_ot
     p_PHA_weight = max_path + "/" + g_project_name + '/PHA_weight'
+    
+    g_year = int(g_year)
+    
     # 根据是否为月更选项panel文件路径
     if g_monthly_update == 'True':
         p_panel = depends_path['panel_monthly_out']
+        g_month = int(g_month)
     elif g_monthly_update == 'False':
         p_panel = depends_path['panel_model_out']
     
     if g_use_d_weight:
         p_PHA_weight_default = max_path + "/" + g_project_name + '/PHA_weight_default'
+        
+    # 输出
+    p_max_out = result_path_prefix + g_max_out
 
     # %%
     # # =========== 数据准备，测试用 =============
@@ -180,6 +198,14 @@ def execute(**kwargs):
     df_original_panel = df_original_panel.select("ID", "DATE", 'PACK_ID', "MIN_STD", "MARKET", "HOSP_NAME", 
                                            "PHA", "MOLECULE_STD", "PROVINCE", "CITY", "ADD_FLAG", "ROUTE_STD",
                                            "SALES", "UNITS")
+    
+    if g_monthly_update == 'True':
+        df_original_panel = df_original_panel.where(col('DATE') == (g_year*100 + g_month))
+    elif g_monthly_update == 'False':
+        df_original_panel = df_original_panel.where((col('DATE')/100).cast(IntegerType()) == g_year)
+    
+    
+    
     '''
     # 2、读取 universe 数据(Panel列不一样，暂时不替换)
     def createView(company, table_name, model,
@@ -306,13 +332,16 @@ def execute(**kwargs):
 
     # %%
     # =========== 输出结果 =============
-    df_max_result = df_max_result.repartition(2)
-    df_max_result.write.format("parquet") \
-                    .mode("overwrite").save(result_path_prefix + g_max_out)
+    df_max_result = df_max_result.repartition(1)
+    df_max_result.write.format("parquet").partitionBy("DATE") \
+                        .mode("append").save(p_max_out)
+    
     logger.debug('数据执行-Finish')
 
     # %%
-    # df_max_result.agg(func.sum('Predict_Sales'), func.sum('Predict_Unit')).show()
+    # df = spark.read.parquet('s3a://ph-max-auto/2020-08-11/Max/refactor/runs/max_test_beida_202012/max_weight/max_weight_result/DATE=202012/')
+    # df.agg(func.sum('Predict_Sales'), func.sum('Predict_Unit')).show()
+
     # %%
     # 月更
     # df=spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012_test/MAX_result/MAX_result_202001_202012_BD1_hosp_level/')
@@ -322,3 +351,4 @@ def execute(**kwargs):
     # 模型
     # df=spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/201912_test/MAX_result/MAX_result_201701_201912_BD1_hosp_level')
     # df.where(col('Date')>=201901).where(col('Date')<=201912).agg(func.sum('Predict_Sales'), func.sum('Predict_Unit')).show()
+

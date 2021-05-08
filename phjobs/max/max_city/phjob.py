@@ -37,29 +37,32 @@ def execute(**kwargs):
     g_max_result_city = kwargs['g_max_result_city']
     ### output args ###
 
+    
+    
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType,StructField
     from pyspark.sql import functions as func
     from pyspark.sql.functions import col
     import boto3
-    import os           # %%
-    '''
-    g_project_name = "贝达"
-    g_market = 'BD1'
-    g_time_left = "202012"
-    g_time_right = "202012"
-    g_out_dir = "202012_test"
-    g_if_two_source = "True"
-    result_path_prefix=get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
-    depends_path=get_depends_path({"name":job_name, "dag_name":dag_name, 
-                                         "run_id":run_id, "depend_job_names_keys":depend_job_names_keys })
+    import os           
+    # %%
     
-    g_monthly_update = 'False'
-    g_year = '2019'
+    # g_project_name = "贝达"
+    # g_market = 'BD1'
+    # g_time_left = "202012"
+    # g_time_right = "202012"
+    # g_out_dir = "202012_test"
+    # g_if_two_source = "True"
+    # result_path_prefix=get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
+    # depends_path=get_depends_path({"name":job_name, "dag_name":dag_name, 
+    #                                      "run_id":run_id, "depend_job_names_keys":depend_job_names_keys })
+    
+    # # g_monthly_update = 'False'
+    # # g_year = '2019'
     
     # g_monthly_update = 'True'
     # g_year = '2020'
     # g_month = '12'
-    '''
+
     # %%
     # 输入
     g_minimum_product_columns = g_minimum_product_columns.replace(" ","").split(",")
@@ -335,6 +338,12 @@ def execute(**kwargs):
                                                     StructField('PREDICT_UNIT', DoubleType(), True) ])
     df_max_result = spark.read.format("parquet").load(p_max_weight_result, schema=strcut_type_max_weight_result)
     
+    if g_monthly_update == 'True':
+        df_max_result = df_max_result.where(col('DATE') == (g_year*100 + g_month))
+    elif g_monthly_update == 'False':
+        df_max_result = df_max_result.where((col('DATE')/100).cast(IntegerType()) == g_year)
+    
+    
     # 1、max_result 筛选 BEDSIZE > 99， 且医院不在df_raw_data_PHA 中
     if g_bedsize == "True":
         df_max_result = df_max_result.where(col('BEDSIZE') > 99)
@@ -396,12 +405,12 @@ def execute(**kwargs):
 
     # %%
     # 输出
-    max_result_city = max_result_city.repartition(2)
-    max_result_city.write.format("parquet") \
-        .mode("overwrite").save(p_max_result_city)
-
+    max_result_city = max_result_city.repartition(1)
+    max_result_city.write.format("parquet").partitionBy("DATE") \
+                        .mode("append").save(p_max_result_city)
     # %%
-    # max_result_city.agg(func.sum('PREDICT_SALES'),func.sum('PREDICT_UNIT')).show()
+    # df = spark.read.parquet('s3a://ph-max-auto/2020-08-11/Max/refactor/runs/max_test_beida_202012/max_city/max_city_result')
+    # df.where(col('DATE') <202000).agg(func.sum('PREDICT_SALES'),func.sum('PREDICT_UNIT')).show()
 
     # %%
     # 月更
@@ -412,3 +421,5 @@ def execute(**kwargs):
     # 模型
     # df=spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/201912_test/MAX_result/MAX_result_201701_201912_city_level')
     # df.where(col('Date')>=201901).where(col('Date')<=201912).agg(func.sum('Predict_Sales'), func.sum('Predict_Unit')).show()
+
+# 

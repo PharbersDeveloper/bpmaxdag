@@ -38,6 +38,10 @@ spec:
         value: 'max_test_beida_202012'
       - key: max_path
         value: 's3a://ph-max-auto/v0.0.1-2020-06-08/'
+      - key: g_year
+        value: 'Empty'
+      - key: g_month
+        value: 'Empty'
     outputs:
       - key: g_max_out
         value: 'max_weight_result'
