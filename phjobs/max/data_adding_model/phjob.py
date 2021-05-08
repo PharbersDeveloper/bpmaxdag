@@ -22,6 +22,7 @@ def execute(**kwargs):
     dag_name = kwargs['dag_name']
     run_id = kwargs['run_id']
     max_path = kwargs['max_path']
+    g_if_add_data = kwargs['g_if_add_data']
     ### input args ###
     
     ### output args ###
@@ -51,6 +52,10 @@ def execute(**kwargs):
     if g_monthly_update == "True":
          return
     
+    if g_if_add_data != "False" and g_if_add_data != "True":
+        logger.error('wrong input: g_if_add_data, False or True') 
+        raise ValueError('wrong input: g_if_add_data, False or True')
+        
     logger.debug('数据执行-start：补数-模型')
     # 输入
     p_product_mapping = depends_path['deal_poi_out']
@@ -63,6 +68,7 @@ def execute(**kwargs):
     
     # 跑模型年年份要小于等于g_model_month_right，只需要输入哪些年要补数
     g_year = int(g_year)
+    g_current_year = g_model_month_right//100
     
     # 输出
     p_adding_data =  result_path_prefix + g_adding_data
@@ -101,7 +107,7 @@ def execute(**kwargs):
     
     # 一. 生成 df_original_range_raw（样本中已到的Year、Month、PHA的搭配）
     # 2017到当前年的全量出版医院
-    Published_years = list(range(2017, g_year+1, 1))
+    Published_years = list(range(2017, g_current_year+1, 1))
     for index, eachyear in enumerate(Published_years):
         allmonth = [str(eachyear*100 + i) for i in list(range(1,13,1))]
         published_path = max_path + "/Common_files/Published"+str(eachyear)+".csv"
@@ -331,7 +337,7 @@ def execute(**kwargs):
             .withColumn("SALES", col('SALES') * col('FINAL_GR')) \
             .withColumn("YEAR", func.lit(g_year))
         df_current_adding_data = df_current_adding_data.withColumn("YEAR_MONTH", col('YEAR') * 100 + col('MONTH'))
-        df_current_adding_data = df_current_adding_data.withColumn("YEAR_MONTH", col("YEAR_MONTH").cast(DoubleType()))
+        # df_current_adding_data = df_current_adding_data.withColumn("YEAR_MONTH", col("YEAR_MONTH").cast(DoubleType()))
         
         df_current_adding_data = df_current_adding_data.withColumnRenamed("CITYGROUP", "CITY_TIER") \
                                     .join(df_price, on=["MIN_STD", "YEAR_MONTH", "CITY_TIER"], how="inner") \
@@ -350,77 +356,82 @@ def execute(**kwargs):
     # %%
     logger.debug('补数')
     # 2. 执行函数 addDate, model补数不按月份
-    add_data_out = addDate(df_raw_data, df_growth_rate)
+    if g_if_add_data == "True":
+        add_data_out = addDate(df_raw_data, df_growth_rate)
     
-    df_adding_data = add_data_out[0]
-    df_original_range = add_data_out[1]
+        df_adding_data = add_data_out[0]
+        df_original_range = add_data_out[1]
     
-    # 输出经过补数的 数据
-    df_adding_data = df_adding_data.repartition(1)
-    df_adding_data.write.format("parquet") \
-        .mode("overwrite").save(p_adding_data)
-    
-    df_adding_data = spark.read.parquet(p_adding_data)
+        # =========== 输出 =============   
+        df_adding_data = df_adding_data.repartition(1)
+        df_adding_data.write.format("parquet").partitionBy("YEAR_MONTH") \
+                        .mode("append").save(p_adding_data)
 
     # %%
     # 3. 合并补数部分和原始部分:
-    df_raw_data_adding = (df_raw_data.withColumn("ADD_FLAG", func.lit(0))) \
+    if g_if_add_data == "True":
+        df_raw_data_adding = (df_raw_data.withColumn("ADD_FLAG", func.lit(0))) \
                     .union(df_adding_data.withColumn("ADD_FLAG", func.lit(1)).select(df_raw_data.columns + ["ADD_FLAG"]))
-
+    else:
+        df_raw_data_adding = df_raw_data.withColumn("ADD_FLAG", func.lit(0))
     # %%
     # 4. 进一步为最后一年独有的医院补最后一年的缺失月数据:
-    years = df_original_range.select("YEAR").distinct() \
-                        .orderBy(df_original_range.YEAR) \
-                        .toPandas()["YEAR"].values.tolist()
+    if if_add_data == "True":
+        years = df_original_range.select("YEAR").distinct() \
+                            .orderBy(df_original_range.YEAR) \
+                            .toPandas()["YEAR"].values.tolist()
     
-    # 只在最新一年出现的医院
-    df_new_hospital = (df_original_range.where(col('YEAR') == max(years)).select("PHA").distinct()) \
-                        .subtract(df_original_range.where(col('YEAR') != max(years)).select("PHA").distinct())
-    # print("以下是最新一年出现的医院:" + str(df_new_hospital.toPandas()["PHA"].tolist()))
+        # 只在最新一年出现的医院
+        df_new_hospital = (df_original_range.where(col('YEAR') == max(years)).select("PHA").distinct()) \
+                            .subtract(df_original_range.where(col('YEAR') != max(years)).select("PHA").distinct())
+        # print("以下是最新一年出现的医院:" + str(df_new_hospital.toPandas()["PHA"].tolist()))
     
-    # 最新一年没有的月份
-    missing_months = (df_original_range.where(col('YEAR') != max(years)).select("MONTH").distinct()) \
-                    .subtract(df_original_range.where(col('YEAR') == max(years)).select("MONTH").distinct())
+        # 最新一年没有的月份
+        missing_months = (df_original_range.where(col('YEAR') != max(years)).select("MONTH").distinct()) \
+                        .subtract(df_original_range.where(col('YEAR') == max(years)).select("MONTH").distinct())
     
-    # 如果最新一年有缺失月份，需要处理
-    if missing_months.count() == 0:
-        logger.debug("missing_months=0")
-        df_raw_data_adding_final = df_raw_data_adding
+        # 如果最新一年有缺失月份，需要处理
+        if missing_months.count() == 0:
+            logger.debug("missing_months=0")
+            df_raw_data_adding_final = df_raw_data_adding
+        else:
+            number_of_existing_months = 12 - missing_months.count()
+            # 用于groupBy的列名：df_raw_data_adding列名去除list中的列名
+            group_columns = set(df_raw_data_adding.columns) \
+                                .difference(set(['MONTH', 'SALES', 'UNITS', "YEAR_MONTH"]))
+            # 补数重新计算
+            df_adding_data_new = df_raw_data_adding \
+                                .where(col('ADD_FLAG') == 1) \
+                                .where(col('PHA').isin(df_new_hospital["PHA"].tolist())) \
+                                .groupBy(list(group_columns)).agg({"SALES": "sum", "UNITS": "sum"})
+            df_adding_data_new = df_adding_data_new \
+                                .withColumn("SALES", col("sum(SALES)") / number_of_existing_months) \
+                                .withColumn("UNITS", col("sum(UNITS)") / number_of_existing_months) \
+                                .crossJoin(missing_months)
+            # 生成最终补数结果
+            same_names = list(set(df_raw_data_adding.columns).intersection(set(df_adding_data_new.columns)))
+            df_raw_data_adding_final = df_raw_data_adding.select(same_names) \
+                .union(df_adding_data_new.select(same_names))
     else:
-        number_of_existing_months = 12 - missing_months.count()
-        # 用于groupBy的列名：df_raw_data_adding列名去除list中的列名
-        group_columns = set(df_raw_data_adding.columns) \
-                            .difference(set(['MONTH', 'SALES', 'UNITS', "YEAR_MONTH"]))
-        # 补数重新计算
-        df_adding_data_new = df_raw_data_adding \
-                            .where(col('ADD_FLAG') == 1) \
-                            .where(col('PHA').isin(df_new_hospital["PHA"].tolist())) \
-                            .groupBy(list(group_columns)).agg({"SALES": "sum", "UNITS": "sum"})
-        df_adding_data_new = df_adding_data_new \
-                            .withColumn("SALES", col("sum(SALES)") / number_of_existing_months) \
-                            .withColumn("UNITS", col("sum(UNITS)") / number_of_existing_months) \
-                            .crossJoin(missing_months)
-        # 生成最终补数结果
-        same_names = list(set(df_raw_data_adding.columns).intersection(set(df_adding_data_new.columns)))
-        df_raw_data_adding_final = df_raw_data_adding.select(same_names) \
-            .union(df_adding_data_new.select(same_names))
-    
+            df_raw_data_adding_final = df_raw_data_adding
+            
     # 保留当前补数年的结果
-    df_raw_data_adding_final = df_raw_data_adding.where((col('YEAR') == g_year))
+    df_raw_data_adding_final = df_raw_data_adding_final.where((col('YEAR') == g_year))
 
     # %%
     # =========== 输出 =============
-    df_new_hospital = df_new_hospital.repartition(2)
-    df_new_hospital.write.format("parquet") \
-        .mode("overwrite").save(p_new_hospital)
+    if if_add_data == "True":
+        df_new_hospital = df_new_hospital.repartition(2)
+        df_new_hospital.write.format("parquet") \
+            .mode("overwrite").save(p_new_hospital)
     
-    logger.debug("输出 new_hospital：" + p_new_hospital)
+        logger.debug("输出 new_hospital：" + p_new_hospital)
     
     
     # 输出补数结果 df_raw_data_adding_final
-    df_raw_data_adding_final = df_raw_data_adding_final.repartition(2)
-    df_raw_data_adding_final.write.format("parquet") \
-        .mode("overwrite").save(p_raw_data_adding_final)
+    df_raw_data_adding_final = df_raw_data_adding_final.repartition(1)
+    df_raw_data_adding_final.write.format("parquet").partitionBy("YEAR_MONTH") \
+                        .mode("append").save(p_raw_data_adding_final)
     
     logger.debug("输出 raw_data_adding_final：" + p_raw_data_adding_final)
     
