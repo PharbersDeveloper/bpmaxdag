@@ -32,6 +32,8 @@ def execute(**kwargs):
     d = kwargs['d']
     ### output args ###
 
+    
+    
     from pyspark.sql import SparkSession, Window
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
@@ -39,7 +41,8 @@ def execute(**kwargs):
     from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, greatest, least, col
     import time
     import pandas as pd
-    import numpy as np    # %%
+    import numpy as np    
+    # %%
     '''
     project_name = 'Gilead'
     outdir = '202101'
@@ -85,6 +88,7 @@ def execute(**kwargs):
     check_16_path = raw_data_check_path + '/check_16_各医院各产品价格与所在地区对比.csv'
     #tmp_1_path  = raw_data_check_path + '/tmp_1'
     #tmp_2_path  = raw_data_check_path + '/tmp_2'
+
     # %%
     # ================= 数据执行 ==================	
     
@@ -108,6 +112,7 @@ def execute(**kwargs):
         mat_month = [i for i in range((current_year - 1)*100 + 12 - diff , (current_year - 1)*100 + 12 + 1)] + [i for i in range(MTH - current_month + 1 , MTH)]
     else:
         mat_month = [i for i in range(MTH - current_month + 1 , MTH)][-twelve:]
+
     # %%
     # ==== 一. 数据准备  ==== 
     
@@ -141,19 +146,19 @@ def execute(**kwargs):
         Raw_data = Raw_data.drop('Pack_ID')
     
     # 生成min1
-    if project_name != 'Mylan':
-        Raw_data = Raw_data.withColumn('Brand_bak', Raw_data.Brand)
-        Raw_data = Raw_data.withColumn('Brand', func.when((Raw_data.Brand.isNull()) | (Raw_data.Brand == 'NA'), Raw_data.Molecule).
-                                                    otherwise(Raw_data.Brand))
-        Raw_data = Raw_data.withColumn("min1", func.when(Raw_data[minimum_product_columns[0]].isNull(), func.lit("NA")).
-                                           otherwise(Raw_data[minimum_product_columns[0]]))
-        for i in minimum_product_columns[1:]:
-            Raw_data = Raw_data.withColumn(i, Raw_data[i].cast(StringType()))
-            Raw_data = Raw_data.withColumn("min1", func.concat(
-                Raw_data["min1"],
-                func.lit(minimum_product_sep),
-                func.when(func.isnull(Raw_data[i]), func.lit("NA")).otherwise(Raw_data[i])))
-        Raw_data = Raw_data.withColumn('Brand', Raw_data.Brand_bak).drop('Brand_bak')
+    # if project_name != 'Mylan':
+    Raw_data = Raw_data.withColumn('Brand_bak', Raw_data.Brand)
+    Raw_data = Raw_data.withColumn('Brand', func.when((Raw_data.Brand.isNull()) | (Raw_data.Brand == 'NA'), Raw_data.Molecule).
+                                                otherwise(Raw_data.Brand))
+    Raw_data = Raw_data.withColumn("min1", func.when(Raw_data[minimum_product_columns[0]].isNull(), func.lit("NA")).
+                                       otherwise(Raw_data[minimum_product_columns[0]]))
+    for i in minimum_product_columns[1:]:
+        Raw_data = Raw_data.withColumn(i, Raw_data[i].cast(StringType()))
+        Raw_data = Raw_data.withColumn("min1", func.concat(
+            Raw_data["min1"],
+            func.lit(minimum_product_sep),
+            func.when(func.isnull(Raw_data[i]), func.lit("NA")).otherwise(Raw_data[i])))
+    Raw_data = Raw_data.withColumn('Brand', Raw_data.Brand_bak).drop('Brand_bak')
     
     # 3. 产品匹配表处理 
     product_map = spark.read.parquet(product_map_path)
@@ -207,6 +212,7 @@ def execute(**kwargs):
     Raw_data_1 = Raw_data_1.groupby('ID', 'Date', 'min2', '通用名','商品名','Pack_ID') \
                             .agg(func.sum('Sales').alias('Sales'), func.sum('Units').alias('Units')) \
                             .withColumnRenamed('min2', 'Prod_Name')
+
     # %%
     #========== check_1 ==========
     
@@ -224,6 +230,7 @@ def execute(**kwargs):
     check_1 = check_1.repartition(1)
     check_1.write.format("csv").option("header", "true") \
         .mode("overwrite").save(check_1_path)
+
     # %%
     #========== check_2 ==========
     
@@ -241,6 +248,7 @@ def execute(**kwargs):
     check_2 = check_2.repartition(1)
     check_2.write.format("csv").option("header", "true") \
         .mode("overwrite").save(check_2_path)
+
     # %%
     #========== check_3 ==========
     
@@ -258,6 +266,7 @@ def execute(**kwargs):
     check_3 = check_3.repartition(1)
     check_3.write.format("csv").option("header", "true") \
         .mode("overwrite").save(check_3_path)
+
     # %%
     #========== check_5 ==========
     
@@ -292,6 +301,7 @@ def execute(**kwargs):
     check_5 = check_5.repartition(1)
     check_5.write.format("csv").option("header", "true") \
         .mode("overwrite").save(check_5_path)
+
     # %%
     #========== check_6 ==========
     
@@ -313,6 +323,7 @@ def execute(**kwargs):
                                                     .otherwise(check_6_2.Check)) 
     
     check_6 = check_6_1.join(check_6_2, on='ID', how='left').orderBy('ID')
+
     # %%
     #========== check_7 ==========
     
@@ -352,6 +363,7 @@ def execute(**kwargs):
     check_7 = check_7.withColumn('Pack_ID', func.when(check_7.Pack_ID == 0, func.lit(None)).otherwise(check_7.Pack_ID))
     
     check_7.groupby('Check').count().show()
+
     # %%
     #========== check_8 ==========
     
@@ -374,6 +386,7 @@ def execute(**kwargs):
     check_8 = check_8.repartition(1)
     check_8.write.format("csv").option("header", "true") \
         .mode("overwrite").save(check_8_path)
+
     # %%
     #========== check_9 ==========
     
@@ -399,6 +412,7 @@ def execute(**kwargs):
     check_9_3 = check_9_3.repartition(1)
     check_9_3.write.format("csv").option("header", "true") \
         .mode("overwrite").save(check_9_3_path)
+
     # %%
     #========== check_10 ==========
     
@@ -412,6 +426,7 @@ def execute(**kwargs):
     check_10 = check_10.repartition(1)
     check_10.write.format("csv").option("header", "true") \
         .mode("overwrite").save(check_10_path)
+
     # %%
     #========== check_贡献率等级相关 ==========
     
@@ -485,6 +500,7 @@ def execute(**kwargs):
         check_num = check_num.orderBy(col('min_diff').desc(), col('mean_adj').desc())
         
         return check_num
+
     # %%
     Raw_data = deal_ID_length(Raw_data)
     
@@ -505,6 +521,7 @@ def execute(**kwargs):
     check_11 = check_11.repartition(1)
     check_11.write.format("csv").option("header", "true") \
         .mode("overwrite").save(check_11_path)
+
     # %%
     #========== check_12 金额==========
     if g_id_molecule == 'True':
@@ -525,6 +542,7 @@ def execute(**kwargs):
         check_12 = check_12.repartition(1)
         check_12.write.format("csv").option("header", "true") \
             .mode("overwrite").save(check_12_path)
+
     # %%
     #========== check_13 数量==========
     
@@ -544,6 +562,7 @@ def execute(**kwargs):
     check_13 = check_13.repartition(1)
     check_13.write.format("csv").option("header", "true") \
         .mode("overwrite").save(check_13_path)
+
     # %%
     #========== check_14 数量==========
     if g_id_molecule == 'True':
@@ -564,6 +583,7 @@ def execute(**kwargs):
         check_14 = check_14.repartition(1)
         check_14.write.format("csv").option("header", "true") \
             .mode("overwrite").save(check_14_path)
+
     # %%
     #========== check_15 价格==========
     if g_id_molecule == 'True':
@@ -592,6 +612,7 @@ def execute(**kwargs):
         check_15 = check_15.repartition(1)
         check_15.write.format("csv").option("header", "true") \
             .mode("overwrite").save(check_15_path)
+
     # %%
     #========== check_16 价格==========
     check_16_a = Raw_data.join(province_city_mapping.select('ID','Province').distinct(), on='ID', how='left')
@@ -609,6 +630,7 @@ def execute(**kwargs):
     check_16 = check_16.repartition(1)
     check_16.write.format("csv").option("header", "true") \
         .mode("overwrite").save(check_16_path)
+
     # %%
     #========== 汇总检查结果 ==========
     
