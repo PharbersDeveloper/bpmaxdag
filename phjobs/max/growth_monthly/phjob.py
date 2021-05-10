@@ -31,7 +31,6 @@ def execute(**kwargs):
     g_growth_rate = kwargs['g_growth_rate']
     ### output args ###
 
-    
     import pandas as pd
     import os
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
@@ -166,14 +165,13 @@ def execute(**kwargs):
     # 执行函数
     df_growth_rate_month = calculateGrowth(df_raw_data_month)
     # 标记是哪个月的growth_rate
-    df_growth_rate_month = df_growth_rate_month.withColumn("MONTH_FOR_ADD", func.lit(g_month))
-    df_growth_rate_month = df_growth_rate_month.withColumn("YEAR_FOR_ADD", func.lit(g_year))
+    df_growth_rate_month = df_growth_rate_month.withColumn("YEAR_MONTH_FOR_ADD", func.lit(g_year*100 + g_month))
 
     # %%
     # 输出
     df_growth_rate_month = df_growth_rate_month.repartition(1)
-    df_growth_rate_month.write.format("parquet") \
-        .mode("overwrite").save(p_growth_rate)
+    df_growth_rate_month.write.format("parquet").partitionBy("YEAR_MONTH_FOR_ADD") \
+                        .mode("append").save(p_growth_rate)
     
     logger.debug('数据执行-Finish')
 

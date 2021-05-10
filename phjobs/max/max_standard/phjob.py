@@ -20,6 +20,9 @@ def execute(**kwargs):
     run_id = kwargs['run_id']
     max_path = kwargs['max_path']
     g_out_dir = kwargs['g_out_dir']
+    g_year = kwargs['g_year']
+    g_month = kwargs['g_month']
+    g_monthly_update = kwargs['g_monthly_update']
     ### input args ###
     
     ### output args ###
@@ -28,23 +31,24 @@ def execute(**kwargs):
     ### output args ###
 
     
-    
     from pyspark.sql import functions as func
     from pyspark.sql.functions import col
     from pyspark.sql.types import IntegerType, StringType, DoubleType, StructType, StructField    
     # %%
     # 测试用的参数
-    '''
-    g_project_name ="贝达"
-    g_out_dir="202012_test"
-    result_path_prefix = get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
-    depends_path = get_depends_path({"name":job_name, "dag_name":dag_name, 
-                                     "run_id":run_id, "depend_job_names_keys":depend_job_names_keys}) 
-    ## 没有更新过的job6结果
-    ## p_max_result = 's3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012_test/MAX_result/MAX_result_202001_202012_city_level/'
-    # print(depends_path)
-    '''
     
+    # g_project_name ="贝达"
+    # g_out_dir="202012_test"
+    # result_path_prefix=get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
+    # depends_path=get_depends_path({"name":job_name, "dag_name":dag_name, 
+    #                                  "run_id":run_id, "depend_job_names_keys":depend_job_names_keys })
+    
+    # # g_monthly_update = 'False'
+    # # g_year = '2019'
+    
+    # g_monthly_update = 'True'
+    # g_year = '2020'
+    # g_month = '12'
 
     # %%
     # ========== 输入 输出 =========
@@ -56,6 +60,9 @@ def execute(**kwargs):
     # job-6 结果作为输入
     p_max_result = depends_path["max_city_result"]
     
+    g_year = int(g_year)
+    if g_monthly_update == 'True':
+        g_month = int(g_month)
     
     # 输出
     p_max_standard =  result_path_prefix + "max_standard"
@@ -254,6 +261,11 @@ def execute(**kwargs):
                                             StructField('PREDICT_UNIT', DoubleType(), True)  ] )
     df_max_result = spark.read.format("parquet").load(p_max_result, schema=struct_type_max_result)
     df_max_result =  df_max_result.withColumnRenamed('MIN_STD', 'MIN_STD_MAX') 
+    
+    if g_monthly_update == 'True':
+        df_max_result = df_max_result.where(col('DATE') == (g_year*100 + g_month))
+    elif g_monthly_update == 'False':
+        df_max_result = df_max_result.where((col('DATE')/100).cast(IntegerType()) == g_year)
 
     # %%
     # =========== 数据执行 =============
@@ -364,15 +376,14 @@ def execute(**kwargs):
     # %%
     # =========== 数据输出 =============
     # 根据日期分桶写出
-    df_max_standard_all = df_max_standard_all.repartition("DATE_COPY")
+    df_max_standard_all = df_max_standard_all.repartition(1)
     df_max_standard_all.write.format("parquet").partitionBy("DATE_COPY") \
-    .mode("overwrite").save(p_max_standard)
+    .mode("append").save(p_max_standard)
     
     # 输出brief结果
     df_max_standard_brief = df_max_standard_brief.repartition(1)
-    df_max_standard_brief.write.format("parquet") \
-    .mode("overwrite").save(p_max_standard_brief)
-
+    df_max_standard_brief.write.format("parquet").partitionBy("DATE") \
+    .mode("append").save(p_max_standard_brief)
     # %%
     # ### 数据校准
     # p_result_maxdata_standard = "s3a://ph-stream/common/public/max_result/0.0.5/max_standard/贝达_max_standard/"

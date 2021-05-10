@@ -27,6 +27,8 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--dag_name')
 @click.option('--run_id')
 @click.option('--max_path')
+@click.option('--g_year')
+@click.option('--g_month')
 @click.option('--g_max_out')
 def debug_execute(**kwargs):
     try:

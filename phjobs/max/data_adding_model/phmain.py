@@ -24,6 +24,7 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--dag_name')
 @click.option('--run_id')
 @click.option('--max_path')
+@click.option('--g_if_add_data')
 @click.option('--g_adding_data')
 @click.option('--g_raw_data_adding_final')
 @click.option('--g_new_hospital')

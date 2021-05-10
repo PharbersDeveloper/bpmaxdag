@@ -17,6 +17,7 @@ def execute(**kwargs):
     g_project_name = kwargs['g_project_name']
     g_model_month_right = kwargs['g_model_month_right']
     g_year = kwargs['g_year']
+    g_month = kwargs['g_month']
     g_current_month = kwargs['g_current_month']
     g_add_47 = kwargs['g_add_47']
     depend_job_names_keys = kwargs['depend_job_names_keys']
@@ -33,6 +34,8 @@ def execute(**kwargs):
     ### output args ###
 
     
+    
+    
     from pyspark.sql.functions import col
     from pyspark.sql.types import IntegerType, StringType, StructType, StructField, DoubleType    
     from pyspark.sql import  functions as func
@@ -44,6 +47,7 @@ def execute(**kwargs):
     # g_project_name ="贝达"
     # g_model_month_right="201912"
     # g_year=2020
+    # g_month=12
     # g_current_month="12"
     # g_add_47="True"
     # result_path_prefix=get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
@@ -72,6 +76,7 @@ def execute(**kwargs):
     # 月更新相关输入
     # if monthly_update == "True":
     g_year = int(g_year)
+    g_month = int(g_month)
     g_current_month = int(g_current_month)
     
     # if g_p_not_arrived == "Empty":
@@ -104,7 +109,7 @@ def execute(**kwargs):
                                                     StructField('ID', StringType(), True),
                                                     StructField('PACK_ID', StringType(), True),
                                                     StructField('MANUFACTURER_STD', StringType(), True),
-                                                    StructField('YEAR_MONTH', DoubleType(), True),
+                                                    StructField('YEAR_MONTH', IntegerType(), True),
                                                     StructField('MOLECULE_STD', StringType(), True),
                                                     StructField('BRAND_STD', StringType(), True),
                                                     StructField('PACK_NUMBER_STD', IntegerType(), True),
@@ -121,7 +126,7 @@ def execute(**kwargs):
                                                     StructField('MOLECULE_STD_FOR_GR', StringType(), True),
                                                     StructField('ADD_FLAG', IntegerType(), True) ])
     df_raw_data_adding_final = spark.read.format("parquet").load(p_raw_data_adding_final, schema=struct_type_data_adding_final)
-    # df_raw_data_adding_final = df_raw_data_adding_final.persist()
+    df_raw_data_adding_final = df_raw_data_adding_final.where(col('YEAR_MONTH') == (g_year*100 + g_month))
     
     # 2、读取 universe 数据
     def createView(company, table_name, model,
@@ -232,6 +237,7 @@ def execute(**kwargs):
     # 处于model所用时间（模型数据），不补数；
     # 晚于model所用时间（月更新数据），用unpublished和not arrived补数
     # 取消Sanofi AZ 特殊处理（20210506）
+
     # %%
     #### 月更新
     # l_city = [u'北京市', u'上海市', u'天津市', u'重庆市', u'广州市', u'深圳市', u'西安市', u'大连市', u'成都市', u'厦门市', u'沈阳市']
@@ -272,7 +278,7 @@ def execute(**kwargs):
     # 合并df_unpublished和not_arrive文件
     df_notarrive_unpublished = df_unpublished.union(df_notarrive).distinct()
     
-    df_future_range = df_notarrive_unpublished.withColumn("DATE", df_notarrive_unpublished["DATE"].cast(DoubleType()))
+    df_future_range = df_notarrive_unpublished.withColumn("DATE", df_notarrive_unpublished["DATE"].cast(IntegerType()))
     df_panel_add_data_future = df_panel_add_data.where(df_panel_add_data.DATE > int(g_model_month_right)) \
         .join(df_future_range, on=["DATE", "ID"], how="inner") \
         .select(df_panel_raw_data.columns)
@@ -283,10 +289,16 @@ def execute(**kwargs):
 
     # %%
     # =========== 输出 =============
-    df_panel_filtered = df_panel_filtered.repartition(2)
-    df_panel_filtered.write.format("parquet") \
-        .mode("overwrite").save(p_result_panel)
+    df_panel_filtered = df_panel_filtered.repartition(1)
+    df_panel_filtered.write.format("parquet").partitionBy("DATE") \
+                        .mode("append").save(p_result_panel)
 
+# ====== check ============
+# p_result_month_old = "s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012_test/panel_result/"
+# df_result_month_old = spark.read.parquet(p_result_month_old)
+# check = df_result_month_old.where(  df_result_month_old.Date==202012.00  )
+# check.agg(func.sum('Sales')).show()
+# df_panel_filtered.agg(func.sum('Sales')).show()
     # %%
     # df_data_old = spark.read.parquet('s3a://ph-max-auto/2020-08-11/Max/refactor/runs/max_test_beida_202012_bk/panel_monthly/panel_result')
     # df_data_old.show(1, vertical=True)

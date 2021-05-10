@@ -17,28 +17,30 @@ spec:
     config: phconf.yaml
     args:
       - key: g_project_name
-        value: Empty
+        value: 'Empty'
       - key: g_year
-        value: Empty
+        value: 'Empty'
       - key: g_model_month_right
-        value: Empty
+        value: 'Empty'
       - key: depend_job_names_keys
-        value: ["growth_model#growth_rate#growth_rate", "price#price#price", "price#price_city#price_city", "deal_poi#deal_poi_out#deal_poi_out"]
+        value: '["growth_model#growth_rate#growth_rate", "price#price#price", "price#price_city#price_city", "deal_poi#deal_poi_out#deal_poi_out"]'
       - key: g_monthly_update
-        value: Empty
+        value: 'Empty'
       - key: dag_name
-        value: Max
+        value: 'Max'
       - key: run_id
-        value: max_test_beida_202012
+        value: 'max_test_beida_202012'
       - key: max_path
-        value: s3a://ph-max-auto/v0.0.1-2020-06-08/
+        value: 's3a://ph-max-auto/v0.0.1-2020-06-08/'
+      - key: g_if_add_data
+        value: 'True'
     outputs:
       - key: g_adding_data
-        value: adding_data
+        value: 'adding_data'
       - key: g_raw_data_adding_final
-        value: raw_data_adding_final
+        value: 'raw_data_adding_final'
       - key: g_new_hospital
-        value: new_hospital
+        value: 'new_hospital'
 
 
 

@@ -17,32 +17,34 @@ spec:
     config: phconf.yaml
     args:
       - key: g_project_name
-        value: Empty
+        value: 'Empty'
       - key: g_model_month_right
-        value: 0
+        value: '0'
       - key: g_year
-        value: Empty
+        value: 'Empty'
+      - key: g_month
+        value: 'Empty'
       - key: g_current_month
-        value: Empty
+        value: 'Empty'
       - key: g_add_47
-        value: False
+        value: 'False'
       - key: depend_job_names_keys
-        value: ["data_adding_monthly#raw_data_adding_final#raw_data_adding_final"]
+        value: '["data_adding_monthly#raw_data_adding_final#raw_data_adding_final"]'
       - key: g_monthly_update
-        value: Empty
+        value: 'Empty'
       - key: dag_name
-        value: Max
+        value: 'Max'
       - key: run_id
-        value: max_test_beida_202012
+        value: 'max_test_beida_202012'
       - key: max_path
-        value: s3a://ph-max-auto/v0.0.1-2020-06-08/
+        value: 's3a://ph-max-auto/v0.0.1-2020-06-08/'
       - key: g_city_47
-        value: 北京市, 上海市, 天津市, 重庆市, 广州市,深圳市, 西安市, 大连市, 成都市, 厦门市, 沈阳市
+        value: '北京市, 上海市, 天津市, 重庆市, 广州市,深圳市, 西安市, 大连市, 成都市, 厦门市, 沈阳市'
       - key: g_province_47
-        value: 河北省, 福建省, 河北, 福建
+        value: '河北省, 福建省, 河北, 福建'
     outputs:
       - key: g_panel
-        value: panel_result
+        value: 'panel_result'
 
 
 

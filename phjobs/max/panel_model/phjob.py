@@ -17,6 +17,7 @@ def execute(**kwargs):
     g_project_name = kwargs['g_project_name']
     g_model_month_left = kwargs['g_model_month_left']
     g_model_month_right = kwargs['g_model_month_right']
+    g_year = kwargs['g_year']
     g_add_47 = kwargs['g_add_47']
     depend_job_names_keys = kwargs['depend_job_names_keys']
     g_monthly_update = kwargs['g_monthly_update']
@@ -31,6 +32,8 @@ def execute(**kwargs):
     g_panel = kwargs['g_panel']
     ### output args ###
 
+    
+    
     from pyspark.sql.functions import col
     from pyspark.sql.types import DoubleType, IntegerType, StringType, StructType, StructField
     from pyspark.sql import  functions as func    
@@ -41,11 +44,17 @@ def execute(**kwargs):
     # g_model_month_left="201901"
     # g_model_month_right="201912"
     # g_add_47="True" 
+    # g_year=2019
     # result_path_prefix=get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
     # depends_path=get_depends_path({"name":job_name, "dag_name":dag_name, 
     #                                  "run_id":run_id, "depend_job_names_keys":depend_job_names_keys })
 
     # %%
+    # 是否运行此job
+    if g_monthly_update == "True":
+        return
+    
+    
     logger.debug('panel_model')
     # 输入
     # p_universe = max_path + "/" + g_project_name + "/universe_base"
@@ -56,7 +65,8 @@ def execute(**kwargs):
     if g_add_47 != "False" and g_add_47 != "True":
         logger.error('wrong input: g_add_47, False or True') 
         raise ValueError('wrong input: g_add_47, False or True')
-        
+    
+    g_year = int(g_year)    
     l_city = g_city_47.replace(' ','').split(',')
     l_province = g_province_47.replace(' ','').split(',')
         
@@ -71,10 +81,6 @@ def execute(**kwargs):
     # print(p_new_hospital)
 
     # %%
-    # 是否运行此job
-    if g_monthly_update == "True":
-        return
-    
     # =========== 数据准备 测试用=============
     # 读取 market
     df_market = spark.read.parquet(p_market)
@@ -90,7 +96,7 @@ def execute(**kwargs):
                                                     StructField('ID', StringType(), True),
                                                     StructField('PACK_ID', StringType(), True),
                                                     StructField('MANUFACTURER_STD', StringType(), True),
-                                                    StructField('YEAR_MONTH', DoubleType(), True),
+                                                    StructField('YEAR_MONTH', IntegerType(), True),
                                                     StructField('MOLECULE_STD', StringType(), True),
                                                     StructField('BRAND_STD', StringType(), True),
                                                     StructField('PACK_NUMBER_STD', IntegerType(), True),
@@ -107,7 +113,7 @@ def execute(**kwargs):
                                                     StructField('MOLECULE_STD_FOR_GR', StringType(), True),
                                                     StructField('ADD_FLAG', IntegerType(), True) ])
     df_raw_data_adding_final = spark.read.format("parquet").load(p_raw_data_adding_final, schema=struct_type_data_adding_final)
-    
+    df_raw_data_adding_final = df_raw_data_adding_final.where((col('YEAR_MONTH')/100).cast(IntegerType()) == g_year)
     
     # 2、读取 universe 数据
     def createView(company, table_name, model,
@@ -198,6 +204,7 @@ def execute(**kwargs):
     # 处于model所用时间（模型数据），不补数；
     # 晚于model所用时间（月更新数据），用unpublished和not arrived补数
     # 取消Sanofi AZ 特殊处理（20210506）
+
     # %%
     ####  模型
     df_new_hospital = spark.read.parquet(p_new_hospital)
@@ -223,9 +230,9 @@ def execute(**kwargs):
 
     # %%
     ##### 输出保存的结果
-    df_panel_filtered = df_panel_filtered.repartition(2)
-    df_panel_filtered.write.format("parquet") \
-        .mode("overwrite").save(p_panel_result)
+    df_panel_filtered = df_panel_filtered.repartition(1)
+    df_panel_filtered.write.format("parquet").partitionBy("DATE") \
+                        .mode("append").save(p_panel_result)
 
     # %%
     # df_panel_filtered.select("DATE").distinct().show()
@@ -250,28 +257,26 @@ def execute(**kwargs):
     ##### 检查更新 Code 后 和原来的数据结果是否一置
     
     
-    
-    
     # ######################################################   读取原来的job4-model的输出结果
-    p_result_model_old = "s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/201912_test/panel_result/"
-    df_result_model_old = spark.read.parquet(p_result_model_old)
-    # print(df_result_model_old.columns)
+    # p_result_model_old = "s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/201912_test/panel_result/"
+    # df_result_model_old = spark.read.parquet(p_result_model_old)
+    # # print(df_result_model_old.columns)
     
-    df_result_model_old.select("Date").distinct().show()
+    # df_result_model_old.select("Date").distinct().show()
     
-    df_result_model_2019 =  df_result_model_old.where( ( df_result_model_old.Date>=201900.00) & (df_result_model_old.Date<=202000.00) )
-    df_result_model_2019 = df_result_model_2019.withColumn("DATE", df_result_model_2019["Date"].cast(IntegerType()) )
-    df_result_model_2019 = df_result_model_2019.withColumnRenamed("Prod_Name", "MIN_STD" )\
-                            .withColumnRenamed("Sales", "SalesOld")
+    # df_result_model_2019 =  df_result_model_old.where( ( df_result_model_old.Date>=201900.00) & (df_result_model_old.Date<=202000.00) )
+    # df_result_model_2019 = df_result_model_2019.withColumn("DATE", df_result_model_2019["Date"].cast(IntegerType()) )
+    # df_result_model_2019 = df_result_model_2019.withColumnRenamed("Prod_Name", "MIN_STD" )\
+    #                         .withColumnRenamed("Sales", "SalesOld")
     
     
     
-    compare  = df_panel_filtered.join( df_result_model_2019, on=["DATE", "ID", "MIN_STD"], how="left" )
+    # compare  = df_panel_filtered.join( df_result_model_2019, on=["DATE", "ID", "MIN_STD"], how="left" )
     
-    logger.debug( df_panel_filtered.count(), df_result_model_2019.count(),  compare.count() )
+    # print( df_panel_filtered.count(), df_result_model_2019.count(),  compare.count() )
     
-    compare_result = compare.withColumn("sales_error", compare["SALES"] - compare["SalesOld"])
-    compare_result.where( func.abs( compare_result.sales_error)>0.01 ).count()
+    # compare_result = compare.withColumn("sales_error", compare["SALES"] - compare["SalesOld"])
+    # compare_result.where( func.abs( compare_result.sales_error)>0.01 ).count()
     
-    # errow =  compare.select("SALES").exceptAll(compare.select("SalesOld") )
+    # # errow =  compare.select("SALES").exceptAll(compare.select("SalesOld") )
 
