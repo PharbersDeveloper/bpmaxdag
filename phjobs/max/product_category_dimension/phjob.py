@@ -23,7 +23,7 @@ def execute(**kwargs):
     logger.info("当前 run_id 为 " + str(kwargs["run_id"]))
     logger.info("当前 job_id 为 " + str(kwargs["job_id"]))
     spark = kwargs["spark"]()
-
+    
     def general_id():
         charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' + \
                   'abcdefghijklmnopqrstuvwxyz' + \
@@ -33,7 +33,7 @@ def execute(**kwargs):
 
         keyLength = 3 * 5
 
-        result = []
+        result = ["MO"]
         for _ in range(keyLength):
             result.append(charset[random.randint(0, charsetLength - 1)])
 
@@ -43,30 +43,40 @@ def execute(**kwargs):
     _time = str(kwargs["time"])
     _input = str(kwargs["clean_input"]) + _time
     _company = str(kwargs["company"])
-    _output = str(kwargs["preld_output"])
+    _output = str(kwargs["pcd_output"])
     _version = str(kwargs["version"])
     
-    # clean_df = spark.read.parquet(_input).filter(col("COMPANY") == _company)
+    
     clean_df = spark.read.parquet(_input)
     
-    # df = clean_df.selectExpr("PACK_ID AS VALUE", "COMPANY", "TIME").distinct().filter("VALUE is not null") \
-    #     .withColumn("ID", _id()) \
-    #     .withColumn("CATEGORY", lit("IMS PACKID")) \
-    #     .withColumn("TYPE", lit("null")) \
-    #     .withColumn("VERSION", lit(_version))
-    
-    df = clean_df.selectExpr("PACK_ID AS VALUE").distinct() \
+    atc_df = clean_df.selectExpr("ATC4_CODE AS VALUE").distinct() \
         .withColumn("ID", _id()) \
         .withColumn("COMPANY", lit(_company)) \
         .withColumn("TIME", lit(_time)) \
-        .withColumn("CATEGORY", lit("IMS PACKID")) \
+        .withColumn("CATEGORY", lit("ATC")) \
         .withColumn("TYPE", lit("null")) \
+        .withColumn("LEVEL", lit("null")) \
         .withColumn("VERSION", lit(_version))
-        
-    df.selectExpr("ID", "CATEGORY", "TYPE", "VALUE", "VERSION", "TIME", "COMPANY") \
+    
+    
+    nfc_df = clean_df.selectExpr("NFC123 AS VALUE").distinct() \
+        .withColumn("ID", _id()) \
+        .withColumn("COMPANY", lit(_company)) \
+        .withColumn("TIME", lit(_time)) \
+        .withColumn("CATEGORY", lit("NFC")) \
+        .withColumn("TYPE", lit("null")) \
+        .withColumn("LEVEL", lit("null")) \
+        .withColumn("VERSION", lit(_version))
+    
+    
+    df = atc_df.union(nfc_df)
+    
+    df.selectExpr("ID", "CATEGORY", "TYPE", "VALUE", "VERSION", "TIME","COMPANY") \
+        .repartition(2) \
         .write \
         .partitionBy("TIME", "COMPANY") \
         .mode("append") \
         .parquet(_output)
-
+    
+    
     return {}

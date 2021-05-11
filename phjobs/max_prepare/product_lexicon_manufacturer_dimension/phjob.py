@@ -47,15 +47,29 @@ def execute(**kwargs):
     _version = str(kwargs["version"])
     
     
-    clean_df = spark.read.parquet(_input).filter(col("COMPANY") == _company)
+    # clean_df = spark.read.parquet(_input).filter(col("COMPANY") == _company)
+    clean_df = spark.read.parquet(_input)
     
-    df = clean_df.selectExpr("COMMON_NAME AS VALUE", "COMPANY", "TIME").distinct() \
+    mole_df = clean_df.selectExpr("MOLE_NAME_CH AS VALUE").distinct() \
         .withColumn("ID", _id()) \
+        .withColumn("COMPANY", lit(_company)) \
+        .withColumn("TIME", lit(_time)) \
         .withColumn("CATEGORY", lit("KEYWORD")) \
         .withColumn("TYPE", lit("MOLE")) \
         .withColumn("VERSION", lit(_version))
-        
+    
+    mnf_df = clean_df.selectExpr("MNF_NAME_CH AS VALUE").distinct() \
+        .withColumn("ID", _id()) \
+        .withColumn("COMPANY", lit(_company)) \
+        .withColumn("TIME", lit(_time)) \
+        .withColumn("CATEGORY", lit("KEYWORD")) \
+        .withColumn("TYPE", lit("MNF")) \
+        .withColumn("VERSION", lit(_version))
+    
+    df = mole_df.union(mnf_df)
+    
     df.selectExpr("ID", "CATEGORY", "TYPE", "VALUE", "VERSION", "TIME","COMPANY") \
+        .repartition(2) \
         .write \
         .partitionBy("TIME", "COMPANY") \
         .mode("append") \

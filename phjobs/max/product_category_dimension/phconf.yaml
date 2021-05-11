@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: PhJob
 metadata:
-  name: product_rel_dimension
+  name: product_category_dimension
   description: "pharbers job description"
   labels:
-    name: product_rel_dimension
+    name: product_category_dimension
     runtime: python3
     command: submit
 spec:
@@ -25,8 +25,8 @@ spec:
       - key: version
         value: "0.0.1"
     outputs:
-      - key: preld_output
-        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/PRODUCT_RELATIONSHIP_DIMENSION/"
+      - key: pcd_output
+        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/PRODUCT_CATEGORY_DIMENSION/"
 
 
 

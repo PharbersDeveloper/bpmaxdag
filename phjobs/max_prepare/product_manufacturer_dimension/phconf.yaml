@@ -19,7 +19,7 @@ spec:
       - key: clean_input
         value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/TMP/PRODUCT_DIMENSION/"
       - key: time
-        value: "2021-04-06"
+        value: "2021-04-14"
       - key: company
         value: "贝达"
       - key: version

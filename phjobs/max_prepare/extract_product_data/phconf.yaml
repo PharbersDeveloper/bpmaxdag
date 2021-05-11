@@ -17,38 +17,13 @@ spec:
     config: phconf.yaml
     args:
       - key: time
-        value: "2021-04-06"
+        value: "2021-04-14"
       - key: product_inputs
-        value: "s3a://ph-max-auto/v0.0.1-2020-06-08/奥鸿/202012/prod_mapping/,
-                s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012/prod_mapping/,
-                s3a://ph-max-auto/v0.0.1-2020-06-08/海坤/202012/prod_mapping/,
-                s3a://ph-max-auto/v0.0.1-2020-06-08/汇宇/202012/prod_mapping/,
-                s3a://ph-max-auto/v0.0.1-2020-06-08/京新/202101/prod_mapping/,
-                s3a://ph-max-auto/v0.0.1-2020-06-08/康哲/202012/prod_mapping/,
-                s3a://ph-max-auto/v0.0.1-2020-06-08/灵北/202101/prod_mapping/,
-                s3a://ph-max-auto/v0.0.1-2020-06-08/神州/202012/prod_mapping/,
-                s3a://ph-max-auto/v0.0.1-2020-06-08/Astellas/202012/prod_mapping/,
-                s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/202012/prod_mapping/,
-                s3a://ph-max-auto/v0.0.1-2020-06-08/AZ2/202012/prod_mapping/,
-                s3a://ph-max-auto/v0.0.1-2020-06-08/Bayer/202010/prod_mapping/,
-                s3a://ph-max-auto/v0.0.1-2020-06-08/Beite/202007/prod_mapping/,
-                s3a://ph-max-auto/v0.0.1-2020-06-08/Chugai/202101/prod_mapping/,
-                s3a://ph-max-auto/v0.0.1-2020-06-08/Eisai/202012/prod_mapping/,
-                s3a://ph-max-auto/v0.0.1-2020-06-08/Gilead/202101/prod_mapping/,
-                s3a://ph-max-auto/v0.0.1-2020-06-08/Janssen/202007/prod_mapping/,
-                s3a://ph-max-auto/v0.0.1-2020-06-08/Merck/202009/prod_mapping/,
-                s3a://ph-max-auto/v0.0.1-2020-06-08/Mylan/202012/prod_mapping/,
-                s3a://ph-max-auto/v0.0.1-2020-06-08/NHWA/202012/prod_mapping/,
-                s3a://ph-max-auto/v0.0.1-2020-06-08/Novartis/202007/prod_mapping/,
-                s3a://ph-max-auto/v0.0.1-2020-06-08/Pfizer/202101/prod_mapping/,
-                s3a://ph-max-auto/v0.0.1-2020-06-08/Qilu/202101/prod_mapping/,
-                s3a://ph-max-auto/v0.0.1-2020-06-08/Sankyo/202012/prod_mapping/,
-                s3a://ph-max-auto/v0.0.1-2020-06-08/Sanofi/202101/prod_mapping/,
-                s3a://ph-max-auto/v0.0.1-2020-06-08/Servier/202101/prod_mapping/,
-                s3a://ph-max-auto/v0.0.1-2020-06-08/Takeda/202012/prod_mapping/,
-                s3a://ph-max-auto/v0.0.1-2020-06-08/Takeda2/201712/prod_mapping/,
-                s3a://ph-max-auto/v0.0.1-2020-06-08/Tide/202012/prod_mapping/,
-                s3a://ph-max-auto/v0.0.1-2020-06-08/XLT/202101/prod_mapping/"
+        value: "s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012/prod_mapping/"
+      - key: product_master_input
+        value: "s3a://ph-max-auto/v0.0.1-2020-06-08//Common_files/extract_data_files/master_data_map.csv"
+      - key: product_map_atc_input
+        value: "s3a://ph-max-auto/v0.0.1-2020-06-08//Common_files/extract_data_files/product_map_all_ATC.csv"
     outputs:
       - key: clean_output
         value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/TMP/PRODUCT_DIMENSION/"

@@ -102,13 +102,17 @@ def execute(**kwargs):
             "SOURCE", "TIME", "COMPANY", "RAW_MAPPING_MIN")
     mapping_std_info_df = mapping_packid_not_null_df.union(mapping_packid_null_df)
     mapping_std_info_df.persist()
-    # 贝达 88041 product mapping 有177个无packid  master.csv 93个没有匹配到packid  总共270个
     
     df = mapping_std_info_df.join(product_dim_df, [col("RAW_PACK_ID") == col("VALUE")], "left_outer").drop("VALUE") \
         .join(pha_cpa_gyc_mapping_df, [col("RAW_CODE") == col("VALUE"), col("TAG") == col("SOURCE")], "left_outer") \
         .withColumn("ID", _id()) \
         .selectExpr(*base_select)
-    
-    df.repartition(2).write.partitionBy("TIME", "COMPANY").mode("append").parquet(_output)
+        
+    df.show()
+    print(df.count())
+    a = df.filter("PRODUCT_ID is null")
+    a.show()
+    print(a.count())
+    # df.repartition(2).write.partitionBy("TIME", "COMPANY").mode("append").parquet(_output)
     
     return {}

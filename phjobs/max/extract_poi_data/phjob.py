@@ -23,7 +23,19 @@ def execute(**kwargs):
     logger.info("当前 run_id 为 " + str(kwargs["run_id"]))
     logger.info("当前 job_id 为 " + str(kwargs["job_id"]))
     spark = kwargs["spark"]()
-
+    
+    
+    _time = str(kwargs["time"])
+    _inputs = str(kwargs["input_poi_paths"]).replace(" ", "").split(",")
+    _output = str(kwargs["output_poi_path"])
+    _substr_tag = "v0.0.1-2020-06-08"
+    _version = str(kwargs["version"])
+    
+    row = [{"POI": "NAN"}]
+    cf = spark.createDataFrame(row)
+    cf.collect()
+    
+    
     def general_id():
         charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' + \
                   'abcdefghijklmnopqrstuvwxyz' + \
@@ -33,40 +45,41 @@ def execute(**kwargs):
 
         keyLength = 3 * 5
 
-        result = []
+        result = [""]
         for _ in range(keyLength):
             result.append(charset[random.randint(0, charsetLength - 1)])
 
         return "".join(result)
+
+
+    gid = udf(general_id, StringType())
     
-    _id = udf(general_id, StringType())
-    _time = str(kwargs["time"])
-    _input = str(kwargs["clean_input"]) + _time
-    _company = str(kwargs["company"])
-    _output = str(kwargs["preld_output"])
-    _version = str(kwargs["version"])
     
-    # clean_df = spark.read.parquet(_input).filter(col("COMPANY") == _company)
-    clean_df = spark.read.parquet(_input)
+    def get_company_for_url(path):
+        tmp = path[path.index(_substr_tag) + len(_substr_tag) + 1:]
+        return tmp[:tmp.index("/")]
     
-    # df = clean_df.selectExpr("PACK_ID AS VALUE", "COMPANY", "TIME").distinct().filter("VALUE is not null") \
-    #     .withColumn("ID", _id()) \
-    #     .withColumn("CATEGORY", lit("IMS PACKID")) \
-    #     .withColumn("TYPE", lit("null")) \
-    #     .withColumn("VERSION", lit(_version))
     
-    df = clean_df.selectExpr("PACK_ID AS VALUE").distinct() \
-        .withColumn("ID", _id()) \
-        .withColumn("COMPANY", lit(_company)) \
-        .withColumn("TIME", lit(_time)) \
-        .withColumn("CATEGORY", lit("IMS PACKID")) \
-        .withColumn("TYPE", lit("null")) \
-        .withColumn("VERSION", lit(_version))
+    def get_df(path):
+        company = get_company_for_url(path)
+        readding = spark.read.csv(path, header=True)
+        cols = list(map(lambda col: col + " AS " + col.upper(), readding.columns))
+        readding = readding.selectExpr(*cols)
+        if readding.count() == 0:
+            readding = readding.union(cf)
         
-    df.selectExpr("ID", "CATEGORY", "TYPE", "VALUE", "VERSION", "TIME", "COMPANY") \
+        df = readding \
+            .withColumn("ID", gid()) \
+            .withColumn("TIME", lit(_time)) \
+            .withColumn("COMPANY", lit(company)) \
+            .withColumn("VERSION", lit(_version))
+        return df
+        
+        
+    reduce(lambda dfl, dfr: dfl.union(dfr), list(map(get_df, _inputs))) \
         .write \
         .partitionBy("TIME", "COMPANY") \
         .mode("append") \
         .parquet(_output)
-
+    
     return {}
