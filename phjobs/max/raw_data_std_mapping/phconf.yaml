@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: PhJob
 metadata:
-  name: raw_data_mapping
+  name: raw_data_std_mapping
   description: "pharbers job description"
   labels:
-    name: raw_data_mapping
+    name: raw_data_std_mapping
     runtime: python3
     command: submit
 spec:
@@ -17,14 +17,14 @@ spec:
     config: phconf.yaml
     args:
       - key: clean_input
-        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/TMP/RAW_DATA/"
+        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/TMP/RAW_DATA_STD/"
       - key: time
         value: "2021-04-14"
       - key: company
         value: "贝达"
     outputs:
       - key: raw_data_output
-        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/FACT/RAW_DATA_FACT/"
+        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/FACT/RAW_DATA_STD_FACT/"
 
 
 

@@ -17,7 +17,7 @@ spec:
     config: phconf.yaml
     args:
       - key: time
-        value: "2021-04-06"
+        value: "2021-04-14"
       - key: raw_inputs
         # value: "s3a://ph-max-auto/v0.0.1-2020-06-08/奥鸿/202012/raw_data,
         #         s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012/raw_data,

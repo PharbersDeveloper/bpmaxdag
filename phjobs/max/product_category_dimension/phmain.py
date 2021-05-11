@@ -14,15 +14,15 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--owner')
 @click.option('--run_id')
 @click.option('--job_id')
+@click.option('--clean_input')
+@click.option('--company')
 @click.option('--time')
-@click.option('--product_inputs')
-@click.option('--product_master_input')
-@click.option('--product_map_atc_input')
-@click.option('--clean_output')
+@click.option('--version')
+@click.option('--pcd_output')
 def debug_execute(**kwargs):
     try:
-        args = {"name": "extract_product_data"}
-        outputs = ["clean_output"]
+        args = {"name": "product_category_dimension"}
+        outputs = ["pcd_output"]
 
         args.update(kwargs)
         result = exec_before(**args)

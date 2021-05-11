@@ -47,18 +47,28 @@ def execute(**kwargs):
     _output = str(kwargs["pmd_output"])
     _version = str(kwargs["version"])
     
-    clean_df = spark.read.parquet(_input).filter(col("COMPANY") == _company)
+    # clean_df = spark.read.parquet(_input).filter(col("COMPANY") == _company)
+    clean_df = spark.read.parquet(_input)
     
-    df = clean_df.selectExpr("MANUFACTURER AS MNF_NAME", "COMPANY", "TIME").distinct() \
+    # df = clean_df.selectExpr("MANUFACTURER AS MNF_NAME", "COMPANY", "TIME").distinct() \
+    #     .withColumn("ID", _id()) \
+    #     .withColumn("MNF_TYPE", lit("null")) \
+    #     .withColumn("MNF_TYPE_NAME", lit("null")) \
+    #     .withColumn("MNF_TYPE_NAME_CH", lit("null")) \
+    #     .withColumn("CORP_ID", lit("null")) \
+    #     .withColumn("CORP_NAME_EN", lit("null")) \
+    #     .withColumn("CORP_NAME_CH", lit("null")) \
+    #     .withColumn("LOCATION", lit("null")) \
+    #     .withColumn("VERSION", lit(_version))
+        
+    df = clean_df.selectExpr("CORP_ID", "CORP_NAME_CH", "CORP_NAME_EN", "MNF_NAME_CH AS MNF_NAME", 
+            "MNF_TYPE_NAME AS MNF_TYPE", "MNF_TYPE_NAME", "MNF_TYPE_NAME_CH").distinct() \
         .withColumn("ID", _id()) \
-        .withColumn("MNF_TYPE", lit("null")) \
-        .withColumn("MNF_TYPE_NAME", lit("null")) \
-        .withColumn("MNF_TYPE_NAME_CH", lit("null")) \
-        .withColumn("CORP_ID", lit("null")) \
-        .withColumn("CORP_NAME_EN", lit("null")) \
-        .withColumn("CORP_NAME_CH", lit("null")) \
+        .withColumn("COMPANY", lit(_company)) \
+        .withColumn("TIME", lit(_time)) \
         .withColumn("LOCATION", lit("null")) \
         .withColumn("VERSION", lit(_version))
+        
         
     df.selectExpr("ID", "MNF_NAME", "MNF_TYPE", "MNF_TYPE_NAME","MNF_TYPE_NAME_CH", "CORP_ID", "CORP_NAME_CH", "CORP_NAME_EN", "LOCATION", "VERSION","TIME","COMPANY") \
         .write \

@@ -15,13 +15,11 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--run_id')
 @click.option('--job_id')
 @click.option('--time')
-@click.option('--product_inputs')
-@click.option('--product_master_input')
-@click.option('--product_map_atc_input')
+@click.option('--raw_inputs')
 @click.option('--clean_output')
 def debug_execute(**kwargs):
     try:
-        args = {"name": "extract_product_data"}
+        args = {"name": "extract_raw_data_std"}
         outputs = ["clean_output"]
 
         args.update(kwargs)
