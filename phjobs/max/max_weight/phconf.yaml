@@ -32,10 +32,6 @@ spec:
         value: 'Empty'
       - key: depend_job_names_keys
         value: '["panel_model#panel_result#panel_model_out", "panel_monthly#panel_result#panel_monthly_out"]'
-      - key: dag_name
-        value: 'Max'
-      - key: run_id
-        value: 'max_test_beida_202012'
       - key: max_path
         value: 's3a://ph-max-auto/v0.0.1-2020-06-08/'
       - key: g_year

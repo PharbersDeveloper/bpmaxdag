@@ -16,8 +16,6 @@ def execute(**kwargs):
     ### input args ###
     g_project_name = kwargs['g_project_name']
     depend_job_names_keys = kwargs['depend_job_names_keys']
-    dag_name = kwargs['dag_name']
-    run_id = kwargs['run_id']
     max_path = kwargs['max_path']
     ### input args ###
     
@@ -26,11 +24,13 @@ def execute(**kwargs):
     g_price_city = kwargs['g_price_city']
     ### output args ###
 
+    
+    
     import pandas as pd
     import os
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
-    from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col        # %%
+    from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col            # %%
     #测试用
     
     # g_project_name='贝达'
@@ -73,6 +73,7 @@ def execute(**kwargs):
                                 StructField('YEAR', IntegerType(), True), 
                                 StructField('MIN_STD', StringType(), True) ])
     df_raw_data = spark.read.format("parquet").load(p_product_mapping_out, schema=struct_type)
+
     # %%
     # 1 价格计算：补数部分的数量需要用价格得出
     # 1.1 CITY_TIER 层面的价格

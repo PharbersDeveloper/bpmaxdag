@@ -22,10 +22,6 @@ spec:
         value: '|'
       - key: g_minimum_product_columns
         value: 'Brand, Form, Specifications, Pack_Number, Manufacturer'
-      - key: dag_name
-        value: 'Max'
-      - key: run_id
-        value: 'max_test_beida_202012'
       - key: max_path
         value: 's3a://ph-max-auto/v0.0.1-2020-06-08/'
       - key: g_out_dir

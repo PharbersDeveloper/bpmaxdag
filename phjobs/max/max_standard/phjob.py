@@ -16,8 +16,6 @@ def execute(**kwargs):
     ### input args ###
     g_project_name = kwargs['g_project_name']
     depend_job_names_keys = kwargs['depend_job_names_keys']
-    dag_name = kwargs['dag_name']
-    run_id = kwargs['run_id']
     max_path = kwargs['max_path']
     g_out_dir = kwargs['g_out_dir']
     g_year = kwargs['g_year']
@@ -30,6 +28,8 @@ def execute(**kwargs):
     b = kwargs['b']
     ### output args ###
 
+    
+    
     
     from pyspark.sql import functions as func
     from pyspark.sql.functions import col
@@ -384,6 +384,7 @@ def execute(**kwargs):
     df_max_standard_brief = df_max_standard_brief.repartition(1)
     df_max_standard_brief.write.format("parquet").partitionBy("DATE") \
     .mode("append").save(p_max_standard_brief)
+
     # %%
     # ### 数据校准
     # p_result_maxdata_standard = "s3a://ph-stream/common/public/max_result/0.0.5/max_standard/贝达_max_standard/"

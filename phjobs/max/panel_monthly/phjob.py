@@ -22,9 +22,8 @@ def execute(**kwargs):
     g_add_47 = kwargs['g_add_47']
     depend_job_names_keys = kwargs['depend_job_names_keys']
     g_monthly_update = kwargs['g_monthly_update']
-    dag_name = kwargs['dag_name']
-    run_id = kwargs['run_id']
     max_path = kwargs['max_path']
+    g_base_path = kwargs['g_base_path']
     g_city_47 = kwargs['g_city_47']
     g_province_47 = kwargs['g_province_47']
     ### input args ###
@@ -33,6 +32,8 @@ def execute(**kwargs):
     g_panel = kwargs['g_panel']
     ### output args ###
 
+    
+    
     
     
     
@@ -131,7 +132,7 @@ def execute(**kwargs):
     # 2、读取 universe 数据
     def createView(company, table_name, model,
             time="2021-04-06", 
-            base_path = "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX"):
+            base_path = g_base_path):
                 
                 definite_path = "{base_path}/{model}/TIME={time}/COMPANY={company}"
                 dim_path = definite_path.format(
@@ -292,13 +293,13 @@ def execute(**kwargs):
     df_panel_filtered = df_panel_filtered.repartition(1)
     df_panel_filtered.write.format("parquet").partitionBy("DATE") \
                         .mode("append").save(p_result_panel)
+    # ====== check ============
+    # p_result_month_old = "s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012_test/panel_result/"
+    # df_result_month_old = spark.read.parquet(p_result_month_old)
+    # check = df_result_month_old.where(  df_result_month_old.Date==202012.00  )
+    # check.agg(func.sum('Sales')).show()
+    # df_panel_filtered.agg(func.sum('Sales')).show()
 
-# ====== check ============
-# p_result_month_old = "s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012_test/panel_result/"
-# df_result_month_old = spark.read.parquet(p_result_month_old)
-# check = df_result_month_old.where(  df_result_month_old.Date==202012.00  )
-# check.agg(func.sum('Sales')).show()
-# df_panel_filtered.agg(func.sum('Sales')).show()
     # %%
     # df_data_old = spark.read.parquet('s3a://ph-max-auto/2020-08-11/Max/refactor/runs/max_test_beida_202012_bk/panel_monthly/panel_result')
     # df_data_old.show(1, vertical=True)

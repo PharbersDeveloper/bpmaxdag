@@ -22,8 +22,6 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--g_minimum_product_newname')
 @click.option('--g_need_cleaning_cols')
 @click.option('--depend_job_names_keys')
-@click.option('--dag_name')
-@click.option('--run_id')
 @click.option('--max_path')
 @click.option('--g_out_dir')
 @click.option('--g_product_mapping_out')

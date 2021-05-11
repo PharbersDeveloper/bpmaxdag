@@ -20,8 +20,6 @@ def execute(**kwargs):
     depend_job_names_keys = kwargs['depend_job_names_keys']
     g_current_month = kwargs['g_current_month']
     g_monthly_update = kwargs['g_monthly_update']
-    dag_name = kwargs['dag_name']
-    run_id = kwargs['run_id']
     max_path = kwargs['max_path']
     not_arrived_path = kwargs['not_arrived_path']
     published_path = kwargs['published_path']
@@ -31,6 +29,8 @@ def execute(**kwargs):
     g_growth_rate = kwargs['g_growth_rate']
     ### output args ###
 
+    
+    
     import pandas as pd
     import os
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField

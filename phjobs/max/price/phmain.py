@@ -18,8 +18,6 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--job_id')
 @click.option('--g_project_name')
 @click.option('--depend_job_names_keys')
-@click.option('--dag_name')
-@click.option('--run_id')
 @click.option('--max_path')
 @click.option('--g_price')
 @click.option('--g_price_city')

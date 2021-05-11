@@ -15,17 +15,18 @@ def execute(**kwargs):
     
     ### input args ###
     g_project_name = kwargs['g_project_name']
-    dag_name = kwargs['dag_name']
-    run_id = kwargs['run_id']
-    max_path = kwargs['max_path']
     if_others = kwargs['if_others']
     g_out_dir = kwargs['g_out_dir']
+    max_path = kwargs['max_path']
+    g_base_path = kwargs['g_base_path']
     ### input args ###
     
     ### output args ###
     g_hospital_mapping_out = kwargs['g_hospital_mapping_out']
     ### output args ###
 
+    
+    
     
     import os
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
@@ -79,7 +80,7 @@ def execute(**kwargs):
     
     def createView(company, table_name, model,
             time="2021-04-06", 
-            base_path = "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX"):
+            base_path = g_base_path):
                 
                 definite_path = "{base_path}/{model}/TIME={time}/COMPANY={company}"
                 dim_path = definite_path.format(
@@ -97,6 +98,7 @@ def execute(**kwargs):
     createView(g_project_name, "mnf_dimesion", "DIMENSION/MNF_DIMENSION", "2021-04-06")
     createView(g_project_name, "product_rel_dimesion", "DIMENSION/PRODUCT_RELATIONSHIP_DIMENSION", "2021-04-06")
     createView(g_project_name, "raw_data_fact", "FACT/RAW_DATA_FACT", "2021-04-06")
+
     # %%
     base_universe_sql = """
             SELECT PANEL_ID AS PHA, HOSPITAL_ID, HOSP_NAME, 
@@ -119,6 +121,7 @@ def execute(**kwargs):
     df_universe = spark.sql(base_universe_sql)
     # df_universe = spark.read.parquet("s3a://ph-max-auto/2020-08-11/Max/refactor/runs/max_test_beida_202012/temporary/universe_PANEL_ID")
     # df_universe = spark.read.parquet("s3a://ph-max-auto/2020-08-11/Max/refactor/runs/max_test_beida_202012/temporary/universe_PHA_ID")
+
     # %%
     
     raw_data_sql = """
@@ -138,6 +141,7 @@ def execute(**kwargs):
     df_raw_data = df_raw_data.withColumn('PACK_NUMBER_STD', col('PACK_NUMBER_STD').cast(IntegerType())) \
                         .withColumn('SALES', col('SALES').cast(DoubleType())) \
                         .withColumn('UNITS', col('UNITS').cast(DoubleType())) 
+
     # %%
     # =========== 数据执行 =============
     logger.debug('数据执行-start：hospital_mapping')
@@ -176,6 +180,7 @@ def execute(**kwargs):
     # %%
     # tmp.where(col('PHA_new').isNull()).show(100)
     # print( df_raw_data.columns )
+
     # %%
     
     # df_data_old = spark.read.parquet("s3a://ph-max-auto/2020-08-11/Max/refactor/runs/max_test_beida_202012_bk/hospital_mapping/hospital_mapping_out/")
@@ -194,6 +199,7 @@ def execute(**kwargs):
     
     # print( compare)
     # print( compare.count())
+
     # %%
     #### 匹配的上的有何差别
     # compare_error = compare.withColumn("Error", compare["SALES"]- compare["SALES_OLD"] )\
@@ -210,3 +216,4 @@ def execute(**kwargs):
     # df_data_old.join( df_raw_data, on=['PHA', 'ID', 'MANUFACTURER_STD', 'YEAR_MONTH', 'MOLECULE_STD', 
     #                                                  'BRAND_STD', 'PACK_NUMBER_STD', 'FORM_STD', 'SPECIFICATIONS_STD', 
     #                                                  'CITY', 'PROVINCE', 'CITY_TIER', 'MONTH', 'YEAR'],how="anti").show(2, vertical=True)
+

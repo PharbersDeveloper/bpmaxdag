@@ -17,8 +17,6 @@ def execute(**kwargs):
     g_project_name = kwargs['g_project_name']
     g_minimum_product_sep = kwargs['g_minimum_product_sep']
     g_minimum_product_columns = kwargs['g_minimum_product_columns']
-    dag_name = kwargs['dag_name']
-    run_id = kwargs['run_id']
     max_path = kwargs['max_path']
     g_out_dir = kwargs['g_out_dir']
     ### input args ###
@@ -28,6 +26,8 @@ def execute(**kwargs):
     g_rawdata_standard_brief = kwargs['g_rawdata_standard_brief']
     ### output args ###
 
+    
+    
     
     
     
@@ -460,6 +460,7 @@ def execute(**kwargs):
     # df_result_rawdata_standard.select("DATE").where( df_result_rawdata_standard.DATE >=202101  ).distinct().show()
     # df_result_rawdata_standard.select("DATE").where( (df_result_rawdata_standard.DATE >=202001)| ((df_result_rawdata_standard.DATE >=202101) )   ).distinct().show()
     # 17，18，19，20，21(只有1月的)
+
     # %%
     
     # df_result_rawdata_standard_2017 =  df_result_rawdata_standard.where( (df_result_rawdata_standard.DATE >=201701)& ((df_result_rawdata_standard.DATE < 201801) )   )

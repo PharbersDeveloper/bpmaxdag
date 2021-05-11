@@ -20,8 +20,6 @@ def execute(**kwargs):
     g_minimum_product_newname = kwargs['g_minimum_product_newname']
     g_need_cleaning_cols = kwargs['g_need_cleaning_cols']
     depend_job_names_keys = kwargs['depend_job_names_keys']
-    dag_name = kwargs['dag_name']
-    run_id = kwargs['run_id']
     max_path = kwargs['max_path']
     g_out_dir = kwargs['g_out_dir']
     ### input args ###
@@ -31,6 +29,8 @@ def execute(**kwargs):
     g_need_cleaning_out = kwargs['g_need_cleaning_out']
     ### output args ###
 
+    
+    
     
     
     
@@ -154,3 +154,4 @@ def execute(**kwargs):
     # print(cant_mapping.count())
     # print(cant_mapping.select("ID", "MIN_STD",  "YEAR_MONTH").distinct().count())
     # cant_mapping.show(1,vertical=True)
+

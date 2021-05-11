@@ -22,8 +22,6 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--g_year_missing')
 @click.option('--g_monthly_update')
 @click.option('--depend_job_names_keys')
-@click.option('--dag_name')
-@click.option('--run_id')
 @click.option('--g_growth_rate')
 def debug_execute(**kwargs):
     try:

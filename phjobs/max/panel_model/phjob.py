@@ -21,9 +21,8 @@ def execute(**kwargs):
     g_add_47 = kwargs['g_add_47']
     depend_job_names_keys = kwargs['depend_job_names_keys']
     g_monthly_update = kwargs['g_monthly_update']
-    dag_name = kwargs['dag_name']
-    run_id = kwargs['run_id']
     max_path = kwargs['max_path']
+    g_base_path = kwargs['g_base_path']
     g_city_47 = kwargs['g_city_47']
     g_province_47 = kwargs['g_province_47']
     ### input args ###
@@ -32,6 +31,8 @@ def execute(**kwargs):
     g_panel = kwargs['g_panel']
     ### output args ###
 
+    
+    
     
     
     
@@ -65,8 +66,6 @@ def execute(**kwargs):
     # result_path_prefix=get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
     # depends_path=get_depends_path({"name":job_name, "dag_name":dag_name, 
     #                                  "run_id":run_id, "depend_job_names_keys":depend_job_names_keys })
-    
-
     # %%
     # 是否运行此job
     if g_monthly_update == "True":
@@ -100,6 +99,7 @@ def execute(**kwargs):
     # p_raw_data_adding_final = p_raw_data_adding_final.replace("s3:", "s3a:")
     # p_new_hospital = p_new_hospital.replace("s3:", "s3a:")
     
+
     # %%
     # =========== 数据准备 测试用=============
     # 读取 market
@@ -139,7 +139,7 @@ def execute(**kwargs):
     # 2、读取 universe 数据
     def createView(company, table_name, model,
             time="2021-04-06", 
-            base_path = "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX"):
+            base_path = g_base_path ):
                 
                 definite_path = "{base_path}/{model}/TIME={time}/COMPANY={company}"
                 dim_path = definite_path.format(

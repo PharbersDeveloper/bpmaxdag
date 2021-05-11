@@ -32,10 +32,6 @@ spec:
         value: '["growth_monthly#growth_rate#growth_rate", "price#price#price", "price#price_city#price_city", "deal_poi#deal_poi_out#deal_poi_out"]'
       - key: g_monthly_update
         value: 'Empty'
-      - key: dag_name
-        value: 'Max'
-      - key: run_id
-        value: 'max_test_beida_202012'
       - key: max_path
         value: 's3a://ph-max-auto/v0.0.1-2020-06-08/'
     outputs:

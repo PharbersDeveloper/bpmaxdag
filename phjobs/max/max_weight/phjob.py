@@ -22,8 +22,6 @@ def execute(**kwargs):
     g_use_d_weight = kwargs['g_use_d_weight']
     g_monthly_update = kwargs['g_monthly_update']
     depend_job_names_keys = kwargs['depend_job_names_keys']
-    dag_name = kwargs['dag_name']
-    run_id = kwargs['run_id']
     max_path = kwargs['max_path']
     g_year = kwargs['g_year']
     g_month = kwargs['g_month']
@@ -33,6 +31,8 @@ def execute(**kwargs):
     g_max_out = kwargs['g_max_out']
     ### output args ###
 
+    
+    
     
     
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField

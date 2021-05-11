@@ -16,8 +16,6 @@ def execute(**kwargs):
     ### input args ###
     g_project_name = kwargs['g_project_name']
     depend_job_names_keys = kwargs['depend_job_names_keys']
-    dag_name = kwargs['dag_name']
-    run_id = kwargs['run_id']
     max_path = kwargs['max_path']
     ### input args ###
     
@@ -25,6 +23,8 @@ def execute(**kwargs):
     g_deal_poi = kwargs['g_deal_poi']
     ### output args ###
 
+    
+    
     import pandas as pd
     import os
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
@@ -35,7 +35,6 @@ def execute(**kwargs):
     # result_path_prefix=get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
     # depends_path=get_depends_path({"name":job_name, "dag_name":dag_name, 
     #                                  "run_id":run_id, "depend_job_names_keys":depend_job_names_keys })
-
     # %%
     logger.debug('数据执行-start:产品筛选')
     # 测试输入
@@ -46,6 +45,7 @@ def execute(**kwargs):
             
     # 输出
     p_deal_poi = result_path_prefix + g_deal_poi
+
     # %%
     # =========== 数据准备，测试用 =============
     df_products_of_interest = spark.read.csv(products_of_interest_path, header=True)
@@ -80,6 +80,7 @@ def execute(**kwargs):
     df_raw_data = df_raw_data.withColumn("MOLECULE_STD_FOR_GR",
                                    func.when(col("BRAND_STD").isin(g_products_of_interest), col("BRAND_STD")).
                                    otherwise(col('MOLECULE_STD')))
+
     # %%
     # =========== 输出 =============
     df_raw_data = df_raw_data.repartition(2)
@@ -87,3 +88,4 @@ def execute(**kwargs):
         .mode("overwrite").save(p_deal_poi)
     
     logger.debug("输出：" + p_deal_poi)
+

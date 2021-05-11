@@ -29,14 +29,14 @@ def execute(**kwargs):
     depend_job_names_keys = kwargs['depend_job_names_keys']
     g_max_path = kwargs['g_max_path']
     g_out_dir = kwargs['g_out_dir']
-    dag_name = kwargs['dag_name']
-    run_id = kwargs['run_id']
     ### input args ###
     
     ### output args ###
     g_max_result_city = kwargs['g_max_result_city']
     ### output args ###
 
+    
+    
     
     
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType,StructField
@@ -408,6 +408,7 @@ def execute(**kwargs):
     max_result_city = max_result_city.repartition(1)
     max_result_city.write.format("parquet").partitionBy("DATE") \
                         .mode("append").save(p_max_result_city)
+
     # %%
     # df = spark.read.parquet('s3a://ph-max-auto/2020-08-11/Max/refactor/runs/max_test_beida_202012/max_city/max_city_result')
     # df.where(col('DATE') <202000).agg(func.sum('PREDICT_SALES'),func.sum('PREDICT_UNIT')).show()
@@ -421,5 +422,5 @@ def execute(**kwargs):
     # 模型
     # df=spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/201912_test/MAX_result/MAX_result_201701_201912_city_level')
     # df.where(col('Date')>=201901).where(col('Date')<=201912).agg(func.sum('Predict_Sales'), func.sum('Predict_Unit')).show()
+    # 
 
-# 

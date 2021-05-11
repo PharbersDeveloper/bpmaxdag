@@ -22,8 +22,6 @@ def execute(**kwargs):
     g_if_add_data = kwargs['g_if_add_data']
     depend_job_names_keys = kwargs['depend_job_names_keys']
     g_monthly_update = kwargs['g_monthly_update']
-    dag_name = kwargs['dag_name']
-    run_id = kwargs['run_id']
     max_path = kwargs['max_path']
     ### input args ###
     
@@ -32,6 +30,8 @@ def execute(**kwargs):
     g_raw_data_adding_final = kwargs['g_raw_data_adding_final']
     ### output args ###
 
+    
+    
     
     
     import pandas as pd
@@ -399,6 +399,7 @@ def execute(**kwargs):
         df_adding_data = df_adding_data.repartition(1)
         df_adding_data.write.format("parquet").partitionBy("YEAR_MONTH") \
                         .mode("append").save(p_adding_data)
+
     # %%
     # 3. 合并补数部分和原始部分:: 只有当前年当前月的结果
     if g_if_add_data == "True":

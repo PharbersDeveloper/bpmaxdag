@@ -19,8 +19,6 @@ def execute(**kwargs):
     g_model_month_right = kwargs['g_model_month_right']
     depend_job_names_keys = kwargs['depend_job_names_keys']
     g_monthly_update = kwargs['g_monthly_update']
-    dag_name = kwargs['dag_name']
-    run_id = kwargs['run_id']
     max_path = kwargs['max_path']
     g_if_add_data = kwargs['g_if_add_data']
     ### input args ###
@@ -31,6 +29,8 @@ def execute(**kwargs):
     g_new_hospital = kwargs['g_new_hospital']
     ### output args ###
 
+    
+    
     
     
     

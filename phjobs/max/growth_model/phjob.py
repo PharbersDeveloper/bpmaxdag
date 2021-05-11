@@ -20,14 +20,14 @@ def execute(**kwargs):
     g_year_missing = kwargs['g_year_missing']
     g_monthly_update = kwargs['g_monthly_update']
     depend_job_names_keys = kwargs['depend_job_names_keys']
-    dag_name = kwargs['dag_name']
-    run_id = kwargs['run_id']
     ### input args ###
     
     ### output args ###
     g_growth_rate = kwargs['g_growth_rate']
     ### output args ###
 
+    
+    
     import pandas as pd
     import os
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
