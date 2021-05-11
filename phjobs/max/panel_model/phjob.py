@@ -34,6 +34,8 @@ def execute(**kwargs):
 
     
     
+    
+    
     from pyspark.sql.functions import col
     from pyspark.sql.types import DoubleType, IntegerType, StringType, StructType, StructField
     from pyspark.sql import  functions as func    
@@ -48,6 +50,22 @@ def execute(**kwargs):
     # result_path_prefix=get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
     # depends_path=get_depends_path({"name":job_name, "dag_name":dag_name, 
     #                                  "run_id":run_id, "depend_job_names_keys":depend_job_names_keys })
+    
+    
+    # run_id = "manual__2021-05-06T09_58_17.800341+00_00"
+    # g_year = 2019
+    
+    # # run_id = "manual__2021-05-10T05_24_21.327553+00_00"
+    # # g_year = 2018
+    
+    # dag_name = "Max_test2"
+    # g_project_name ="贝达"
+    # g_model_month_left="201901"
+    # g_model_month_right="201912"
+    # result_path_prefix=get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
+    # depends_path=get_depends_path({"name":job_name, "dag_name":dag_name, 
+    #                                  "run_id":run_id, "depend_job_names_keys":depend_job_names_keys })
+    
 
     # %%
     # 是否运行此job
@@ -79,7 +97,9 @@ def execute(**kwargs):
     # %%
     # print( p_panel_result)
     # print(p_new_hospital)
-
+    # p_raw_data_adding_final = p_raw_data_adding_final.replace("s3:", "s3a:")
+    # p_new_hospital = p_new_hospital.replace("s3:", "s3a:")
+    
     # %%
     # =========== 数据准备 测试用=============
     # 读取 market
@@ -92,6 +112,7 @@ def execute(**kwargs):
     # =========== 数据读取 =============
     # 1、读取 raw_data_adding_final
     # df_raw_data_adding_final = spark.read.parquet(p_raw_data_adding_final)
+    # df_raw_data_adding_final = df_raw_data_adding_final.withColumn("YEAR_MONTH", col("YEAR_MONTH").cast("int") )
     struct_type_data_adding_final = StructType([ StructField('PHA', StringType(), True),
                                                     StructField('ID', StringType(), True),
                                                     StructField('PACK_ID', StringType(), True),
@@ -219,9 +240,10 @@ def execute(**kwargs):
     # 去除 l_city和 l_province
     if g_add_47 == "False":
         df_panel_add_data = df_panel_add_data \
-            .where( df_panel_add_data.CITY.isin(l_city)) \
-            .where( df_panel_add_data.PROVINCE.isin(l_province))
-    
+            .where( ~df_panel_add_data.CITY.isin(l_city)) \
+            .where( ~df_panel_add_data.PROVINCE.isin(l_province))
+    # 此处的 ~表示“非”的意思
+        
     df_panel_add_data_history = df_panel_add_data \
         .where(df_panel_add_data.PHA.isin(df_new_hospital)) \
         .where(df_panel_add_data.DATE < int(g_model_month_left)) \
