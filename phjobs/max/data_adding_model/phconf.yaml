@@ -26,7 +26,7 @@ spec:
         value: '["growth_model#growth_rate#growth_rate", "price#price#price", "price#price_city#price_city", "deal_poi#deal_poi_out#deal_poi_out"]'
       - key: g_monthly_update
         value: 'Empty'
-      - key: max_path
+      - key: g_max_path
         value: 's3a://ph-max-auto/v0.0.1-2020-06-08/'
       - key: g_if_add_data
         value: 'True'

@@ -18,7 +18,7 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--job_id')
 @click.option('--g_project_name')
 @click.option('--depend_job_names_keys')
-@click.option('--max_path')
+@click.option('--g_max_path')
 @click.option('--g_deal_poi')
 def debug_execute(**kwargs):
     try:

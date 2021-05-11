@@ -19,7 +19,7 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--g_project_name')
 @click.option('--if_others')
 @click.option('--g_out_dir')
-@click.option('--max_path')
+@click.option('--g_max_path')
 @click.option('--g_base_path')
 @click.option('--g_hospital_mapping_out')
 def debug_execute(**kwargs):

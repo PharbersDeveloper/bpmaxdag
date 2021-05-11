@@ -22,7 +22,7 @@ def execute(**kwargs):
     g_if_add_data = kwargs['g_if_add_data']
     depend_job_names_keys = kwargs['depend_job_names_keys']
     g_monthly_update = kwargs['g_monthly_update']
-    max_path = kwargs['max_path']
+    g_max_path = kwargs['g_max_path']
     ### input args ###
     
     ### output args ###
@@ -70,14 +70,14 @@ def execute(**kwargs):
     
     # 测试输入
     g_current_month = int(g_current_month)
-    p_cpa_pha_mapping = max_path + "/" + g_project_name + "/cpa_pha_mapping"
+    p_cpa_pha_mapping = g_max_path + "/" + g_project_name + "/cpa_pha_mapping"
     
     # 月更新相关参数
     g_month = int(g_month)
     g_year = int(g_year)
     g_current_year = int(g_year)
     
-    p_not_arrived = max_path + "/Common_files/Not_arrived" + str(g_current_year*100 + g_current_month) + ".csv"
+    p_not_arrived = g_max_path + "/Common_files/Not_arrived" + str(g_current_year*100 + g_current_month) + ".csv"
     
     # 输出
     p_adding_data =  result_path_prefix + g_adding_data
@@ -120,7 +120,7 @@ def execute(**kwargs):
     Published_years = list(range(2017, g_current_year+1, 1))
     for index, eachyear in enumerate(Published_years):
         allmonth = [str(eachyear*100 + i) for i in list(range(1,13,1))]
-        published_path = max_path + "/Common_files/Published"+str(eachyear)+".csv"
+        published_path = g_max_path + "/Common_files/Published"+str(eachyear)+".csv"
         published = spark.read.csv(published_path, header=True)
         published = published.where(col('Source') == 'CPA').select('ID').distinct()
         published = dealIDlength(published)
@@ -145,7 +145,7 @@ def execute(**kwargs):
     not_arrived_others_years = set((range(model_year+1, g_current_year+1, 1)))-set([g_current_year])
     if not_arrived_others_years:
         for index, eachyear in enumerate(not_arrived_others_years):
-            not_arrived_others_path = max_path + "/Common_files/Not_arrived"+str(eachyear)+"12.csv"
+            not_arrived_others_path = g_max_path + "/Common_files/Not_arrived"+str(eachyear)+"12.csv"
             logger.debug(not_arrived_others_path)
             not_arrived = spark.read.csv(not_arrived_others_path, header=True)
             not_arrived = not_arrived.select('ID', 'Date').distinct()

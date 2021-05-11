@@ -16,7 +16,7 @@ def execute(**kwargs):
     ### input args ###
     g_project_name = kwargs['g_project_name']
     depend_job_names_keys = kwargs['depend_job_names_keys']
-    max_path = kwargs['max_path']
+    g_max_path = kwargs['g_max_path']
     ### input args ###
     
     ### output args ###
@@ -38,7 +38,7 @@ def execute(**kwargs):
     # %%
     logger.debug('数据执行-start:产品筛选')
     # 测试输入
-    products_of_interest_path = max_path + "/" + g_project_name + "/poi.csv"
+    products_of_interest_path = g_max_path + "/" + g_project_name + "/poi.csv"
     
     # 输入
     p_product_mapping_out = depends_path['product_mapping_out']

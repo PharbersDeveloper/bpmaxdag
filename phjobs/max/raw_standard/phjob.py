@@ -17,7 +17,7 @@ def execute(**kwargs):
     g_project_name = kwargs['g_project_name']
     g_minimum_product_sep = kwargs['g_minimum_product_sep']
     g_minimum_product_columns = kwargs['g_minimum_product_columns']
-    max_path = kwargs['max_path']
+    g_max_path = kwargs['g_max_path']
     g_out_dir = kwargs['g_out_dir']
     ### input args ###
     
@@ -52,16 +52,16 @@ def execute(**kwargs):
     
     
     # raw—data数据，product-map产品匹配数据，市场数据
-    p_raw_data = max_path + '/' + g_project_name + '/' + g_out_dir + '/raw_data_delivery'
-    p_product_map = max_path + "/" + g_project_name + "/" + g_out_dir + "/prod_mapping"
-    p_market  = max_path + "/" + g_project_name + "/mkt_mapping"
+    p_raw_data = g_max_path + '/' + g_project_name + '/' + g_out_dir + '/raw_data_delivery'
+    p_product_map = g_max_path + "/" + g_project_name + "/" + g_out_dir + "/prod_mapping"
+    p_market  = g_max_path + "/" + g_project_name + "/mkt_mapping"
     
     # 通用匹配文件
-    p_cpa_pha_mapping = max_path + "/Common_files/cpa_pha_mapping"
-    p_universe = max_path + "/Common_files/universe_latest"
-    p_molecule_act = max_path  + "/Common_files/extract_data_files/product_map_all_ATC.csv"
-    p_max_city_normalize = max_path  + "/Common_files/extract_data_files/MAX_city_normalize.csv"
-    p_master_data_map = max_path  + "/Common_files/extract_data_files/master_data_map.csv"
+    p_cpa_pha_mapping = g_max_path + "/Common_files/cpa_pha_mapping"
+    p_universe = g_max_path + "/Common_files/universe_latest"
+    p_molecule_act = g_max_path  + "/Common_files/extract_data_files/product_map_all_ATC.csv"
+    p_max_city_normalize = g_max_path  + "/Common_files/extract_data_files/MAX_city_normalize.csv"
+    p_master_data_map = g_max_path  + "/Common_files/extract_data_files/master_data_map.csv"
     
     # 输出
     p_raw_data_standard = result_path_prefix + g_rawdata_standard

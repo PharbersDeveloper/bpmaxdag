@@ -17,7 +17,7 @@ def execute(**kwargs):
     g_project_name = kwargs['g_project_name']
     if_others = kwargs['if_others']
     g_out_dir = kwargs['g_out_dir']
-    max_path = kwargs['max_path']
+    g_max_path = kwargs['g_max_path']
     g_base_path = kwargs['g_base_path']
     ### input args ###
     
@@ -46,11 +46,11 @@ def execute(**kwargs):
     logger.debug('job1_hospital_mapping')
     # 输入
     # 测试用
-    cpa_pha_mapping_path = max_path + "/" + g_project_name + "/cpa_pha_mapping"
+    cpa_pha_mapping_path = g_max_path + "/" + g_project_name + "/cpa_pha_mapping"
     if if_others == "True":
-        raw_data_path = max_path + "/" + g_project_name + "/" + g_out_dir + "/raw_data_box"
+        raw_data_path = g_max_path + "/" + g_project_name + "/" + g_out_dir + "/raw_data_box"
     else:
-        raw_data_path = max_path + "/" + g_project_name + "/" + g_out_dir + "/raw_data"
+        raw_data_path = g_max_path + "/" + g_project_name + "/" + g_out_dir + "/raw_data"
         
     # 输出    
     p_hospital_mapping_out = result_path_prefix + g_hospital_mapping_out

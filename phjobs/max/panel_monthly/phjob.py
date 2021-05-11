@@ -22,7 +22,7 @@ def execute(**kwargs):
     g_add_47 = kwargs['g_add_47']
     depend_job_names_keys = kwargs['depend_job_names_keys']
     g_monthly_update = kwargs['g_monthly_update']
-    max_path = kwargs['max_path']
+    g_max_path = kwargs['g_max_path']
     g_base_path = kwargs['g_base_path']
     g_city_47 = kwargs['g_city_47']
     g_province_47 = kwargs['g_province_47']
@@ -62,8 +62,8 @@ def execute(**kwargs):
          return
         
     # 输入
-    # p_universe = max_path + "/" + g_project_name + "/universe_base"
-    p_market  = max_path + "/" + g_project_name + "/mkt_mapping"
+    # p_universe = g_max_path + "/" + g_project_name + "/universe_base"
+    p_market  = g_max_path + "/" + g_project_name + "/mkt_mapping"
     p_raw_data_adding_final = depends_path['raw_data_adding_final']
     
     # 月更新就没有 hostpital的数据
@@ -81,11 +81,11 @@ def execute(**kwargs):
     g_current_month = int(g_current_month)
     
     # if g_p_not_arrived == "Empty":
-    p_not_arrived = max_path + "/Common_files/Not_arrived" + str(g_year*100 + g_current_month) + ".csv"  
+    p_not_arrived = g_max_path + "/Common_files/Not_arrived" + str(g_year*100 + g_current_month) + ".csv"  
     
     # if g_p_published == "Empty":
-    p_published_right = max_path + "/Common_files/Published" + str(g_year) + ".csv"
-    p_published_left = max_path + "/Common_files/Published" + str(g_year - 1) + ".csv"
+    p_published_right = g_max_path + "/Common_files/Published" + str(g_year) + ".csv"
+    p_published_left = g_max_path + "/Common_files/Published" + str(g_year - 1) + ".csv"
     # else:
     #     p_published  = g_p_published.replace(" ","").split(",")
     #     p_published_left = p_published[0]

@@ -16,7 +16,7 @@ def execute(**kwargs):
     ### input args ###
     g_project_name = kwargs['g_project_name']
     depend_job_names_keys = kwargs['depend_job_names_keys']
-    max_path = kwargs['max_path']
+    g_max_path = kwargs['g_max_path']
     g_out_dir = kwargs['g_out_dir']
     g_year = kwargs['g_year']
     g_month = kwargs['g_month']
@@ -53,10 +53,10 @@ def execute(**kwargs):
     # %%
     # ========== 输入 输出 =========
     # 通用匹配文件
-    p_product_map = max_path + "/" + g_project_name + "/" + g_out_dir + "/prod_mapping"
-    p_molecule_act = max_path  + "/Common_files/extract_data_files/product_map_all_ATC.csv"
-    p_max_city_normalize = max_path  + "/Common_files/extract_data_files/MAX_city_normalize.csv"
-    p_master_data_map = max_path  + "/Common_files/extract_data_files/master_data_map.csv"
+    p_product_map = g_max_path + "/" + g_project_name + "/" + g_out_dir + "/prod_mapping"
+    p_molecule_act = g_max_path  + "/Common_files/extract_data_files/product_map_all_ATC.csv"
+    p_max_city_normalize = g_max_path  + "/Common_files/extract_data_files/MAX_city_normalize.csv"
+    p_master_data_map = g_max_path  + "/Common_files/extract_data_files/master_data_map.csv"
     # job-6 结果作为输入
     p_max_result = depends_path["max_city_result"]
     

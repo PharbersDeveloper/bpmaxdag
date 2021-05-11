@@ -24,7 +24,7 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--g_add_47')
 @click.option('--depend_job_names_keys')
 @click.option('--g_monthly_update')
-@click.option('--max_path')
+@click.option('--g_max_path')
 @click.option('--g_base_path')
 @click.option('--g_city_47')
 @click.option('--g_province_47')

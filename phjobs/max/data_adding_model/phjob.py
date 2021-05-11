@@ -19,7 +19,7 @@ def execute(**kwargs):
     g_model_month_right = kwargs['g_model_month_right']
     depend_job_names_keys = kwargs['depend_job_names_keys']
     g_monthly_update = kwargs['g_monthly_update']
-    max_path = kwargs['max_path']
+    g_max_path = kwargs['g_max_path']
     g_if_add_data = kwargs['g_if_add_data']
     ### input args ###
     
@@ -66,7 +66,7 @@ def execute(**kwargs):
     p_price_city = depends_path['price_city']
     g_model_month_right = int(g_model_month_right)
     # 测试输入
-    p_cpa_pha_mapping = max_path + "/" + g_project_name + "/cpa_pha_mapping"
+    p_cpa_pha_mapping = g_max_path + "/" + g_project_name + "/cpa_pha_mapping"
     
     # 跑模型年年份要小于等于g_model_month_right，只需要输入哪些年要补数
     g_year = int(g_year)
@@ -112,7 +112,7 @@ def execute(**kwargs):
     Published_years = list(range(2017, g_current_year+1, 1))
     for index, eachyear in enumerate(Published_years):
         allmonth = [str(eachyear*100 + i) for i in list(range(1,13,1))]
-        published_path = max_path + "/Common_files/Published"+str(eachyear)+".csv"
+        published_path = g_max_path + "/Common_files/Published"+str(eachyear)+".csv"
         published = spark.read.csv(published_path, header=True)
         published = published.where(col('Source') == 'CPA').select('ID').distinct()
         published = dealIDlength(published)

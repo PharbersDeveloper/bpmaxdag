@@ -28,7 +28,7 @@ spec:
         value: 'MOLECULE, BRAND, FORM, SPECIFICATIONS, PACK_NUMBER, MANUFACTURER, MIN, ROUTE, CORP'
       - key: depend_job_names_keys
         value: '["hospital_mapping#hospital_mapping_out#hospital_mapping_out"]'
-      - key: max_path
+      - key: g_max_path
         value: 's3a://ph-max-auto/v0.0.1-2020-06-08/'
       - key: g_out_dir
         value: 'Empty'

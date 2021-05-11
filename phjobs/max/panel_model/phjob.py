@@ -21,7 +21,7 @@ def execute(**kwargs):
     g_add_47 = kwargs['g_add_47']
     depend_job_names_keys = kwargs['depend_job_names_keys']
     g_monthly_update = kwargs['g_monthly_update']
-    max_path = kwargs['max_path']
+    g_max_path = kwargs['g_max_path']
     g_base_path = kwargs['g_base_path']
     g_city_47 = kwargs['g_city_47']
     g_province_47 = kwargs['g_province_47']
@@ -74,8 +74,8 @@ def execute(**kwargs):
     
     logger.debug('panel_model')
     # 输入
-    # p_universe = max_path + "/" + g_project_name + "/universe_base"
-    p_market  = max_path + "/" + g_project_name + "/mkt_mapping"
+    # p_universe = g_max_path + "/" + g_project_name + "/universe_base"
+    p_market  = g_max_path + "/" + g_project_name + "/mkt_mapping"
     p_raw_data_adding_final = depends_path['raw_data_adding_final']
     p_new_hospital = depends_path['new_hospital']
     

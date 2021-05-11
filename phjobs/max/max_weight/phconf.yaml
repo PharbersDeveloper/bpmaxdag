@@ -32,7 +32,7 @@ spec:
         value: 'Empty'
       - key: depend_job_names_keys
         value: '["panel_model#panel_result#panel_model_out", "panel_monthly#panel_result#panel_monthly_out"]'
-      - key: max_path
+      - key: g_max_path
         value: 's3a://ph-max-auto/v0.0.1-2020-06-08/'
       - key: g_year
         value: 'Empty'

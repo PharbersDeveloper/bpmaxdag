@@ -20,7 +20,7 @@ spec:
         value: 'Empty'
       - key: depend_job_names_keys
         value: '["product_mapping#product_mapping_out#product_mapping_out"]'
-      - key: max_path
+      - key: g_max_path
         value: 's3a://ph-max-auto/v0.0.1-2020-06-08/'
     outputs:
       - key: g_deal_poi
