@@ -45,6 +45,8 @@ def execute(**kwargs):
     
     
     
+    
+    
     from pyspark.sql import SparkSession
     from pyspark.sql.types import StringType, IntegerType, DoubleType
     from pyspark.sql import functions as func
@@ -420,7 +422,8 @@ def execute(**kwargs):
             max_result_city_final = spark.read.parquet(tmp_path)   
         else:
             max_result_city_final = max_result_city.repartition(2)
-
+    else:
+        max_result_city_final = max_result_city.repartition(2)
     # %%
     # max_result_city_final.groupby('PANEL').agg(func.sum('Predict_Sales')).show()
 
