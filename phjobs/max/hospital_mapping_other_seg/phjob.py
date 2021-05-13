@@ -25,10 +25,10 @@ def execute(**kwargs):
     logger.info("当前 job_id 为 " + str(kwargs["job_id"]))
     spark = kwargs["spark"]()
     
-    _input = str(kwargs["inpit_dim_path"])
     _time = str(kwargs["time"])
-    _other_seg_paths = str(kwargs["other_seg_paths"]).replace(" ", "").split(",")
     _company = str(kwargs["company"])
+    _input = str(kwargs["inpit_dim_path"]) + "TIME=" + _time + "/COMPANY=" + _company
+    _other_seg_paths = str(kwargs["other_seg_paths"]).replace(" ", "").split(",")
     _version = str(kwargs["version"])
     
     _output = str(kwargs["output_fact_path"])
@@ -36,10 +36,15 @@ def execute(**kwargs):
     
     
     fact_mapping = [
+        # {
+        #     "CATEGORY": "OTHER",
+        #     "TAG": "universe_onc".upper(),
+        #     "COLUMN": "SEG",
+        # },
         {
             "CATEGORY": "OTHER",
             "TAG": "universe_onc".upper(),
-            "COLUMN": "SEG",
+            "COLUMN": "PANEL",
         },
     ]
     
@@ -69,13 +74,13 @@ def execute(**kwargs):
     def get_seg_mapping(path):
         tag = path.split("/")[-1]
         return spark.read.parquet(path) \
-            .selectExpr("Panel_ID AS PHA_ID", "Seg AS SEG") \
+            .selectExpr("Panel_ID AS PHA_ID", "Seg AS SEG", "PANEL") \
             .withColumn("MARKET", lit(tag.upper())) \
             .withColumn("SOURCE", lit("OTHER"))
     
     
-    
     mapping_seg_dfs = reduce(lambda dfl, dfr: dfl.union(dfr), list(map(get_seg_mapping, _other_seg_paths)))
+
     
     def fact_table(item):
         return dim_df.selectExpr("ID as HOSPITAL_ID", "PANEL_ID") \
