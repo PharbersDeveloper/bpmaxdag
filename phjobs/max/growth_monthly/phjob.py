@@ -20,9 +20,7 @@ def execute(**kwargs):
     depend_job_names_keys = kwargs['depend_job_names_keys']
     g_current_month = kwargs['g_current_month']
     g_monthly_update = kwargs['g_monthly_update']
-    dag_name = kwargs['dag_name']
-    run_id = kwargs['run_id']
-    max_path = kwargs['max_path']
+    g_max_path = kwargs['g_max_path']
     not_arrived_path = kwargs['not_arrived_path']
     published_path = kwargs['published_path']
     ### input args ###
@@ -31,6 +29,8 @@ def execute(**kwargs):
     g_growth_rate = kwargs['g_growth_rate']
     ### output args ###
 
+    
+    
     import pandas as pd
     import os
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
@@ -61,10 +61,10 @@ def execute(**kwargs):
     
     
     if not_arrived_path == "Empty":    
-        p_not_arrived = max_path + "/Common_files/Not_arrived" + str(g_year*100 + g_current_month) + ".csv"
+        p_not_arrived = g_max_path + "/Common_files/Not_arrived" + str(g_year*100 + g_current_month) + ".csv"
     if published_path == "Empty":
-        p_published_right = max_path + "/Common_files/Published" + str(g_year) + ".csv"
-        p_published_left = max_path + "/Common_files/Published" + str(g_year - 1) + ".csv"
+        p_published_right = g_max_path + "/Common_files/Published" + str(g_year) + ".csv"
+        p_published_left = g_max_path + "/Common_files/Published" + str(g_year - 1) + ".csv"
     else:
         published_path  = published_path.replace(" ","").split(",")
         p_published_left = published_path[0]

@@ -17,20 +17,16 @@ spec:
     config: phconf.yaml
     args:
       - key: g_project_name
-        value: Empty
+        value: 'Empty'
       - key: depend_job_names_keys
-        value: ["deal_poi#deal_poi_out#deal_poi_out"]
-      - key: dag_name
-        value: Max
-      - key: run_id
-        value: max_test_beida_202012
-      - key: max_path
-        value: s3a://ph-max-auto/v0.0.1-2020-06-08/
+        value: '["deal_poi#deal_poi_out#deal_poi_out"]'
+      - key: g_max_path
+        value: 's3a://ph-max-auto/v0.0.1-2020-06-08/'
     outputs:
       - key: g_price
-        value: price
+        value: 'price'
       - key: g_price_city
-        value: price_city
+        value: 'price_city'
 
 
 

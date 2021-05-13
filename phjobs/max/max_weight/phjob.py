@@ -22,9 +22,7 @@ def execute(**kwargs):
     g_use_d_weight = kwargs['g_use_d_weight']
     g_monthly_update = kwargs['g_monthly_update']
     depend_job_names_keys = kwargs['depend_job_names_keys']
-    dag_name = kwargs['dag_name']
-    run_id = kwargs['run_id']
-    max_path = kwargs['max_path']
+    g_max_path = kwargs['g_max_path']
     g_year = kwargs['g_year']
     g_month = kwargs['g_month']
     ### input args ###
@@ -33,6 +31,8 @@ def execute(**kwargs):
     g_max_out = kwargs['g_max_out']
     ### output args ###
 
+    
+    
     
     
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
@@ -61,7 +61,7 @@ def execute(**kwargs):
     
     # =========== 输入 输出 =============
     
-    # out_path_dir = max_path + "/" + g_project_name + '/' + out_dir
+    # out_path_dir = g_max_path + "/" + g_project_name + '/' + out_dir
     # p_panel = out_path_dir + "/panel_result"
     
     if g_use_d_weight != "Empty":
@@ -70,10 +70,10 @@ def execute(**kwargs):
         g_use_d_weight = []
             
     # 输入
-    p_universe = max_path + "/" + g_project_name + "/" + g_universe
-    p_factor = max_path + "/" + g_project_name + "/factor/" + g_factor
-    p_universe_ot = max_path + "/" + g_project_name + "/universe/"+ g_universe_ot
-    p_PHA_weight = max_path + "/" + g_project_name + '/PHA_weight'
+    p_universe = g_max_path + "/" + g_project_name + "/" + g_universe
+    p_factor = g_max_path + "/" + g_project_name + "/factor/" + g_factor
+    p_universe_ot = g_max_path + "/" + g_project_name + "/universe/"+ g_universe_ot
+    p_PHA_weight = g_max_path + "/" + g_project_name + '/PHA_weight'
     
     g_year = int(g_year)
     
@@ -85,7 +85,7 @@ def execute(**kwargs):
         p_panel = depends_path['panel_model_out']
     
     if g_use_d_weight:
-        p_PHA_weight_default = max_path + "/" + g_project_name + '/PHA_weight_default'
+        p_PHA_weight_default = g_max_path + "/" + g_project_name + '/PHA_weight_default'
         
     # 输出
     p_max_out = result_path_prefix + g_max_out

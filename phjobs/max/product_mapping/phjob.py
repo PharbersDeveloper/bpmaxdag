@@ -20,9 +20,7 @@ def execute(**kwargs):
     g_minimum_product_newname = kwargs['g_minimum_product_newname']
     g_need_cleaning_cols = kwargs['g_need_cleaning_cols']
     depend_job_names_keys = kwargs['depend_job_names_keys']
-    dag_name = kwargs['dag_name']
-    run_id = kwargs['run_id']
-    max_path = kwargs['max_path']
+    g_max_path = kwargs['g_max_path']
     g_out_dir = kwargs['g_out_dir']
     ### input args ###
     
@@ -31,6 +29,8 @@ def execute(**kwargs):
     g_need_cleaning_out = kwargs['g_need_cleaning_out']
     ### output args ###
 
+    
+    
     
     
     
@@ -63,7 +63,7 @@ def execute(**kwargs):
         g_minimum_product_sep = ""
     
     # 测试用
-    product_map_path = max_path + "/" + g_project_name + '/' + g_out_dir + "/prod_mapping"
+    product_map_path = g_max_path + "/" + g_project_name + '/' + g_out_dir + "/prod_mapping"
     
     # 输出
     p_product_mapping_out = result_path_prefix + g_product_mapping_out
@@ -154,3 +154,4 @@ def execute(**kwargs):
     # print(cant_mapping.count())
     # print(cant_mapping.select("ID", "MIN_STD",  "YEAR_MONTH").distinct().count())
     # cant_mapping.show(1,vertical=True)
+

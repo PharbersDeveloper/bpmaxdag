@@ -30,12 +30,10 @@ spec:
         value: '["data_adding_model#raw_data_adding_final#raw_data_adding_final", "data_adding_model#new_hospital#new_hospital"]'
       - key: g_monthly_update
         value: 'Empty'
-      - key: dag_name
-        value: 'Max'
-      - key: run_id
-        value: 'max_test_beida_202012'
-      - key: max_path
+      - key: g_max_path
         value: 's3a://ph-max-auto/v0.0.1-2020-06-08/'
+      - key: g_base_path
+        value: 's3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX'
       - key: g_city_47
         value: '北京市, 上海市, 天津市, 重庆市, 广州市,深圳市, 西安市, 大连市, 成都市, 厦门市, 沈阳市'
       - key: g_province_47

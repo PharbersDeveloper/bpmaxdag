@@ -22,9 +22,8 @@ def execute(**kwargs):
     g_add_47 = kwargs['g_add_47']
     depend_job_names_keys = kwargs['depend_job_names_keys']
     g_monthly_update = kwargs['g_monthly_update']
-    dag_name = kwargs['dag_name']
-    run_id = kwargs['run_id']
-    max_path = kwargs['max_path']
+    g_max_path = kwargs['g_max_path']
+    g_base_path = kwargs['g_base_path']
     g_city_47 = kwargs['g_city_47']
     g_province_47 = kwargs['g_province_47']
     ### input args ###
@@ -33,6 +32,8 @@ def execute(**kwargs):
     g_panel = kwargs['g_panel']
     ### output args ###
 
+    
+    
     
     
     
@@ -61,8 +62,8 @@ def execute(**kwargs):
          return
         
     # 输入
-    # p_universe = max_path + "/" + g_project_name + "/universe_base"
-    p_market  = max_path + "/" + g_project_name + "/mkt_mapping"
+    # p_universe = g_max_path + "/" + g_project_name + "/universe_base"
+    p_market  = g_max_path + "/" + g_project_name + "/mkt_mapping"
     p_raw_data_adding_final = depends_path['raw_data_adding_final']
     
     # 月更新就没有 hostpital的数据
@@ -80,11 +81,11 @@ def execute(**kwargs):
     g_current_month = int(g_current_month)
     
     # if g_p_not_arrived == "Empty":
-    p_not_arrived = max_path + "/Common_files/Not_arrived" + str(g_year*100 + g_current_month) + ".csv"  
+    p_not_arrived = g_max_path + "/Common_files/Not_arrived" + str(g_year*100 + g_current_month) + ".csv"  
     
     # if g_p_published == "Empty":
-    p_published_right = max_path + "/Common_files/Published" + str(g_year) + ".csv"
-    p_published_left = max_path + "/Common_files/Published" + str(g_year - 1) + ".csv"
+    p_published_right = g_max_path + "/Common_files/Published" + str(g_year) + ".csv"
+    p_published_left = g_max_path + "/Common_files/Published" + str(g_year - 1) + ".csv"
     # else:
     #     p_published  = g_p_published.replace(" ","").split(",")
     #     p_published_left = p_published[0]
@@ -131,7 +132,7 @@ def execute(**kwargs):
     # 2、读取 universe 数据
     def createView(company, table_name, model,
             time="2021-04-06", 
-            base_path = "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX"):
+            base_path = g_base_path):
                 
                 definite_path = "{base_path}/{model}/TIME={time}/COMPANY={company}"
                 dim_path = definite_path.format(
@@ -292,13 +293,13 @@ def execute(**kwargs):
     df_panel_filtered = df_panel_filtered.repartition(1)
     df_panel_filtered.write.format("parquet").partitionBy("DATE") \
                         .mode("append").save(p_result_panel)
+    # ====== check ============
+    # p_result_month_old = "s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012_test/panel_result/"
+    # df_result_month_old = spark.read.parquet(p_result_month_old)
+    # check = df_result_month_old.where(  df_result_month_old.Date==202012.00  )
+    # check.agg(func.sum('Sales')).show()
+    # df_panel_filtered.agg(func.sum('Sales')).show()
 
-# ====== check ============
-# p_result_month_old = "s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012_test/panel_result/"
-# df_result_month_old = spark.read.parquet(p_result_month_old)
-# check = df_result_month_old.where(  df_result_month_old.Date==202012.00  )
-# check.agg(func.sum('Sales')).show()
-# df_panel_filtered.agg(func.sum('Sales')).show()
     # %%
     # df_data_old = spark.read.parquet('s3a://ph-max-auto/2020-08-11/Max/refactor/runs/max_test_beida_202012_bk/panel_monthly/panel_result')
     # df_data_old.show(1, vertical=True)

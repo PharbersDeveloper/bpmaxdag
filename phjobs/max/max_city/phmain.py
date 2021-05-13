@@ -31,8 +31,6 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--depend_job_names_keys')
 @click.option('--g_max_path')
 @click.option('--g_out_dir')
-@click.option('--dag_name')
-@click.option('--run_id')
 @click.option('--g_max_result_city')
 def debug_execute(**kwargs):
     try:

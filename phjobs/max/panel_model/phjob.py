@@ -21,9 +21,8 @@ def execute(**kwargs):
     g_add_47 = kwargs['g_add_47']
     depend_job_names_keys = kwargs['depend_job_names_keys']
     g_monthly_update = kwargs['g_monthly_update']
-    dag_name = kwargs['dag_name']
-    run_id = kwargs['run_id']
-    max_path = kwargs['max_path']
+    g_max_path = kwargs['g_max_path']
+    g_base_path = kwargs['g_base_path']
     g_city_47 = kwargs['g_city_47']
     g_province_47 = kwargs['g_province_47']
     ### input args ###
@@ -32,6 +31,10 @@ def execute(**kwargs):
     g_panel = kwargs['g_panel']
     ### output args ###
 
+    
+    
+    
+    
     
     
     from pyspark.sql.functions import col
@@ -48,7 +51,21 @@ def execute(**kwargs):
     # result_path_prefix=get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
     # depends_path=get_depends_path({"name":job_name, "dag_name":dag_name, 
     #                                  "run_id":run_id, "depend_job_names_keys":depend_job_names_keys })
-
+    
+    
+    # run_id = "manual__2021-05-06T09_58_17.800341+00_00"
+    # g_year = 2019
+    
+    # # run_id = "manual__2021-05-10T05_24_21.327553+00_00"
+    # # g_year = 2018
+    
+    # dag_name = "Max_test2"
+    # g_project_name ="贝达"
+    # g_model_month_left="201901"
+    # g_model_month_right="201912"
+    # result_path_prefix=get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
+    # depends_path=get_depends_path({"name":job_name, "dag_name":dag_name, 
+    #                                  "run_id":run_id, "depend_job_names_keys":depend_job_names_keys })
     # %%
     # 是否运行此job
     if g_monthly_update == "True":
@@ -57,8 +74,8 @@ def execute(**kwargs):
     
     logger.debug('panel_model')
     # 输入
-    # p_universe = max_path + "/" + g_project_name + "/universe_base"
-    p_market  = max_path + "/" + g_project_name + "/mkt_mapping"
+    # p_universe = g_max_path + "/" + g_project_name + "/universe_base"
+    p_market  = g_max_path + "/" + g_project_name + "/mkt_mapping"
     p_raw_data_adding_final = depends_path['raw_data_adding_final']
     p_new_hospital = depends_path['new_hospital']
     
@@ -79,6 +96,9 @@ def execute(**kwargs):
     # %%
     # print( p_panel_result)
     # print(p_new_hospital)
+    # p_raw_data_adding_final = p_raw_data_adding_final.replace("s3:", "s3a:")
+    # p_new_hospital = p_new_hospital.replace("s3:", "s3a:")
+    
 
     # %%
     # =========== 数据准备 测试用=============
@@ -92,6 +112,7 @@ def execute(**kwargs):
     # =========== 数据读取 =============
     # 1、读取 raw_data_adding_final
     # df_raw_data_adding_final = spark.read.parquet(p_raw_data_adding_final)
+    # df_raw_data_adding_final = df_raw_data_adding_final.withColumn("YEAR_MONTH", col("YEAR_MONTH").cast("int") )
     struct_type_data_adding_final = StructType([ StructField('PHA', StringType(), True),
                                                     StructField('ID', StringType(), True),
                                                     StructField('PACK_ID', StringType(), True),
@@ -118,7 +139,7 @@ def execute(**kwargs):
     # 2、读取 universe 数据
     def createView(company, table_name, model,
             time="2021-04-06", 
-            base_path = "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX"):
+            base_path = g_base_path ):
                 
                 definite_path = "{base_path}/{model}/TIME={time}/COMPANY={company}"
                 dim_path = definite_path.format(
@@ -219,9 +240,10 @@ def execute(**kwargs):
     # 去除 l_city和 l_province
     if g_add_47 == "False":
         df_panel_add_data = df_panel_add_data \
-            .where( df_panel_add_data.CITY.isin(l_city)) \
-            .where( df_panel_add_data.PROVINCE.isin(l_province))
-    
+            .where( ~df_panel_add_data.CITY.isin(l_city)) \
+            .where( ~df_panel_add_data.PROVINCE.isin(l_province))
+    # 此处的 ~表示“非”的意思
+        
     df_panel_add_data_history = df_panel_add_data \
         .where(df_panel_add_data.PHA.isin(df_new_hospital)) \
         .where(df_panel_add_data.DATE < int(g_model_month_left)) \
