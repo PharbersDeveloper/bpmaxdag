@@ -93,22 +93,25 @@ def execute(**kwargs):
             "SOURCE", "TIME", "COMPANY") \
         .withColumn("RAW_MAPPING_MIN", concat_ws("|", col("RAW_PRODUCT_NAME"), col("RAW_DOSAGE"), col("RAW_SPEC"), col("RAW_PACK"), col("RAW_MANUFACTURER") ))
     
-    mapping_packid_not_null_df =  mapping_std_info_df.filter("RAW_PACK_ID is not null")
-    mapping_packid_null_df = mapping_std_info_df.filter("RAW_PACK_ID is null")
-    mapping_packid_null_df = mapping_packid_null_df.join(map_all_atc_df, [col("RAW_MAPPING_MIN") == col("MIN")], "left_outer") \
-        .selectExpr("PACK_ID AS RAW_PACK_ID", "RAW_CODE", "RAW_MOLE_NAME", "RAW_PRODUCT_NAME", 
-            "RAW_DOSAGE", "RAW_SPEC", "RAW_PACK", "RAW_MANUFACTURER", 
-            "DATE", "SALES", "UNITS", 
-            "SOURCE", "TIME", "COMPANY", "RAW_MAPPING_MIN")
-    mapping_std_info_df = mapping_packid_not_null_df.union(mapping_packid_null_df)
-    mapping_std_info_df.persist()
-    # 贝达 88041 product mapping 有177个无packid  master.csv 93个没有匹配到packid  总共270个
     
-    df = mapping_std_info_df.join(product_dim_df, [col("RAW_PACK_ID") == col("VALUE")], "left_outer").drop("VALUE") \
-        .join(pha_cpa_gyc_mapping_df, [col("RAW_CODE") == col("VALUE"), col("TAG") == col("SOURCE")], "left_outer") \
-        .withColumn("ID", _id()) \
-        .selectExpr(*base_select)
+    mapping_std_info_df.selectExpr("RAW_MANUFACTURER").distinct().show(1000)
     
-    df.repartition(2).write.partitionBy("TIME", "COMPANY").mode("append").parquet(_output)
+    # mapping_packid_not_null_df =  mapping_std_info_df.filter("RAW_PACK_ID is not null")
+    # mapping_packid_null_df = mapping_std_info_df.filter("RAW_PACK_ID is null")
+    # mapping_packid_null_df = mapping_packid_null_df.join(map_all_atc_df, [col("RAW_MAPPING_MIN") == col("MIN")], "left_outer") \
+    #     .selectExpr("PACK_ID AS RAW_PACK_ID", "RAW_CODE", "RAW_MOLE_NAME", "RAW_PRODUCT_NAME", 
+    #         "RAW_DOSAGE", "RAW_SPEC", "RAW_PACK", "RAW_MANUFACTURER", 
+    #         "DATE", "SALES", "UNITS", 
+    #         "SOURCE", "TIME", "COMPANY", "RAW_MAPPING_MIN")
+    # mapping_std_info_df = mapping_packid_not_null_df.union(mapping_packid_null_df)
+    # mapping_std_info_df.persist()
+    # # 贝达 88041 product mapping 有177个无packid  master.csv 93个没有匹配到packid  总共270个
+    
+    # df = mapping_std_info_df.join(product_dim_df, [col("RAW_PACK_ID") == col("VALUE")], "left_outer").drop("VALUE") \
+    #     .join(pha_cpa_gyc_mapping_df, [col("RAW_CODE") == col("VALUE"), col("TAG") == col("SOURCE")], "left_outer") \
+    #     .withColumn("ID", _id()) \
+    #     .selectExpr(*base_select)
+    
+    # df.repartition(2).write.partitionBy("TIME", "COMPANY").mode("append").parquet(_output)
     
     return {}
