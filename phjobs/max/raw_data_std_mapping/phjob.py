@@ -113,6 +113,6 @@ def execute(**kwargs):
     a = df.filter("PRODUCT_ID is null")
     a.show()
     print(a.count())
-    # df.repartition(2).write.partitionBy("TIME", "COMPANY").mode("append").parquet(_output)
+    df.repartition(2).write.partitionBy("TIME", "COMPANY").mode("append").parquet(_output)
     
     return {}
