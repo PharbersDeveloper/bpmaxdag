@@ -64,7 +64,7 @@ def execute(**kwargs):
         "RAW_MAPPING_MIN", "DATE", "SALES", "UNITS", "SOURCE", "TIME", "COMPANY"]
     
     
-    base_select = ["ID", "RAW_CODE", "RAW_MOLE_NAME", "RAW_PRODUCT_NAME", 
+    base_select = ["ID", "RAW_PACK_ID", "RAW_CODE", "RAW_MOLE_NAME", "RAW_PRODUCT_NAME", 
         "RAW_DOSAGE", "RAW_SPEC", "RAW_PACK", "RAW_MANUFACTURER", "DATE", 
         "SALES", "UNITS", "SOURCE", "PRODUCT_ID", "HOSPITAL_ID", "TIME", "COMPANY"]
     
