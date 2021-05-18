@@ -61,8 +61,10 @@ def execute(**kwargs):
             .drop("PATH").drop("SHEET") \
             .drop("ORG_MEASURE").drop("UNITS_BOX")
         
+        if "RAW_HOSP_NAME" not in df.columns:
+            df = df.withColumn("RAW_HOSP_NAME", lit("0").cast(StringType()))
         
-        return df.selectExpr("ID", "DATE", "S_MOLECULE AS MOLECULE", "BRAND", "FORM", 
+        return df.selectExpr("ID", "DATE", "RAW_HOSP_NAME", "S_MOLECULE AS MOLECULE", "BRAND", "FORM", 
             "SPECIFICATIONS", "PACK_NUMBER", "MANUFACTURER", "SALES", "UNITS", 
             "SOURCE", "TIME", "COMPANY")
 
