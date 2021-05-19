@@ -18,9 +18,9 @@ def execute(**kwargs):
     g_month = kwargs['g_month']
     g_year = kwargs['g_year']
     depend_job_names_keys = kwargs['depend_job_names_keys']
-    g_current_month = kwargs['g_current_month']
     g_monthly_update = kwargs['g_monthly_update']
     g_max_path = kwargs['g_max_path']
+    g_base_path = kwargs['g_base_path']
     not_arrived_path = kwargs['not_arrived_path']
     published_path = kwargs['published_path']
     ### input args ###
@@ -31,6 +31,8 @@ def execute(**kwargs):
 
     
     
+    
+    
     import pandas as pd
     import os
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
@@ -39,10 +41,11 @@ def execute(**kwargs):
     # %%
     # 测试用
     
+    # dag_name = 'Max'
+    # run_id = 'max_test_beida_202012'
     # g_project_name = '贝达'
     # g_month = "12"
     # g_year = "2020"
-    # g_current_month = "12"
     # result_path_prefix=get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
     # depends_path=get_depends_path({"name":job_name, "dag_name":dag_name, 
     #                                  "run_id":run_id, "depend_job_names_keys":depend_job_names_keys })
@@ -57,18 +60,6 @@ def execute(**kwargs):
     # 输入
     g_year = int(g_year)
     g_month = int(g_month)
-    g_current_month = int(g_current_month)
-    
-    
-    if not_arrived_path == "Empty":    
-        p_not_arrived = g_max_path + "/Common_files/Not_arrived" + str(g_year*100 + g_current_month) + ".csv"
-    if published_path == "Empty":
-        p_published_right = g_max_path + "/Common_files/Published" + str(g_year) + ".csv"
-        p_published_left = g_max_path + "/Common_files/Published" + str(g_year - 1) + ".csv"
-    else:
-        published_path  = published_path.replace(" ","").split(",")
-        p_published_left = published_path[0]
-        p_published_right = published_path[1]
     
     
     # 输入
@@ -78,15 +69,36 @@ def execute(**kwargs):
     p_growth_rate = result_path_prefix + g_growth_rate
 
     # %%
+    ## jupyter调试
+    # p_product_mapping_out = p_product_mapping_out.replace("s3:", "s3a:")
+    # p_growth_rate = p_growth_rate.replace("s3:", "s3a:")
+    # %%
     # =========== 数据准备，测试用 =============
-    df_published_left = spark.read.csv(p_published_left, header=True)
-    df_published_left = df_published_left.withColumnRenamed('Source', 'SOURCE')
     
-    df_published_right = spark.read.csv(p_published_right, header=True)
-    df_published_right = df_published_right.withColumnRenamed('Source', 'SOURCE')
+    def createView(company, table_name, sub_path, other = "",
+        time="2021-04-06",
+        base_path = g_base_path):
+             
+            definite_path = "{base_path}/{sub_path}/TIME={time}/COMPANY={company}/{other}"
+            path = definite_path.format(
+                base_path = base_path,
+                sub_path = sub_path,
+                time = time,
+                company = company,
+                other = other
+            )
+            spark.read.parquet(path).createOrReplaceTempView(table_name)
     
-    df_not_arrived =  spark.read.csv(p_not_arrived, header=True)
-    df_not_arrived = df_not_arrived.withColumnRenamed('Date', 'DATE')
+    createView("PHARBERS", "publish_not_arrvier", "DIMENSION/MAPPING/PUBLISH_NOT_ARRIVE", time = "2021-04-14")
+    published_not_arrvier_sql = """
+            SELECT * FROM publish_not_arrvier
+        """
+    df_published_not_arrive= spark.sql(published_not_arrvier_sql)
+    df_published_not_arrive = df_published_not_arrive.withColumn("YEAR", (df_published_not_arrive["DATE"].cast("int")/100).cast("int") )
+    df_not_arrived = df_published_not_arrive.where( (col("TYPE")=="NOT_ARRIVED") &( col("YEAR")==g_year ) )
+    df_published = df_published_not_arrive.where( col("TYPE")=="PUBLISHED" )
+    df_published_right =  df_published.where( col("YEAR") ==g_year )
+    df_published_left =  df_published.where( col("YEAR")==(g_year-1 ))
 
     # %%
     # =========== 数据执行 =============
@@ -176,19 +188,15 @@ def execute(**kwargs):
     logger.debug('数据执行-Finish')
 
     # %%
-    '''
-    df_growth_rate_month.agg(func.sum('YEAR_2017'),func.sum('YEAR_2018'),func.sum('YEAR_2019'),func.sum('YEAR_2020'),
-                             func.sum('GR1718'),func.sum('GR1819'),func.sum('GR1920')).show()
-    '''
-
+    
+    # df_growth_rate_month.agg(func.sum('YEAR_2017'),func.sum('YEAR_2018'),func.sum('YEAR_2019'),func.sum('YEAR_2020'),
+    #                          func.sum('GR1718'),func.sum('GR1819'),func.sum('GR1920')).show()
     # %%
-    '''
-    check = spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012_test/growth_rate/')
-    logger.debug(check.count())
-    check.where(col('month_for_monthly_add') == 12).agg(func.sum('Year_2017'),func.sum('Year_2018'),func.sum('Year_2019'),func.sum('Year_2020'),
-                             func.sum('GR1718'),func.sum('GR1819'),func.sum('GR1920')).show()
-    '''
-
+    
+    # check = spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012_test/growth_rate/')
+    # print(check.count())
+    # check.where(col('month_for_monthly_add') == 12).agg(func.sum('Year_2017'),func.sum('Year_2018'),func.sum('Year_2019'),func.sum('Year_2020'),
+    #                          func.sum('GR1718'),func.sum('GR1819'),func.sum('GR1920')).show()
     # %%
     ## 比较结果
     # df_data_old = spark.read.parquet('s3a://ph-max-auto/2020-08-11/Max/refactor/runs/max_test_beida_202012_bk/growth_monthly/growth_rate')

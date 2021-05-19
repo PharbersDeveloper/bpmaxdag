@@ -20,7 +20,11 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--g_minimum_product_sep')
 @click.option('--g_minimum_product_columns')
 @click.option('--g_max_path')
+@click.option('--g_base_path')
 @click.option('--g_out_dir')
+@click.option('--g_year')
+@click.option('--g_month')
+@click.option('--g_monthly_update')
 @click.option('--g_rawdata_standard')
 @click.option('--g_rawdata_standard_brief')
 def debug_execute(**kwargs):

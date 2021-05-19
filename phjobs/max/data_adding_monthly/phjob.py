@@ -23,6 +23,7 @@ def execute(**kwargs):
     depend_job_names_keys = kwargs['depend_job_names_keys']
     g_monthly_update = kwargs['g_monthly_update']
     g_max_path = kwargs['g_max_path']
+    g_base_path = kwargs['g_base_path']
     ### input args ###
     
     ### output args ###
@@ -30,7 +31,6 @@ def execute(**kwargs):
     g_raw_data_adding_final = kwargs['g_raw_data_adding_final']
     ### output args ###
 
-    
     
     
     
@@ -42,6 +42,8 @@ def execute(**kwargs):
     # %%
     # 测试输入
     
+    # dag_name = 'Max'
+    # run_id = 'max_test_beida_202012'
     # g_project_name = '贝达'
     # g_month = "12"
     # g_year = "2020"
@@ -54,8 +56,8 @@ def execute(**kwargs):
     # %%
     logger.debug('数据执行-start：补数-月更新')
     # 是否运行此job
-    if g_monthly_update == "False":
-         return
+    # if g_monthly_update == "False":
+    #      return
         
     if g_if_add_data != "False" and g_if_add_data != "True":
         logger.error('wrong input: g_if_add_data, False or True') 
@@ -70,135 +72,79 @@ def execute(**kwargs):
     
     # 测试输入
     g_current_month = int(g_current_month)
-    p_cpa_pha_mapping = g_max_path + "/" + g_project_name + "/cpa_pha_mapping"
+    
     
     # 月更新相关参数
     g_month = int(g_month)
     g_year = int(g_year)
     g_current_year = int(g_year)
     
-    p_not_arrived = g_max_path + "/Common_files/Not_arrived" + str(g_current_year*100 + g_current_month) + ".csv"
     
     # 输出
     p_adding_data =  result_path_prefix + g_adding_data
     p_raw_data_adding_final =  result_path_prefix + g_raw_data_adding_final
 
     # %%
+    ### jupyter测试
+    p_product_mapping = p_product_mapping.replace("s3:", "s3a:")
+    p_growth_rate = p_growth_rate.replace("s3:", "s3a:")
+    p_price = p_price.replace("s3:", "s3a:")
+    p_price_city = p_price_city.replace("s3:", "s3a:")
+    
+    p_adding_data = p_adding_data.replace("s3:", "s3a:")
+    p_raw_data_adding_final =p_raw_data_adding_final.replace("s3:", "s3a:")
+    # %%
+    def createView(company, table_name, sub_path, other = "",
+        time="2021-04-06",
+        base_path = g_base_path):
+             
+            definite_path = "{base_path}/{sub_path}/TIME={time}/COMPANY={company}/{other}"
+            path = definite_path.format(
+                base_path = base_path,
+                sub_path = sub_path,
+                time = time,
+                company = company,
+                other = other
+            )
+            spark.read.parquet(path).createOrReplaceTempView(table_name)
+    
+    createView("PHARBERS", "publish_not_arrvier", "DIMENSION/MAPPING/PUBLISH_NOT_ARRIVE", time = "2021-04-14")
+    createView( g_project_name, "cpa_pha_mapping", "DIMENSION/MAPPING/CPA_PHA_MAPPING", time = "2021-04-14")
+    # %%
     # =========== 数据准备，测试用 =============
-    def dealIDlength(df):
-        # ID不足7位的补足0到6位
-        # 国药诚信医院编码长度是7位数字，cpa医院编码是6位数字。
-        df = df.withColumn("ID", df["ID"].cast(StringType()))
-        # 去掉末尾的.0
-        df = df.withColumn("ID", func.regexp_replace("ID", "\\.0", ""))
-        df = df.withColumn("ID", func.when(func.length(df.ID) < 7, func.lpad(df.ID, 6, "0")).otherwise(df.ID))
-        return df
-    
-    df_cpa_pha_mapping = spark.read.parquet(p_cpa_pha_mapping)
-    df_cpa_pha_mapping = df_cpa_pha_mapping.withColumnRenamed('推荐版本', 'COMMEND')
-    df_cpa_pha_mapping = df_cpa_pha_mapping.select('COMMEND', 'ID', 'PHA')
-    df_cpa_pha_mapping = dealIDlength(df_cpa_pha_mapping)
-    
-    df_not_arrived =  spark.read.csv(p_not_arrived, header=True)
-    df_not_arrived = df_not_arrived.withColumnRenamed('Date', 'DATE')
+    # 读取cpa_pha_mapping
+    df_cpa_pha_mapping = spark.sql("SELECT * FROM cpa_pha_mapping")
+    # df_cpa_pha_mapping = df_cpa_pha_mapping.select(["ID", "PHA"])
+    # %%
+    # 读取published 和 not_arrvier
+    published_not_arrvier_sql = """
+            SELECT * FROM publish_not_arrvier
+        """
+    df_published_not_arrive= spark.sql(published_not_arrvier_sql)
+    df_published_not_arrive = df_published_not_arrive.withColumn("YEAR", (df_published_not_arrive["DATE"].cast("int")/100).cast("int") )
 
     # %%
-    # =========== 数据准备 =============
-    def unpivot(df, keys):
-        # 功能：数据宽变长
-        # 参数说明 df:dataframe,  keys 待转换表中需要保留的主键key，以list[]类型传入
-        # 转换是为了避免字段类不匹配，统一将数据转换为string类型，如果保证数据类型完全一致，可以省略该句
-        df = df.select(*[col(_).astype("string") for _ in df.columns])
-        cols = [_ for _ in df.columns if _ not in keys]
-        stack_str = ','.join(map(lambda x: "'%s', `%s`" % (x, x), cols))
-        # feature, value 转换后的列名，可自定义
-        df = df.selectExpr(*keys, "stack(%s, %s) as (feature, value)" % (len(cols), stack_str))
-        return df
+    # published
+    df_published = df_published_not_arrive.where( col("TYPE")=="PUBLISHED" )
+    df_published = df_published.where( col("VALUE")=="CPA" )
     
-    # 一. 生成 df_original_range_raw（样本中已到的Year、Month、PHA的搭配）
-    # 2017到当前年的全量出版医院
-    Published_years = list(range(2017, g_current_year+1, 1))
-    for index, eachyear in enumerate(Published_years):
-        allmonth = [str(eachyear*100 + i) for i in list(range(1,13,1))]
-        published_path = g_max_path + "/Common_files/Published"+str(eachyear)+".csv"
-        published = spark.read.csv(published_path, header=True)
-        published = published.where(col('Source') == 'CPA').select('ID').distinct()
-        published = dealIDlength(published)
-        for i in allmonth:
-            published = published.withColumn(i, func.lit(1))
-        if index == 0:
-            published_full = published
-        else:
-            published_full = published_full.join(published, on='ID', how='full')
-    
-    df_published_all = unpivot(published_full, ['ID'])
-    df_published_all = df_published_all.where(col('value')==1).withColumnRenamed('feature', 'Date') \
-                                .drop('value')
-    
-    # 模型前之前的未到名单（跑模型年的时候，不去除未到名单）        
-    # 1.当前年的未到名单
-    not_arrived_current = spark.read.csv(p_not_arrived, header=True)
-    not_arrived_current = not_arrived_current.select('ID', 'Date').distinct()
-    not_arrived_current = dealIDlength(not_arrived_current)
-    # 2.其他模型年之后的未到名单
+    # publishe选择小于 g_current_year
+    df_published = df_published.where( col("YEAR")<=g_current_year)
+    df_published_all = df_published.select(["ID", "DATE"])
+    # %%
+    # 模型前之前的未到名单（跑模型年的时候，不去除未到名单）      
+    # 模型年之前到当前年的数据
+    # not_arrived 
+    df_not_arrived = df_published_not_arrive.where( (col("TYPE")=="NOT_ARRIVED")  )
     model_year = g_model_month_right//100
-    not_arrived_others_years = set((range(model_year+1, g_current_year+1, 1)))-set([g_current_year])
-    if not_arrived_others_years:
-        for index, eachyear in enumerate(not_arrived_others_years):
-            not_arrived_others_path = g_max_path + "/Common_files/Not_arrived"+str(eachyear)+"12.csv"
-            logger.debug(not_arrived_others_path)
-            not_arrived = spark.read.csv(not_arrived_others_path, header=True)
-            not_arrived = not_arrived.select('ID', 'Date').distinct()
-            not_arrived = dealIDlength(not_arrived)
-            if index == 0:
-                not_arrived_others = not_arrived
-            else:
-                not_arrived_others = not_arrived_others.union(not_arrived)
-        not_arrived_all = not_arrived_current.union(not_arrived_others)
-    else:
-        not_arrived_all = not_arrived_current
+    df_not_arrived_all = df_not_arrived.where((df_not_arrived["YEAR"]>model_year)&(df_not_arrived["YEAR"]<=g_current_year)  )
+    df_not_arrived_all = df_not_arrived_all.select(["ID", "DATE"])
+    # %%
     
     # raw_data中每个年月的非CPA医院列表
     # df_raw_data = spark.read.parquet(p_product_mapping)
-    # struct_type_product_mapping = StructType([ StructField('MIN', StringType(), True),
-    #                                             StructField('PHA', StringType(), True),
-    #                                             StructField('ID', StringType(), True),
-    #                                             StructField('YEAR_MONTH', IntegerType(), True),
-    #                                             StructField('RAW_HOSP_NAME', StringType(), True),
-    #                                             StructField('BRAND', StringType(), True),
-    #                                             StructField('FORM', StringType(), True),
-    #                                             StructField('SPECIFICATIONS', StringType(), True),
-    #                                             StructField('PACK_NUMBER', StringType(), True),
-    #                                             StructField('MANUFACTURER', StringType(), True),
-    #                                             StructField('MOLECULE', StringType(), True),
-    #                                             StructField('SOURCE', StringType(), True),
-    #                                             StructField('CORP', StringType(), True),
-    #                                             StructField('ROUTE', StringType(), True),
-    #                                             StructField('ORG_MEASURE', StringType(), True),
-    #                                             StructField('SALES', DoubleType(), True),
-    #                                             StructField('UNITS', DoubleType(), True),
-    #                                             StructField('UNITS_BOX', DoubleType(), True),
-    #                                             StructField('PATH', StringType(), True),
-    #                                             StructField('SHEET', StringType(), True),
-    #                                             StructField('CITY', StringType(), True),
-    #                                             StructField('PROVINCE', StringType(), True),
-    #                                             StructField('CITY_TIER', DoubleType(), True),
-    #                                             StructField('MONTH', IntegerType(), True),
-    #                                             StructField('YEAR', IntegerType(), True),
-    #                                             StructField('MIN_STD', StringType(), True),
-    #                                             StructField('MOLECULE_STD', StringType(), True),
-    #                                             StructField('ROUTE_STD', StringType(), True),
-    #                                             StructField('BRAND_STD', StringType(), True) ])
-    # df_raw_data = spark.read.format("parquet").load(p_product_mapping, schema=struct_type_product_mapping)
-    
-    # df_original_range_raw_noncpa = df_raw_data.where(col('Source') != 'CPA').select('ID', 'YEAR_MONTH').distinct() \
-    #                                     .withColumnRenamed('YEAR_MONTH', 'Date')
-    
-    
-    # df_raw_data = spark.read.parquet(p_product_mapping)
     
     #### 新的表里没有 Source这一列了
-    
     struct_type = StructType( [ StructField('PHA', StringType(), True),
                                 StructField('ID', StringType(), True),
                                 StructField('PACK_ID', StringType(), True),
@@ -226,26 +172,24 @@ def execute(**kwargs):
     
     
     # 出版医院 减去 未到名单(月更)
-    df_original_range_raw = df_published_all.join(not_arrived_all, on=['ID', 'Date'], how='left_anti')
+    df_original_range_raw = df_published_all.join(df_not_arrived_all, on=['ID', 'DATE'], how='left_anti')
     
     # 与 非CPA医院 合并
     df_original_range_raw = df_original_range_raw.union(df_original_range_raw_noncpa.select(df_original_range_raw.columns))
         
     # 匹配 PHA
-    df_cpa_pha_mapping = df_cpa_pha_mapping.where(col("COMMEND") == 1) \
-                                        .select("ID", "PHA").distinct()
+    df_cpa_pha_mapping = df_cpa_pha_mapping.select("ID", "PHA").distinct()
     
     df_original_range_raw = df_original_range_raw.join(df_cpa_pha_mapping, on='ID', how='left')
     df_original_range_raw = df_original_range_raw.where(~col('PHA').isNull()) \
-                                            .withColumn('YEAR', func.substring(col('Date'), 0, 4)) \
-                                            .withColumn('MONTH', func.substring(col('Date'), 5, 2).cast(IntegerType())) \
+                                            .withColumn('YEAR', func.substring(col('DATE'), 0, 4)) \
+                                            .withColumn('MONTH', func.substring(col('DATE'), 5, 2).cast(IntegerType())) \
                                             .select('PHA', 'YEAR', 'MONTH').distinct()
 
     # %%
     # =========== 数据执行 =============
     logger.debug('数据执行-start')
-    # 1.数据准备
-    # df_raw_data = spark.read.parquet(p_product_mapping)
+    
     
     ## 读取 price
     # df_price = spark.read.parquet(p_price)
@@ -328,7 +272,7 @@ def execute(**kwargs):
         # orderBy 后 取 first 在 zhb的机器上跑回有随机取值发生
         # df_current_range_for_add = df_other_years_range.repartition(1).orderBy(col('WEIGHT').asc())
         # df_current_range_for_add = df_current_range_for_add.groupBy("PHA", "MONTH") \
-        #                                             .agg(func.first(col('YEAR')).alias("YEAR"))
+        #                                            .agg(func.first(col('YEAR')).alias("YEAR"))
         df_current_range_for_add = df_other_years_range.select("PHA", "MONTH", "YEAR", "WEIGHT") \
                                                         .groupBy("PHA", "MONTH").apply(pudf_minWeightYear)
     
@@ -399,7 +343,10 @@ def execute(**kwargs):
         df_adding_data = df_adding_data.repartition(1)
         df_adding_data.write.format("parquet").partitionBy("YEAR_MONTH") \
                         .mode("append").save(p_adding_data)
-
+        
+    #  # 加快计算debug
+    # df_adding_data.persist()   
+    # df_adding_data.agg(func.sum('SALES'), func.sum('UNITS')).show()
     # %%
     # 3. 合并补数部分和原始部分:: 只有当前年当前月的结果
     if g_if_add_data == "True":

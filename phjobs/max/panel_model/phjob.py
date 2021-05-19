@@ -35,8 +35,6 @@ def execute(**kwargs):
     
     
     
-    
-    
     from pyspark.sql.functions import col
     from pyspark.sql.types import DoubleType, IntegerType, StringType, StructType, StructField
     from pyspark.sql import  functions as func    
@@ -66,6 +64,7 @@ def execute(**kwargs):
     # result_path_prefix=get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
     # depends_path=get_depends_path({"name":job_name, "dag_name":dag_name, 
     #                                  "run_id":run_id, "depend_job_names_keys":depend_job_names_keys })
+
     # %%
     # 是否运行此job
     if g_monthly_update == "True":
@@ -74,8 +73,6 @@ def execute(**kwargs):
     
     logger.debug('panel_model')
     # 输入
-    # p_universe = g_max_path + "/" + g_project_name + "/universe_base"
-    p_market  = g_max_path + "/" + g_project_name + "/mkt_mapping"
     p_raw_data_adding_final = depends_path['raw_data_adding_final']
     p_new_hospital = depends_path['new_hospital']
     
@@ -102,12 +99,34 @@ def execute(**kwargs):
 
     # %%
     # =========== 数据准备 测试用=============
-    # 读取 market
-    df_market = spark.read.parquet(p_market)
-    df_markets = df_market.withColumnRenamed("标准通用名", "MOLECULE_STD") \
-                            .withColumnRenamed("model", "MARKET") \
-                            .withColumnRenamed("mkt", "MARKET")
+    
+    def createView(company, table_name, sub_path, other = "",
+        time="2021-04-06",
+        base_path = g_base_path):
+             
+            definite_path = "{base_path}/{sub_path}/TIME={time}/COMPANY={company}/{other}"
+            path = definite_path.format(
+                base_path = base_path,
+                sub_path = sub_path,
+                time = time,
+                company = company,
+                other = other
+            )
+            spark.read.parquet(path).createOrReplaceTempView(table_name)
+    
+    createView(g_project_name, "mole_market_mapping", "DIMENSION/MAPPING/MARKET_MOLE_MAPPING", time = "2021-04-14")
+    
+    # universe
+    createView(g_project_name, "hospital_dimesion", "DIMENSION/HOSPITAL_DIMENSION", time = "2021-04-14")
+    createView(g_project_name, "hospital_fact", "FACT/HOSPITAL_FACT", time = "2021-04-14")
+    createView(g_project_name, "hospital_base_seg_panel_mapping", "DIMENSION/MAPPING/HOSPITAL_BASE_MARKET_SEG_PANEL_MAPPING", time = "2021-04-14")
 
+    # %%
+    # 读取 market
+    mole_market_mapping_sql = """  SELECT * FROM mole_market_mapping  """
+    df_markets =  spark.sql(mole_market_mapping_sql)
+    df_markets = df_markets.withColumnRenamed("COMMON_NAME",  "MOLECULE_STD")\
+                                    .select(["MOLECULE_STD", "MARKET" ]).distinct()
     # %%
     # =========== 数据读取 =============
     # 1、读取 raw_data_adding_final
@@ -135,59 +154,44 @@ def execute(**kwargs):
                                                     StructField('ADD_FLAG', IntegerType(), True) ])
     df_raw_data_adding_final = spark.read.format("parquet").load(p_raw_data_adding_final, schema=struct_type_data_adding_final)
     df_raw_data_adding_final = df_raw_data_adding_final.where((col('YEAR_MONTH')/100).cast(IntegerType()) == g_year)
-    
+    # %%
     # 2、读取 universe 数据
-    def createView(company, table_name, model,
-            time="2021-04-06", 
-            base_path = g_base_path ):
-                
-                definite_path = "{base_path}/{model}/TIME={time}/COMPANY={company}"
-                dim_path = definite_path.format(
-                    base_path = base_path,
-                    model = model,
-                    time = time,
-                    company = company
-                )
-                spark.read.parquet(dim_path).createOrReplaceTempView(table_name)
-                
-    createView(g_project_name, "hospital_dimesion", "DIMENSION/HOSPITAL_DIMENSION", "2021-04-06")
-    createView(g_project_name, "hospital_fact", "FACT/HOSPITAL_FACT", "2021-04-06")
-    createView(g_project_name, "cpa_gyc_mapping", "DIMENSION/MAPPING/CPA_GYC_MAPPING/STANDARD", "2021-04-06")
-    createView(g_project_name, "product_dimesion", "DIMENSION/PRODUCT_DIMENSION", "2021-04-06")
-    createView(g_project_name, "mnf_dimesion", "DIMENSION/MNF_DIMENSION", "2021-04-06")
-    createView(g_project_name, "product_rel_dimesion", "DIMENSION/PRODUCT_RELATIONSHIP_DIMENSION", "2021-04-06")
-    createView(g_project_name, "raw_data_fact", "FACT/RAW_DATA_FACT", "2021-04-06")
-    
     base_universe_sql = """
-            SELECT PANEL_ID AS PHA, HOSPITAL_ID, HOSP_NAME, 
-                PROVINCE, CITY, CITYGROUP AS CITY_TIER, 
-                REGION, TOTAL AS BEDSIZE, SEG, BID_SAMPLE AS PANEL FROM (
-            SELECT 
-                hdim.PANEL_ID, HOSPITAL_ID, HOSP_NAME, 
-                PROVINCE, CITY, CITYGROUP, 
-                REGION, TAG, VALUE, SEG 
-            FROM hospital_dimesion AS hdim 
-                INNER JOIN hospital_fact AS hfct
-                ON hdim.ID == hfct.HOSPITAL_ID
-            WHERE (CATEGORY = 'BEDCAPACITY' AND TAG = 'TOTAL') OR (CATEGORY = 'IS' AND TAG = 'BID_SAMPLE')
-            )
-            PIVOT (
-                SUM(VALUE)
-                FOR TAG in ('TOTAL', 'BID_SAMPLE')
-            )
+        SELECT  PHA, HOSPITAL_ID, HOSP_NAME,
+                PROVINCE, CITY, CITY_TIER,
+                REGION, TOTAL AS BEDSIZE, SEG, PANEL,
+                MEDICINE_RMB AS EST_DRUGINCOME_RMB
+        FROM (
+            SELECT
+                hfct.PHA_ID AS PHA, hfct.HOSPITAL_ID,
+                hdim.HOSP_NAME, hdim.PROVINCE, hdim.CITY, hdim.CITYGROUP AS CITY_TIER,
+                hdim.REGION, hfct.TAG, hfct.VALUE
+            FROM hospital_dimesion AS hdim
+            INNER JOIN hospital_fact AS hfct ON hdim.ID == hfct.HOSPITAL_ID
+            LEFT JOIN hospital_base_seg_panel_mapping AS hmsm ON hmsm.HOSPITAL_FACT_ID == hfct.ID
+            WHERE
+                (hfct.CATEGORY = 'BEDCAPACITY' AND hfct.TAG = 'TOTAL')
+                OR
+                (hfct.CATEGORY = 'REVENUE' AND hfct.TAG = 'MEDICINE_RMB')
+                OR
+                (hfct.CATEGORY = 'CPAGY' AND (hfct.TAG = 'SEG' OR hfct.TAG = 'PANEL'))
+                AND
+                (hmsm.CATEGORY = 'CPAGY' AND hmsm.TAG = 'BASE')
+        )
+        PIVOT (
+            SUM(VALUE)
+            FOR TAG in ('TOTAL', 'MEDICINE_RMB', 'SEG', 'PANEL')
+        )
     """
-    
     df_universe = spark.sql(base_universe_sql)
+    df_universe = df_universe.select("PHA", "HOSP_NAME", "PROVINCE", "CITY").distinct()
+    
     ## SQL 读太慢了
+    # df_universe = spark.read.parquet("s3a://ph-max-auto/2020-08-11/Max/refactor/runs/max_test_beida_202012/temporary/universe_20210517")
     # df_universe = spark.read.parquet("s3a://ph-max-auto/2020-08-11/Max/refactor/runs/max_test_beida_202012/temporary/universe")
     # df_universe = spark.read.parquet("s3a://ph-max-auto/2020-08-11/Max/refactor/runs/max_test_beida_202012/temporary/universe_PHA_ID")
-
     # %%
     # =========== 数据执行 =============
-    df_markets = df_markets.select("MARKET", "MOLECULE_STD").distinct()
-    df_universe = df_universe.select("PHA", "HOSP_NAME", "PROVINCE", "CITY").distinct()
-
-    # %%
     # 生成 panel
     # S_Molecule -> MOLECULE_STD
     df_panel = df_raw_data_adding_final \
