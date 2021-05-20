@@ -45,6 +45,8 @@ def execute(**kwargs):
     # %%
     # 测试输入
     
+    # dag_name = 'Max'
+    # run_id = 'max_test_beida_202012'
     # g_project_name = '贝达'
     # g_year = "2019"
     # g_model_month_right = '201912'
@@ -122,52 +124,52 @@ def execute(**kwargs):
     # 2017到当前年的全量出版医院
     df_published = df_published.where( col("YEAR")<=g_current_year)
     df_published_all = df_published.select(["ID", "DATE"])
-
-
-# raw_data中每个年月的非CPA医院列表
-# df_original_range_raw_noncpa = df_raw_data.where(col('Source') != 'CPA').select('ID', 'YEAR_MONTH').distinct() \
-#                                     .withColumnRenamed('YEAR_MONTH', 'DATE')
-
-# df_raw_data = spark.read.parquet(p_product_mapping)
-struct_type = StructType( [ StructField('PHA', StringType(), True),
-                            StructField('ID', StringType(), True),
-                            StructField('PACK_ID', StringType(), True),
-                            StructField('MANUFACTURER_STD', StringType(), True),
-                            StructField('YEAR_MONTH', IntegerType(), True),
-                            StructField('MOLECULE_STD', StringType(), True),
-                            StructField('BRAND_STD', StringType(), True),
-                            StructField('PACK_NUMBER_STD', IntegerType(), True),
-                            StructField('FORM_STD', StringType(), True),
-                            StructField('SPECIFICATIONS_STD', StringType(), True),
-                            StructField('SALES', DoubleType(), True),
-                            StructField('UNITS', DoubleType(), True),
-                            StructField('CITY', StringType(), True),
-                            StructField('PROVINCE', StringType(), True),
-                            StructField('CITY_TIER', DoubleType(), True),
-                            StructField('MONTH', IntegerType(), True),
-                            StructField('YEAR', IntegerType(), True),
-                            StructField('MIN_STD', StringType(), True),
-                            StructField('MOLECULE_STD_FOR_GR', StringType(), True)])
-df_raw_data = spark.read.format("parquet").load(p_product_mapping, schema=struct_type)
-
-
-df_original_range_raw_noncpa = df_raw_data.select('ID', 'YEAR_MONTH').distinct() \
-                                    .withColumnRenamed('YEAR_MONTH', 'DATE')
-
-
-# 模型前之前的未到名单（跑模型年的时候，不去除未到名单） 
-df_original_range_raw = df_published_all
-
-# 与 非CPA医院 合并
-df_original_range_raw = df_original_range_raw.union(df_original_range_raw_noncpa.select(df_original_range_raw.columns))
+    # %%
     
-# 匹配 PHA
-df_cpa_pha_mapping = df_cpa_pha_mapping.select(["ID", "PHA"]).distinct()
-df_original_range_raw = df_original_range_raw.join(df_cpa_pha_mapping, on='ID', how='left')
-df_original_range_raw = df_original_range_raw.where(~col('PHA').isNull()) \
-                                        .withColumn('YEAR', func.substring(col('DATE'), 0, 4)) \
-                                        .withColumn('MONTH', func.substring(col('DATE'), 5, 2).cast(IntegerType())) \
-                                        .select('PHA', 'YEAR', 'MONTH').distinct()
+    # raw_data中每个年月的非CPA医院列表
+    # df_original_range_raw_noncpa = df_raw_data.where(col('Source') != 'CPA').select('ID', 'YEAR_MONTH').distinct() \
+    #                                     .withColumnRenamed('YEAR_MONTH', 'DATE')
+    
+    # df_raw_data = spark.read.parquet(p_product_mapping)
+    struct_type = StructType( [ StructField('PHA', StringType(), True),
+                                StructField('ID', StringType(), True),
+                                StructField('PACK_ID', StringType(), True),
+                                StructField('MANUFACTURER_STD', StringType(), True),
+                                StructField('YEAR_MONTH', IntegerType(), True),
+                                StructField('MOLECULE_STD', StringType(), True),
+                                StructField('BRAND_STD', StringType(), True),
+                                StructField('PACK_NUMBER_STD', IntegerType(), True),
+                                StructField('FORM_STD', StringType(), True),
+                                StructField('SPECIFICATIONS_STD', StringType(), True),
+                                StructField('SALES', DoubleType(), True),
+                                StructField('UNITS', DoubleType(), True),
+                                StructField('CITY', StringType(), True),
+                                StructField('PROVINCE', StringType(), True),
+                                StructField('CITY_TIER', DoubleType(), True),
+                                StructField('MONTH', IntegerType(), True),
+                                StructField('YEAR', IntegerType(), True),
+                                StructField('MIN_STD', StringType(), True),
+                                StructField('MOLECULE_STD_FOR_GR', StringType(), True)])
+    df_raw_data = spark.read.format("parquet").load(p_product_mapping, schema=struct_type)
+    
+    
+    df_original_range_raw_noncpa = df_raw_data.select('ID', 'YEAR_MONTH').distinct() \
+                                        .withColumnRenamed('YEAR_MONTH', 'DATE')
+    
+    
+    # 模型前之前的未到名单（跑模型年的时候，不去除未到名单） 
+    df_original_range_raw = df_published_all
+    
+    # 与 非CPA医院 合并
+    df_original_range_raw = df_original_range_raw.union(df_original_range_raw_noncpa.select(df_original_range_raw.columns))
+        
+    # 匹配 PHA
+    df_cpa_pha_mapping = df_cpa_pha_mapping.select(["ID", "PHA"]).distinct()
+    df_original_range_raw = df_original_range_raw.join(df_cpa_pha_mapping, on='ID', how='left')
+    df_original_range_raw = df_original_range_raw.where(~col('PHA').isNull()) \
+                                            .withColumn('YEAR', func.substring(col('DATE'), 0, 4)) \
+                                            .withColumn('MONTH', func.substring(col('DATE'), 5, 2).cast(IntegerType())) \
+                                            .select('PHA', 'YEAR', 'MONTH').distinct()
 
     # %%
     # =========== 数据执行 =============

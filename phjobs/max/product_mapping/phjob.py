@@ -53,8 +53,6 @@ def execute(**kwargs):
     
     # 输入
     p_hospital_mapping_out = depends_path['hospital_mapping_out']
-    if g_minimum_product_sep == "kong":
-        g_minimum_product_sep = ""
     
     # 输出
     p_product_mapping_out = result_path_prefix + g_product_mapping_out
