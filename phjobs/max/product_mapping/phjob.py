@@ -99,18 +99,18 @@ def execute(**kwargs):
     
     logger.debug('数据执行-Finish')
 
-# df_raw_data
+    # %%
+    # raw_data_path = "s3a://ph-max-auto/2020-08-11/Max/refactor/runs/max_test_beida_202012/product_mapping/product_mapping_out"
+    # df_raw_data = spark.read.parquet( raw_data_path )
 
-# raw_data_path = "s3a://ph-max-auto/2020-08-11/Max/refactor/runs/max_test_beida_202012/product_mapping/product_mapping_out"
-# df_raw_data = spark.read.parquet( raw_data_path )
+    # print( df_raw_data.where( df_raw_data["PACK_ID"].isNull() ).count() )
 
-# print( df_raw_data.where( df_raw_data["PACK_ID"].isNull() ).count() )
-
-# # old_path = "s3a://ph-max-auto/2020-08-11/Max/refactor/runs/max_test_beida_202012_bk/product_mapping/product_mapping_out/"
-# # old_path = "s3a://ph-max-auto/2020-08-11/Test_Max_Model_ssh/refactor/runs/Test_Max_Model_ssh_Test_Max_Model_ssh_2021-05-12_17-17-25/product_mapping/product_mapping_out/"
-# old_path = "s3a://ph-max-auto/2020-08-11/Max_test2/refactor/runs/manual__2021-05-06T09_58_09.076641+00_00/product_mapping/product_mapping_out/"
-# df_data_old = spark.read.parquet( old_path)
-# print( df_data_old.where( df_data_old["PACK_ID"].isNull() ).count()  )
+    # # old_path = "s3a://ph-max-auto/2020-08-11/Max/refactor/runs/max_test_beida_202012_bk/product_mapping/product_mapping_out/"
+    # # old_path = "s3a://ph-max-auto/2020-08-11/Test_Max_Model_ssh/refactor/runs/Test_Max_Model_ssh_Test_Max_Model_ssh_2021-05-12_17-17-25/product_mapping/product_mapping_out/"
+    # old_path = "s3a://ph-max-auto/2020-08-11/Max_test2/refactor/runs/manual__2021-05-06T09_58_09.076641+00_00/product_mapping/product_mapping_out/"
+    # df_data_old = spark.read.parquet( old_path)
+    # print( df_data_old.where( df_data_old["PACK_ID"].isNull() ).count()  )
+    
     # %%
     # old_path = "s3a://ph-max-auto/2020-08-11/Max/refactor/runs/max_test_beida_202012_bk/product_mapping/product_mapping_out/"
     # df_data_old = spark.read.parquet( old_path)

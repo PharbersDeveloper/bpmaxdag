@@ -222,10 +222,11 @@ def execute(**kwargs):
     """
     df_universe = spark.sql(base_universe_sql)
     '''
-# 读取factor
-factor_sql = """  SELECT * FROM factor """
-df_factor = spark.sql(factor_sql)
-df_factor = df_factor.select(["PROVINCE", "CITY", "FACTOR"])
+    # %%
+    # 读取factor
+    factor_sql = """  SELECT * FROM factor """
+    df_factor = spark.sql(factor_sql)
+    df_factor = df_factor.select(["PROVINCE", "CITY", "FACTOR"])
 
     # %%
     # 5. universe_ot_ 文件
