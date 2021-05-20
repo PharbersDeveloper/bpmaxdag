@@ -36,11 +36,11 @@ def execute(**kwargs):
     
     
     fact_mapping = [
-        # {
-        #     "CATEGORY": "OTHER",
-        #     "TAG": "universe_onc".upper(),
-        #     "COLUMN": "SEG",
-        # },
+        {
+            "CATEGORY": "OTHER",
+            "TAG": "universe_onc".upper(),
+            "COLUMN": "SEG",
+        },
         {
             "CATEGORY": "OTHER",
             "TAG": "universe_onc".upper(),
@@ -107,10 +107,10 @@ def execute(**kwargs):
     
     
     fact_df.drop("MARKET_TEMP") \
+        .selectExpr("ID", "HOSPITAL_ID", "PANEL_ID", "PHA_ID", "CATEGORY", "TAG", "VALUE", "COMPANY", "TIME", "VERSION") \
         .write \
         .partitionBy("TIME", "COMPANY") \
-        .mode("append") \
-        .parquet(_output)
+        .parquet(_output, "append")
     
     hospital_other_seg_mapping_df \
         .write \

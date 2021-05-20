@@ -16,6 +16,8 @@ spec:
     code: phmain.py
     config: phconf.yaml
     args:
+      - key: base_path
+        value: "s3a://ph-max-auto/v0.0.1-2020-06-08/${company}/universe_base/"
       - key: input_dim_path
         value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/HOSPITAL_DIMENSION/"
       - key: hospital_univers
