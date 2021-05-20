@@ -357,13 +357,13 @@ def execute(**kwargs):
 
     # %%
     # 月更
-    df=spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012_test/MAX_result/MAX_result_202001_202012_city_level/')
-    df = df.where(df.Date==202012)
-    df.agg(func.sum('Predict_Sales'),func.sum('Predict_Unit')).show()
+    #df=spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012_test/MAX_result/MAX_result_202001_202012_city_level/')
+    #df = df.where(df.Date==202012)
+    #df.agg(func.sum('Predict_Sales'),func.sum('Predict_Unit')).show()
     
-    max_result_city.agg(func.sum('Predict_Sales'),func.sum('Predict_Unit')).show()
+    #max_result_city.agg(func.sum('Predict_Sales'),func.sum('Predict_Unit')).show()
     
-    logger.debug(df.count(), max_result_city.count() )
+    #logger.debug(df.count(), max_result_city.count() )
     # %%
     # 模型
     # df=spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/201912_test/MAX_result/MAX_result_201701_201912_city_level')
