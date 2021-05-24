@@ -86,13 +86,13 @@ def execute(**kwargs):
 
     # %%
     ### jupyter测试
-    p_product_mapping = p_product_mapping.replace("s3:", "s3a:")
-    p_growth_rate = p_growth_rate.replace("s3:", "s3a:")
-    p_price = p_price.replace("s3:", "s3a:")
-    p_price_city = p_price_city.replace("s3:", "s3a:")
+    # p_product_mapping = p_product_mapping.replace("s3:", "s3a:")
+    # p_growth_rate = p_growth_rate.replace("s3:", "s3a:")
+    # p_price = p_price.replace("s3:", "s3a:")
+    # p_price_city = p_price_city.replace("s3:", "s3a:")
     
-    p_adding_data = p_adding_data.replace("s3:", "s3a:")
-    p_raw_data_adding_final =p_raw_data_adding_final.replace("s3:", "s3a:")
+    # p_adding_data = p_adding_data.replace("s3:", "s3a:")
+    # p_raw_data_adding_final =p_raw_data_adding_final.replace("s3:", "s3a:")
     # %%
     def createView(company, table_name, sub_path, other = "",
         time="2021-04-06",
