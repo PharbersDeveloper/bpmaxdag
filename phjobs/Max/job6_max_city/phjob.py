@@ -391,7 +391,10 @@ def execute(**kwargs):
     '''
     如果已经存在 max_result_city_path 则用新的结果对已有结果进行DOI替换和补充
     '''
-    file_name = max_result_city_path.replace('//', '/').split('s3a:/ph-max-auto/')[1]
+    if hospital_level == "False" and bedsize == "True":
+        file_name = max_result_city_path.replace('//', '/').split('s3a:/ph-max-auto/')[1]
+    else:
+        file_name = max_result_city_csv_path.replace('//', '/').split('s3a:/ph-max-auto/')[1]
     
     s3 = boto3.resource('s3', region_name='cn-northwest-1',
                             aws_access_key_id="AKIAWPBDTVEAEU44ZAGT",
@@ -404,7 +407,7 @@ def execute(**kwargs):
             judge += 1
     
     if judge > 0:
-        if hospital_level == "False":
+        if hospital_level == "False" and bedsize == "True":
             old_max_out = spark.read.parquet(max_result_city_path)
         else:
             old_max_out = spark.read.csv(max_result_city_csv_path, header=True)
