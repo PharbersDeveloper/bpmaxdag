@@ -54,7 +54,7 @@ def execute(**kwargs):
         .withColumn("VERSION", lit(_version)) \
         .withColumn("LOCATION", array(lit(0), lit(0))) \
         .withColumn("DISTRICT", lit("")) \
-        .selectExpr("PANEL_ID AS PHA_ID", "HOSP_NAME", "LOCATION", "CITY", "CITYGROUP AS CITY_TIER", "DISTRICT", "REGION", "VERSION", "COMPANY")
+        .selectExpr("ID", "PHA_ID", "HOSP_NAME", "PROVINCE", "LOCATION", "CITY", "CITYGROUP AS CITY_TIER", "DISTRICT", "REGION", "VERSION", "COMPANY")
     
     df \
         .write \

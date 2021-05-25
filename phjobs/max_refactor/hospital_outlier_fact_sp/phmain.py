@@ -16,15 +16,16 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--run_id')
 @click.option('--job_full_name')
 @click.option('--job_id')
-@click.option('--base_input')
+@click.option('--hosp_dim_input')
+@click.option('--original_clean_input')
 @click.option('--version')
 @click.option('--company')
 @click.option('--label')
-@click.option('--base_output')
+@click.option('--hosp_outlier_fact_output')
 def debug_execute(**kwargs):
     try:
-        args = {"name": "extract_base_universe"}
-        outputs = ["base_output"]
+        args = {"name": "hospital_outlier_fact_sp"}
+        outputs = ["hosp_outlier_fact_output"]
 
         args.update(kwargs)
         result = exec_before(**args)

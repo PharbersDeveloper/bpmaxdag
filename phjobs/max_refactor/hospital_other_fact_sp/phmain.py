@@ -20,11 +20,12 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--original_clean_input')
 @click.option('--version')
 @click.option('--company')
-@click.option('--hosp_base_fact_output')
+@click.option('--label')
+@click.option('--hosp_other_fact_output')
 def debug_execute(**kwargs):
     try:
-        args = {"name": "hospital_base_fact"}
-        outputs = ["hosp_base_fact_output"]
+        args = {"name": "hospital_other_fact_sp"}
+        outputs = ["hosp_other_fact_output"]
 
         args.update(kwargs)
         result = exec_before(**args)

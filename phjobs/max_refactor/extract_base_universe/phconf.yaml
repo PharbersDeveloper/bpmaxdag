@@ -22,6 +22,8 @@ spec:
         value: "0.0.1"
       - key: company
         value: "BeiDa"
+      - key: label
+        value: "BASE"
     outputs:
       - key: base_output
         # value: "s3://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/TMP/${runid}/EXTRACT/BASE_HOSPITAL"

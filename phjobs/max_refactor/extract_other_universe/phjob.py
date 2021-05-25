@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
 """alfredyang@pharbers.com.
 
-This is job template for Pharbers Max Job
+This is job template for Pharbers Max 
 
 Job 流程
-extract_base_universe -> hospital_dimension
-extract_base_universe -> hospital_base_fact
+extract_other_universe -> hospital_other_fact
 
 """
 
@@ -25,10 +24,12 @@ def execute(**kwargs):
     result_path_prefix = kwargs["result_path_prefix"]
     depends_path = kwargs["depends_path"]
     
-    _base_input = kwargs["base_input"]
+    _other_input = kwargs["other_input"]
     _company = kwargs["company"]
     _version = kwargs["version"]
-    _base_output = kwargs["base_output"] #.replace("${runid}", _run_id)
+    _label = kwargs["label"]
+    _other_output = kwargs["other_output"]
+    
     
     # 最终选择输出字段
     _select_col = ["PANEL_ID AS PHA_ID", "HOSP_NAME", "PROVINCE", "CITY", "REGION", "EST_DRUGINCOME_RMB", "SEG", "PANEL"]
@@ -57,7 +58,7 @@ def execute(**kwargs):
         else:
             _select_col.append("CITY_TIER AS CITYGROUP")
     
-    reading = spark.read.parquet(_base_input)
+    reading = spark.read.parquet(_other_input)
     original_columns = reading.columns
     upper_columns = list(map(lambda x: x.upper(), original_columns))
     convert_city_group_col(upper_columns)
@@ -68,6 +69,6 @@ def execute(**kwargs):
         .withColumn("COMPANY", lit(_company)) \
         .write \
         .partitionBy("COMPANY", "VERSION") \
-        .parquet(_base_output, "append")
+        .parquet(_other_output, "append")
     
     return {}
