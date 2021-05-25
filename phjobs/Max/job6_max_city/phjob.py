@@ -41,12 +41,6 @@ def execute(**kwargs):
     d = kwargs['d']
     ### output args ###
 
-    
-    
-    
-    
-    
-    
     from pyspark.sql import SparkSession
     from pyspark.sql.types import StringType, IntegerType, DoubleType
     from pyspark.sql import functions as func
@@ -393,37 +387,38 @@ def execute(**kwargs):
         max_result_city = max_result_city.select("Province", "City", "Date", "Prod_Name", "Molecule", "PANEL", "DOI", "Predict_Sales", "Predict_Unit")
 
     # %%
-    if hospital_level == "False":
-        # 5.输出判断是否已有 max_result_city_path 结果
-        '''
-        如果已经存在 max_result_city_path 则用新的结果对已有结果进行DOI替换和补充
-        '''
-        file_name = max_result_city_path.replace('//', '/').split('s3a:/ph-max-auto/')[1]
+    # 5.输出判断是否已有 max_result_city_path 结果
+    '''
+    如果已经存在 max_result_city_path 则用新的结果对已有结果进行DOI替换和补充
+    '''
+    file_name = max_result_city_path.replace('//', '/').split('s3a:/ph-max-auto/')[1]
     
-        s3 = boto3.resource('s3', region_name='cn-northwest-1',
-                                aws_access_key_id="AKIAWPBDTVEAEU44ZAGT",
-                                aws_secret_access_key="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")
-        bucket = s3.Bucket('ph-max-auto')
-        judge = 0
-        for obj in bucket.objects.filter(Prefix = file_name):
-            path, filename = os.path.split(obj.key)  
-            if path == file_name:
-                judge += 1
+    s3 = boto3.resource('s3', region_name='cn-northwest-1',
+                            aws_access_key_id="AKIAWPBDTVEAEU44ZAGT",
+                            aws_secret_access_key="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")
+    bucket = s3.Bucket('ph-max-auto')
+    judge = 0
+    for obj in bucket.objects.filter(Prefix = file_name):
+        path, filename = os.path.split(obj.key)  
+        if path == file_name:
+            judge += 1
     
-        if judge > 0:
-            old_max_out = spark.read.parquet(max_result_city_path)   
-            new_markets = max_result_city.select('DOI').distinct().toPandas()['DOI'].tolist()    
-            old_max_out_keep = old_max_out.where(~old_max_out['DOI'].isin(new_markets))    
-            max_result_city_final = max_result_city.union(old_max_out_keep.select(max_result_city.columns))
-            # 中间文件读写一下
-            max_result_city_final = max_result_city_final.repartition(2)
-            max_result_city_final.write.format("parquet") \
-                                .mode("overwrite").save(tmp_path)
-            max_result_city_final = spark.read.parquet(tmp_path)   
+    if judge > 0:
+        if hospital_level == "False":
+            old_max_out = spark.read.parquet(max_result_city_path)
         else:
-            max_result_city_final = max_result_city.repartition(2)
+            old_max_out = spark.read.csv(max_result_city_csv_path, header=True)
+        new_markets = max_result_city.select('DOI').distinct().toPandas()['DOI'].tolist()    
+        old_max_out_keep = old_max_out.where(~old_max_out['DOI'].isin(new_markets))    
+        max_result_city_final = max_result_city.union(old_max_out_keep.select(max_result_city.columns))
+        # 中间文件读写一下
+        max_result_city_final = max_result_city_final.repartition(2)
+        max_result_city_final.write.format("parquet") \
+                            .mode("overwrite").save(tmp_path)
+        max_result_city_final = spark.read.parquet(tmp_path)   
     else:
         max_result_city_final = max_result_city.repartition(2)
+
     # %%
     # max_result_city_final.groupby('PANEL').agg(func.sum('Predict_Sales')).show()
 
