@@ -23,8 +23,6 @@ def execute(**kwargs):
     g_monthly_update = kwargs['g_monthly_update']
     g_max_path = kwargs['g_max_path']
     g_base_path = kwargs['g_base_path']
-    g_city_47 = kwargs['g_city_47']
-    g_province_47 = kwargs['g_province_47']
     ### input args ###
     
     ### output args ###
@@ -54,10 +52,15 @@ def execute(**kwargs):
     # run_id = "manual__2021-05-06T09_58_17.800341+00_00"
     # g_year = 2019
     
-    # # run_id = "manual__2021-05-10T05_24_21.327553+00_00"
-    # # g_year = 2018
-    
+    # run_id = "manual__2021-05-10T05_24_21.327553+00_00"
+    # g_year = 2018
     # dag_name = "Max_test2"
+    
+    # run_id = "Test_Max_model_1419_Test_Max_model_1419_2021-05-24_18-46-42"
+    # run_id = "Test_Max_model_1419_Test_Max_model_1419_2021-05-26_12-02-32"
+    # dag_name = "Test_Max_model_1419"
+    # g_year = 2018
+    # g_add_47="False" 
     # g_project_name ="贝达"
     # g_model_month_left="201901"
     # g_model_month_right="201912"
@@ -80,13 +83,16 @@ def execute(**kwargs):
         logger.error('wrong input: g_add_47, False or True') 
         raise ValueError('wrong input: g_add_47, False or True')
     
-    g_year = int(g_year)    
+    g_year = int(g_year)
+    
+    # stepFunction中无法识别中文,所以参数被移到此处
+    g_city_47 = '北京市, 上海市, 天津市, 重庆市, 广州市,深圳市, 西安市, 大连市, 成都市, 厦门市, 沈阳市'
+    g_province_47 = '河北省, 福建省, 河北, 福建'
+    
     l_city = g_city_47.replace(' ','').split(',')
     l_province = g_province_47.replace(' ','').split(',')
         
-    # 月更新相关输入
-    # monthly_update == "False":
-            
+    
     # 输出
     p_panel_result = result_path_prefix + g_panel
 
@@ -95,8 +101,6 @@ def execute(**kwargs):
     # print(p_new_hospital)
     # p_raw_data_adding_final = p_raw_data_adding_final.replace("s3:", "s3a:")
     # p_new_hospital = p_new_hospital.replace("s3:", "s3a:")
-    
-
     # %%
     # =========== 数据准备 测试用=============
     
@@ -114,6 +118,7 @@ def execute(**kwargs):
             )
             spark.read.parquet(path).createOrReplaceTempView(table_name)
     
+    # market
     createView(g_project_name, "mole_market_mapping", "DIMENSION/MAPPING/MARKET_MOLE_MAPPING", time = "2021-04-14")
     
     # universe
@@ -185,7 +190,7 @@ def execute(**kwargs):
     """
     df_universe = spark.sql(base_universe_sql)
     df_universe = df_universe.select("PHA", "HOSP_NAME", "PROVINCE", "CITY").distinct()
-    
+    df_universe.persist()
     ## SQL 读太慢了
     # df_universe = spark.read.parquet("s3a://ph-max-auto/2020-08-11/Max/refactor/runs/max_test_beida_202012/temporary/universe_20210517")
     # df_universe = spark.read.parquet("s3a://ph-max-auto/2020-08-11/Max/refactor/runs/max_test_beida_202012/temporary/universe")
@@ -200,15 +205,11 @@ def execute(**kwargs):
         .join(df_universe, on="PHA", how="left") \
         .withColumn("DATE", df_raw_data_adding_final.YEAR * 100 + df_raw_data_adding_final.MONTH)
     
-    # df_panel = df_panel \
-    #     .groupBy("ID", "DATE", "MIN_STD", "MARKET", "HOSP_NAME", "PHA", "MOLECULE_STD", "PROVINCE", "CITY", "ADD_FLAG", "ROUTE_STD") \
-    #     .agg(func.sum("SALES").alias("SALES"), func.sum("UNITS").alias("UNITS"))
     
-    ###################################################### 新的表中没有 ROUTE_STD 这一列
     df_panel = df_panel \
         .groupBy("ID", "DATE", "PACK_ID","MIN_STD", "MARKET", "HOSP_NAME", "PHA", "MOLECULE_STD", "PROVINCE", "CITY", "ADD_FLAG" ) \
         .agg(func.sum("SALES").alias("SALES"), func.sum("UNITS").alias("UNITS"))
-    ##################################################### 
+    
     
     # 拆分 panel_raw_data， panel_add_data
     df_panel_raw_data = df_panel.where(df_panel.ADD_FLAG == 0)
@@ -246,6 +247,7 @@ def execute(**kwargs):
         df_panel_add_data = df_panel_add_data \
             .where( ~df_panel_add_data.CITY.isin(l_city)) \
             .where( ~df_panel_add_data.PROVINCE.isin(l_province))
+        
     # 此处的 ~表示“非”的意思
         
     df_panel_add_data_history = df_panel_add_data \
