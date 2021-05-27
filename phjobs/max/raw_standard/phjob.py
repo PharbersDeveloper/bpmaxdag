@@ -15,8 +15,6 @@ def execute(**kwargs):
     
     ### input args ###
     g_project_name = kwargs['g_project_name']
-    g_minimum_product_sep = kwargs['g_minimum_product_sep']
-    g_minimum_product_columns = kwargs['g_minimum_product_columns']
     g_max_path = kwargs['g_max_path']
     g_base_path = kwargs['g_base_path']
     g_out_dir = kwargs['g_out_dir']
@@ -41,26 +39,24 @@ def execute(**kwargs):
     # ===========  测试用的参数 ============
     # dag_name = 'Max'
     # run_id = 'max_test_beida_202012'
+    
+    
+    # dag_name = "Test_Max_model_1419"
+    # run_id = "Test_Max_model_1419_Test_Max_model_1419_2021-05-26_16-38-25"
     # g_project_name ="贝达"
     # g_out_dir="202012_test"
     # result_path_prefix=get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
     # depends_path=get_depends_path({"name":job_name, "dag_name":dag_name, 
     #                                  "run_id":run_id  })
     
-    # # # # g_monthly_update = 'False'
-    # # # # g_year = '2019'
+    # g_monthly_update = 'False'
+    # g_year = '2018'
     
-    # g_monthly_update = 'True'
-    # g_year = '2020'
-    # g_month = '12'
+    # # g_monthly_update = 'True'
+    # # g_year = '2020'
+    # # g_month = '12'
     # %%
     # =========== 输入 输出 ============
-    
-    if g_minimum_product_sep == 'kong':
-        g_minimum_product_sep = ''
-    g_minimum_product_columns = g_minimum_product_columns.replace(' ', '').split(',')
-    
-    
     
     g_year = int(g_year)
     if g_monthly_update == 'True':
@@ -184,6 +180,7 @@ def execute(**kwargs):
                                             func.when(df_molecule_act_map.ATC4_2 == "0", None)\
                                             .otherwise(df_molecule_act_map.ATC4_2))
     # %%
+    
     raw_data_delivery_sql = """
             SELECT
                 RW.RAWDATA_HOSP_NAME AS RAW_HOSP_NAME, RW.RAWDATA_MOLE_NAME AS MOLECULE, RW.RAWDATA_PRODUCT_NAME AS BRAND,
@@ -191,7 +188,7 @@ def execute(**kwargs):
                 RW.RAW_CODE AS ID, HD.PANEL_ID AS PHA_ID, RW.RAW_PACK_ID AS PACK_ID, RW.RAW_MANUFACTURER AS MANUFACTURER_STD, RW.DATE,
                 RW.RAW_MOLE_NAME AS MOLECULE_STD,  RW.RAW_PRODUCT_NAME AS BRAND_STD, 
                 RW.RAW_PACK AS PACK_NUMBER_STD, RW.RAW_DOSAGE AS FORM_STD, RW.RAW_SPEC AS SPECIFICATIONS_STD,
-                RW.SALES, RW.UNITS
+                RW.SALES, RW.UNITS, RW.SOURCE
             FROM raw_data_delivery_fact AS RW
                 LEFT JOIN hospital_dimesion AS HD ON RW.HOSPITAL_ID == HD.ID
                 LEFT JOIN product_dimesion AS PD ON RW.PRODUCT_ID == PD.ID
@@ -220,7 +217,6 @@ def execute(**kwargs):
 
     # %%
     df_raw_data = df_raw_data_delivery.join( df_cpa_pha_mapping, on="ID", how="left")
-    # df_raw_data_delivery.show(1, vertical=True)
     # %%
     # 2. universe PHA 匹配获得 HOSP_NAME，Province，City
     # 读取 univers数据
@@ -390,7 +386,7 @@ def execute(**kwargs):
                 "MOLECULE", "BRAND", "FORM", "SPECIFICATIONS", "PACK_NUMBER", "MANUFACTURER", 
                 "SALES", "UNITS", "UNITS_BOX", "PHA", 
                 "PROVINCE", "CITY", "PROVINCE_STD", "CITY_STD", 
-                "MARKET",  'PHA_HOSPITAL_NAME',  
+                "MARKET",  'PHA_HOSPITAL_NAME', 'SOURCE', 
                 "MOLECULE_STD_MASTER", "BRAND_STD", "FORM_STD", "SPECIFICATIONS_STD", 
                 "PACK_NUMBER_STD", "MANUFACTURER_STD", "PACK_ID", "ATC", "PROJECT" ]
     # 'CITY_TIER', 'REGION','BEDSIZE', 'PANEL',
@@ -418,17 +414,19 @@ def execute(**kwargs):
     # p_result_rawdata_standard ="s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/test/贝达_rawdata_standard/"
     # df_result_rawdata_standard = spark.read.parquet( p_result_rawdata_standard )
     # # df_result_rawdata_standard.show(1, vertical=True)
-    # df_result_rawdata_standard = df_result_rawdata_standard.where(df_result_rawdata_standard.Date==202012)
+    # # df_result_rawdata_standard = df_result_rawdata_standard.where(df_result_rawdata_standard.Date==202012)
+    # df_result_rawdata_standard = df_result_rawdata_standard.where( (df_result_rawdata_standard.Date>=201801 ) &
+    #                                                               (df_result_rawdata_standard.Date<=201812) )
     # # df_raw_data_standard.select("Date").distinct().show()
     
     # a = ['DATE', 'ID',  'BRAND', 'FORM', 'SPECIFICATIONS', 'PACK_NUMBER', 'MANUFACTURER', 'MOLECULE', 'SALES', 'UNITS', 'UNITS_BOX', 'PHA', 'RAW_HOSP_NAME', 'PROVINCE', 'CITY', 'MIN', 'MARKET', 'MOLECULE_STD', 'BRAND_STD', 'FORM_STD', 'SPECIFICATIONS_STD', 'PACK_NUMBER_STD', 'MANUFACTURER_STD', 'PROVINCE_STD', 'CITY_STD', 'PACK_ID', 'ATC', 'PROJECT', 'DATE_COPY']
     # b = ['Date', 'ID',  'Brand', 'Form', 'Specifications', 'Pack_Number', 'Manufacturer', 'Molecule', 'Sales', 'Units', 'Units_Box', 'PHA', 'PHA医院名称', 'Province', 'City', 'min1', 'DOI', '标准通用名', '标准商品名', '标准剂型', '标准规格', '标准包装数量', '标准生产企业', '标准省份名称', '标准城市名称', 'PACK_ID', 'ATC', 'project', 'Date_copy']
     # df_result_rawdata_standard =  df_result_rawdata_standard.select([col(i).alias(j)   for i,j in zip(b,a)])
     
-    
+    # old = df_result_rawdata_standard
+    # new = df_raw_data_standard
     # old.agg(func.sum("SALES"), func.sum("UNITS")).show()
     # new.agg(func.sum("SALES"), func.sum("UNITS")).show()
-
     # %%
     # print(df_raw_data_standard.count(), df_result_rawdata_standard.count())
     
@@ -449,34 +447,6 @@ def execute(**kwargs):
     
     # old.subtract(new).show()
     # new.subtract(old).show()
-    # %%
-    
-    ## 列长度一样
-    # print("New and Old 的列数目是否一致", len(df_result_rawdata_standard.columns) == len( df_raw_data_standard.columns ) )
-    # print("New and Old 的样本数目是否一致", df_result_rawdata_standard.count(), df_raw_data_standard.count() )
-    # df_result_rawdata_standard.show(1, vertical=True)
-    
-    # 日期数目不同
-    # df_result_rawdata_standard: 49个月
-    # df_raw_data_standard: 48 个月
-    # df_result_rawdata_standard.select("Date").distinct().show()
-    # df_raw_data_standard.select("DATE").distinct().show()
-    # print( df_result_rawdata_standard.select("Date").distinct().count(), df_raw_data_standard.select("DATE").distinct().count() )
-    
-    # df_raw_data_standard.show(1, vertical=True)
-    ### 月份数目不同，所以总的数据量不一致
-    # print("result   lines number: ", df_result_rawdata_standard.count() )
-    # print("raw data lines number: ", df_raw_data_standard.count() )
-    ### 限定月份数目
-    # print("result   lines number: ", df_result_rawdata_standard.where( (df_result_rawdata_standard.DATE >=202001)& ((df_result_rawdata_standard.DATE < 202101) )   ).count() )
-    # print("raw data lines number: ", df_raw_data_standard.where( (df_raw_data_standard.DATE >=202001) & ((df_raw_data_standard.DATE < 202101) )   ).count() )
-    
-    
-    # df_result_rawdata_standard.select("DATE").distinct().show()
-    # df_result_rawdata_standard.select("DATE").where( df_result_rawdata_standard.DATE >=202101  ).distinct().show()
-    # df_result_rawdata_standard.select("DATE").where( (df_result_rawdata_standard.DATE >=202001)| ((df_result_rawdata_standard.DATE >=202101) )   ).distinct().show()
-    # 17，18，19，20，21(只有1月的)
-
     # %%
     
     # df_result_rawdata_standard_2017 =  df_result_rawdata_standard.where( (df_result_rawdata_standard.DATE >=201701)& ((df_result_rawdata_standard.DATE < 201801) )   )

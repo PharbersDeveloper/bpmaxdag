@@ -17,8 +17,6 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--job_full_name')
 @click.option('--job_id')
 @click.option('--g_project_name')
-@click.option('--g_minimum_product_sep')
-@click.option('--g_minimum_product_columns')
 @click.option('--g_max_path')
 @click.option('--g_base_path')
 @click.option('--g_out_dir')
