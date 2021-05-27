@@ -36,17 +36,16 @@ def execute(**kwargs):
     from pyspark.sql.types import StringType, IntegerType, DoubleType
     from pyspark.sql import functions as func
     import os
-    from pyspark.sql.functions import pandas_udf, PandasUDFType, udf
+    from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col
     import time
-    import re    # %%
-    '''
-    max_path = 's3a://ph-max-auto/v0.0.1-2020-06-08/'
-    project_name = 'Gilead'
-    outdir = '202101'
-    if_two_source = 'True'
-    cut_time_left = '202101'
-    cut_time_right = '202101'
-    '''
+    import re    
+    # %%
+    # max_path = 's3a://ph-max-auto/v0.0.1-2020-06-08/'
+    # project_name = 'Gilead'
+    # outdir = '202101'
+    # if_two_source = 'True'
+    # cut_time_left = '202101'
+    # cut_time_right = '202101'
     # %%
     # 输入
     if if_two_source != "False" and if_two_source != "True":
@@ -69,10 +68,13 @@ def execute(**kwargs):
             history_outdir = str(int(outdir) - 1)
     
     history_raw_data_path = max_path + '/' + project_name + '/' + history_outdir + '/raw_data'
+    history_raw_data_delivery_path = max_path + '/' + project_name + '/' + history_outdir + '/raw_data_delivery'    
+    
+    cpa_pha_mapping_path = max_path + '/' + project_name + '/cpa_pha_mapping'
     if if_two_source == 'True':
         history_raw_data_std_path = max_path + '/' + project_name + '/' + history_outdir + '/raw_data_std'
-        cpa_pha_mapping_path = max_path + '/' + project_name + '/cpa_pha_mapping'
-        cpa_pha_mapping_common_path = max_path + '/Common_files/cpa_pha_mapping'
+        cpa_pha_mapping_common_path = max_path + '/Common_files/cpa_pha_mapping'    
+    
     
     std_names = ["Date", "ID", "Raw_Hosp_Name", "Brand", "Form", "Specifications", "Pack_Number", "Manufacturer", 
     "Molecule", "Source", "Corp", "Route", "ORG_Measure"]
@@ -92,10 +94,13 @@ def execute(**kwargs):
     
     if test == 'False':
         all_raw_data_path = max_path + '/' + project_name + '/' + outdir + '/raw_data'
+        raw_data_delivery_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_delivery'
         if if_two_source == 'True':
-            all_raw_data_std_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_std'        
+            all_raw_data_std_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_std'
+        
     else:
         all_raw_data_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_check/raw_data'
+        raw_data_delivery_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_check/raw_data_delivery'
         if if_two_source == 'True':
             all_raw_data_std_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_check/raw_data_std'
     
@@ -104,9 +109,6 @@ def execute(**kwargs):
     #    history_raw_data_delivery_path = max_path + '/' + project_name + '/201912/raw_data_std'
     #else:
     #    history_raw_data_delivery_path = max_path + '/' + project_name + '/201912/raw_data'
-    
-    history_raw_data_delivery_path = max_path + '/' + project_name + '/' + history_outdir + '/raw_data_delivery'    
-    raw_data_delivery_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_delivery'
     # %%
     # =============  数据执行 ==============
     raw_data = spark.read.csv(raw_data_path, header=True)    
@@ -222,18 +224,18 @@ def execute(**kwargs):
         df = df.withColumn("ID", func.regexp_replace("ID", "\\.0", ""))
         df = df.withColumn("ID", func.when(distinguish_cpa_gyc(df.ID, 7), func.lpad(df.ID, 6, "0")).otherwise(df.ID))
         return df
+
     # %%
     # 3. 跨源去重，跨源去重优先保留CPA医院
+    cpa_pha_mapping = spark.read.parquet(cpa_pha_mapping_path)
+    cpa_pha_mapping = cpa_pha_mapping.where(cpa_pha_mapping["推荐版本"] == 1).select('ID', 'PHA')
+    cpa_pha_mapping = deal_ID_length(cpa_pha_mapping)
+    
     if if_two_source == 'True':
         # drop_dup_hospital
-        cpa_pha_mapping = spark.read.parquet(cpa_pha_mapping_path)
-        cpa_pha_mapping = cpa_pha_mapping.where(cpa_pha_mapping["推荐版本"] == 1).select('ID', 'PHA')
-        cpa_pha_mapping = deal_ID_length(cpa_pha_mapping)
-    
         cpa_pha_mapping_common = spark.read.parquet(cpa_pha_mapping_common_path)
         cpa_pha_mapping_common = cpa_pha_mapping_common.where(cpa_pha_mapping_common["推荐版本"] == 1).select('ID', 'PHA')
         cpa_pha_mapping_common = deal_ID_length(cpa_pha_mapping_common)
-    
         # raw_data_dedup = raw_data_dedup.withColumn('ID', raw_data_dedup.ID.cast(IntegerType()))
         raw_data_dedup = deal_ID_length(raw_data_dedup)
     
@@ -287,9 +289,11 @@ def execute(**kwargs):
     
         raw_data_dedup_std = drop_dup_hospital(raw_data_dedup, cpa_pha_mapping_common)                  
         raw_data_dedup = drop_dup_hospital(raw_data_dedup, cpa_pha_mapping)    
+
     # %%
     # 4. 与历史数据合并
-    def union_raw_data(raw_data_dedup, history_raw_data_path, all_raw_data_path):
+    def union_raw_data(raw_data_dedup, history_raw_data_path, all_raw_data_path, cpa_pha_map):
+        # 1. 历史数据
         history_raw_data = spark.read.parquet(history_raw_data_path)
         if 'Corp' not in history_raw_data.columns:
             history_raw_data = history_raw_data.withColumn('Corp', func.lit(''))
@@ -298,39 +302,50 @@ def execute(**kwargs):
         for colname, coltype in history_raw_data.dtypes:
             if coltype == "boolean":
                 history_raw_data = history_raw_data.withColumn(colname, history_raw_data[colname].cast(StringType()))
-    
+                
         history_raw_data = history_raw_data.withColumn('Date', history_raw_data.Date.cast(IntegerType()))
         history_raw_data = history_raw_data.where(history_raw_data.Date < cut_time_left)
         history_raw_data = history_raw_data.drop("Brand_new", "all_info")
         history_raw_data = deal_ID_length(history_raw_data)
+        # 匹配PHA
+        history_raw_data = history_raw_data.join(cpa_pha_map, on='ID', how='left')
     
+        # 2. 本期数据
         raw_data_dedup = raw_data_dedup.withColumn('Date', raw_data_dedup.Date.cast(IntegerType()))
         # new_raw_data = raw_data_dedup.where((raw_data_dedup.Date >= cut_time_left) & (raw_data_dedup.Date <= cut_time_right))
         new_raw_data = deal_ID_length(raw_data_dedup)
-        new_date_mole = new_raw_data.select('Date', 'Molecule', 'ID').distinct()
-    
-        history_raw_data = history_raw_data.join(new_date_mole, on=['Date', 'Molecule', 'ID'], how='left_anti')
-    
-        all_raw_data = new_raw_data.select(history_raw_data.columns).union(history_raw_data)    
-           
+        # 匹配PHA
+        new_raw_data = new_raw_data.join(cpa_pha_map, on='ID', how='left')
+        # 本期 ID
+        new_date_mole_id = new_raw_data.select('Date', 'Molecule', 'ID').distinct()
+        # 本期 PHA
+        new_date_mole_pha = new_raw_data.where(~col('PHA').isNull()).select('Date', 'Molecule', 'PHA').distinct()
+        
+        # 3. 去重
+        history_raw_data = history_raw_data.join(new_date_mole_id, on=['Date', 'Molecule', 'ID'], how='left_anti') \
+                                            .join(new_date_mole_pha, on=['Date', 'Molecule', 'PHA'], how='left_anti')
+        # 4.合并数据
+        all_raw_data = new_raw_data.select(history_raw_data.columns).union(history_raw_data) \
+                                    .drop('PHA')
         all_raw_data = deal_ID_length(all_raw_data)
     
         all_raw_data = all_raw_data.repartition(2)
         all_raw_data.write.format("parquet") \
             .mode("overwrite").save(all_raw_data_path)
+
     # %%
     # 与历史数据合并
     if if_union == 'True':
         # 用于max计算
-        union_raw_data(raw_data_dedup, history_raw_data_path, all_raw_data_path)             
+        union_raw_data(raw_data_dedup, history_raw_data_path, all_raw_data_path, cpa_pha_mapping)             
         if if_two_source == 'True':
             # 用于max计算
-            union_raw_data(raw_data_dedup_std, history_raw_data_std_path, all_raw_data_std_path)
+            union_raw_data(raw_data_dedup_std, history_raw_data_std_path, all_raw_data_std_path, cpa_pha_mapping_common)
             # 备份生成手动修改前的交付结果，用于交付和提数
-            union_raw_data(raw_data_dedup_std, history_raw_data_delivery_path, raw_data_delivery_path)
+            union_raw_data(raw_data_dedup_std, history_raw_data_delivery_path, raw_data_delivery_path, cpa_pha_mapping_common)
         else:
             # 备份生成手动修改前的交付结果，用于交付和提数
-            union_raw_data(raw_data_dedup, history_raw_data_delivery_path, raw_data_delivery_path)   
+            union_raw_data(raw_data_dedup, history_raw_data_delivery_path, raw_data_delivery_path, cpa_pha_mapping)   
     # 不与历史数据合并        
     else:
         raw_data_dedup = deal_ID_length(raw_data_dedup)
@@ -352,3 +367,4 @@ def execute(**kwargs):
             # 备份生成手动修改前的交付结果
             raw_data_dedup.write.format("parquet") \
                 .mode("overwrite").save(raw_data_delivery_path)
+

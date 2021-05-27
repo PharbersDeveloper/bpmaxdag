@@ -17,32 +17,32 @@ spec:
     config: phconf.yaml
     args:
       - key: max_path
-        value: s3a://ph-max-auto/v0.0.1-2020-06-08/
+        value: 's3a://ph-max-auto/v0.0.1-2020-06-08/'
       - key: project_name
-        value: Empty
+        value: 'Empty'
       - key: outdir
-        value: Empty
+        value: 'Empty'
       - key: history_outdir
-        value: Empty
+        value: 'Empty'
       - key: raw_data_path
-        value: Empty
+        value: 'Empty'
       - key: if_two_source
-        value: False
+        value: 'False'
       - key: cut_time_left
-        value: Empty
+        value: 'Empty'
       - key: cut_time_right
-        value: Empty
+        value: 'Empty'
       - key: if_union
-        value: True
+        value: 'True'
       - key: test
-        value: False
+        value: 'False'
       - key: auto_max
-        value: True
+        value: 'True'
     outputs:
       - key: c
-        value: abc
+        value: 'abc'
       - key: d
-        value: def
+        value: 'def'
 
 
 
