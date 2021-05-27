@@ -42,23 +42,29 @@ def execute(**kwargs):
     
     # dag_name = 'Max'
     # run_id = 'max_test_beida_202012'
+    
+    
+    # g_monthly_update = 'False'
+    # g_year = '2018'
+    
+    # # g_monthly_update = 'True'
+    # # g_year = '2020'
+    # # g_month = '12'
+    
+    
+    # dag_name = "Test_Max_model_1419"
+    # run_id = "Test_Max_model_1419_Test_Max_model_1419_2021-05-26_16-38-25"
+    
     # g_project_name ="贝达"
     # g_out_dir="202012_test"
     # result_path_prefix=get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
     # depends_path=get_depends_path({"name":job_name, "dag_name":dag_name, 
     #                                  "run_id":run_id, "depend_job_names_keys":depend_job_names_keys })
-    
-    # # # g_monthly_update = 'False'
-    # # # g_year = '2019'
-    
-    # g_monthly_update = 'True'
-    # g_year = '2020'
-    # g_month = '12'
 
     # %%
     # ========== 输入 输出 =========
     # 通用匹配文件
-    p_product_map = g_max_path + "/" + g_project_name + "/" + g_out_dir + "/prod_mapping"
+    
     
     
     # job-6 结果作为输入
@@ -165,92 +171,6 @@ def execute(**kwargs):
                                         func.when(df_molecule_act_map.ATC4_2 == "0", None)\
                                         .otherwise(df_molecule_act_map.ATC4_2))
     # %%
-    # 4. 产品信息，列名标准化
-    # product_map = spark.read.parquet(p_product_map)
-    
-    #### 读如产品匹配表  product-map
-    df_product_map = spark.read.parquet(p_product_map)
-    
-    # a. 列名清洗统一
-    # 有的min2结尾有空格与无空格的是两条不同的匹配
-    for i in df_product_map.columns:
-        if i in ["标准通用名", "通用名_标准", "药品名称_标准", "S_Molecule_Name"]:
-            df_product_map = df_product_map.withColumnRenamed(i, "通用名")
-        if i in ["min1_标准"]:
-            df_product_map = df_product_map.withColumnRenamed(i, "min2")
-        if i in ["packcode", "Pack_ID", "Pack_Id", "PackID", "packid"]:
-            df_product_map = df_product_map.withColumnRenamed(i, "pfc")
-        if i in ["商品名_标准", "S_Product_Name"]:
-            df_product_map = df_product_map.withColumnRenamed(i, "标准商品名")
-        if i in ["剂型_标准", "Form_std", "S_Dosage"]:
-            df_product_map = df_product_map.withColumnRenamed(i, "标准剂型")
-        if i in ["规格_标准", "Specifications_std", "药品规格_标准", "S_Pack"]:
-            df_product_map = df_product_map.withColumnRenamed(i, "标准规格")
-        if i in ["包装数量2", "包装数量_标准", "Pack_Number_std", "S_PackNumber", "最小包装数量"]:
-            df_product_map = df_product_map.withColumnRenamed(i, "标准包装数量")
-        if i in ["标准企业", "生产企业_标准", "Manufacturer_std", "S_CORPORATION", "标准生产厂家"]:
-            df_product_map = df_product_map.withColumnRenamed(i, "标准生产企业")
-    if g_project_name == "Janssen" or g_project_name == "NHWA":
-        if "标准剂型" not in df_product_map.columns:
-            df_product_map = df_product_map.withColumnRenamed("剂型", "标准剂型")
-        if "标准规格" not in df_product_map.columns:
-            df_product_map = df_product_map.withColumnRenamed("规格", "标准规格")
-        if "标准生产企业" not in df_product_map.columns:
-            df_product_map = df_product_map.withColumnRenamed("生产企业", "标准生产企业")
-        if "标准包装数量" not in df_product_map.columns:
-            df_product_map = df_product_map.withColumnRenamed("包装数量", "标准包装数量")
-    
-    # 列名标准化
-    df_product_map = df_product_map.withColumnRenamed('min1', 'MIN') \
-                        .withColumnRenamed('min2', 'MIN_STD') \
-                        .withColumnRenamed('通用名', 'MOLECULE_STD') \
-                        .withColumnRenamed('标准商品名', 'BRAND_STD') \
-                        .withColumnRenamed('标准剂型', 'FORM_STD') \
-                        .withColumnRenamed('标准规格', 'SPECIFICATIONS_STD') \
-                        .withColumnRenamed('标准包装数量', 'PACK_NUMBER_STD') \
-                        .withColumnRenamed('标准生产企业', 'MANUFACTURER_STD') \
-                        .withColumnRenamed('标准集团', 'CORP_STD') \
-                        .withColumnRenamed('标准途径', 'ROUTE_STD') \
-                        .withColumnRenamed('pfc', 'PACK_ID')
-    df_product_map = df_product_map.withColumn('PACK_NUMBER_STD', 
-                                col('PACK_NUMBER_STD').cast(IntegerType()) ) \
-                            .withColumn('PACK_ID', 
-                                col('PACK_ID').cast(IntegerType()))
-    
-    df_product_map = df_product_map.select([col(i).alias(i.upper() )  for i in df_product_map.columns])
-    
-    
-    # b. 选取需要的列
-    df_product_map = df_product_map \
-                    .select("MIN_STD", "PACK_ID", "MOLECULE_STD", "BRAND_STD", "FORM_STD", "SPECIFICATIONS_STD", "PACK_NUMBER_STD", "MANUFACTURER_STD") \
-                    .withColumn("PACK_ID", df_product_map["PACK_ID"].cast(IntegerType())) \
-                    .withColumn("PACK_NUMBER_STD", df_product_map["PACK_NUMBER_STD"].cast(IntegerType())) \
-                    .distinct()
-    
-    
-    # c. PACK_ID为0统一替换为null
-    df_product_map = df_product_map.withColumn("PACK_ID", func.when(df_product_map.PACK_ID == 0, None).otherwise(df_product_map.PACK_ID)).distinct()
-    df_product_map = df_product_map.withColumn("PROJECT", func.lit(g_project_name)).distinct()
-    
-    # d. MIN_STD处理
-    df_product_map = df_product_map \
-                    .withColumn("MIN_STD", func.regexp_replace("MIN_STD", "&amp;", "&")) \
-                    .withColumn("MIN_STD", func.regexp_replace("MIN_STD", "&lt;", "<")) \
-                    .withColumn("MIN_STD", func.regexp_replace("MIN_STD", "&gt;", ">"))
-    
-    
-    # e. 补充PACK_ID
-    df_product_map = df_product_map.join(df_add_pack_id, on="MIN_STD", how="left")
-    df_product_map = df_product_map.withColumn("PACK_ID", 
-                            func.when((df_product_map.PACK_ID.isNull()) & (~df_product_map.PACK_ID_ADD.isNull()), 
-                            df_product_map.PACK_ID_ADD).otherwise(df_product_map.PACK_ID)) \
-                            .drop("PACK_ID_ADD")
-    
-    # f. 去重：保证每个MIN_STD只有一条信息, dropDuplicates会取first
-    df_product_map = df_product_map.dropDuplicates(["MIN_STD"])
-    #                                 .drop("MOLECULE_STD")
-
-    # %%
     # 读取max 的结果
     # df_max_result = spark.read.parquet(p_max_result )
     struct_type_max_result = StructType([  StructField('PROVINCE', StringType(), True),
@@ -261,9 +181,10 @@ def execute(**kwargs):
                                             StructField('PANEL', DoubleType(), True),
                                             StructField('MARKET', StringType(), True),
                                             StructField('PREDICT_SALES', DoubleType(), True),
-                                            StructField('PREDICT_UNIT', DoubleType(), True)  ] )
+                                            StructField('PREDICT_UNIT', DoubleType(), True),
+                                            StructField('PACK_ID', StringType(), True)] )
     df_max_result = spark.read.format("parquet").load(p_max_result, schema=struct_type_max_result)
-    df_max_result =  df_max_result.withColumnRenamed('MIN_STD', 'MIN_STD_MAX') 
+    df_max_result =  df_max_result.withColumn('MOLECULE_STD', col("MOLECULE")) 
     
     if g_monthly_update == 'True':
         df_max_result = df_max_result.where(col('DATE') == (g_year*100 + g_month))
@@ -276,21 +197,19 @@ def execute(**kwargs):
     if g_project_name == "Janssen":
         df_max_result = df_max_result.withColumn("PROVINCE", func.when(df_max_result.CITY == "衡水市", func.lit("河北省")) \
                                                     .otherwise(df_max_result.PROVINCE))
+        
+    # 2. 拆分 MIN_STD 获得 PACK_ID, MOLECULE_STD, BRAND_STD, FORM_STD, SPECIFICATIONS_STD, PACK_NUMBER_STD, MANUFACTURER_STD
+    com = ["MIN_STD", "BRAND_STD","FORM_STD","SPECIFICATIONS_STD", "PACK_NUMBER_STD", "MANUFACTURER_STD"]
+    df_min_std = df_max_result.select("MIN_STD").withColumn("MIN_SPLIT",  func.split( col("MIN_STD"), "[|]") )
+    df_min_std = df_min_std.withColumn("BRAND_STD", df_min_std.MIN_SPLIT[0])\
+                                    .withColumn("FORM_STD", df_min_std.MIN_SPLIT[1])\
+                                    .withColumn("SPECIFICATIONS_STD", df_min_std.MIN_SPLIT[2])\
+                                    .withColumn("PACK_NUMBER_STD", df_min_std.MIN_SPLIT[3])\
+                                    .withColumn("MANUFACTURER_STD", df_min_std.MIN_SPLIT[4])
+    df_min_std = df_min_std.select(com).distinct()
     
-    # 1. df_max_result 的 Prod_Name（MIN_STD） 处理
-    df_max_result = df_max_result.withColumn("MIN_STD_tmp", col("MIN_STD_MAX"))
-    df_max_result = df_max_result.withColumn("MIN_STD_tmp", func.regexp_replace("MIN_STD_tmp", "&amp;", "&")) \
-                        .withColumn("MIN_STD_tmp", func.regexp_replace("MIN_STD_tmp", "&lt;", "<")) \
-                        .withColumn("MIN_STD_tmp", func.regexp_replace("MIN_STD_tmp", "&gt;", ">"))
-    if g_project_name == "Servier":
-        df_max_result = df_max_result.withColumn("MIN_STD_tmp", func.regexp_replace("MIN_STD_tmp", "阿托伐他汀\\+齐鲁制药\\(海南\\)有限公司", "美达信"))
-    if g_project_name == "NHWA":
-        df_max_result = df_max_result.withColumn("MIN_STD_tmp", func.regexp_replace("MIN_STD_tmp", "迪施宁乳剂", "迪施乐乳剂"))
     
-    # 2. df_product_map 匹配 MIN_STD ：获得 PACK_ID, MOLECULE_STD, BRAND_STD, FORM_STD, SPECIFICATIONS_STD, PACK_NUMBER_STD, MANUFACTURER_STD
-    ############################################### 原脚本如下,修改后的在下面
-    df_max_standard = df_max_result.join(df_product_map, df_max_result["MIN_STD_tmp"] == df_product_map["MIN_STD"], how="left") \
-                        .drop("MIN_STD","MIN_STD_tmp")
+    df_max_standard = df_max_result.join( df_min_std, on="MIN_STD", how="inner")
     
     
     # 3. df_pack_id_master_map 匹配 PACK_ID ：获得 MOLE_NAME_CH_1, ATC4_1, PROD_NAME_CH, "CORP_NAME_CH, DOSAGE, SPEC, PACK
@@ -357,7 +276,7 @@ def execute(**kwargs):
     df_max_standard_all = df_max_standard_all.withColumn("PROJECT", func.lit(g_project_name))
     
     df_max_standard_all = df_max_standard_all.select("PROJECT", "PROVINCE", "CITY" ,"DATE",
-                                               "MIN_STD_MAX", "MOLECULE", "PANEL", 
+                                               "MIN_STD", "MOLECULE", "PANEL", 
                                                "MARKET", "Predict_Sales", "Predict_Unit", 
                                                "MOLECULE_STD_MASTER", "BRAND_STD", "FORM_STD", 
                                                "SPECIFICATIONS_STD", "PACK_NUMBER_STD", "MANUFACTURER_STD",
@@ -365,9 +284,8 @@ def execute(**kwargs):
     df_max_standard_all = df_max_standard_all.withColumn("DATE", df_max_standard_all["DATE"].cast('int') )
     
     
-    # MIN_STD_MAX 和 MOLECULE_STD_MASTER 是中间列名，在保存的时候使用标准列名会更合适
+    # MIN_STD 和 MOLECULE_STD_MASTER 是中间列名，在保存的时候使用标准列名会更合适
     df_max_standard_all = df_max_standard_all.withColumn("DATE_COPY", df_max_standard_all.DATE)\
-                    .withColumnRenamed("MIN_STD_MAX", "MIN_STD") \
                     .withColumnRenamed("MOLECULE_STD_MASTER","MOLECULE_STD" )
     
     
@@ -392,16 +310,25 @@ def execute(**kwargs):
     
     # # manual__2021-05-06T09_58_09.076641+00_00 为贝达 2020年12月的 月更数据
     # temp_path = "s3a://ph-max-auto/2020-08-11/Max_test2/refactor/runs/manual__2021-05-06T09_58_09.076641+00_00/"
+    
+    # temp_path = "s3a://ph-max-auto/2020-08-11/Test_Max_model_1419/refactor/runs/Test_Max_model_1419_Test_Max_model_1419_2021-05-26_16-38-25/"
     # name = "max_standard/max_standard/"
     # df_hos_1 = spark.read.parquet( temp_path+name \
     #                               +"")
-    # print(df_hos_1.count() )
+    
     
     # df_hos_2 = df_max_standard_all
+    
+    # print(df_hos_1.count(), df_hos_2.count()  )
+    # df_hos_1 = df_hos_1.withColumn("PREDICT_SALES", col("PREDICT_SALES").cast("int") )\
+    #                     .withColumn("PREDICT_UNIT", col("PREDICT_UNIT").cast("int"))
+    # df_hos_2 = df_hos_2.withColumn("PREDICT_SALES", col("PREDICT_SALES").cast("int"))\
+    #                     .withColumn("PREDICT_UNIT", col("PREDICT_UNIT").cast("int"))
     # df_hos_1.agg(func.sum('PREDICT_SALES'),func.sum('PREDICT_UNIT')).show()
     # df_hos_2.agg(func.sum('PREDICT_SALES'),func.sum('PREDICT_UNIT')).show()
-    # print( df_hos_2.count() )
-
+    
+    
+    # df_hos_1.subtract(df_hos_2).count()
     # %%
     # ### 数据校准
     # p_result_maxdata_standard = "s3a://ph-stream/common/public/max_result/0.0.5/max_standard/贝达_max_standard/"
