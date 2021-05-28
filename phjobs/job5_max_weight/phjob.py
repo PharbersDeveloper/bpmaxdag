@@ -41,7 +41,20 @@ def execute(**kwargs):
     import pandas as pd
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
-    from pyspark.sql.functions import col    # %%
+    from pyspark.sql.functions import col     # %%
+    # project_name = '京新'
+    # out_dir = 'test'
+    # monthly_update = "True"
+    # model_month_left = "201901"
+    # model_month_right = "201912"
+    # all_models = "他汀"
+    # universe_choice = "他汀:universe_他汀"
+    # need_cleaning_cols = "Molecule, Brand, Form, Specifications, Pack_Number, Manufacturer, min1"
+    # time_left = "202001"
+    # time_right = "202004"
+    # first_month = "1"
+    # current_month = "4"
+    # %%
     logger.debug('job5_max')
     # 输入输出
     if if_base == "False":
@@ -100,6 +113,7 @@ def execute(**kwargs):
     PHA_weight = PHA_weight.select('Province', 'City', 'DOI', 'Weight', 'PHA')
     PHA_weight = PHA_weight.withColumnRenamed('Province', 'Province_w') \
                             .withColumnRenamed('City', 'City_w')
+
     # %%
     # 计算max 函数
     def calculate_max(market, if_base=False, if_box=False):
@@ -314,6 +328,7 @@ def execute(**kwargs):
     elif if_others == "True":
         for i in all_models:
             calculate_max(i, if_base=if_base, if_box=True)
+
     # %%
     # =========== 数据验证 =============
     # 与原R流程运行的结果比较正确性:
@@ -348,3 +363,4 @@ def execute(**kwargs):
         logger.debug(u"癫痫新分子")
         check_out(my_out_path, R_out_path)
         logger.debug('数据验证-Finish')
+

@@ -36,7 +36,7 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--b')
 def debug_execute(**kwargs):
     try:
-        args = {"name": "alfred"}
+        args = {"name": "job5_max_weight"}
         outputs = ["a", "b"]
 
         args.update(kwargs)

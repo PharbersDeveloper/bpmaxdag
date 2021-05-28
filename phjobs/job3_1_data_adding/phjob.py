@@ -3,54 +3,72 @@
 
 This is job template for Pharbers Max Job
 """
-import pandas as pd
-from phcli.ph_logs.ph_logs import phs3logger
-import os
-from pyspark.sql import SparkSession
-from pyspark.sql.types import *
-from pyspark.sql.types import StringType, IntegerType, DoubleType
-from pyspark.sql import functions as func
+
+from phcli.ph_logs.ph_logs import phs3logger, LOG_DEBUG_LEVEL
 
 
-def execute(max_path, project_name, model_month_right, max_month, year_missing, current_year, first_month, current_month, 
-if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, need_test, if_add_data):
-    logger = phs3logger()
-    os.environ["PYSPARK_PYTHON"] = "python3"
-    spark = SparkSession.builder \
-        .master("yarn") \
-        .appName("data from s3") \
-        .config("spark.driver.memory", "1g") \
-        .config("spark.executor.cores", "1") \
-        .config("spark.executor.instance", "1") \
-        .config("spark.executor.memory", "3g") \
-        .config('spark.sql.codegen.wholeStage', False) \
-        .getOrCreate()
+def execute(**kwargs):
+    logger = phs3logger(kwargs["job_id"], LOG_DEBUG_LEVEL)
+    spark = kwargs['spark']()
+    result_path_prefix = kwargs["result_path_prefix"]
+    depends_path = kwargs["depends_path"]
+    
+    ### input args ###
+    max_path = kwargs['max_path']
+    project_name = kwargs['project_name']
+    model_month_right = kwargs['model_month_right']
+    max_month = kwargs['max_month']
+    year_missing = kwargs['year_missing']
+    current_year = kwargs['current_year']
+    first_month = kwargs['first_month']
+    current_month = kwargs['current_month']
+    if_others = kwargs['if_others']
+    monthly_update = kwargs['monthly_update']
+    not_arrived_path = kwargs['not_arrived_path']
+    published_path = kwargs['published_path']
+    out_path = kwargs['out_path']
+    out_dir = kwargs['out_dir']
+    need_test = kwargs['need_test']
+    if_add_data = kwargs['if_add_data']
+    ### input args ###
+    
+    ### output args ###
+    a = kwargs['a']
+    b = kwargs['b']
+    ### output args ###
 
-    access_key = os.getenv("AWS_ACCESS_KEY_ID")
-    secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
-    if access_key is not None:
-        spark._jsc.hadoopConfiguration().set("fs.s3a.access.key", access_key)
-        spark._jsc.hadoopConfiguration().set("fs.s3a.secret.key", secret_key)
-        spark._jsc.hadoopConfiguration().set("fs.s3a.impl","org.apache.hadoop.fs.s3a.S3AFileSystem")
-        spark._jsc.hadoopConfiguration().set("com.amazonaws.services.s3.enableV4", "true")
-        # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
-        spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
-
+    from pyspark.sql import SparkSession, Window
+    from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
+    from pyspark.sql import functions as func
+    import os
+    from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col    # %%
+    # project_name = '京新'
+    # out_dir = 'test'
+    # monthly_update = "True"
+    # model_month_left = "201901"
+    # model_month_right = "201912"
+    # all_models = "康复新液,益生菌,癫痫,他汀,帕金森,癫痫新分子"
+    # universe_choice = "他汀:universe_他汀"
+    # need_cleaning_cols = "Molecule, Brand, Form, Specifications, Pack_Number, Manufacturer, min1"
+    # time_left = "202001"
+    # time_right = "202004"
+    # first_month = "1"
+    # current_month = "4"
+    # %%
     '''
     注意：杨森，月更新补数脚本特殊处理已经写脚本中
     '''
     
-    logger.info('job3_data_adding')
+    logger.debug('job3_data_adding')
     
     if if_add_data != "False" and if_add_data != "True":
-        logger.error('wrong input: if_add_data, False or True') 
+        logger.debug('wrong input: if_add_data, False or True') 
         raise ValueError('wrong input: if_add_data, False or True')
     
     if if_others == "True":
         out_dir = out_dir + "/others_box/"
     
     out_path_dir = out_path + "/" + project_name + '/' + out_dir
-
     # 输入
     product_mapping_out_path = out_path_dir + "/product_mapping_out"
     products_of_interest_path = max_path + "/" + project_name + "/poi.csv"
@@ -64,7 +82,7 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
     
     # 月更新相关参数
     if monthly_update != "False" and monthly_update != "True":
-        logger.error('wrong input: monthly_update, False or True') 
+        logger.debug('wrong input: monthly_update, False or True') 
         raise ValueError('wrong input: monthly_update, False or True')
     if monthly_update == "True":
         current_year = int(current_year)
@@ -82,7 +100,6 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
     # not_arrived_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/Common_files/Not_arrived202004.csv"
     # published_left_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/Common_files/Published2019.csv"
     # published_right_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/Common_files/Published2020.csv"
-
     # 输出
     price_path = out_path_dir + "/price"
     price_city_path = out_path_dir + "/price_city"
@@ -91,11 +108,9 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
     raw_data_adding_path =  out_path_dir + "/raw_data_adding"
     new_hospital_path = out_path_dir + "/new_hospital"
     raw_data_adding_final_path =  out_path_dir + "/raw_data_adding_final"
-
-
+    # %%
     # =========== 数据检查 =============
-
-    logger.info('数据检查-start')
+    logger.debug('数据检查-start')
     
     # csv文件检查
     length_error_dict = {}
@@ -108,27 +123,22 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
                 if i < 6:
                     length_error_dict[eachpath] = ID_length
         if length_error_dict:
-            logger.error('ID length error: %s' % (length_error_dict))
+            logger.debug('ID length error: %s' % (length_error_dict))
             raise ValueError('ID length error: %s' % (length_error_dict))
-
     # 存储文件的缺失列
     misscols_dict = {}
-
     # product_mapping_out file
     raw_data = spark.read.parquet(product_mapping_out_path)
     colnames_raw_data = raw_data.columns
     misscols_dict.setdefault("product_mapping_out", [])
-
     colnamelist = ['min1', 'PHA', 'City', 'year_month', 'ID',  'Brand', 'Form',
     'Specifications', 'Pack_Number', 'Manufacturer', 'Molecule', 'Source', 
     'Sales', 'Units', 'Path', 'Sheet', 'BI_hospital_code', 'Province',
     'Month', 'Year', 'City_Tier_2010', 'min2', 'S_Molecule', 'std_route', "标准商品名"]
     #'Raw_Hosp_Name','ORG_Measure','Units_Box', 'Corp', 'Route'
-
     for each in colnamelist:
         if each not in colnames_raw_data:
             misscols_dict["product_mapping_out"].append(each)
-
     # 判断输入文件是否有缺失列
     misscols_dict_final = {}
     for eachfile in misscols_dict.keys():
@@ -136,27 +146,22 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
             misscols_dict_final[eachfile] = misscols_dict[eachfile]
     # 如果有缺失列，则报错，停止运行
     if misscols_dict_final:
-        logger.error('miss columns: %s' % (misscols_dict_final))
+        logger.debug('miss columns: %s' % (misscols_dict_final))
         raise ValueError('miss columns: %s' % (misscols_dict_final))
-
-    logger.info('数据检查-Pass')
-
+    logger.debug('数据检查-Pass')
+    # %%
     # =========== 数据执行 =============
-    logger.info('数据执行-start')
-
+    logger.debug('数据执行-start')
     # 数据读取
     raw_data = spark.read.parquet(product_mapping_out_path)
     raw_data.persist()
     products_of_interest = spark.read.csv(products_of_interest_path, header=True)
     products_of_interest = products_of_interest.toPandas()["poi"].values.tolist()
-
     # raw_data 处理
     raw_data = raw_data.withColumn("S_Molecule_for_gr",
                                    func.when(raw_data["标准商品名"].isin(products_of_interest), raw_data["标准商品名"]).
                                    otherwise(raw_data.S_Molecule))
-
-    logger.info('1 价格计算')
-
+    logger.debug('1 价格计算')
     # 1 价格计算：cal_price 补数部分的数量需要用价格得出
     price = raw_data.groupBy("min2", "year_month", "City_Tier_2010") \
         .agg((func.sum("Sales") / func.sum("Units")).alias("Price"))
@@ -173,7 +178,6 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
     price_city = raw_data.groupBy("min2", "year_month", 'City', 'Province') \
                         .agg((func.sum("Sales") / func.sum("Units")).alias("Price"))
     price_city = price_city.where(~price_city.Price.isNull())
-
     # 输出price
     price = price.repartition(2)
     price.write.format("parquet") \
@@ -182,9 +186,7 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
     price_city = price_city.repartition(2)
     price_city.write.format("parquet") \
         .mode("overwrite").save(price_city_path)
-
-    logger.info("输出 price：" + price_path)
-
+    logger.debug("输出 price：" + price_path)
     # raw_data 处理
     if monthly_update == "False":
         raw_data = raw_data.where(raw_data.Year < ((model_month_right // 100) + 1))
@@ -193,9 +195,7 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
     elif monthly_update == "True":
         if project_name == "Sanofi" or project_name == "AZ":
             raw_data = raw_data.where(raw_data.Year > 2016)
-
-    logger.info('2 连续性计算')
-
+    logger.debug('2 连续性计算')
     # 2 计算样本医院连续性: cal_continuity
     # 每个医院每年的月份数
     continuity = raw_data.select("Year", "Month", "PHA").distinct() \
@@ -204,7 +204,6 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
     continuity_whole_year = continuity.groupBy("PHA") \
         .agg(func.max("count").alias("MAX"), func.min("count").alias("MIN"))
     continuity = continuity.repartition(2, "PHA")
-
     years = continuity.select("Year").distinct().toPandas()["Year"].sort_values().values.tolist()
     # 数据长变宽
     continuity = continuity.groupBy("PHA").pivot("Year").agg(func.sum('count')).fillna(0)
@@ -222,21 +221,17 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
     continuity = continuity.withColumn("total", eval(month_sum))
     # ['PHA', 'Year_2018', 'Year_2019', 'total', 'MAX', 'MIN']
     continuity = continuity.join(continuity_whole_year, on="PHA", how="left")
-
     # 3 计算样本分子增长率: cal_growth
     def calculate_growth(raw_data, max_month=12):
         # TODO: 完整年用完整年增长，不完整年用不完整年增长
         if max_month < 12:
             raw_data = raw_data.where(raw_data.Month <= max_month)
-
         # raw_data 处理
         growth_raw_data = raw_data.na.fill({"City_Tier_2010": 5.0})
         growth_raw_data = growth_raw_data.withColumn("CITYGROUP", growth_raw_data.City_Tier_2010)
-
         # 增长率计算过程
         growth_calculating = growth_raw_data.groupBy("S_Molecule_for_gr", "CITYGROUP", "Year") \
             .agg(func.sum(growth_raw_data.Sales).alias("value"))
-
         years = growth_calculating.select("Year").distinct().toPandas()["Year"].sort_values().values.tolist()
         years = [str(i) for i in years]
         years_name = ["Year_" + i for i in years]
@@ -246,7 +241,6 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
         # 对year列名修改
         for i in range(0, len(years)):
             growth_calculating = growth_calculating.withColumnRenamed(years[i], years_name[i])
-
         # 计算得到年增长： add_gr_cols
         for i in range(0, len(years) - 1):
             growth_calculating = growth_calculating.withColumn("GR" + years[i][2:4] + years[i + 1][2:4],
@@ -257,8 +251,7 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
             growth_rate = growth_rate.withColumn(y, func.when(func.isnull(growth_rate[y]) | (growth_rate[y] > 10) | (growth_rate[y] < 0.1), 1).
                                                  otherwise(growth_rate[y]))
         return growth_rate
-
-    logger.info('3 增长率计算')
+    logger.debug('3 增长率计算')
     # 执行函数 calculate_growth
     if monthly_update == "False":
         # AZ-Sanofi 要特殊处理
@@ -322,24 +315,22 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
                 growth_rate_month.write.format("parquet") \
                     .mode("append").save(growth_rate_path)
                     
-            logger.info("输出 growth_rate：" + growth_rate_path)
+            logger.debug("输出 growth_rate：" + growth_rate_path)
                 
     
     if monthly_update == "False":
         growth_rate = growth_rate.repartition(2)
         growth_rate.write.format("parquet") \
             .mode("overwrite").save(growth_rate_path)
-        logger.info("输出 growth_rate：" + growth_rate_path)
+        logger.debug("输出 growth_rate：" + growth_rate_path)
     elif monthly_update == "True":
         growth_rate = spark.read.parquet(growth_rate_path)
-
-    logger.info('数据执行-Finish')
-
+    logger.debug('数据执行-Finish')
+    # %%
     # =========== 数据验证 =============
     # 与原R流程运行的结果比较正确性: Sanofi与Sankyo测试通过
     if int(need_test) > 0:
-        logger.info('数据验证-start')
-
+        logger.debug('数据验证-start')
         my_out = spark.read.parquet(raw_data_adding_final_path)
         
         if project_name == "Sanofi":
@@ -353,7 +344,6 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
         elif project_name == "京新":
             R_out_path = u"/common/projects/max/京新/adding_data_new"
         R_out = spark.read.parquet(R_out_path)
-
         # 检查内容：列缺失，列的类型，列的值
         for colname, coltype in R_out.dtypes:
             # 列是否缺失
@@ -362,17 +352,12 @@ if_others, monthly_update, not_arrived_path, published_path, out_path, out_dir, 
             else:
                 # 数据类型检查
                 if my_out.select(colname).dtypes[0][1] != coltype:
-                    logger.warning("different type columns: " + colname + ", " + my_out.select(colname).dtypes[0][1] + ", " + "right type: " + coltype)
-
+                    logger.debug("different type columns: " + colname + ", " + my_out.select(colname).dtypes[0][1] + ", " + "right type: " + coltype)
                 # 数值列的值检查
                 if coltype == "double" or coltype == "int":
                     sum_my_out = my_out.groupBy().sum(colname).toPandas().iloc[0, 0]
                     sum_R = R_out.groupBy().sum(colname).toPandas().iloc[0, 0]
-                    # logger.info(colname, sum_raw_data, sum_R)
+                    # print(colname, sum_raw_data, sum_R)
                     if (sum_my_out - sum_R) != 0:
-                        logger.warning("different value(sum) columns: " + colname + ", " + str(sum_my_out) + ", " + "right value: " + str(sum_R))
-
-        logger.info('数据验证-Finish')
-
-    # =========== return =============
-    return growth_rate
+                        logger.debug("different value(sum) columns: " + colname + ", " + str(sum_my_out) + ", " + "right value: " + str(sum_R))
+        logger.debug('数据验证-Finish')

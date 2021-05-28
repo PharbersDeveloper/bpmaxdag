@@ -46,17 +46,16 @@ def execute(**kwargs):
     from pyspark.sql import functions as func
     from pyspark.sql.functions import col
     import boto3
-    import os
-    import boto3    
-    # %%
-    '''
-    project_name = "Gilead"
-    time_left = "202001"
-    time_right = "202012"
-    all_models = "乙肝,乙肝_2,乙肝_3"
-    out_dir = "202012" 
-    if_two_source = "True"
-    '''
+    import os   
+    import pandas as pd    # %%
+    
+    # project_name = "Gilead"
+    # time_left = "202001"
+    # time_right = "202012"
+    # all_models = "乙肝"
+    # out_dir = "202012" 
+    # if_two_source = "True"
+    
 
     # %%
     # 输入
@@ -392,9 +391,9 @@ def execute(**kwargs):
     如果已经存在 max_result_city_path 则用新的结果对已有结果进行DOI替换和补充
     '''
     if hospital_level == "False" and bedsize == "True":
-        file_name = max_result_city_path.replace('//', '/').split('s3a:/ph-max-auto/')[1]
+        file_name = max_result_city_path.replace('//', '/').split('s3:/ph-max-auto/')[1]
     else:
-        file_name = max_result_city_csv_path.replace('//', '/').split('s3a:/ph-max-auto/')[1]
+        file_name = max_result_city_csv_path.replace('//', '/').split('s3:/ph-max-auto/')[1]
     
     s3 = boto3.resource('s3', region_name='cn-northwest-1',
                             aws_access_key_id="AKIAWPBDTVEAEU44ZAGT",
@@ -411,8 +410,11 @@ def execute(**kwargs):
             old_max_out = spark.read.parquet(max_result_city_path)
         else:
             old_max_out = spark.read.csv(max_result_city_csv_path, header=True)
-        new_markets = max_result_city.select('DOI').distinct().toPandas()['DOI'].tolist()    
-        old_max_out_keep = old_max_out.where(~old_max_out['DOI'].isin(new_markets))    
+        # 当期数据包含的市场
+        new_markets = max_result_city.select('DOI').distinct()
+        # 去掉已有数据中重复市场
+        old_max_out_keep = old_max_out.join(new_markets, on='DOI', how='left_anti')   
+        # old_max_out_keep = old_max_out.where(~old_max_out['DOI'].isin(new_markets))    
         max_result_city_final = max_result_city.union(old_max_out_keep.select(max_result_city.columns))
         # 中间文件读写一下
         max_result_city_final = max_result_city_final.repartition(2)

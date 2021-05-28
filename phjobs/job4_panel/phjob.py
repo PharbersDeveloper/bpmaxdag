@@ -37,10 +37,25 @@ def execute(**kwargs):
     b = kwargs['b']
     ### output args ###
 
+    from pyspark.sql import SparkSession, Window
+    from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
+    from pyspark.sql import functions as func
     import os
     import pandas as pd
-    from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
-    from pyspark.sql import functions as func    # %%
+    from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col    # %%
+    # project_name = '京新'
+    # out_dir = 'test'
+    # monthly_update = "True"
+    # model_month_left = "201901"
+    # model_month_right = "201912"
+    # all_models = "康复新液,益生菌,癫痫,他汀,帕金森,癫痫新分子"
+    # universe_choice = "他汀:universe_他汀"
+    # need_cleaning_cols = "Molecule, Brand, Form, Specifications, Pack_Number, Manufacturer, min1"
+    # time_left = "202001"
+    # time_right = "202004"
+    # first_month = "1"
+    # current_month = "4"
+    # %%
     logger.debug('job4_panel')
     
     if if_others == "True":
@@ -254,6 +269,8 @@ def execute(**kwargs):
             panel_filtered = panel_for_union.union(panel_filtered.select(panel_for_union.columns))
             
         
+
+    # %%
     # panel_filtered.groupBy("add_flag").agg({"Sales": "sum"}).show()
     # panel_filtered.groupBy("add_flag").agg({"Sales": "sum"}).show()
     panel_filtered = panel_filtered.repartition(2)

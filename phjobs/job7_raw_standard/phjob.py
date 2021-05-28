@@ -1,50 +1,44 @@
 # -*- coding: utf-8 -*-
 """alfredyang@pharbers.com.
+
 This is job template for Pharbers Max Job
 """
 
-from phcli.ph_logs.ph_logs import phs3logger
-from pyspark.sql import SparkSession
-from pyspark.sql.types import *
-from pyspark.sql.types import StringType, IntegerType, DoubleType
-from pyspark.sql import functions as func
-import os
-from pyspark.sql.functions import pandas_udf, PandasUDFType
+from phcli.ph_logs.ph_logs import phs3logger, LOG_DEBUG_LEVEL
 
-def execute(max_path, extract_path, project_name, if_two_source, out_dir, minimum_product_sep, minimum_product_columns):
-    logger = phs3logger()
-    os.environ["PYSPARK_PYTHON"] = "python3"
-    spark = SparkSession.builder \
-        .master("yarn") \
-        .appName("data from s3") \
-        .config("spark.driver.memory", "2g") \
-        .config("spark.executor.cores", "1") \
-        .config("spark.executor.instance", "1") \
-        .config("spark.executor.memory", "1g") \
-        .config('spark.sql.codegen.wholeStage', False) \
-        .getOrCreate()
+
+def execute(**kwargs):
+    logger = phs3logger(kwargs["job_id"], LOG_DEBUG_LEVEL)
+    spark = kwargs['spark']()
+    result_path_prefix = kwargs["result_path_prefix"]
+    depends_path = kwargs["depends_path"]
     
-    access_key = os.getenv("AWS_ACCESS_KEY_ID")
-    secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
-    if access_key is not None:
-        spark._jsc.hadoopConfiguration().set("fs.s3a.access.key", access_key)
-        spark._jsc.hadoopConfiguration().set("fs.s3a.secret.key", secret_key)
-        spark._jsc.hadoopConfiguration().set("fs.s3a.impl","org.apache.hadoop.fs.s3a.S3AFileSystem")
-        spark._jsc.hadoopConfiguration().set("com.amazonaws.services.s3.enableV4", "true")
-        # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
-        spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
+    ### input args ###
+    max_path = kwargs['max_path']
+    extract_path = kwargs['extract_path']
+    project_name = kwargs['project_name']
+    if_two_source = kwargs['if_two_source']
+    out_dir = kwargs['out_dir']
+    minimum_product_sep = kwargs['minimum_product_sep']
+    minimum_product_columns = kwargs['minimum_product_columns']
+    ### input args ###
     
+    ### output args ###
+    a = kwargs['a']
+    b = kwargs['b']
+    ### output args ###
+
+    from pyspark.sql import SparkSession, Window
+    from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
+    from pyspark.sql import functions as func
+    import os
+    from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col    # %%
+    # project_name = "Takeda"
+    # if_two_source = "True"
+    # out_dir = "202012"
+
+    # %%
     # 输入
-    '''
-    max_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/"
-    extract_path = "s3a://ph-stream/common/public/max_result/0.0.5/rawdata_standard"
-    project_name = "Gilead"
-    if_two_source = "True"
-    out_dir = "202008"
-    minimum_product_sep = "|"
-    minimum_product_columns = "Brand, Form, Specifications, Pack_Number, Manufacturer"
-    '''
-    
     if minimum_product_sep == 'kong':
         minimum_product_sep = ''
     minimum_product_columns = minimum_product_columns.replace(' ', '').split(',')
@@ -71,6 +65,8 @@ def execute(max_path, extract_path, project_name, if_two_source, out_dir, minimu
     raw_data_standard_path = extract_path + "/" + project_name + "_rawdata_standard"
     raw_data_standard_brief_path = extract_path + "/" + project_name + "_rawdata_standard_brief"
     
+
+    # %%
     # ===========  数据执行 ============
     
     # 一. 标准化匹配文件处理
@@ -88,7 +84,7 @@ def execute(max_path, extract_path, project_name, if_two_source, out_dir, minimu
     # 是否有重复
     num1 = packID_master_map.count()
     num2 = packID_master_map.dropDuplicates(["PACK_ID"]).count()
-    print(num1 - num2)
+    logger.debug(num1 - num2)
     packID_master_map = packID_master_map.dropDuplicates(["PACK_ID"])
                         
     
@@ -167,8 +163,7 @@ def execute(max_path, extract_path, project_name, if_two_source, out_dir, minimu
                             .drop("PackID_add")
     # f. 去重：保证每个min1只有一条信息, dropDuplicates会取first
     product_map = product_map.dropDuplicates(["min1"])
-    
-    
+    # %%
     # 二. raw_data 基础信息匹配
     '''
     raw_data 用min1匹配 product_map的标准列
@@ -220,8 +215,10 @@ def execute(max_path, extract_path, project_name, if_two_source, out_dir, minimu
         raw_data = raw_data.withColumn("min1", func.concat(
             raw_data["min1"],
             func.lit(minimum_product_sep),
-            func.when(func.isnull(raw_data[col]), func.lit("NA")).otherwise(raw_data[col])))	    
+            func.when(func.isnull(raw_data[col]), func.lit("NA")).otherwise(raw_data[col])))
     
+
+    # %%
     # 三. 标准化raw_data
     
     # 2. product_map 匹配 min2 ：获得 PACK_ID, 通用名, 标准商品名, 标准剂型, 标准规格, 标准包装数量, 标准生产企业
@@ -309,18 +306,18 @@ def execute(max_path, extract_path, project_name, if_two_source, out_dir, minimu
     data_standard = data_standard.withColumn("project", func.lit(project_name))
         
     raw_data_standard = data_standard.select(std_names + ["DOI", "标准通用名", "标准商品名", "标准剂型", "标准规格", 
-    	"标准包装数量", "标准生产企业", "标准省份名称", "标准城市名称", "PACK_ID", "ATC", "project"])
-    	
+        "标准包装数量", "标准生产企业", "标准省份名称", "标准城市名称", "PACK_ID", "ATC", "project"])
+    
     raw_data_standard = raw_data_standard.withColumn("Date_copy", raw_data_standard.Date)
     
     # 目录结果汇总
     raw_data_standard_brief = raw_data_standard.select("project", "Date", "标准通用名", "ATC", "DOI", "PHA", "Source").distinct()
-    
+    # %%
     # 根据日期分桶写出
     raw_data_standard = raw_data_standard.repartition("Date_copy")
     raw_data_standard.write.format("parquet").partitionBy("Date_copy") \
-    	.mode("overwrite").save(raw_data_standard_path)
+        .mode("overwrite").save(raw_data_standard_path)
     # 输出brief结果
     raw_data_standard_brief = raw_data_standard_brief.repartition(2)
     raw_data_standard_brief.write.format("parquet") \
-    	.mode("overwrite").save(raw_data_standard_brief_path)
+        .mode("overwrite").save(raw_data_standard_brief_path)

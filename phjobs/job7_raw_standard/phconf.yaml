@@ -1,35 +1,40 @@
 apiVersion: v1
 kind: PhJob
 metadata:
-  name: alfred
+  name: job7_raw_standard
   description: "pharbers job description"
   labels:
-    name: alfred
+    name: job7_raw_standard
+    runtime: python3
+    command: submit
 spec:
   containers:
     repository: local
     runtime: python3
-    command: "submit"
+    command: submit
     timeout: 720.0
     code: phmain.py
     config: phconf.yaml
     args:
       - key: max_path
-        value: "s3a://ph-max-auto/v0.0.1-2020-06-08/"
+        value: 's3://ph-max-auto/v0.0.1-2020-06-08/'
       - key: extract_path
-        value: "s3a://ph-stream/common/public/max_result/0.0.5/rawdata_standard"
+        value: 's3://ph-stream/common/public/max_result/0.0.5/rawdata_standard'
       - key: project_name
-        value: "Empty"
+        value: 'Empty'
       - key: if_two_source
-        value: "False"
+        value: 'False'
       - key: out_dir
-        value: "Empty"
+        value: 'Empty'
       - key: minimum_product_sep
-        value: "|"
+        value: '|'
       - key: minimum_product_columns
-        value: "Brand, Form, Specifications, Pack_Number, Manufacturer"
+        value: 'Brand, Form, Specifications, Pack_Number, Manufacturer'
     outputs:
       - key: a
-        value: abcde
+        value: 'abcde'
       - key: b
-        value: 6789
+        value: '6789'
+
+
+

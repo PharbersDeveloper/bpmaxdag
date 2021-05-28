@@ -1,39 +1,39 @@
 # -*- coding: utf-8 -*-
 """alfredyang@pharbers.com.
+
 This is job template for Pharbers Max Job
 """
 
-from phcli.ph_logs.ph_logs import phs3logger
-from pyspark.sql import SparkSession
-from pyspark.sql.types import *
-from pyspark.sql.types import StringType, IntegerType, DoubleType
-from pyspark.sql import functions as func
-import os
-from pyspark.sql.functions import pandas_udf, PandasUDFType
+from phcli.ph_logs.ph_logs import phs3logger, LOG_DEBUG_LEVEL
 
-def execute(max_path, extract_path, project_name, max_path_list, out_dir):
-    logger = phs3logger()
-    os.environ["PYSPARK_PYTHON"] = "python3"
-    spark = SparkSession.builder \
-        .master("yarn") \
-        .appName("data from s3") \
-        .config("spark.driver.memory", "2g") \
-        .config("spark.executor.cores", "1") \
-        .config("spark.executor.instance", "1") \
-        .config("spark.executor.memory", "1g") \
-        .config('spark.sql.codegen.wholeStage', False) \
-        .getOrCreate()
+
+def execute(**kwargs):
+    logger = phs3logger(kwargs["job_id"], LOG_DEBUG_LEVEL)
+    spark = kwargs['spark']()
+    result_path_prefix = kwargs["result_path_prefix"]
+    depends_path = kwargs["depends_path"]
     
-    access_key = os.getenv("AWS_ACCESS_KEY_ID")
-    secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
-    if access_key is not None:
-        spark._jsc.hadoopConfiguration().set("fs.s3a.access.key", access_key)
-        spark._jsc.hadoopConfiguration().set("fs.s3a.secret.key", secret_key)
-        spark._jsc.hadoopConfiguration().set("fs.s3a.impl","org.apache.hadoop.fs.s3a.S3AFileSystem")
-        spark._jsc.hadoopConfiguration().set("com.amazonaws.services.s3.enableV4", "true")
-        # spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider","org.apache.hadoop.fs.s3a.BasicAWSCredentialsProvider")
-        spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "s3.cn-northwest-1.amazonaws.com.cn")
+    ### input args ###
+    max_path = kwargs['max_path']
+    extract_path = kwargs['extract_path']
+    project_name = kwargs['project_name']
+    max_path_list = kwargs['max_path_list']
+    out_dir = kwargs['out_dir']
+    ### input args ###
     
+    ### output args ###
+    a = kwargs['a']
+    b = kwargs['b']
+    ### output args ###
+
+    from pyspark.sql import SparkSession, Window
+    from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
+    from pyspark.sql import functions as func
+    import os
+    from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col    # %%
+    project_name = '贝达'
+    out_dir = '202012'
+    # %%
     # max_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/"
     # extract_path = "s3a://ph-stream/common/public/max_result/0.0.5/"
     # project_name = "Beite"
@@ -55,7 +55,7 @@ def execute(max_path, extract_path, project_name, max_path_list, out_dir):
     # 输出
     max_standard_path = extract_path + "/" + project_name + "_max_standard"
     max_standard_brief_path = extract_path + "/" + project_name + "_max_standard_brief"
-    
+    # %%
     # ========== 数据检查 prod_mapping =========
     misscols_dict = {}
     product_map = spark.read.parquet(product_map_path)
@@ -85,9 +85,9 @@ def execute(max_path, extract_path, project_name, max_path_list, out_dir):
             misscols_dict_final[eachfile] = misscols_dict[eachfile]
     # 如果有缺失列，则报错，停止运行
     if misscols_dict_final:
-        logger.error('miss columns: %s' % (misscols_dict_final))
+        logger.debug('miss columns: %s' % (misscols_dict_final))
         raise ValueError('miss columns: %s' % (misscols_dict_final))
-    
+    # %%
     # ========== 数据 mapping =========
     
     # mapping用文件：注意各种mapping的去重，唯一匹配
@@ -105,7 +105,7 @@ def execute(max_path, extract_path, project_name, max_path_list, out_dir):
     # 是否有重复
     num1 = packID_master_map.count()
     num2 = packID_master_map.dropDuplicates(["PACK_ID"]).count()
-    print(num1 - num2)
+    logger.debug(num1 - num2)
     packID_master_map = packID_master_map.dropDuplicates(["PACK_ID"])
                         
     
@@ -197,10 +197,12 @@ def execute(max_path, extract_path, project_name, max_path_list, out_dir):
                                             .withColumn('time_right', max_result_path_list.time_right.cast(IntegerType()))
     max_result_path_list = max_result_path_list.toPandas()
     
+
+    # %%
     # 储存时间
     time_list= []
     for i in range(len(max_result_path_list)):
-        max_result_path = max_result_path_list.loc[i].path
+        max_result_path = max_result_path_list.loc[i].path.replace('s3a:', 's3:')
         time_left = max_result_path_list.loc[i].time_left
         time_list.append(time_left)
         time_right = max_result_path_list.loc[i].time_right
@@ -300,8 +302,6 @@ def execute(max_path, extract_path, project_name, max_path_list, out_dir):
                                            "标准通用名", "标准商品名", "标准剂型", "标准规格", "标准包装数量", "标准生产企业", "标准省份名称", "标准城市名称", 
                                             "PACK_ID", "ATC")
     max_standard_all = max_standard_all.withColumn("Date_copy", max_standard_all.Date)
-    
-    
         
     # 目录结果汇总,
     max_standard_brief = max_standard_all.select("project", "Date", "标准通用名", "ATC", "DOI", "PACK_ID").distinct()
@@ -309,8 +309,7 @@ def execute(max_path, extract_path, project_name, max_path_list, out_dir):
     # 获取时间范围
     time_list = [int(x) for x in time_list]
     time_range = str(min(time_list)) + '_' + str(max(time_list))
-    
-    
+    # %%
     # 根据日期分桶写出
     max_standard_all = max_standard_all.repartition("Date_copy")
     max_standard_all.write.format("parquet").partitionBy("Date_copy") \
@@ -319,7 +318,4 @@ def execute(max_path, extract_path, project_name, max_path_list, out_dir):
     max_standard_brief = max_standard_brief.repartition(1)
     max_standard_brief.write.format("parquet") \
     .mode("overwrite").save(max_standard_brief_path)
-    
-    
-    
-    
+

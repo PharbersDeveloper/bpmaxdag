@@ -17,7 +17,7 @@ spec:
     config: phconf.yaml
     args:
       - key: max_path
-        value: 's3a://ph-max-auto/v0.0.1-2020-06-08/'
+        value: 's3://ph-max-auto/v0.0.1-2020-06-08/'
       - key: project_name
         value: 'Empty'
       - key: time_left
@@ -37,7 +37,7 @@ spec:
       - key: if_others
         value: 'False'
       - key: out_path
-        value: 's3a://ph-max-auto/v0.0.1-2020-06-08/'
+        value: 's3://ph-max-auto/v0.0.1-2020-06-08/'
       - key: out_dir
         value: 'Empty'
       - key: need_test

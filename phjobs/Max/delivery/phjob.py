@@ -27,24 +27,23 @@ def execute(**kwargs):
     d = kwargs['d']
     ### output args ###
 
-    # from phcli.ph_logs.ph_logs import phs3logger
-    # from pyspark.sql.types import *
+    
     from pyspark.sql.types import StringType, IntegerType, DoubleType
     from pyspark.sql import functions as func
     import os
     import re
-    from pyspark.sql.functions import pandas_udf, PandasUDFType, col, udf    # %%
-    '''
-    project_name = "Takeda"
-    time_left = "201801"
-    time_right = "202012"
-    out_dir = "202012"
-    '''
+    from pyspark.sql.functions import pandas_udf, PandasUDFType, col, udf    
+    # %%
+    # project_name = "Takeda"
+    # time_left = "201801"
+    # time_right = "202012"
+    # out_dir = "202012"
+
     # %%
     # MAX数据交付
+
     # %%
     ## 输入输出
-    # %%
     time_left = int(time_left)
     time_right = int(time_right)
     
@@ -85,10 +84,7 @@ def execute(**kwargs):
         out2_path = max_path + "/" + project_name + "/" + out_dir + "/Delivery/" + project_name + "_max_delivery_" + time_range + '_all.csv'
     if project_name == 'XLT':
         out_noPTD_path = max_path + "/" + project_name + "/" + out_dir + "/Delivery/待清洗PTD系数.csv"
-    # %%
-    ## 数据执行
-    # %%
-    ### 一. 函数定义
+
     # %%
     # ==========  数据执行  ============
     
@@ -102,6 +98,7 @@ def execute(**kwargs):
         df = df.withColumn("ID", func.regexp_replace("ID", "\\.0", ""))
         df = df.withColumn("ID", func.when(func.length(df.ID) < 7, func.lpad(df.ID, 6, "0")).otherwise(df.ID))
         return df
+
     # %%
     # NHWA
     if project_name == "NHWA":
@@ -168,8 +165,7 @@ def execute(**kwargs):
             else:
                 newname = "-"
             return newname
-    # %%
-    ### 二. 数据准备
+
     # %%
     # ====  二. 数据准备  ====  
     
@@ -250,12 +246,11 @@ def execute(**kwargs):
         product_map = product_map \
                     .select("min1", "PACK_ID", "通用名", "标准商品名", "标准剂型", "标准规格", "标准包装数量", "标准生产企业", 'Route', "min2") 
         
+
     # %%
-    ### 三. Max数据处理
-    # %%
-    ##### 1. 提取交付数据
-    # %%
-    # =====  Max =====
+    # =====  三. Max数据处理 =====
+    
+    # ===== 1. 提取交付数据  =====
     
     # 1. 读取交付数据
     if time_left//100 == time_right//100:
@@ -280,9 +275,9 @@ def execute(**kwargs):
     data_standard = data_standard.withColumn("Prod_Name", func.regexp_replace("Prod_Name", "&amp;", "&")) \
                                 .withColumn("Prod_Name", func.regexp_replace("Prod_Name", "&lt;", "<")) \
                                 .withColumn("Prod_Name", func.regexp_replace("Prod_Name", "&gt;", ">"))
+
     # %%
-    ##### 2. Sales，Units 处理
-    # %%
+    # ===== 2. Sales，Units 处理  =====
     # Sales，Units 处理
     '''
     包装数量为空的是others， Sales 或者 Units 可以为0
@@ -318,13 +313,15 @@ def execute(**kwargs):
     data_standard_2 = data_standard_0.where((~col("标准包装数量").isNull()) & (col('Sales') != 0) & (col('Units') != 0))
     
     data_standard_3 =  data_standard_1.union(data_standard_2)
+
     # %%
     # 测试
     #data_standard_3 = data_standard.withColumnRenamed('Predict_Unit', 'Units') \
     #                                .withColumnRenamed('Predict_Sales', 'Sales')
+
     # %%
-    #### 3.信息匹配
-    # %%
+    # ===== 3.信息匹配  =====
+    
     # 信息匹配
     if project_name == 'Pfizer':
         # change_min2_map 新老min2转换
@@ -459,8 +456,8 @@ def execute(**kwargs):
                                                                 func.when(col('City').isin("襄阳市"), func.lit(4)).otherwise(col('City_Tier')))
 
     # %%
-    #### 4.groupby 以及列名重命名
-    # %%
+    # ===== 4.groupby 以及列名重命名  =====
+    
     # 通用
     if project_name != 'NHWA':
         # groupby 计算
@@ -531,9 +528,9 @@ def execute(**kwargs):
             
         for old_name, newname in rename_list.items():
             max_standard_delivery_out = max_standard_delivery_out.withColumnRenamed(old_name, newname)
+
     # %%
-    #### 5.最终交付处理
-    # %%
+    # ===== 5.最终交付处理  =====
     if project_name == 'Takeda':
         # 城市名修改
         @udf(StringType())
@@ -557,6 +554,7 @@ def execute(**kwargs):
         out = out.repartition(1)
         out.write.format("csv").option("header", "true") \
             .mode("overwrite").save(out_path)
+
     # %%
     if project_name == 'Pfizer':
         df1 = max_standard_delivery_out.withColumn('UN', func.round(col('SU')/col('包装数量'), 0)) \
@@ -585,6 +583,7 @@ def execute(**kwargs):
         out = out.repartition(1)
         out.write.format("csv").option("header", "true") \
                 .mode("overwrite").save(out_path)
+
     # %%
     if project_name == 'XLT':
         df1 = max_standard_delivery_out.withColumn('市场', func.lit('高血压市场')) \
@@ -605,6 +604,7 @@ def execute(**kwargs):
         out.write.format("csv").option("header", "true") \
             .mode("overwrite").save(out_path)
         
+
     # %%
     if project_name == 'Servier':
         df1 = max_standard_delivery_out.withColumn('Prod_Name', func.regexp_replace('Prod_Name', 'NA', '')) \
@@ -669,6 +669,7 @@ def execute(**kwargs):
         out.write.format("csv").option("header", "true") \
                 .mode("overwrite").save(out_path)
         
+
     # %%
     if project_name in ['贝达', '神州', '康哲', '京新']:
         out = max_standard_delivery_out.select("年月", "省份", "城市", "通用名", "商品名", "剂型", "规格", 
@@ -676,6 +677,7 @@ def execute(**kwargs):
         out = out.repartition(1)
         out.write.format("csv").option("header", "true") \
             .mode("overwrite").save(out_path)
+
     # %%
     if project_name == '奥鸿':
         df = max_standard_delivery_out.select("年月", "省份", "城市", "Prod_Name", "通用名", "商品名", "剂型", "规格", 
@@ -711,6 +713,7 @@ def execute(**kwargs):
         out2 = out2.repartition(1)
         out2.write.format("csv").option("header", "true") \
             .mode("overwrite").save(out2_path)
+
     # %%
     if project_name == '海坤':
         out = max_standard_delivery_out.select("年月", "省份", "城市", "通用名", "商品名", "剂型", "规格", 
@@ -731,6 +734,7 @@ def execute(**kwargs):
         out = out.repartition(1)
         out.write.format("csv").option("header", "true") \
             .mode("overwrite").save(out_path)
+
     # %%
     if project_name == '汇宇':
         out = max_standard_delivery_out.select("年月", "省份", "城市", "通用名", "商品名", "剂型", "规格", 
@@ -740,6 +744,7 @@ def execute(**kwargs):
         out = out.repartition(1)
         out.write.format("csv").option("header", "true") \
             .mode("overwrite").save(out_path)
+
     # %%
     if project_name == 'Tide':
         out = max_standard_delivery_out.select("市场名", "年月", "省份", "城市", "通用名", "商品名", "剂型", "规格", 
@@ -773,6 +778,7 @@ def execute(**kwargs):
         out = out.repartition(1)
         out.write.format("csv").option("header", "true") \
             .mode("overwrite").save(out_path)
+
     # %%
     if project_name == 'Gilead':
         df = max_standard_delivery_out.select("年月", "省份", "城市", "通用名", "商品名", "剂型", "规格", 
@@ -822,6 +828,7 @@ def execute(**kwargs):
         out.write.format("csv").option("header", "true") \
             .mode("overwrite").save(out_path)
             
+
     # %%
     if project_name == 'Qilu':
         out = max_standard_delivery_out.select("年月", "省份", "城市", "通用名", "商品名", "剂型", "规格", 
@@ -831,6 +838,7 @@ def execute(**kwargs):
         out = out.repartition(1)
         out.write.format("csv").option("header", "true") \
             .mode("overwrite").save(out_path)
+
     # %%
     if project_name == 'NHWA':
         df = data_standard_map_info.withColumnRenamed('Date', '时间') \
@@ -877,6 +885,7 @@ def execute(**kwargs):
         out2 = out2.repartition(1)
         out2.write.format("csv").option("header", "true") \
             .mode("overwrite").save(out2_path)
+
     # %%
     if project_name == 'Astellas':
         df = max_standard_delivery_out.select("YearMonth", "Province", "City", "Molecule_CN", "BrandName", "Formulation", "Specification", 
@@ -905,12 +914,18 @@ def execute(**kwargs):
         out = out.repartition(1)
         out.write.format("csv").option("header", "true") \
             .mode("overwrite").save(out_path)
+
     # %%
     #out.count()
+
     # %%
     #out.agg(func.sum('金额'), func.sum('最小制剂单位数量')).collect()
+
     # %%
     #out.agg(*[func.count(func.when(func.isnull(c), c)).alias(c) for c in out.columns]).show()
+
     # %%
     #out.show(5)
+
     # %%
+
