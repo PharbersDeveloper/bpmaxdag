@@ -1,10 +1,9 @@
-# -*- coding: utf-8 -*-
 """alfredyang@pharbers.com.
 
 This is job template for Pharbers Max Job
 
 Job流程
-cpa_pha_mapping_by_common_file (不论是不是Common File现在全部跟公司走)
+factor_by_company (处理每个项目或公司的的Factor存入 Balance Mapping表中)
 
 """
 
@@ -22,15 +21,13 @@ def execute(**kwargs):
     result_path_prefix = kwargs["result_path_prefix"]
     depends_path = kwargs["depends_path"]
     
-    _cpa_pha_mapping_input = kwargs["cpa_pha_mapping_input"]
+    _factor_input = kwargs["factor_input"]
     _version = kwargs["version"]
     _company = kwargs["company"]
     _label = kwargs["label"]
-    _cpa_pha_mapping_output = kwargs["cpa_pha_mapping_output"]
+    _factor_output = kwargs["factor_output"]
     
     
-    format_num_to_str = udf(lambda x: str(x).replace(".0", "").zfill(6), StringType())
-
     def general_id():
         charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' + \
                   'abcdefghijklmnopqrstuvwxyz' + \
@@ -48,20 +45,19 @@ def execute(**kwargs):
 
     gid = udf(general_id, StringType())
     
-    df = spark.read.parquet(_cpa_pha_mapping_input) \
-        .filter(col("推荐版本") == 1) \
-        .selectExpr("ID AS CODE", "PHA AS VALUE") \
-        .withColumn("CODE", format_num_to_str(col("CODE"))) \
-        .withColumn("ID", lit(gid())) \
-        .withColumn("CATEGORY",  lit("COMMONFILE")) \
-        .withColumn("TAG", lit("PHA")) \
+    df = spark.read.parquet(_factor_input) \
+        .selectExpr("City AS CITY", "factor_new AS VALUE") \
+        .withColumn("VALUE", col("VALUE").cast(StringType())) \
+        .withColumn("ID", gid()) \
+        .withColumn("PROVINCE", lit("null")) \
+        .withColumn("CATEGORY", lit("FACTOR")) \
+        .withColumn("TAG", lit(_label)) \
         .withColumn("COMPANY", lit(_company)) \
         .withColumn("VERSION", lit(_version)) \
-        .selectExpr("ID", "CODE", "CATEGORY", "TAG", "VALUE", "VERSION", "COMPANY")
-        
+        .selectExpr("ID", "PROVINCE", "CITY", "CATEGORY", "TAG", "VALUE", "VERSION",  "COMPANY")
+    
     df.write \
         .partitionBy("COMPANY", "VERSION") \
-        .parquet(_cpa_pha_mapping_output, "append")
-    
+        .parquet(_factor_output, "append")
     
     return {}

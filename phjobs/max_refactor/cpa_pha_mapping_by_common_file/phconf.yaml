@@ -21,7 +21,7 @@ spec:
       - key: version
         value: "0.0.1"
       - key: company
-        value: "BeiDa"
+        value: "PHARBERS"
       - key: label
         value: ""
     outputs:

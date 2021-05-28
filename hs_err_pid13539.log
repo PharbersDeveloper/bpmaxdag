@@ -1,0 +1,83 @@
+#
+# There is insufficient memory for the Java Runtime Environment to continue.
+# Native memory allocation (mmap) failed to map 12288 bytes for committing reserved memory.
+# Possible reasons:
+#   The system is out of physical RAM or swap space
+#   The process is running with CompressedOops enabled, and the Java Heap may be blocking the growth of the native heap
+# Possible solutions:
+#   Reduce memory load on the system
+#   Increase physical memory or swap space
+#   Check if swap backing store is full
+#   Decrease Java heap size (-Xmx/-Xms)
+#   Decrease number of Java threads
+#   Decrease Java thread stack sizes (-Xss)
+#   Set larger code cache with -XX:ReservedCodeCacheSize=
+#   JVM is running with Unscaled Compressed Oops mode in which the Java heap is
+#     placed in the first 4GB address space. The Java Heap base address is the
+#     maximum limit for the native heap growth. Please use -XX:HeapBaseMinAddress
+#     to set the Java Heap base and to place the Java Heap above 4GB virtual address.
+# This output file may be truncated or incomplete.
+#
+#  Out of Memory Error (os_linux.cpp:2799), pid=13539, tid=0x00007fa2114e0700
+#
+# JRE version: OpenJDK Runtime Environment (8.0_282-b08) (build 1.8.0_282-b08)
+# Java VM: OpenJDK 64-Bit Server VM (25.282-b08 mixed mode linux-amd64 compressed oops)
+# Failed to write core dump. Core dumps have been disabled. To enable core dumping, try "ulimit -c unlimited" before starting Java again
+#
+
+---------------  T H R E A D  ---------------
+
+Current thread (0x00007fa20c219800):  JavaThread "IPC Client (927230183) connection to ip-192-168-48-14.cn-northwest-1.compute.internal/192.168.48.14:8020 from hadoop" daemon [_thread_new, id=13652, stack(0x00007fa2113e0000,0x00007fa2114e1000)]
+
+Stack: [0x00007fa2113e0000,0x00007fa2114e1000],  sp=0x00007fa2114dfb00,  free space=1022k
+Native frames: (J=compiled Java code, j=interpreted, Vv=VM code, C=native code)
+V  [libjvm.so+0xbaec4d]  VMError::report_and_die()+0x2cd
+V  [libjvm.so+0x4f38b4]  report_vm_out_of_memory(char const*, int, unsigned long, VMErrorType, char const*)+0xb4
+V  [libjvm.so+0x97183e]  os::pd_commit_memory(char*, unsigned long, bool)+0xee
+V  [libjvm.so+0x96966e]  os::commit_memory(char*, unsigned long, bool)+0x2e
+V  [libjvm.so+0x972cb7]  os::pd_create_stack_guard_pages(char*, unsigned long)+0x57
+V  [libjvm.so+0xb50e36]  JavaThread::create_stack_guard_pages()+0x66
+V  [libjvm.so+0xb5105e]  JavaThread::run()+0x1ae
+V  [libjvm.so+0x96f059]  java_start(Thread*)+0xf9
+C  [libpthread.so.0+0x740b]  start_thread+0xdb
+
+
+---------------  P R O C E S S  ---------------
+
+Java Threads: ( => current thread )
+=>0x00007fa20c219800 JavaThread "IPC Client (927230183) connection to ip-192-168-48-14.cn-northwest-1.compute.internal/192.168.48.14:8020 from hadoop" daemon [_thread_new, id=13652, stack(0x00007fa2113e0000,0x00007fa2114e1000)]
+  0x00007fa20c27a800 JavaThread "IPC Parameter Sending Thread #2" daemon [_thread_blocked, id=13647, stack(0x00007fa2112df000,0x00007fa2113e0000)]
+  0x000055e3d4dc3800 JavaThread "task-result-getter-0" daemon [_thread_blocked, id=13639, stack(0x00007fa2074a5000,0x00007fa2075a6000)]
+  0x00007fa22003d800 JavaThread "shuffle-server-7-1" daemon [_thread_in_native, id=13638, stack(0x00007fa2075a6000,0x00007fa2076a7000)]
+  0x00007fa249293800 JavaThread "java-sdk-http-connection-reaper" daemon [_thread_blocked, id=13637, stack(0x00007fa2084d7000,0x00007fa2085d8000)]
+  0x00007fa24ba49000 JavaThread "spark-listener-group-shared" daemon [_thread_blocked, id=13635, stack(0x00007fa209ff5000,0x00007fa20a0f6000)]
+  0x00007fa214036000 JavaThread "element-tracking-store-worker" daemon [_thread_blocked, id=13633, stack(0x00007fa209df3000,0x00007fa209ef4000)]
+  0x00007fa24a254800 JavaThread "spark-listener-group-eventLog" daemon [_thread_blocked, id=13629, stack(0x00007fa20a0f6000,0x00007fa20a1f7000)]
+  0x00007fa24a253000 JavaThread "spark-listener-group-executorManagement" daemon [_thread_blocked, id=13628, stack(0x00007fa20a1f7000,0x00007fa20a2f8000)]
+  0x00007fa24a250800 JavaThread "spark-listener-group-appStatus" daemon [_thread_blocked, id=13627, stack(0x00007fa20a2f8000,0x00007fa20a3f9000)]
+  0x00007fa24a24d800 JavaThread "spark-dynamic-executor-allocation" daemon [_thread_in_vm, id=13626, stack(0x00007fa20a3f9000,0x00007fa20a4fa000)]
+  0x00007fa24a239800 JavaThread "context-cleaner-periodic-gc" daemon [_thread_blocked, id=13625, stack(0x00007fa20a4fa000,0x00007fa20a5fb000)]
+  0x00007fa24a237800 JavaThread "Spark Context Cleaner" daemon [_thread_in_vm, id=13624, stack(0x00007fa20a5fb000,0x00007fa20a6fc000)]
+  0x00007fa228009800 JavaThread "ResponseProcessor for block BP-763686606-192.168.48.14-1622079944149:blk_1073742039_1850" daemon [_thread_in_vm, id=13623, stack(0x00007fa20a6fc000,0x00007fa20a7fd000)]
+  0x00007fa24afbb800 JavaThread "DataStreamer for file /var/log/spark/apps/application_1622079987552_0016.inprogress block BP-763686606-192.168.48.14-1622079944149:blk_1073742039_1850" daemon [_thread_blocked, id=13622, stack(0x00007fa20a9fd000,0x00007fa20aafe000)]
+  0x000055e3d436b000 JavaThread "rpc-server-4-1" daemon [_thread_in_vm, id=13621, stack(0x00007fa20beff000,0x00007fa20c000000)]
+  0x00007fa24a7eb000 JavaThread "shuffle-boss-6-1" daemon [_thread_in_native, id=13620, stack(0x00007fa2104d9000,0x00007fa2105da000)]
+  0x00007fa249f86000 JavaThread "YARN application state monitor" daemon [_thread_blocked, id=13619, stack(0x00007fa2106db000,0x00007fa2107dc000)]
+  0x00007fa249a9b000 JavaThread "LeaseRenewer:hadoop@ip-192-168-48-14.cn-northwest-1.compute.internal:8020" daemon [_thread_in_vm, id=13608, stack(0x00007fa2105da000,0x00007fa2106db000)]
+  0x00007fa24a0a3800 JavaThread "client DomainSocketWatcher" daemon [_thread_blocked, id=13605, stack(0x00007fa210add000,0x00007fa210bde000)]
+  0x00007fa24adc4800 JavaThread "org.apache.hadoop.fs.FileSystem$Statistics$StatisticsDataReferenceCleaner" daemon [_thread_blocked, id=13604, stack(0x00007fa210fde000,0x00007fa2110df000)]
+  0x00007fa249d81800 JavaThread "driver-heartbeater" daemon [_thread_in_vm, id=13600, stack(0x00007fa2118e1000,0x00007fa2119e2000)]
+  0x00007fa249d39800 JavaThread "dag-scheduler-event-loop" daemon [_thread_in_vm, id=13599, stack(0x00007fa2119e2000,0x00007fa211ae3000)]
+  0x000055e3d46d2800 JavaThread "driver-revive-thread" daemon [_thread_in_vm, id=13598, stack(0x00007fa211ce3000,0x00007fa211de4000)]
+  0x00007fa249d2d000 JavaThread "dispatcher-CoarseGrainedScheduler" daemon [_thread_in_vm, id=13597, stack(0x00007fa211de4000,0x00007fa211ee5000)]
+  0x00007fa24934f000 JavaThread "Timer-1" daemon [_thread_blocked, id=13596, stack(0x00007fa211ee5000,0x00007fa211fe6000)]
+  0x00007fa249478000 JavaThread "Timer-0" daemon [_thread_blocked, id=13595, stack(0x00007fa211fe6000,0x00007fa2120e7000)]
+  0x00007fa22c0cf800 JavaThread "netty-rpc-env-timeout" daemon [_thread_in_vm, id=13594, stack(0x00007fa2120e7000,0x00007fa2121e8000)]
+  0x00007fa20c09b800 JavaThread "heartbeat-receiver-event-loop-thread" daemon [_thread_in_vm, id=13593, stack(0x00007fa2121e8000,0x00007fa2122e9000)]
+  0x00007fa24aef1000 JavaThread "SparkUI-39" daemon [_thread_blocked, id=13592, stack(0x00007fa2122e9000,0x00007fa2123ea000)]
+  0x00007fa24aeef000 JavaThread "SparkUI-38" daemon [_thread_blocked, id=13591, stack(0x00007fa2123ea000,0x00007fa2124eb000)]
+  0x00007fa24aeed800 JavaThread "SparkUI-37" daemon [_thread_blocked, id=13590, stack(0x00007fa2124eb000,0x00007fa2125ec000)]
+  0x00007fa24aeeb800 JavaThread "SparkUI-36" daemon [_thread_blocked, id=13589, stack(0x00007fa2125ec000,0x00007fa2126ed000)]
+  0x00007fa24aee9800 JavaThread "SparkUI-35" daemon [_thread_blocked, id=13588, stack(0x00007fa2126ed000,0x00007fa2127ee000)]
+  0x00007fa24aee7800 JavaThread "SparkUI-34" daemon [_thread_blocked, id=13587, stack(0x00007fa2127ee000,0x00007fa2128ef000)]
+  0x00007fa24aee6000 JavaThread "SparkUI-33-acceptor-0@616c6ee3-ServerConnector@6fab9cbe{HTTP/1.1,[http/1.1]}{0.0.0.0:4040}" daemon [_thread_in_native, id=13586, stack(0x00007fa2128ef000,0x00007fa2129f0000)]

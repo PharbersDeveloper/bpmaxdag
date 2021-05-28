@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """alfredyang@pharbers.com.
 
-This is job template for Pharbers Max Job
+This is job template for Pharbers Max 
 
-Job流程
-cpa_pha_mapping_by_common_file (不论是不是Common File现在全部跟公司走)
+Job 流程
+extract_city_normalize (由于没有地理维度统计标准，只能单独做Mapping表)
 
 """
 
@@ -22,15 +22,14 @@ def execute(**kwargs):
     result_path_prefix = kwargs["result_path_prefix"]
     depends_path = kwargs["depends_path"]
     
-    _cpa_pha_mapping_input = kwargs["cpa_pha_mapping_input"]
+    
+    _city_normalize_input = kwargs["city_normalize_input"]
     _version = kwargs["version"]
     _company = kwargs["company"]
     _label = kwargs["label"]
-    _cpa_pha_mapping_output = kwargs["cpa_pha_mapping_output"]
+    _city_normalize_output = kwargs["city_normalize_output"]
     
     
-    format_num_to_str = udf(lambda x: str(x).replace(".0", "").zfill(6), StringType())
-
     def general_id():
         charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' + \
                   'abcdefghijklmnopqrstuvwxyz' + \
@@ -45,23 +44,23 @@ def execute(**kwargs):
             result.append(charset[random.randint(0, charsetLength - 1)])
 
         return "".join(result)
-
+    
+    
     gid = udf(general_id, StringType())
     
-    df = spark.read.parquet(_cpa_pha_mapping_input) \
-        .filter(col("推荐版本") == 1) \
-        .selectExpr("ID AS CODE", "PHA AS VALUE") \
-        .withColumn("CODE", format_num_to_str(col("CODE"))) \
-        .withColumn("ID", lit(gid())) \
-        .withColumn("CATEGORY",  lit("COMMONFILE")) \
-        .withColumn("TAG", lit("PHA")) \
+    
+    df = spark.read.csv(_city_normalize_input, header=True) \
+        .withColumnRenamed("Province", "PROVINCE_ORIGINAL") \
+        .withColumnRenamed("City", "CITY_ORIFINAL") \
+        .withColumnRenamed("标准省份名称", "PROVINCE") \
+        .withColumnRenamed("标准城市名称", "CITY") \
+        .withColumn("ID", gid()) \
         .withColumn("COMPANY", lit(_company)) \
         .withColumn("VERSION", lit(_version)) \
-        .selectExpr("ID", "CODE", "CATEGORY", "TAG", "VALUE", "VERSION", "COMPANY")
-        
+        .selectExpr("ID", "PROVINCE_ORIGINAL", "PROVINCE", "CITY_ORIFINAL", "CITY", "COMPANY", "VERSION")
+    
     df.write \
         .partitionBy("COMPANY", "VERSION") \
-        .parquet(_cpa_pha_mapping_output, "append")
-    
+        .parquet(_city_normalize_output, "append")
     
     return {}
