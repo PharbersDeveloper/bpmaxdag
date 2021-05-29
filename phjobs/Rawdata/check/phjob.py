@@ -32,8 +32,6 @@ def execute(**kwargs):
     d = kwargs['d']
     ### output args ###
 
-    
-    
     from pyspark.sql import SparkSession, Window
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
@@ -43,13 +41,13 @@ def execute(**kwargs):
     import pandas as pd
     import numpy as np    
     # %%
-    '''
-    project_name = 'Gilead'
-    outdir = '202101'
-    current_month = '1'
-    current_year = '2021'
-    minimum_product_sep = "|"
-    '''
+    # project_name = 'Gilead'
+    # outdir = '202101'
+    # current_month = '1'
+    # current_year = '2021'
+    # minimum_product_sep = "|"
+    # g_id_molecule = 'False'
+
     # %%
     # 输入
     current_year = int(current_year)

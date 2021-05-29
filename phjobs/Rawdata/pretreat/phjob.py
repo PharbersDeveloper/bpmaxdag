@@ -38,14 +38,13 @@ def execute(**kwargs):
     import os
     from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col
     import time
-    import re    
-    # %%
-    # max_path = 's3a://ph-max-auto/v0.0.1-2020-06-08/'
+    import re        # %%
     # project_name = 'Gilead'
     # outdir = '202101'
     # if_two_source = 'True'
     # cut_time_left = '202101'
     # cut_time_right = '202101'
+    # test = 'True'
     # %%
     # 输入
     if if_two_source != "False" and if_two_source != "True":
@@ -109,6 +108,7 @@ def execute(**kwargs):
     #    history_raw_data_delivery_path = max_path + '/' + project_name + '/201912/raw_data_std'
     #else:
     #    history_raw_data_delivery_path = max_path + '/' + project_name + '/201912/raw_data'
+
     # %%
     # =============  数据执行 ==============
     raw_data = spark.read.csv(raw_data_path, header=True)    
