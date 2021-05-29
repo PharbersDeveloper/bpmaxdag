@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: default
+  description: "pharbers job description"
+  labels:
+    name: default
+    runtime: python3
+    command: submit
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    command: submit
+    timeout: 720.0
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: max_path
+        value: 's3://ph-max-auto/v0.0.1-2020-06-08/'
+      - key: project_name
+        value: 'Empty'
+      - key: universe_choice
+        value: 'Empty'
+      - key: all_models
+        value: 'Empty'
+      - key: weight_upper
+        value: '1.25'
+      - key: job_choice
+        value: 'Empty'
+    outputs:
+      - key: c
+        value: 'abc'
+      - key: d
+        value: 'def'
+
+
+
