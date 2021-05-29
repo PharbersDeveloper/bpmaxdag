@@ -17,26 +17,26 @@ spec:
     config: phconf.yaml
     args:
       - key: max_path
-        value: s3a://ph-max-auto/v0.0.1-2020-06-08/
+        value: 's3://ph-max-auto/v0.0.1-2020-06-08/'
       - key: project_name
-        value: Empty
+        value: 'Empty'
       - key: outdir
-        value: Empty
+        value: 'Empty'
       - key: model_month_right
-        value: Empty
+        value: 'Empty'
       - key: model_month_left
-        value: Empty
+        value: 'Empty'
       - key: all_models
-        value: Empty
+        value: 'Empty'
       - key: max_file
-        value: Empty
+        value: 'Empty'
       - key: factor_optimize
-        value: True
+        value: 'True'
     outputs:
       - key: c
-        value: abc
+        value: 'abc'
       - key: d
-        value: def
+        value: 'def'
 
 
 

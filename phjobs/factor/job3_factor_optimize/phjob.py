@@ -34,6 +34,8 @@ def execute(**kwargs):
     d = kwargs['d']
     ### output args ###
 
+    
+    
     from pyspark.sql import SparkSession, Window
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
@@ -41,7 +43,8 @@ def execute(**kwargs):
     import os
     import time
     import re
-    from copy import deepcopy    # %%
+    from copy import deepcopy    
+    # %%
     '''
     project_name = 'Takeda'
     outdir = '202012'
@@ -93,6 +96,7 @@ def execute(**kwargs):
         ims_sales_all_path = max_path + '/' + project_name + '/ims_info/ims_info_all'
             
     # 输出在每个循环下
+
     # %%
     # =========== 数据执行 ============
     logger.debug("job3_factor_optimize")
@@ -159,6 +163,7 @@ def execute(**kwargs):
     model_pfc = product_map.where(~col('Pack_ID').isNull()).select('Molecule', 'Pack_ID').distinct() \
                         .join(mkt_map, product_map['Molecule']==mkt_map['通用名'], how='left')
     model_pfc = model_pfc.select('Pack_ID', 'mkt').distinct()
+
     # %%
     # 4. ims文件
     if ims_info_auto == 'True':
@@ -238,6 +243,7 @@ def execute(**kwargs):
                 .mode("overwrite").save(ims_sales_all_path)
         
         ims_sales_all = spark.read.parquet(ims_sales_all_path)
+
     # %%
     # 3. 对每个市场优化factor
     @udf(StringType())
@@ -476,3 +482,4 @@ def execute(**kwargs):
                 .mode("overwrite").save(factor_out_path)
         
         logger.debug("finish:" + str(market))
+
