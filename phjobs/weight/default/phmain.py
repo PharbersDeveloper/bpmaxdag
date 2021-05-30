@@ -22,6 +22,7 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--all_models')
 @click.option('--weight_upper')
 @click.option('--job_choice')
+@click.option('--test')
 @click.option('--c')
 @click.option('--d')
 def debug_execute(**kwargs):

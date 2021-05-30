@@ -20,6 +20,7 @@ def execute(**kwargs):
     all_models = kwargs['all_models']
     weight_upper = kwargs['weight_upper']
     job_choice = kwargs['job_choice']
+    test = kwargs['test']
     ### input args ###
     
     ### output args ###
@@ -27,6 +28,8 @@ def execute(**kwargs):
     d = kwargs['d']
     ### output args ###
 
+    
+    
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
     import os
@@ -34,15 +37,20 @@ def execute(**kwargs):
     
     from scipy.stats import ranksums, mannwhitneyu
     import pandas as pd
-    import numpy as np    # %%
+    import numpy as np    
+    # %%
     # project_name = "Gilead"
     # universe_choice = "乙肝:universe_传染,乙肝_2:universe_传染,乙肝_3:universe_传染,安必素:universe_传染"
     # all_models = "乙肝,乙肝_2,乙肝_3,安必素"
     # weight_upper = "1.25"
     # job_choice = "weight_default"
-
+    # test = "True"
     # %%
     # 是否运行此job
+    if test != "False" and test != "True":
+        logger.info('wrong input: test, False or True') 
+        raise ValueError('wrong input: test, False or True')
+    
     if job_choice != "weight_default":
          raise ValueError('不运行weight_default')
     
@@ -59,7 +67,12 @@ def execute(**kwargs):
     
     # 输出
     project_path = project_path = max_path + "/" + project_name
-    weight_default_path = max_path + "/" + project_name + '/PHA_weight_default'
+    if test == "True":
+        weight_default_path = max_path + "/" + project_name + '/test/PHA_weight_default'
+    else:
+        weight_default_path = max_path + "/" + project_name + '/PHA_weight_default'
+    
+
     # %%
     # ====  数据分析  ====
     
@@ -130,3 +143,4 @@ def execute(**kwargs):
             weight_out.write.format("parquet") \
                 .mode("append").save(weight_default_path)
             
+

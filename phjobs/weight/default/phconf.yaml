@@ -28,6 +28,8 @@ spec:
         value: '1.25'
       - key: job_choice
         value: 'Empty'
+      - key: test
+        value: 'False'
     outputs:
       - key: c
         value: 'abc'
