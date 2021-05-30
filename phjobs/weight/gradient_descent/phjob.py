@@ -80,12 +80,13 @@ def execute(**kwargs):
     logger.debug(market_city_brand_dict)
     
     # 输出
+    weight_tmp_path = max_path + '/' + project_name + '/weight/PHA_weight_tmp'
+    tmp_path = max_path + '/' + project_name + '/weight/tmp'
     if test == "False":
         weight_path = max_path + '/' + project_name + '/PHA_weight'
-        weight_tmp_path = max_path + '/' + project_name + '/weight/PHA_weight_tmp'
-        tmp_path = max_path + '/' + project_name + '/weight/tmp'
     else:
         weight_path = max_path + '/' + project_name + '/weight/PHA_weight'
+
     # %%
     # ==========  数据执行  ============
     
