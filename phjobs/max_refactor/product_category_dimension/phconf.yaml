@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: product_category_dimension
+  description: "pharbers job description"
+  labels:
+    name: product_category_dimension
+    runtime: python3
+    command: submit
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    command: submit
+    timeout: 60.0
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: extract_product_input
+        value: "s3://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/TMP/REFACTOR/EXTRACT/MASTER_PACKID_PRODUCT_INFO/"
+      - key: version
+        value: "0.0.1"
+      - key: company
+        value: "PHARBERS"
+      - key: label
+        value: ""
+    outputs:
+      - key: product_categoty_output
+        value: "s3://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/REFACTOR/DIMENSION/CATEGORY"
+
+
+

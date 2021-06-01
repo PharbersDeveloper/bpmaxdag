@@ -1,0 +1,361 @@
+<?xml version="1.0"?>
+<!--
+  Licensed to the Apache Software Foundation (ASF) under one or more
+  contributor license agreements.  See the NOTICE file distributed with
+  this work for additional information regarding copyright ownership.
+  The ASF licenses this file to You under the Apache License, Version 2.0
+  (the "License"); you may not use this file except in compliance with
+  the License.  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+
+<configuration>
+
+  <property>
+    <name>yarn.timeline-service.hostname</name>
+    <value>ip-192-168-21-173.cn-northwest-1.compute.internal</value>
+  </property>
+
+  <property>
+    <name>yarn.web-proxy.address</name>
+    <value>ip-192-168-21-173.cn-northwest-1.compute.internal:20888</value>
+  </property> 
+
+  <property>
+    <name>yarn.resourcemanager.resource-tracker.address</name>
+    <value>ip-192-168-21-173.cn-northwest-1.compute.internal:8025</value>
+  </property>
+
+  <property>
+    <name>yarn.resourcemanager.address</name>
+    <value>ip-192-168-21-173.cn-northwest-1.compute.internal:8032</value>
+  </property>
+
+  <property>
+    <name>yarn.resourcemanager.scheduler.address</name>
+    <value>ip-192-168-21-173.cn-northwest-1.compute.internal:8030</value>
+  </property>
+
+  <property>
+    <name>yarn.nodemanager.aux-services</name>
+    <value>mapreduce_shuffle,</value>
+  </property>
+
+  <property>
+    <name>yarn.nodemanager.aux-services.mapreduce_shuffle.class</name>
+    <value>org.apache.hadoop.mapred.ShuffleHandler</value>
+  </property>
+
+  <property>
+    <name>yarn.log-aggregation-enable</name>
+    <value>true</value>
+  </property>
+  <property>
+    <name>yarn.log.server.url</name>
+    <value>http://ip-192-168-21-173.cn-northwest-1.compute.internal:19888/jobhistory/logs</value>
+  </property>
+  <property>
+    <name>yarn.dispatcher.exit-on-error</name>
+    <value>true</value>
+  </property>
+
+  <property>
+    <name>yarn.nodemanager.local-dirs</name>
+    <value>/mnt/yarn</value>
+    <final>true</final>
+  </property>
+
+  <property>
+    <description>Where to store container logs.</description>
+    <name>yarn.nodemanager.log-dirs</name>
+    <value>/var/log/hadoop-yarn/containers</value>
+  </property>
+
+  <property>
+    <description>Where to aggregate logs to.</description>
+    <name>yarn.nodemanager.remote-app-log-dir</name>
+    <value>s3://ph-platform/2020-11-11/emr/yarnLogs/</value>
+  </property>
+
+
+  <property>
+    <description>Classpath for typical applications.</description>
+     <name>yarn.application.classpath</name>
+     <value>
+        $HADOOP_CONF_DIR,
+        $HADOOP_COMMON_HOME/*,$HADOOP_COMMON_HOME/lib/*,
+        $HADOOP_HDFS_HOME/*,$HADOOP_HDFS_HOME/lib/*,
+        $HADOOP_MAPRED_HOME/*,$HADOOP_MAPRED_HOME/lib/*,
+        $HADOOP_YARN_HOME/*,$HADOOP_YARN_HOME/lib/*,
+        /usr/lib/hadoop-lzo/lib/*,
+        /usr/share/aws/emr/emrfs/conf,
+        /usr/share/aws/emr/emrfs/lib/*,
+        /usr/share/aws/emr/emrfs/auxlib/*,
+        /usr/share/aws/emr/lib/*,
+        /usr/share/aws/emr/ddb/lib/emr-ddb-hadoop.jar,
+        /usr/share/aws/emr/goodies/lib/emr-hadoop-goodies.jar,
+        /usr/share/aws/emr/kinesis/lib/emr-kinesis-hadoop.jar,
+        /usr/lib/spark/yarn/lib/datanucleus-api-jdo.jar,
+        /usr/lib/spark/yarn/lib/datanucleus-core.jar,
+        /usr/lib/spark/yarn/lib/datanucleus-rdbms.jar,
+        /usr/share/aws/emr/cloudwatch-sink/lib/*,
+        /usr/share/aws/aws-java-sdk/*
+     </value>
+  </property>
+
+<!-- The defaut setting (2.1) is silly. The virtual memory is not 
+     a limiting factor on 64Bit systems, at least not a limiting  
+     resource, so make it large, very large. -->
+  <property>
+    <name>yarn.nodemanager.vmem-pmem-ratio</name>
+    <value>5</value>
+  </property>
+
+  <property>
+    <name>hadoop.registry.zk.quorum</name>
+    <value>ip-192-168-21-173.cn-northwest-1.compute.internal:2181</value>
+  </property>
+
+  <property>
+    <name>yarn.nodemanager.runtime.linux.docker.default-ro-mounts</name>
+    <value>/etc/passwd:/etc/passwd,/usr/lib:/docker/usr/lib,/usr/share:/docker/usr/share</value>
+  </property>
+  <property>
+    <name>yarn.nodemanager.runtime.linux.docker.default-rw-mounts</name>
+    <value>/mnt/yarn:/mnt/yarn,/mnt/s3:/mnt/s3</value>
+  </property>
+
+  <property>
+    <name>yarn.node-labels.enabled</name>
+    <value>false</value>
+  </property>
+
+  <property>
+    <name>yarn.node-labels.am.default-node-label-expression</name>
+    <value></value>
+  </property>
+
+  <property>
+    <name>yarn.node-labels.fs-store.root-dir</name>
+    <value>file:///mnt/var/lib/hadoop-yarn/nodelabels</value>
+  </property>
+
+  <property>
+    <name>yarn.node-labels.configuration-type</name>
+    <value>distributed</value>
+  </property>
+
+  <property>
+    <name>yarn.log-aggregation.enable-local-cleanup</name>
+    <value>false</value>
+  </property>
+
+  <property>
+    <name>yarn.nodemanager.address</name>
+    <value>${yarn.nodemanager.hostname}:8041</value>
+  </property>
+
+  <property>
+    <name>yarn.nodemanager.container-metrics.enable</name>
+    <value>false</value>
+  </property>
+
+  <property>
+    <name>yarn.nodemanager.recovery.enabled</name>
+    <value>true</value>
+  </property>
+
+  <property>
+    <name>yarn.nodemanager.recovery.supervised</name>
+    <value>true</value>
+  </property>
+
+  <property>
+    <name>yarn.resourcemanager.nodes.exclude-path</name>
+    <value>/emr/instance-controller/lib/yarn.nodes.exclude.xml</value>
+  </property>
+
+  <property>
+    <name>yarn.resourcemanager.webapp.cross-origin.enabled</name>
+    <value>true</value>
+  </property>
+
+  <property>
+    <name>yarn.scheduler.increment-allocation-mb</name>
+    <value>32</value>
+  </property>
+
+  <property>
+    <name>yarn.resourcemanager.nodemanagers.heartbeat-interval-ms</name>
+    <value>250</value>
+  </property>
+
+  <property>
+    <name>yarn.nodemanager.node-labels.provider</name>
+    <value>config</value>
+  </property>
+
+  <property>
+    <name>yarn.nodemanager.node-labels.provider.configured-node-partition</name>
+    <value>CORE</value>
+  </property>
+
+  <property>
+    <name>yarn.resourcemanager.system-metrics-publisher.enabled</name>
+    <value>true</value>
+  </property>
+
+  <property>
+    <name>yarn.timeline-service.http-cross-origin.enabled</name>
+    <value>true</value>
+  </property>
+
+  <property>
+    <name>yarn.timeline-service.version</name>
+    <value>1.5</value>
+  </property>
+
+  <property>
+    <name>yarn.timeline-service.store-class</name>
+    <value>org.apache.hadoop.yarn.server.timeline.EntityGroupFSTimelineStore</value>
+  </property>
+
+  <property>
+    <name>yarn.timeline-service.entity-group-fs-store.summary-store</name>
+    <value>org.apache.hadoop.yarn.server.timeline.RollingLevelDBTimelineStore</value>
+  </property>
+
+  <property>
+    <name>yarn.timeline-service.entity-group-fs-store.group-id-plugin-classes</name>
+    <value>org.apache.tez.dag.history.logging.ats.TimelineCachePluginImpl</value>
+  </property>
+
+  <property>
+    <name>yarn.nodemanager.default-container-executor.log-dirs.permissions</name>
+    <value>750</value>
+  </property>
+
+  <property>
+    <name>yarn.timeline-service.enabled</name>
+    <value>true</value>
+  </property>
+
+  <property>
+    <name>yarn.nodemanager.linux-container-executor.group</name>
+    <value>yarn</value>
+  </property>
+
+  <property>
+    <name>yarn.nodemanager.linux-container-executor.nonsecure-mode.local-user</name>
+    <value>hadoop</value>
+  </property>
+
+  <property>
+    <name>yarn.nodemanager.runtime.linux.allowed-runtimes</name>
+    <value>default,docker</value>
+  </property>
+
+  <property>
+    <name>yarn.nodemanager.runtime.linux.docker.allowed-container-networks</name>
+    <value>emr-docker-bridge,host,bridge</value>
+  </property>
+
+  <property>
+    <name>yarn.nodemanager.runtime.linux.docker.privileged-containers.allowed</name>
+    <value>false</value>
+  </property>
+
+  <property>
+    <name>yarn.nodemanager.runtime.linux.docker.capabilities</name>
+    <value>CHOWN,DAC_OVERRIDE,FSETID,FOWNER,MKNOD,NET_RAW,SETGID,SETUID, SETFCAP,SETPCAP,NET_BIND_SERVICE,SYS_CHROOT,KILL,AUDIT_WRITE</value>
+  </property>
+
+  <property>
+    <name>yarn.nodemanager.env-whitelist</name>
+    <value>JAVA_HOME,HADOOP_COMMON_HOME,HADOOP_HDFS_HOME,HADOOP_CONF_DIR,CLASSPATH_PREPEND_DISTCACHE,HADOOP_YARN_HOME,HADOOP_MAPRED_HOME,PATH</value>
+  </property>
+
+  <property>
+    <name>yarn.webapp.api-service.enable</name>
+    <value>true</value>
+  </property>
+
+  <property>
+    <name>yarn.resourcemanager.client.thread-count</name>
+    <value>64</value>
+  </property>
+
+  <property>
+    <name>yarn.nodemanager.resource.cpu-vcores</name>
+    <value>8</value>
+  </property>
+
+  <property>
+    <name>yarn.resourcemanager.resource-tracker.client.thread-count</name>
+    <value>64</value>
+  </property>
+
+  <property>
+    <name>yarn.nodemanager.container-manager.thread-count</name>
+    <value>64</value>
+  </property>
+
+  <property>
+    <name>yarn.resourcemanager.scheduler.client.thread-count</name>
+    <value>64</value>
+  </property>
+
+  <property>
+    <name>yarn.scheduler.maximum-allocation-mb</name>
+    <value>24576</value>
+  </property>
+
+  <property>
+    <name>yarn.nodemanager.localizer.client.thread-count</name>
+    <value>20</value>
+  </property>
+
+  <property>
+    <name>yarn.log-aggregation.retain-seconds</name>
+    <value>-1</value>
+  </property>
+
+  <property>
+    <name>yarn.nodemanager.localizer.fetch.thread-count</name>
+    <value>20</value>
+  </property>
+
+  <property>
+    <name>yarn.resourcemanager.nodemanager-graceful-decommission-timeout-secs</name>
+    <value>600</value>
+  </property>
+
+  <property>
+    <name>yarn.nodemanager.resource.memory-mb</name>
+    <value>24576</value>
+  </property>
+
+  <property>
+    <name>yarn.scheduler.maximum-allocation-vcores</name>
+    <value>128</value>
+  </property>
+
+  <property>
+    <name>yarn.resourcemanager.hostname</name>
+    <value>192.168.21.173</value>
+  </property>
+
+  <property>
+    <name>yarn.scheduler.minimum-allocation-mb</name>
+    <value>32</value>
+  </property>
+
+</configuration>
