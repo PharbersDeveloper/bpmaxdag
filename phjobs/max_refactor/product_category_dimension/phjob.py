@@ -14,11 +14,10 @@ from pyspark.sql.types import StringType
 
 def execute(**kwargs):
     logger = phs3logger(kwargs["job_id"], LOG_DEBUG_LEVEL)
-    logger.info("Start")
     spark = kwargs["spark"]()
     result_path_prefix = kwargs["result_path_prefix"]
     depends_path = kwargs["depends_path"]
-    logger.info("ING")
+    
     _extract_product_input = kwargs["extract_product_input"]
     _version = kwargs["version"]
     _company = kwargs["company"]

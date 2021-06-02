@@ -26,7 +26,7 @@ spec:
         value: ""
     outputs:
       - key: product_drug_output
-        value: "s3://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/REFACTOR/DIMENSION/PRODUCT"
+        value: "s3://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/REFACTOR/DIMENSION/PRODUCT_DRUG"
 
 
 
