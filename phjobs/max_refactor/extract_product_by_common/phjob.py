@@ -4,7 +4,7 @@
 This is job template for Pharbers Max Job
 
 Job流程
-master_packid_by_common -> product_categoty_dimension
+master_packid_by_common -> product_category_dimension
 master_packid_by_common -> product_lexicon_dimension
 master_packid_by_common -> product_manufacturer_dimension
 master_packid_by_common -> product_drug_map_dimension
@@ -33,8 +33,9 @@ def execute(**kwargs):
     
     df = spark.read.csv(_master_packid_input, header=True) \
         .selectExpr("PACK_ID", "MOLE_NAME_EN", "MOLE_NAME_CH", "PROD_NAME_CH", 
-            "CORP_NAME_EN", "CORP_NAME_CH", "MNF_NAME_EN", "MNF_NAME_CH", 
-            "PCK_DESC", "PACK", "DOSAGE", "SPEC", "CORP_ID", "MNF_ID", 
+            "CORP_NAME_EN", "CORP_NAME_CH", "MNF_NAME_EN", "MNF_NAME_CH",
+            "MNF_TYPE_NAME", "MNF_TYPE_NAME_CH", "PCK_DESC",
+            "PACK", "DOSAGE", "SPEC", "CORP_ID", "MNF_ID", 
             "NFC123", "NFC123_NAME", "ATC4_CODE", "ATC4_DESC")
     
     df.write \

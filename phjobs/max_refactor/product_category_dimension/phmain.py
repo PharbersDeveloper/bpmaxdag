@@ -20,11 +20,11 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--version')
 @click.option('--company')
 @click.option('--label')
-@click.option('--product_categoty_output')
+@click.option('--product_category_output')
 def debug_execute(**kwargs):
     try:
         args = {"name": "product_category_dimension"}
-        outputs = ["product_categoty_output"]
+        outputs = ["product_category_output"]
 
         args.update(kwargs)
         result = exec_before(**args)

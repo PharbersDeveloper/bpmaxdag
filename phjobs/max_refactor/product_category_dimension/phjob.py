@@ -14,15 +14,16 @@ from pyspark.sql.types import StringType
 
 def execute(**kwargs):
     logger = phs3logger(kwargs["job_id"], LOG_DEBUG_LEVEL)
+    logger.info("Start")
     spark = kwargs["spark"]()
     result_path_prefix = kwargs["result_path_prefix"]
     depends_path = kwargs["depends_path"]
-    
+    logger.info("ING")
     _extract_product_input = kwargs["extract_product_input"]
     _version = kwargs["version"]
     _company = kwargs["company"]
     _label = kwargs["label"]
-    _product_categoty_output = kwargs["product_categoty_output"]
+    _product_category_output = kwargs["product_category_output"]
     
     def general_id():
         charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' + \
@@ -68,10 +69,10 @@ def execute(**kwargs):
     df = atc_df.union(nfc_df)
     
     df.selectExpr("ID", "CATEGORY", "TYPE", "LEVEL", "VALUE", "VERSION", "COMPANY") \
+        .repartition("CATEGORY") \
         .write \
         .partitionBy("COMPANY", "VERSION") \
-        .mode("append") \
-        .parquet(_product_categoty_output)
+        .parquet(_product_category_output, "append")
     
     
     return {}

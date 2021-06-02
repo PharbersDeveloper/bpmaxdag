@@ -46,7 +46,7 @@ def execute(**kwargs):
     extract_df = spark.read.parquet(_extract_product_input)
     
     df = extract_df.selectExpr("PACK_ID AS VALUE").distinct() \
-        .withColumn("ID", _id()) \
+        .withColumn("ID", gid()) \
         .withColumn("COMPANY", lit(_company)) \
         .withColumn("CATEGORY", lit("IMS PACKID")) \
         .withColumn("TYPE", lit("null")) \
@@ -55,7 +55,6 @@ def execute(**kwargs):
     df.selectExpr("ID", "CATEGORY", "TYPE", "VALUE", "VERSION", "COMPANY") \
         .write \
         .partitionBy("COMPANY", "VERSION") \
-        .mode("append") \
-        .parquet(_product_drug_map_output)
+        .parquet(_product_drug_map_output, "append")
     
     return {}

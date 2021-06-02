@@ -53,11 +53,14 @@ def execute(**kwargs):
         .withColumn("LOCATION", array(lit(0), lit(0))) \
         .withColumn("VERSION", lit(_version))
         
-        
+    
+    # a = df.selectExpr("ID", "MNF_NAME", "MNF_TYPE", "MNF_TYPE_NAME","MNF_TYPE_NAME_CH", "CORP_ID", "CORP_NAME_CH", "CORP_NAME_EN", "LOCATION", "VERSION", "COMPANY")
+    # print(a.count())
+    # print(a.rdd.getNumPartitions())
+    # coalesce
     df.selectExpr("ID", "MNF_NAME", "MNF_TYPE", "MNF_TYPE_NAME","MNF_TYPE_NAME_CH", "CORP_ID", "CORP_NAME_CH", "CORP_NAME_EN", "LOCATION", "VERSION", "COMPANY") \
         .write \
         .partitionBy("COMPANY", "VERSION") \
-        .mode("append") \
-        .parquet(_product_mnf_output)
+        .parquet(_product_mnf_output, "append")
     
     return {}
