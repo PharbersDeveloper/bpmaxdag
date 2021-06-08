@@ -29,7 +29,6 @@ def execute(**kwargs):
     from pyspark.sql import DataFrame
     from pyspark.sql import Window
     from typing import Iterator
-    import pandas
     import pandas as pd
     import re
     # %%
@@ -60,7 +59,7 @@ def execute(**kwargs):
     # %%
     
     # hap_tag该字段也暂时未知  ,"hap_tag"
-    patient_tag = df_patient_analyse_std.drop_duplicates([c for c in df_patient_analyse_std.columns 
+    df_patient_tag = df_patient_analyse_std.drop_duplicates([c for c in df_patient_analyse_std.columns 
                                                                  if c in ["医院ID","患者ID","OUT_ID","就诊类型","心律不齐","其他心血管疾病",
                                                                         "脑血管疾病","神经系统疾病","高血糖","高血脂","肝功能异常","肾功能异常",
                                                                         "结缔组织病","COPD","哮喘","支气管扩张","恶性实体瘤","心衰","白细胞计数",
@@ -71,9 +70,9 @@ def execute(**kwargs):
                                                                         "seg1_grp1","seg1_grp2","seg2_grp1","seg3_grp1","seg3_grp2","seg3_grp3"]])
     
     
-    patient_tag = patient_tag.drop_duplicates(c for c in patient_tag.columns if c in ["医院ID","患者ID","OUT_ID","就诊类型"])
+    df_patient_tag = df_patient_tag.drop_duplicates(c for c in df_patient_tag.columns if c in ["医院ID","患者ID","OUT_ID","就诊类型"])
     # 标准医保类型|标准性别|年龄|标准诊断|severe_case_after|标准科室
-    patient_tag = patient_tag.withColumnRenamed("uni_code","pt_uni_code") \
+    df_patient_tag = df_patient_tag.withColumnRenamed("uni_code","pt_uni_code") \
                              .withColumnRenamed("标准医保类型","pt_标准医保类型") \
                              .withColumnRenamed("标准性别","pt_标准性别") \
                              .withColumnRenamed("年龄","pt_年龄") \
@@ -82,31 +81,31 @@ def execute(**kwargs):
     # patient_tag.show(1)
     # %%
     
-    table_4_m = df_patient_analyse_std.groupBy(["医院ID","患者ID","OUT_ID","就诊类型","标准医保类型","标准性别","年龄","标准诊断",
+    df_table_4_m = df_patient_analyse_std.groupBy(["医院ID","患者ID","OUT_ID","就诊类型","标准医保类型","标准性别","年龄","标准诊断",
                                  "severe_case","标准科室","formula","mole_comb","single_or_formula","SEQ","标准处方日期"]).agg( Func.sum(col("金额")).alias("sales") ) \
                                  .withColumn("uni_code",Func.concat(col("医院ID"),col("患者ID"),col("OUT_ID"),col("就诊类型")))\
                                 .withColumn("标准处方日期", col("标准处方日期").cast("int"))
     
     # table_4_m初始喹诺酮类换药
-    quinolone_before = table_4_m.filter( (col("formula").rlike('氟喹诺酮') )
+    df_quinolone_before = df_table_4_m.filter( (col("formula").rlike('氟喹诺酮') )
                                         & (col("SEQ") == "1"))
     
     
     win1 = Window.partitionBy("uni_code")
-    quinolone_after = table_4_m.join( quinolone_before.select("uni_code").distinct(), on=["uni_code"], how="inner")
+    df_quinolone_after = df_table_4_m.join( df_quinolone_before.select("uni_code").distinct(), on=["uni_code"], how="inner")
     
-    quinolone_after = quinolone_after.withColumn("first_formula",  Func.lit("氟喹诺酮"))\
+    df_quinolone_after = df_quinolone_after.withColumn("first_formula",  Func.lit("氟喹诺酮"))\
                                         .filter( ~( col("formula") == col("first_formula")) )\
                                         .withColumn("MIN_标准处方日期",  Func.min("标准处方日期").over(win1) )\
                                         .where(col("标准处方日期")==col("MIN_标准处方日期"))
                             
     
-    quinolone_before = quinolone_before.join(quinolone_after.select("uni_code"), on="uni_code", how="inner")
+    df_quinolone_before = df_quinolone_before.join(df_quinolone_after.select("uni_code"), on="uni_code", how="inner")
     
-    quinolone_before = quinolone_before.dropDuplicates( ["uni_code"])
+    df_quinolone_before = df_quinolone_before.dropDuplicates( ["uni_code"])
     
     # 将字段名换成对应的
-    quinolone_before = quinolone_before.withColumnRenamed("severe_case","severe_case_before") \
+    df_quinolone_before = df_quinolone_before.withColumnRenamed("severe_case","severe_case_before") \
                     .withColumnRenamed("formula","formula_before") \
                     .withColumnRenamed("mole_comb","mole_comb_before") \
                     .withColumnRenamed("single_or_formula","single_or_formula_before") \
@@ -115,10 +114,10 @@ def execute(**kwargs):
                     .withColumnRenamed("sales","sales_before")
     
     # 为了防止字段重复·影响操作
-    quinolone_before = quinolone_before.select("医院ID","患者ID","OUT_ID","就诊类型","severe_case_before","formula_before","mole_comb_before"
+    df_quinolone_before = df_quinolone_before.select("医院ID","患者ID","OUT_ID","就诊类型","severe_case_before","formula_before","mole_comb_before"
                                               ,"single_or_formula_before","SEQ_before","std_rx_date_before","sales_before")
     
-    quinolone_after = quinolone_after.withColumnRenamed("severe_case","severe_case_after")\
+    df_quinolone_after = df_quinolone_after.withColumnRenamed("severe_case","severe_case_after")\
                     .withColumnRenamed("formula","formula_after") \
                     .withColumnRenamed("mole_comb","mole_comb_after") \
                     .withColumnRenamed("single_or_formula","single_or_formula_after") \
@@ -131,32 +130,30 @@ def execute(**kwargs):
     # mapping_inpatients_tag <- table_2[,c(4:6,79,29:42,80,55:75,103)] %>% 
     #   distinct(患者ID, OUT_ID, .keep_all = T)
     
-    quinolone_delivery = quinolone_after.join(quinolone_before, on=["医院ID","患者ID","OUT_ID","就诊类型"], how="left")
+    df_quinolone_delivery = df_quinolone_after.join(df_quinolone_before, on=["医院ID","患者ID","OUT_ID","就诊类型"], how="left")
     
-    quinolone_delivery = quinolone_delivery.withColumn("std_dept.x",when(quinolone_delivery["标准科室"] == "重症医学科",
-                                                                         "ICU").otherwise(col("标准诊断")))
+    df_quinolone_delivery = df_quinolone_delivery.join(df_patient_tag,["医院ID","患者ID","OUT_ID","就诊类型"],"left")
     
-    quinolone_delivery = quinolone_delivery.join(patient_tag,["医院ID","患者ID","OUT_ID","就诊类型"],"left")
-    
-    logger.debug(quinolone_delivery.columns)
+    # print(quinolone_delivery.columns)
     # %%
     
     #初始头孢类换药
-    cephalosporin_before = table_4_m.filter( (col("formula").rlike('头孢菌素类') )
+    df_cephalosporin_before = df_table_4_m.filter( (col("formula").rlike('头孢菌素类') )
                                         & (col("SEQ") == "1"))
     
-    win2 = Window.partitionBy("uni_code")
-    cephalosporin_after = table_4_m.join( cephalosporin_before.select("uni_code").distinct(), on=["uni_code"], how="inner")
+    df_cephalosporin_after = df_table_4_m.join( df_cephalosporin_before.select("uni_code").distinct(), on=["uni_code"], how="inner")
     
-    cephalosporin_after = cephalosporin_after.withColumn("first_formula",  Func.lit("头孢菌素类"))\
+    win2 = Window.partitionBy("uni_code")
+    df_cephalosporin_after = df_cephalosporin_after.withColumn("first_formula",  Func.lit("头孢菌素类"))\
                                         .filter( ~( col("formula") == col("first_formula")) )\
                                         .withColumn("MIN_标准处方日期",  Func.min("标准处方日期").over(win2) )\
                                         .where(col("标准处方日期")==col("MIN_标准处方日期"))
     
-    cephalosporin_before = cephalosporin_before.join(cephalosporin_after.select("uni_code"), on="uni_code", how="inner")
-    cephalosporin_before = cephalosporin_before.drop_duplicates(["uni_code"])
+    df_cephalosporin_before = df_cephalosporin_before.join(df_cephalosporin_after.select("uni_code"), on="uni_code", how="inner")
+    df_cephalosporin_before = df_cephalosporin_before.drop_duplicates(["uni_code"])
+    
     # %%%%%%%%%%%%
-    cephalosporin_before = cephalosporin_before.withColumnRenamed("severe_case","severe_case_before") \
+    df_cephalosporin_before = df_cephalosporin_before.withColumnRenamed("severe_case","severe_case_before") \
                     .withColumnRenamed("formula","formula_before") \
                     .withColumnRenamed("mole_comb","mole_comb_before") \
                     .withColumnRenamed("single_or_formula","single_or_formula_before") \
@@ -164,10 +161,10 @@ def execute(**kwargs):
                     .withColumnRenamed("标准处方日期","std_rx_date_before") \
                     .withColumnRenamed("sales","sales_before")
     
-    cephalosporin_before = cephalosporin_before.select("医院ID","患者ID","OUT_ID","就诊类型","severe_case_before","formula_before","mole_comb_before",
+    df_cephalosporin_before = df_cephalosporin_before.select("医院ID","患者ID","OUT_ID","就诊类型","severe_case_before","formula_before","mole_comb_before",
                                                "single_or_formula_before","SEQ_before","std_rx_date_before","sales_before")
     
-    cephalosporin_after = cephalosporin_after.withColumnRenamed("severe_case","severe_case_after")\
+    df_cephalosporin_after = df_cephalosporin_after.withColumnRenamed("severe_case","severe_case_after")\
                     .withColumnRenamed("formula","formula_after") \
                     .withColumnRenamed("mole_comb","mole_comb_after") \
                     .withColumnRenamed("single_or_formula","single_or_formula_after") \
@@ -176,32 +173,44 @@ def execute(**kwargs):
                     .withColumnRenamed("sales","sales_after")
     
     # ************
-    cephalosporin_delivery = cephalosporin_after.join(cephalosporin_before,["医院ID","患者ID","OUT_ID","就诊类型"],"left")
+    df_cephalosporin_after = df_cephalosporin_after.drop_duplicates(["uni_code"])
     
-    cephalosporin_delivery = cephalosporin_delivery.withColumn("std_dept.x",when(cephalosporin_delivery["标准科室"] == "重症医学科",
+    df_cephalosporin_delivery = df_cephalosporin_after.join(df_cephalosporin_before,["医院ID","患者ID","OUT_ID","就诊类型"],"left")
+    
+    df_cephalosporin_delivery = df_cephalosporin_delivery.join(df_patient_tag,["医院ID","患者ID","OUT_ID","就诊类型"],"left")
+    
+    # print(cephalosporin_delivery.columns)
+    # %%
+    
+    # 进行判断重症医学科的操作
+    df_quinolone_delivery = df_quinolone_delivery.withColumn("std_dept.x",when(df_quinolone_delivery["标准科室"] == "重症医学科",
+                                                                         "ICU").otherwise(col("标准诊断")))
+    
+    df_cephalosporin_delivery = df_cephalosporin_delivery.withColumn("std_dept.x",when(df_cephalosporin_delivery["标准科室"] == "重症医学科",
                                                                                  "ICU").otherwise(col("标准诊断")))
-    
-    cephalosporin_delivery = cephalosporin_delivery.join(patient_tag,["医院ID","患者ID","OUT_ID","就诊类型"],"left")
-    
-    logger.debug(cephalosporin_delivery.columns)
     # %%
     # ,"hap_tag"暂时未知
-    tag_all = df_patient_analyse_std.select("就诊类型","患者ID","OUT_ID","seg1_grp1","seg1_grp2","seg2_grp1","seg3_grp1","seg3_grp2","seg3_grp3") \
-                             .drop_duplicates(c for c in patient_tag.columns if c in ["患者ID","OUT_ID","就诊类型"])
+    # 考虑对df_patient_analyse_std中的字段进行去重
+    df_patient_analyse_std = df_patient_analyse_std.drop_duplicates(c for c in df_patient_analyse_std.columns 
+                                                                      if c in ["seg1_grp1","seg1_grp2","seg2_grp1","seg3_grp1","seg3_grp2","seg3_grp3"])
     
-    tag_all = tag_all.withColumnRenamed("seg1_grp1","seg1_grp1_tag") \
+    df_tag_all = df_patient_analyse_std.select("就诊类型","患者ID","OUT_ID","seg1_grp1","seg1_grp2","seg2_grp1","seg3_grp1","seg3_grp2","seg3_grp3") \
+                             .drop_duplicates(c for c in df_patient_tag.columns if c in ["患者ID","OUT_ID","就诊类型"])
+    
+    df_tag_all = df_tag_all.withColumnRenamed("seg1_grp1","seg1_grp1_tag") \
                      .withColumnRenamed("seg1_grp2","seg1_grp2_tag") \
                      .withColumnRenamed("seg2_grp1","seg2_grp1_tag") \
                      .withColumnRenamed("seg3_grp1","seg3_grp1_tag") \
                      .withColumnRenamed("seg3_grp2","seg3_grp2_tag") \
                      .withColumnRenamed("seg3_grp3","seg3_grp3_tag")
     
-    quinolone_delivery = quinolone_delivery.join(tag_all,["患者ID","OUT_ID","就诊类型"],"left")
-    cephalosporin_delivery = cephalosporin_delivery.join(tag_all,["患者ID","OUT_ID","就诊类型"],"left")
+    df_quinolone_delivery = df_quinolone_delivery.join(df_tag_all,["患者ID","OUT_ID","就诊类型"],"left")
+    
+    df_cephalosporin_delivery = df_cephalosporin_delivery.join(df_tag_all,["患者ID","OUT_ID","就诊类型"],"left")
+    
 
     # %%
     
-    quinolone_delivery.repartition(2).write\
-            .mode("overwrite").parquet( p_quinolone_result_dir)
-    cephalosporin_delivery.repartition(2).write\
-            .mode("overwrite").parquet(p_cephalosporin_result_dir)
+    df_quinolone_delivery.repartition(2).write.mode("overwrite").parquet( p_quinolone_result_dir)
+    
+    df_cephalosporin_delivery.repartition(2).write.mode("overwrite").parquet(p_cephalosporin_result_dir)
