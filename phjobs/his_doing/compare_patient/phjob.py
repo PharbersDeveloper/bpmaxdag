@@ -191,22 +191,22 @@ def execute(**kwargs):
     # %%
     # ,"hap_tag"暂时未知
     # 考虑对df_patient_analyse_std中的字段进行去重
-    df_patient_analyse_std = df_patient_analyse_std.drop_duplicates(c for c in df_patient_analyse_std.columns 
-                                                                      if c in ["seg1_grp1","seg1_grp2","seg2_grp1","seg3_grp1","seg3_grp2","seg3_grp3"])
+    # df_patient_analyse_std = df_patient_analyse_std.drop_duplicates(c for c in df_patient_analyse_std.columns 
+    #                                                                   if c in ["seg1_grp1","seg1_grp2","seg2_grp1","seg3_grp1","seg3_grp2","seg3_grp3"])
     
-    df_tag_all = df_patient_analyse_std.select("就诊类型","患者ID","OUT_ID","seg1_grp1","seg1_grp2","seg2_grp1","seg3_grp1","seg3_grp2","seg3_grp3") \
-                             .drop_duplicates(c for c in df_patient_tag.columns if c in ["患者ID","OUT_ID","就诊类型"])
+    # df_tag_all = df_patient_analyse_std.select("就诊类型","患者ID","OUT_ID","seg1_grp1","seg1_grp2","seg2_grp1","seg3_grp1","seg3_grp2","seg3_grp3") \
+    #                          .drop_duplicates(c for c in df_patient_tag.columns if c in ["患者ID","OUT_ID","就诊类型"])
     
-    df_tag_all = df_tag_all.withColumnRenamed("seg1_grp1","seg1_grp1_tag") \
-                     .withColumnRenamed("seg1_grp2","seg1_grp2_tag") \
-                     .withColumnRenamed("seg2_grp1","seg2_grp1_tag") \
-                     .withColumnRenamed("seg3_grp1","seg3_grp1_tag") \
-                     .withColumnRenamed("seg3_grp2","seg3_grp2_tag") \
-                     .withColumnRenamed("seg3_grp3","seg3_grp3_tag")
+    # df_tag_all = df_tag_all.withColumnRenamed("seg1_grp1","seg1_grp1_tag") \
+    #                  .withColumnRenamed("seg1_grp2","seg1_grp2_tag") \
+    #                  .withColumnRenamed("seg2_grp1","seg2_grp1_tag") \
+    #                  .withColumnRenamed("seg3_grp1","seg3_grp1_tag") \
+    #                  .withColumnRenamed("seg3_grp2","seg3_grp2_tag") \
+    #                  .withColumnRenamed("seg3_grp3","seg3_grp3_tag")
     
-    df_quinolone_delivery = df_quinolone_delivery.join(df_tag_all,["患者ID","OUT_ID","就诊类型"],"left")
+    # df_quinolone_delivery = df_quinolone_delivery.join(df_tag_all,["患者ID","OUT_ID","就诊类型"],"left")
     
-    df_cephalosporin_delivery = df_cephalosporin_delivery.join(df_tag_all,["患者ID","OUT_ID","就诊类型"],"left")
+    # df_cephalosporin_delivery = df_cephalosporin_delivery.join(df_tag_all,["患者ID","OUT_ID","就诊类型"],"left")
     
 
     # %%
