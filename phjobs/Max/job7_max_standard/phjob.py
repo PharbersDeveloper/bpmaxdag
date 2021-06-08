@@ -31,8 +31,8 @@ def execute(**kwargs):
     from pyspark.sql import functions as func
     import os
     from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col    # %%
-    project_name = '贝达'
-    out_dir = '202012'
+    # project_name = '贝达'
+    # out_dir = '202012'
     # %%
     # max_path = "s3a://ph-max-auto/v0.0.1-2020-06-08/"
     # extract_path = "s3a://ph-stream/common/public/max_result/0.0.5/"
