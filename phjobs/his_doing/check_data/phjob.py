@@ -43,8 +43,8 @@ def execute(**kwargs):
     # spark = SparkSession.builder \
     #     .master("yarn") \
     #     .appName("sshe write new_project in jupyter using python3") \
-    #     .config('spark.sql.codegen.wholeStage', False) \
-    #     .config('spark.sql.execution.arrow.pyspark.enabled', True) \
+    #     .config("spark.sql.codegen.wholeStage", False) \
+    #     .config("spark.sql.execution.arrow.pyspark.enabled", True) \
     #     .config("spark.driver.cores", "1") \
     #     .config("spark.driver.memory", "4g") \
     #     .config("spark.executor.cores", "1") \
@@ -91,9 +91,9 @@ def execute(**kwargs):
     ## 读取检测数据
     df_raw_detection = spark.read.csv(p_detection, header=True)
     
-    df_raw_detection = df_raw_detection.select([ 'PATIENT_ID', 'VISIT_ID', 'ITEM_NAME', 'SUBJECT', 'REPORT_ITEM_NAME', 
-                                                'RESULT', 'UNITS', 'ABNORMAL_INDICATOR', 'REQUESTED_DATE_TIME', 
-                                                'RESULTS_RPT_DATE_TIME', 'DEPT_NAME'])
+    df_raw_detection = df_raw_detection.select([ "PATIENT_ID", "VISIT_ID", "ITEM_NAME", "SUBJECT", "REPORT_ITEM_NAME", 
+                                                "RESULT", "UNITS", "ABNORMAL_INDICATOR", "REQUESTED_DATE_TIME", 
+                                                "RESULTS_RPT_DATE_TIME", "DEPT_NAME"])
     
     df_raw_detection = df_raw_detection.withColumn("VISIT_ID", Func.col("VISIT_ID").cast("int"))\
                                         .withColumnRenamed("PATIENT_ID", "患者ID") \
@@ -108,10 +108,10 @@ def execute(**kwargs):
     
     df_raw_patient = spark.read.csv( p_patient, header=True)
     
-    old_col = ['省份', '城市', '医院等级', '就诊类型', '医院ID', '患者ID', '就诊序号', 
-            '处方日期', '入院时间', '出院时间', '年龄', 
-            '性别', '医保类型', '诊断', '科室', 
-            '药品名称', '规格', '剂型', '厂家', '金额', '数量', '数量单位']
+    old_col = ["省份", "城市", "医院等级", "就诊类型", "医院ID", "患者ID", "就诊序号", 
+            "处方日期", "入院时间", "出院时间", "年龄", 
+            "性别", "医保类型", "诊断", "科室", 
+            "药品名称", "规格", "剂型", "厂家", "金额", "数量", "数量单位"]
     new_col = ["PROVINCE", "CITY", "HOSP_LEVEL", "TREAMENT_TYPE", "HOSP_ID", "PATIENT_ID", "VISIT_ID",
               "PRESCRIPTION_DATE", "ADMISSION_DATE" , "DISCHARGE_DATE",  "AGE", 
              "GENDER", "HIS_TYPE", "DIAGNOISE", "DEPT_NAME",
@@ -184,7 +184,7 @@ def execute(**kwargs):
         df_last = df_all_count.union(df_null_sample_num).union(df_missing_rate)
         
         if save_result==True:
-            df_last.repartition( g_partition_num ).write.mode("overwrite").csv(p_full_result, sep=',', header="true", encoding="utf-8")
+            df_last.repartition( g_partition_num ).write.mode("overwrite").csv(p_full_result, sep=",", header="true", encoding="utf-8")
         
             logger.debug("保存结果:  初查1-数据完整性")
     
@@ -205,63 +205,63 @@ def execute(**kwargs):
         # 处理读入的字符为空的情况
         if x==None:
             return "null"
-        elif re.findall( r'.*(莫西沙星).*', x):
+        elif re.findall( r".*(莫西沙星).*", x):
             new_name = "莫西沙星"
-        elif re.findall( r'.*(左氧氟沙星).*', x):
+        elif re.findall( r".*(左氧氟沙星).*", x):
             new_name = "左氧氟沙星"
-        elif re.findall( r'.*(头孢曲松).*', x):
+        elif re.findall( r".*(头孢曲松).*", x):
             new_name = "头孢曲松"
-        elif re.findall( r'.*(阿奇霉素).*', x):
+        elif re.findall( r".*(阿奇霉素).*", x):
             new_name = "阿奇霉素"
-        elif re.findall( r'.*(多西环素).*', x):
+        elif re.findall( r".*(多西环素).*", x):
             new_name = "多西环素"
-        elif re.findall( r'.*(米诺环素).*', x):
+        elif re.findall( r".*(米诺环素).*", x):
             new_name = "米诺环素"
-        elif (re.findall( r'.*(他唑巴坦|他唑邦坦|三唑巴坦|他唑巴).*', x)!=list()) \
-                & ( re.findall( r'.*(哌拉西林).*', x)!=list() ):
+        elif (re.findall( r".*(他唑巴坦|他唑邦坦|三唑巴坦|他唑巴).*", x)!=list()) \
+                & ( re.findall( r".*(哌拉西林).*", x)!=list() ):
             new_name = "哌拉西林他唑巴坦纳"
-        elif ( re.findall( r'.*(哌拉西林).*', x)!=list() )\
-                & ( re.findall( r'.*(舒巴坦).*', x)!=list() ):
+        elif ( re.findall( r".*(哌拉西林).*", x)!=list() )\
+                & ( re.findall( r".*(舒巴坦).*", x)!=list() ):
             new_name = "哌拉西林舒巴坦纳"
-        elif re.findall( r'.*(哌拉西林).*', x):
+        elif re.findall( r".*(哌拉西林).*", x):
             new_name = "哌拉西林纳"
-        elif ( re.findall( r'.*(头孢哌酮).*', x)!=list() )\
-                & ( re.findall( r'.*(舒巴坦).*', x)!=list() ):
+        elif ( re.findall( r".*(头孢哌酮).*", x)!=list() )\
+                & ( re.findall( r".*(舒巴坦).*", x)!=list() ):
             new_name = "头孢哌酮钠舒巴坦钠"
-        elif ( re.findall( r'.*(头孢哌酮).*', x)!=list() )\
-                & ( re.findall( r'.*(他唑巴坦).*', x)!=list() ):
+        elif ( re.findall( r".*(头孢哌酮).*", x)!=list() )\
+                & ( re.findall( r".*(他唑巴坦).*", x)!=list() ):
             new_name = "头孢哌酮钠他唑巴坦钠"
-        elif re.findall( r'.*(头孢哌酮).*', x):
+        elif re.findall( r".*(头孢哌酮).*", x):
             new_name = "头孢哌酮钠"
-        elif ( re.findall( r'.*(美洛西林).*', x)!=list() )\
-                & ( re.findall( r'.*(舒巴坦).*', x)!=list() ):
+        elif ( re.findall( r".*(美洛西林).*", x)!=list() )\
+                & ( re.findall( r".*(舒巴坦).*", x)!=list() ):
             new_name = "美洛西林钠舒巴坦钠"
-        elif re.findall( r'.*(美洛西林).*', x):
+        elif re.findall( r".*(美洛西林).*", x):
             new_name = "美洛西林钠"
-        elif re.findall( r'.*(依替米星).*', x):
+        elif re.findall( r".*(依替米星).*", x):
             new_name = "依替米星"
-        elif re.findall( r'.*(头孢米诺).*', x):
+        elif re.findall( r".*(头孢米诺).*", x):
             new_name = "头孢米诺"
-        elif re.findall( r'.*(替加环素).*', x):
+        elif re.findall( r".*(替加环素).*", x):
             new_name = "替加环素"
-        elif re.findall( r'.*(头孢西丁).*', x):
+        elif re.findall( r".*(头孢西丁).*", x):
             new_name = "头孢西丁"
-        elif re.findall( r'.*(头孢他啶).*', x):
+        elif re.findall( r".*(头孢他啶).*", x):
             new_name = "头孢他啶"
-        elif re.findall( r'.*(厄他培南).*', x):
+        elif re.findall( r".*(厄他培南).*", x):
             new_name = "厄他培南"
-        elif re.findall( r'.*(利奈唑胺).*', x):
+        elif re.findall( r".*(利奈唑胺).*", x):
             new_name = "利奈唑胺"    
-        elif re.findall( r'.*(万古霉素).*', x):
+        elif re.findall( r".*(万古霉素).*", x):
             new_name = "万古霉素"
-        elif ( re.findall( r'.*(头孢噻肟).*', x)!=list()) & \
-                ( re.findall( r'.*(舒巴坦).*', x)!=list()):
+        elif ( re.findall( r".*(头孢噻肟).*", x)!=list()) & \
+                ( re.findall( r".*(舒巴坦).*", x)!=list()):
             new_name = "头孢噻肟舒巴坦钠"
-        elif re.findall( r'.*(头孢噻肟).*', x):
+        elif re.findall( r".*(头孢噻肟).*", x):
             new_name = "头孢噻肟钠"
-        elif re.findall( r'.*(拉氧头孢).*', x):
+        elif re.findall( r".*(拉氧头孢).*", x):
             new_name = "拉氧头孢"
-        elif re.findall( r'.*(环丙沙星).*', x):
+        elif re.findall( r".*(环丙沙星).*", x):
             new_name = "环丙沙星"
         else:
             new_name ="null"
@@ -286,7 +286,7 @@ def execute(**kwargs):
         # 转换是为了避免字段类不匹配，统一将数据转换为string类型，如果保证数据类型完全一致，可以省略该句
         df = df.select(*[col(_).astype("string") for _ in df.columns])
         cols = [_ for _ in df.columns if _ not in keys]
-        stack_str = ','.join(map(lambda x: "'%s', `%s`" % (x, x), cols))
+        stack_str = ",".join(map(lambda x: "'%s', `%s`" % (x, x), cols))
         # feature, value 转换后的列名，可自定义
         df = df.selectExpr(*keys, "stack(%s, %s) as (feature, value)" % (len(cols), stack_str))
         return df
@@ -348,12 +348,12 @@ def execute(**kwargs):
             df_outpatient =  df_outpatient.select(["医院ID", "就诊类型", "年月","标准分子名称", "总条目数", "药品层面总金额", 
                                "金额占比", "药品层面总数量", "数量占比"])
             
-            df_outpatient.repartition(g_partition_num).write.mode("overwrite").csv(p_outpatient_check_result_file, sep=',', header="true", encoding="utf-8")
+            df_outpatient.repartition(g_partition_num).write.mode("overwrite").csv(p_outpatient_check_result_file, sep=",", header="true", encoding="utf-8")
             
             df_hospitalized =  df_hospitalized.select(["医院ID", "就诊类型", "年月","标准分子名称", "总条目数", "药品层面总金额", 
                                "金额占比", "药品层面总数量", "数量占比"])
     
-            df_hospitalized.repartition(g_partition_num).write.mode("overwrite").csv(p_hospitalized_check_result_file, sep=',', header="true", encoding="utf-8")
+            df_hospitalized.repartition(g_partition_num).write.mode("overwrite").csv(p_hospitalized_check_result_file, sep=",", header="true", encoding="utf-8")
             
             logger.debug("保存结果:  分子层面比对")
     
@@ -364,9 +364,9 @@ def execute(**kwargs):
     ## 初查-3-4  医院数据连续性和稳定性 和 门诊住院比例 
     def checkThreeFour(df_patient, save_result=False):
         
-        df_patient = df_patient.select(['省份', '城市', '医院等级', '就诊类型', '医院ID', '患者ID', '就诊序号', '处方日期', 
-                                   '入院时间', '出院时间', "年月",'年龄', '性别', '医保类型', '诊断', '科室', '药品名称', '规格', 
-                                   '剂型', '厂家', '金额', '数量', '数量单位' ])
+        df_patient = df_patient.select(["省份", "城市", "医院等级", "就诊类型", "医院ID", "患者ID", "就诊序号", "处方日期", 
+                                   "入院时间", "出院时间", "年月","年龄", "性别", "医保类型", "诊断", "科室", "药品名称", "规格", 
+                                   "剂型", "厂家", "金额", "数量", "数量单位" ])
             
         # 医院数据连续性和稳定性
         df_patient = df_patient.withColumn("门诊",when(col("就诊类型") == "门诊",1))\
@@ -393,13 +393,13 @@ def execute(**kwargs):
         
         if save_result==True:
             
-            df_sample_table.repartition(g_partition_num).write.mode("overwrite").csv(p_check_number, sep=',', header="true", encoding="utf-8")
+            df_sample_table.repartition(g_partition_num).write.mode("overwrite").csv(p_check_number, sep=",", header="true", encoding="utf-8")
             
-            df_peopel_num_table.repartition(g_partition_num).write.mode("overwrite").csv(p_check_all_people, sep=',', header="true", encoding="utf-8")
+            df_peopel_num_table.repartition(g_partition_num).write.mode("overwrite").csv(p_check_all_people, sep=",", header="true", encoding="utf-8")
     
-            df_money_table.repartition(g_partition_num).write.mode("overwrite").csv(p_check_money, sep=',', header="true", encoding="utf-8")
+            df_money_table.repartition(g_partition_num).write.mode("overwrite").csv(p_check_money, sep=",", header="true", encoding="utf-8")
     
-            df_proportion.repartition(g_partition_num).write.mode("overwrite").csv(p_check_hospital_rate, sep=',', header="true", encoding="utf-8")
+            df_proportion.repartition(g_partition_num).write.mode("overwrite").csv(p_check_hospital_rate, sep=",", header="true", encoding="utf-8")
             
             logger.debug("保存结果: 医院数据连续性和稳定性 和 门诊住院比例")
     
