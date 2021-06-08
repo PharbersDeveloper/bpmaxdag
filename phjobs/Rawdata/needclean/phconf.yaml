@@ -17,22 +17,22 @@ spec:
     config: phconf.yaml
     args:
       - key: max_path
-        value: s3a://ph-max-auto/v0.0.1-2020-06-08/
+        value: 's3://ph-max-auto/v0.0.1-2020-06-08/'
       - key: project_name
-        value: Empty
+        value: 'Empty'
       - key: outdir
-        value: Empty
+        value: 'Empty'
       - key: minimum_product_sep
         value: '|'
       - key: minimum_product_columns
-        value: Brand, Form, Specifications, Pack_Number, Manufacturer
+        value: 'Brand, Form, Specifications, Pack_Number, Manufacturer'
       - key: test
-        value: False
+        value: 'False'
     outputs:
       - key: c
-        value: abc
+        value: 'abc'
       - key: d
-        value: def
+        value: 'def'
 
 
 

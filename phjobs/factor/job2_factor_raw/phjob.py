@@ -29,22 +29,26 @@ def execute(**kwargs):
     d = kwargs['d']
     ### output args ###
 
+    
+    
     from pyspark.sql import SparkSession, Window
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
     import os
     from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col
     import time
-    import re    # %%
-    '''
-    project_name = 'Sanofi'
-    outdir = '202012'
-    model_month_right = '202012'
-    model_month_left = '202001'
-    all_models = 'SNY15,SNY16,SNY17'
-    max_file = 'MAX_result_201801_202012_city_levelh'
-    '''
+    import re        # %%
+    
+    # project_name = 'Sanofi'
+    # outdir = '202012'
+    # model_month_right = '202012'
+    # model_month_left = '202001'
+    # all_models = 'SNY15,SNY16,SNY17'
+    # max_file = 'MAX_result_201801_202012_city_level'
+    
+
     # %%
+    # 输出
     model_month_right = int(model_month_right)
     model_month_left = int(model_month_left)
     all_models = all_models.replace(' ','').split(',')
@@ -53,6 +57,7 @@ def execute(**kwargs):
     universe_path = max_path + '/' + project_name + '/universe_base'
     max_result_path = max_path + '/' + project_name + '/' + outdir + '/MAX_result/' + max_file
     #panel_result_path = max_path + '/' + project_name + '/' + outdir + '/panel_result'
+
     # %%
     # =========== 数据执行 ============
     logger.debug("job2_factor_raw")
@@ -128,3 +133,4 @@ def execute(**kwargs):
     
         
         logger.debug("finish:" + str(market))
+

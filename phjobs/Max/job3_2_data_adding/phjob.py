@@ -37,12 +37,15 @@ def execute(**kwargs):
     d = kwargs['d']
     ### output args ###
 
+    
+    
     import pandas as pd
     import os
     from pyspark.sql import SparkSession
     from pyspark.sql.types import StringType, IntegerType, DoubleType
     from pyspark.sql import functions as func
-    from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col        # %%
+    from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col        
+    # %%
     # 测试用
     # project_name = "Gilead"
     # model_month_right = "201912"
@@ -51,7 +54,6 @@ def execute(**kwargs):
     # monthly_update = "True"
     # out_dir = "202101"
     # current_year = '2021'
-
     # %%
     logger.debug('job3_data_adding')
     
@@ -452,7 +454,7 @@ def execute(**kwargs):
             # 只在最新一年出现的医院
             new_hospital = (original_range.where(original_range.Year == max(years)).select("PHA").distinct()) \
                 .subtract(original_range.where(original_range.Year != max(years)).select("PHA").distinct())
-            logger.debug("以下是最新一年出现的医院:" + str(new_hospital.toPandas()["PHA"].tolist()))
+            # print("以下是最新一年出现的医院:" + str(new_hospital.toPandas()["PHA"].tolist()))
             # 输出
             new_hospital = new_hospital.repartition(2)
             new_hospital.write.format("parquet") \

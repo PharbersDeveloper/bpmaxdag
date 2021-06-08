@@ -35,13 +35,14 @@ def execute(**kwargs):
     d = kwargs['d']
     ### output args ###
 
+    
+    
     from pyspark.sql import SparkSession
     from pyspark.sql.types import StringType, IntegerType, DoubleType
     from pyspark.sql import functions as func
-    import os    # %%
+    import os    
+    # %%
     '''
-    max_path = 's3a://ph-max-auto/v0.0.1-2020-06-08/'
-    out_path = 's3a://ph-max-auto/v0.0.1-2020-06-08/'
     project_name = '汇宇'
     if_base = 'False'
     time_left = '202001'
@@ -103,6 +104,7 @@ def execute(**kwargs):
     PHA_weight = PHA_weight.select('Province', 'City', 'DOI', 'Weight', 'PHA')
     PHA_weight = PHA_weight.withColumnRenamed('Province', 'Province_w') \
                             .withColumnRenamed('City', 'City_w')
+
     # %%
     out_path = out_path_dir + "/max_check/check_lu"
     out_csv_path = out_path_dir + "/max_check/check_lu.csv"
@@ -146,7 +148,7 @@ def execute(**kwargs):
     
         # =========== 数据执行 =============
     
-        #logger.info('数据执行-start')
+        #print('数据执行-start')
     
         # 选择 market 的时间范围：choose_months
         time_left_raw = time_parameters[0]
@@ -279,8 +281,10 @@ def execute(**kwargs):
         else:
             out.write.format("parquet") \
                 .mode("append").save(out_path)
+
     # %%
     out_csv = spark.read.parquet(out_path)
     out_csv = out_csv.repartition(1)
     out_csv.write.format("csv").option("header", "true") \
         .mode("overwrite").save(out_csv_path)
+

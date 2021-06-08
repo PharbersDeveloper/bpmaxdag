@@ -30,6 +30,8 @@ def execute(**kwargs):
     d = kwargs['d']
     ### output args ###
 
+    
+    
     from pyspark.sql import SparkSession, Window
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
@@ -56,6 +58,7 @@ def execute(**kwargs):
     rf_ntree = '500'
     rf_minnode = '5'
     '''
+
     # %%
     rf_minnode = int(rf_minnode)
     rf_ntree = int(rf_ntree)
@@ -79,6 +82,7 @@ def execute(**kwargs):
     raw_data_path = max_path + '/' + project_name + '/' + outdir + '/raw_data'
     #raw_data_path = 's3a://ph-max-auto/v0.0.1-2020-06-08/Test/Eisai/raw_data.csv'
     product_map_path = max_path + '/' + project_name + '/' + outdir + '/prod_mapping'
+
     # %%
     # =======  数据执行  ============
     
@@ -137,6 +141,7 @@ def execute(**kwargs):
     rawdata = rawdata.where((col('Date') >= model_month_left) & (col('Date') <= model_month_right))
     rawdata = rawdata.join(molecule_mkt_map, on='Molecule', how='left') \
                         .join(hosp_mapping, on='ID', how='left').persist()
+
     # %%
     # 2. == 每个市场进行 randomForest 分析 ==
     
@@ -371,3 +376,4 @@ def execute(**kwargs):
                 .mode("overwrite").save(df_nmse_path)
     
         '''
+
