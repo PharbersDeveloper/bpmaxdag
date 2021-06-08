@@ -22,6 +22,8 @@ spec:
         value: '["max_city#max_city_result#max_city_result"]'
       - key: g_max_path
         value: 's3a://ph-max-auto/v0.0.1-2020-06-08/'
+      - key: g_base_path
+        value: 's3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX'
       - key: g_out_dir
         value: 'Empty'
       - key: g_year
