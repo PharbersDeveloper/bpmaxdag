@@ -31,10 +31,10 @@ def execute(**kwargs):
     from typing import Iterator
     
     import pandas as pd
-    import re    # %%
+    import re    
+    # %%
     
     ## 参数化文件读入
-
     # %%
     ## ====== 输入文件和输出文件 ======
     
@@ -50,10 +50,12 @@ def execute(**kwargs):
     
     # 输出文件
     p_patient_analyse_out = p_main_dir+"HIS_result/" + "analyse_data_result"
+
     # %%
     
     ## 读取处方表
     df_patient_correlation_std = spark.read.parquet(p_patient_correlation_out)
+
     # %%
     
     
@@ -106,14 +108,15 @@ def execute(**kwargs):
     df_data_f = df_data_f.withColumnRenamed("RX_DATE_STD", "标准处方日期" )
     
     # 和处方数据进行匹配
-    df_patient_std_1 = df_patient_correlation_std.join(df_data_f, on=["医院ID", "就诊类型", "患者ID", "OUT_ID", "标准处方日期"], how="left" )\
+    df_patient_analyse_std = df_patient_correlation_std.join(df_data_f, on=["医院ID", "就诊类型", "患者ID", "OUT_ID", "标准处方日期"], how="left" )\
                                             .withColumn("single_or_formula", Func.when( col("formula").rlike("\+")
                                                                 ,"联用").otherwise("单药") )
-    df_patient_std_1 = df_patient_std_1.withColumn("single_or_formula", Func.when( col("formula").isin(
+    df_patient_analyse_std = df_patient_analyse_std.withColumn("single_or_formula", Func.when( col("formula").isin(
                                                                     ['头孢菌素类+头孢菌素类','青霉素类+青霉素类','其他抗生素+其他抗生素',
                                                                        '头孢菌素酶抑制剂+头孢菌素酶抑制剂','四环素类+四环素类',
                                                                        '氨基糖甙+氨基糖甙','氟喹诺酮+氟喹诺酮']
                                                                 ),"单药").otherwise( col("single_or_formula") ) )
+
     # %%
     
     # 院内感染患者
@@ -144,7 +147,10 @@ def execute(**kwargs):
     
     df_patient_std_pha.show(1, vertical=True)
     # print(df_patient_std_pha.count())
+
     # %%
     
     # 保存结果
-
+    df_patient_analyse_std = df_patient_analyse_std.repartition(2)
+    df_patient_analyse_std.write.format("parquet") \
+        .mode("overwrite").save(p_patient_analyse_out)
