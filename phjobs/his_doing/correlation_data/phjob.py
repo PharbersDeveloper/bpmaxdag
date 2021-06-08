@@ -21,6 +21,8 @@ def execute(**kwargs):
     g_out_parameter = kwargs['g_out_parameter']
     ### output args ###
 
+    
+    
     from pyspark.sql.types import IntegerType, DoubleType, StringType, StructType, StructType
     from pyspark.sql.functions import col, date_format, count, isnull, lit
     from pyspark.sql.functions import when, isnan, udf, pandas_udf, PandasUDFType
@@ -31,7 +33,8 @@ def execute(**kwargs):
     from typing import Iterator
     
     import pandas as pd
-    import re    # %%
+    import re    
+    # %%
     
     ## 参数化文件读入
     # %%
@@ -55,6 +58,7 @@ def execute(**kwargs):
     
     # 输出文件
     p_patient_std_correlation_out = p_main_dir+"HIS_result/" + "correlation_data_result"
+
     # %%
     
     ## 读取清洗后的处方数据
@@ -74,6 +78,7 @@ def execute(**kwargs):
                                         .withColumn("REQUESTED_DATE_TIME_STD",  date_format("REQUESTED_DATE_TIME", "yyyyMMdd")) \
                                         .withColumn("RESULTS_RPT_DATE_TIME_STD", date_format("RESULTS_RPT_DATE_TIME", "yyyyMMdd")) 
     # df_raw_detection.where( df_raw_detection["VISIT_ID"].isNull() ).count()
+
     # %%
     
     ##将数据标注区分 检测前 和 检测后
@@ -131,6 +136,7 @@ def execute(**kwargs):
     # df_patient_target.show(2, vertical=True)
     # df_patient_with_target.show(2, vertical=True)
     # print(df_patient_target.columns)
+
     # %%
     
     # 2. 分子类别匹配
@@ -166,11 +172,14 @@ def execute(**kwargs):
     df_patient_std_3 = df_patient_std_3.withColumn("混合感染", Func.when( ( col("肺炎支原体").contains("阳") )| \
                                                                (col("肺炎衣原体").contains("阳"))| (col("嗜肺军团菌").contains("阳")), \
                                                                   col("混合感染")+10 ).otherwise( col("混合感染") )  )  
-    # df_patient_with_target_.show(1, vertical=True)
     
-    # p_out_id_mapping = p_mapping_file+"门诊诊疗周期.csv"
-    # df_out_id_mapping = spark.read.csv(p_out_id_mapping, header=True)
-    # df_out_id_mapping.show(1)
+    
+    str_case = '严重感染|重型感染|重度肺炎|重型肺炎|重度呼吸|重度上呼吸|重型呼吸|'+\
+         '重型上呼吸|重症肺炎|严重肺炎|重症呼吸|重症上呼吸|重度感染|重症感染|'+\
+         '高危感染|危重感染|感染\\（重|感染\\（中重|感染\\（高|感染\\（危|炎\\（重|炎\\（中重|炎\\（高|'+\
+         '炎\\（危|感染\\(重|感染\\(中重|感染\\(高|感染\\(危|炎\\(重|炎\\(中重|炎\\(高|炎\\(危'
+    
+    df_patient_std_3 = df_patient_std_3.withColumn("severe_case",Func.when( col("诊断").rlike( str_case),"Y").otherwise("N"))
     # %%
     
     ## 4. OUT_ID 匹配
@@ -192,6 +201,7 @@ def execute(**kwargs):
     df_tag_out_id = df_tag_out_id.withColumn( "OUT_ID", when( col("OUT_ID").isNull() ,df_tag_out_id["就诊序号"]) \
                                                         .otherwise( col("OUT_ID") ) )
     #################################################            
+
     # %%
     
     ## 5. 筛选研究范围
