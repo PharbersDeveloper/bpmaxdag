@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # BPBatchDAG
 Blackmirro and Pharbers Batch DAG
 
@@ -15,3 +16,6 @@ generate_runId >> metacube >> extract_data >> cleanextractdata >> lattices >> bu
 {"version":"2020-08-11","time_left":"201801","time_right":"201912","start":"201801","end":"201912"}
 
 其他 job 开始的 trigger_conf 请结合具体代码或参考 dag 文件夹下的 trigger_conf 文件。
+=======
+# BP_Max_AutoJob
+>>>>>>> Max_old/ywyuan

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 .idea/
 .venv/
 __pycache__/
@@ -9,3 +10,18 @@ dags/*
 phjobs/temp/*
 phjobs/new_data_matching/*
 phjobs/functional_tools/*
+=======
+
+*.pyc
+*.iml
+.idea
+.ipynb_checkpoints/
+phjobs/example
+phdags/*
+phcombines/*
+
+
+build
+dist
+phMaxJobs.egg-info
+>>>>>>> Max_old/ywyuan
