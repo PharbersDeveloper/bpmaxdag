@@ -15,12 +15,15 @@ def execute(**kwargs):
     
     ### input args ###
     g_input_paramater = kwargs['g_input_paramater']
+    g_partition_num = kwargs['g_partition_num']
     ### input args ###
     
     ### output args ###
     g_out_parameter = kwargs['g_out_parameter']
     ### output args ###
 
+    
+    
     from pyspark.sql.types import IntegerType, DoubleType, StringType, StructType
     from pyspark.sql.functions import col, date_format, count, isnull
     from pyspark.sql.functions import when, isnan, udf, pandas_udf, PandasUDFType
@@ -31,7 +34,8 @@ def execute(**kwargs):
     
     import pandas
     import pandas as pd
-    import re    # %%
+    import re    
+    # %%
     
     # ## 老方式连接集群,之后会取消
     # from pyspark.sql import SparkSession
@@ -60,11 +64,23 @@ def execute(**kwargs):
     p_main_dir = "s3://ph-origin-files/user/zazhao/2020年结果-csv/"
     p_patient = p_main_dir + "病人"
     p_detection = p_main_dir + "检测"
-    p_data_summary = p_main_dir+"条目数汇总表-2020.csv"
+    p_data_summary = p_main_dir +"条目数汇总表-2020.csv"
     
-    p_out_main_dir = p_main_dir+"HIS_result/"
-    p_check_result = p_out_main_dir+"check_result/"
+    p_out_main_dir = p_main_dir + "HIS_result/"
+    p_check_result = p_out_main_dir + "check_result/"
+    
+    # check文件输出
+    p_full_result =  p_check_result + "初查表-1-数据完整性"
+    p_hospitalized_check_result_file = p_check_result + "初查表-2-住院"
+    p_outpatient_check_result_file + p_check_result + "初查表-2-门诊"
+    p_check_number = p_check_result+"初查表-3-条目数"
+    p_check_all_people =  p_check_result+"初查表-3-总人次"
+    p_check_money =  p_check_result+"初查表-3-金额"
+    p_check_hospital_rate =  p_check_result+"初查表-4-住院比例"
+    
+    # 初清洗的病人数据
     p_patient_simple_clean_out = p_out_main_dir + "patient_simple_clean_out"
+
     # %% 
     
     ## 读取条目数汇总 
@@ -85,6 +101,7 @@ def execute(**kwargs):
                                         .withColumn("REQUESTED_DATE_TIME_STD",  date_format("REQUESTED_DATE_TIME", "yyyyMMdd")) \
                                         .withColumn("RESULTS_RPT_DATE_TIME_STD", date_format("RESULTS_RPT_DATE_TIME", "yyyyMMdd")) 
     # df_raw_detection.where( df_raw_detection["VISIT_ID"].isNull() ).count()
+
     # %%
     
     ## 读取病人数据
@@ -128,6 +145,7 @@ def execute(**kwargs):
     ## 年龄转换成数字
     df_raw_patient = df_raw_patient.withColumn("年龄", col("年龄").cast("int"))\
                         .withColumn("就诊序号", col("就诊序号").cast("int"))
+
     # %%
     
     ## 数据条目比较
@@ -138,39 +156,40 @@ def execute(**kwargs):
     # df_summary_sample.show()
     
     # df_raw_detection.show(1, vertical=True)
+
     # %%
     
     ## 初查1-数据完整性
-    def checkOne(data_patient, save_result=False):
+    def checkOne(df_data_patient, save_result=False):
         
         #### 计算 check-1
         # 统计存在空的字段
-        null_sample_num =  data_patient.select([ Func.count( when(  Func.isnull(c)| col(c).isNull(), c ) ).alias(c) 
-                                                for c in data_patient.columns])
-    #     null_sample_num.show(1, vertical=True)
+        df_null_sample_num =  df_data_patient.select([ Func.count( when(  Func.isnull(c)| col(c).isNull(), c ) ).alias(c) 
+                                                for c in df_data_patient.columns])
+        #df_null_sample_num.show(1, vertical=True)
     
-        # all_count = data_patient.select([col(c).count().alias(c) for c in data_patient.columns])
+        # df_all_count = df_data_patient.select([col(c).count().alias(c) for c in df_data_patient.columns])
         
         # 统计非空的字段 
-        all_count = data_patient.select([Func.count(c).alias(c) for c in data_patient.columns])
-    #     all_count.show(1, vertical=True)
+        df_all_count = df_data_patient.select([Func.count(c).alias(c) for c in df_data_patient.columns])
+    
         
         # 总的字段数
-        cc = data_patient.count()
+        samp_num = df_data_patient.count()
         
         # 空缺率
-        dd = null_sample_num.select( list(map( lambda x: (null_sample_num[x]/cc*100).alias(x),  null_sample_num.columns)))
-    #     dd.show(1,vertical=True)
+        df_missing_rate = df_null_sample_num.select( list(map( lambda x: (df_null_sample_num[x]/samp_num*100).alias(x),  df_null_sample_num.columns)))
     
-        last = all_count.union(null_sample_num).union(dd)
+    
+        df_last = df_all_count.union(df_null_sample_num).union(df_missing_rate)
         
         if save_result==True:
-            output_file=  p_check_result + "初查表-1-数据完整性"
-            last.repartition(1).write.mode("overwrite").csv(output_file, sep=',', header="true", encoding="utf-8")
+            df_last.repartition( g_partition_num ).write.mode("overwrite").csv(p_full_result, sep=',', header="true", encoding="utf-8")
         
             logger.debug("保存结果:  初查1-数据完整性")
     
-    checkOne(data_patient= df_raw_patient, save_result=True)
+    checkOne(df_data_patient= df_raw_patient, save_result=True)
+
     # %%
     
     ## 初查-2分子层面对比
@@ -178,7 +197,7 @@ def execute(**kwargs):
     
     
     @pandas_udf("string", PandasUDFType.SCALAR)
-    def change(iterator: Iterator[pd.Series]) -> Iterator[pd.Series]:
+    def pudf_change(iterator: Iterator[pd.Series]) -> Iterator[pd.Series]:
         new_iter = iterator.apply( lambda x: changeSpecification(x) )
         return new_iter
     
@@ -249,10 +268,11 @@ def execute(**kwargs):
         return new_name
     
     
-    df_raw_patient = df_raw_patient.withColumn("标准分子名称", change( Func.col("药品名称") ) ) 
+    df_raw_patient = df_raw_patient.withColumn("标准分子名称", pudf_change( Func.col("药品名称") ) ) 
     
     # data_patient.persist()
     # df_raw_patient.show(1, vertical=True)
+
     # %%
     
     ## 分子层面比对
@@ -271,7 +291,7 @@ def execute(**kwargs):
         df = df.selectExpr(*keys, "stack(%s, %s) as (feature, value)" % (len(cols), stack_str))
         return df
     
-    # 
+    
     def checkTwoMethod( data_patient, treament_type, df_drug_name_all=None):
         df_temp_patient = data_patient.where( data_patient["就诊类型"]==treament_type)
         
@@ -280,7 +300,7 @@ def execute(**kwargs):
     
         
         # 准备药品表
-    #     df_drug_name_all = df_temp_patient.select("标准分子名称").distinct().toPandas()["标准分子名称"].values.tolist()
+        #df_drug_name_all = df_temp_patient.select("标准分子名称").distinct().toPandas()["标准分子名称"].values.tolist()
         df_hosp_with_all_drug_pivot = df_temp_patient.where(col("标准分子名称").isNotNull() ).groupBy(["医院ID", "就诊类型", "年月" ] )\
                                     .pivot("标准分子名称" ).count()
         #df_hosp_with_all_drug_pivot.show(1, vertical=True)
@@ -321,24 +341,24 @@ def execute(**kwargs):
         return df_part_four
     
     def checkTwo(data_patient_, save_result=False ):
-        data_1 = checkTwoMethod(data_patient_, r"门诊")
-        data_2 = checkTwoMethod(data_patient_, r"住院")
+        df_outpatient = checkTwoMethod(data_patient_, r"门诊")
+        df_hospitalized = checkTwoMethod(data_patient_, r"住院")
     
         if save_result == True:
-            temp =  data_1.select(["医院ID", "就诊类型", "年月","标准分子名称", "总条目数", "药品层面总金额", 
+            df_outpatient =  df_outpatient.select(["医院ID", "就诊类型", "年月","标准分子名称", "总条目数", "药品层面总金额", 
                                "金额占比", "药品层面总数量", "数量占比"])
-            output_file=  p_check_result+ "初查表-2-门诊"
-            temp.repartition(1).write.mode("overwrite").csv(output_file, sep=',', header="true", encoding="utf-8")
+            
+            df_outpatient.repartition(g_partition_num).write.mode("overwrite").csv(p_outpatient_check_result_file, sep=',', header="true", encoding="utf-8")
+            
+            df_hospitalized =  df_hospitalized.select(["医院ID", "就诊类型", "年月","标准分子名称", "总条目数", "药品层面总金额", 
+                               "金额占比", "药品层面总数量", "数量占比"])
     
-            temp =  data_2.select(["医院ID", "就诊类型", "年月","标准分子名称", "总条目数", "药品层面总金额", 
-                               "金额占比", "药品层面总数量", "数量占比"])
-            output_file=  p_check_result+"初查表-2-住院"
-            temp.repartition(1).write.mode("overwrite").csv(output_file, sep=',', header="true", encoding="utf-8")
+            df_hospitalized.repartition(g_partition_num).write.mode("overwrite").csv(p_hospitalized_check_result_file, sep=',', header="true", encoding="utf-8")
             
             logger.debug("保存结果:  分子层面比对")
     
     checkTwo(df_raw_patient, save_result = True)
-    # checkTwo(df_raw_patient)
+
     # %%
     
     ## 初查-3-4  医院数据连续性和稳定性 和 门诊住院比例 
@@ -357,36 +377,34 @@ def execute(**kwargs):
         year_month_list = ["201901","201902","201903","201904","201905","201906",
                                                    "201907","201908","201909","201910","201911","201912"]
         
-        sample_table = df_patient.groupBy("医院ID").pivot("年月", year_month_list).count()\
+        df_sample_table = df_patient.groupBy("医院ID").pivot("年月", year_month_list).count()\
                     .fillna(0).orderBy(["医院ID" ], ascending=[1])
         
-        peopel_num_table = df_patient.groupBy("医院ID").pivot("年月", year_month_list).agg(count("患者ID")+count("就诊序号"))\
+        df_peopel_num_table = df_patient.groupBy("医院ID").pivot("年月", year_month_list).agg(count("患者ID")+count("就诊序号"))\
                     .fillna(0).orderBy(["医院ID"], ascending=[1])
-        money_table = df_patient.groupBy("医院ID").pivot("年月", year_month_list).sum("金额")\
+        df_money_table = df_patient.groupBy("医院ID").pivot("年月", year_month_list).sum("金额")\
                     .fillna(0).orderBy(["医院ID"], ascending=[1])
         
         # 门诊住院比例 
-        proportion = df_patient.groupBy("医院ID", "年月").agg(count(col("门诊")).alias("门诊总人数"), count(col("住院")).alias("住院总人数") )
-        proportion = proportion.withColumn("radio", col("门诊总人数")/col("住院总人数")).orderBy(["医院ID", "年月"], ascending=[1,1])
-        # proportion.show()
+        df_proportion = df_patient.groupBy("医院ID", "年月").agg(count(col("门诊")).alias("门诊总人数"), count(col("住院")).alias("住院总人数") )
+        df_proportion = df_proportion.withColumn("radio", col("门诊总人数")/col("住院总人数")).orderBy(["医院ID", "年月"], ascending=[1,1])
+        # df_proportion.show()
     
         
         if save_result==True:
-            output_file=  p_check_result+"初查表-3-条目数"
-            sample_table.repartition(1).write.mode("overwrite").csv(output_file, sep=',', header="true", encoding="utf-8")
+            
+            df_sample_table.repartition(g_partition_num).write.mode("overwrite").csv(p_check_number, sep=',', header="true", encoding="utf-8")
+            
+            df_peopel_num_table.repartition(g_partition_num).write.mode("overwrite").csv(p_check_all_people, sep=',', header="true", encoding="utf-8")
     
-            output_file=  p_check_result+"初查表-3-总人次"
-            peopel_num_table.repartition(1).write.mode("overwrite").csv(output_file, sep=',', header="true", encoding="utf-8")
+            df_money_table.repartition(g_partition_num).write.mode("overwrite").csv(p_check_money, sep=',', header="true", encoding="utf-8")
     
-            output_file=  p_check_result+"初查表-3-金额"
-            money_table.repartition(1).write.mode("overwrite").csv(output_file, sep=',', header="true", encoding="utf-8")
-    
-            output_file=  p_check_result+"初查表-4-住院比例"
-            proportion.repartition(1).write.mode("overwrite").csv(output_file, sep=',', header="true", encoding="utf-8")
+            df_proportion.repartition(g_partition_num).write.mode("overwrite").csv(p_check_hospital_rate, sep=',', header="true", encoding="utf-8")
             
             logger.debug("保存结果: 医院数据连续性和稳定性 和 门诊住院比例")
     
     checkThreeFour(df_raw_patient, save_result=True)
+
     # %%
     
     # IMS CHPA数据查询
@@ -400,7 +418,7 @@ def execute(**kwargs):
     
     # 保存初步清理的处方表
     
-    df_raw_patient = df_raw_patient.repartition(2)
+    df_raw_patient = df_raw_patient.repartition(g_partition_num)
     df_raw_patient.write.format("parquet") \
         .mode("overwrite").save(p_patient_simple_clean_out)
     

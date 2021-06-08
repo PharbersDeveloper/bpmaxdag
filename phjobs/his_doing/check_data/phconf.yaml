@@ -18,6 +18,8 @@ spec:
     args:
       - key: g_input_paramater
         value: 'Empty'
+      - key: g_partition_num
+        value: '1'
     outputs:
       - key: g_out_parameter
         value: 'Empty'
