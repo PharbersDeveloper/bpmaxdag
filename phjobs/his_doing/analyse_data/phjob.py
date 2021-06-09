@@ -27,9 +27,7 @@ def execute(**kwargs):
     from pyspark.sql.window import Window
     from pyspark.sql import functions as Func
     from pyspark.sql import DataFrame, SparkSession    
-    
     from typing import Iterator
-    
     import pandas as pd
     import re    
     # %%
@@ -101,7 +99,7 @@ def execute(**kwargs):
     # 是否为换药
     df_data_e = df_data_d.groupBy(["医院ID", "就诊类型", "患者ID", "OUT_ID" ])\
                             .agg( Func.countDistinct("formula").alias("formula_numbers") )\
-                            .withColumn("IF_CHANGE",  Func.when(col("formula_numbers")>1, 1).otherwise(0))
+                            .withColumn("IF_CHANGE_RX",  Func.when(col("formula_numbers")>1, 1).otherwise(0))
     
     # 合并
     df_data_f = df_data_d.join( df_data_e, on=["医院ID", "就诊类型", "患者ID", "OUT_ID" ], how="left")
@@ -116,11 +114,10 @@ def execute(**kwargs):
                                                                        '头孢菌素酶抑制剂+头孢菌素酶抑制剂','四环素类+四环素类',
                                                                        '氨基糖甙+氨基糖甙','氟喹诺酮+氟喹诺酮']
                                                                 ),"单药").otherwise( col("single_or_formula") ) )
-
     # %%
     
     # 院内感染患者
-    df_patient_std_pha = df_patient_correlation_std.filter( col("就诊类型")=="住院")\
+    df_patient_std_pha = df_patient_analyse_std.filter( col("就诊类型")=="住院")\
                             .withColumn("标准处方日期", col("标准处方日期").cast("int"))\
                             .withColumn("标准入院时间", col("标准入院时间").cast("int"))
     
@@ -142,15 +139,70 @@ def execute(**kwargs):
     # 筛选最小处方时间
     win_2 = Window.partitionBy("医院ID",  "就诊类型", "患者ID","就诊序号","标准入院时间")
     df_patient_std_pha = df_patient_std_pha.withColumn("MIN_标准处方日期", Func.min( col("标准处方日期") ).over(win_2))\
-                .withColumn("PHA患者", Func.when((col("MIN_标准处方日期")-col("标准入院时间")>2),1 ).otherwise(0))\
+                .withColumn("HAP患者", Func.when((col("MIN_标准处方日期")-col("标准入院时间")>2),1 ).otherwise(0))\
                 .drop("MIN_标准处方日期")
+    # %%
     
-    df_patient_std_pha.show(1, vertical=True)
-    # print(df_patient_std_pha.count())
-
+    # 计算分组后的sum与count值并加入为新列
+    df_patient_std_ps = df_patient_std_pha.groupBy(["年","月","就诊类型","标准医保类型","性别","年龄区间","标准诊断","severe_case","标准科室",
+                               "single_or_formula","IF_FIRST_RX","IF_CHANGE_RX","formula","mole_comb",
+                               "白细胞计数","c反应蛋白","降钙素原","嗜肺军团菌","肺炎衣原体","肺炎支原体","冠状病毒",
+                               "合胞病毒","流感病毒","腺病毒","柯萨奇病毒","鲍曼氏不动杆菌","大肠埃希菌","肺炎克雷伯菌",
+                               "肺炎链球菌","金黄色葡萄球菌","流感嗜血菌","嗜麦芽寡养单胞菌","嗜麦芽窄食单胞菌","铜绿假单胞菌",
+                               "阴沟肠杆菌","混合感染","心律不齐","其他心血管疾病","脑血管疾病","神经系统疾病","高血糖","高血压",
+                               "高血脂","肝功能异常","肾功能异常","结缔组织病","COPD","哮喘","支气管扩张","恶性实体瘤",
+                               "HAP患者","seg1_grp1","seg1_grp2","seg2_grp1","seg3_grp1","seg3_grp2","seg3_grp3"]) \
+                               .agg( Func.sum( col("金额") ).alias("sales"), Func.countDistinct("患者ID", "就诊序号").alias("patients")  )
+    
+    rule_ps = ["年","月","就诊类型","标准医保类型","性别","年龄区间","标准诊断","severe_case","标准科室",
+                               "single_or_formula","IF_FIRST_RX","IF_CHANGE_RX","formula","mole_comb",
+                               "白细胞计数","c反应蛋白","降钙素原","嗜肺军团菌","肺炎衣原体","肺炎支原体","冠状病毒",
+                               "合胞病毒","流感病毒","腺病毒","柯萨奇病毒","鲍曼氏不动杆菌","大肠埃希菌","肺炎克雷伯菌",
+                               "肺炎链球菌","金黄色葡萄球菌","流感嗜血菌","嗜麦芽寡养单胞菌","嗜麦芽窄食单胞菌","铜绿假单胞菌",
+                               "阴沟肠杆菌","混合感染","心律不齐","其他心血管疾病","脑血管疾病","神经系统疾病","高血糖","高血压",
+                               "高血脂","肝功能异常","肾功能异常","结缔组织病","COPD","哮喘","支气管扩张","恶性实体瘤",
+                               "HAP患者","seg1_grp1","seg1_grp2","seg2_grp1","seg3_grp1","seg3_grp2","seg3_grp3"]
+    
+    df_patient_std_pha = df_patient_std_pha.join(df_patient_std_ps,rule_ps,"left")
+    # %%
+    
+    # （sales  patients）单独分组计算的结果
+    df_table_0 = df_patient_std_pha.select(["年","月","就诊类型","标准医保类型","性别","年龄区间","标准诊断","severe_case","标准科室",
+                                   "心律不齐","其他心血管疾病","脑血管疾病","神经系统疾病","高血糖","高血压","高血脂","肝功能异常",
+                                   "肾功能异常","结缔组织病","COPD","哮喘","支气管扩张","恶性实体瘤","IF_CHANGE_RX","HAP患者","sales","patients"])
+    
+    #pfc  sales  patients 
+    df_table_1 = df_patient_std_pha.select(["年","月","就诊类型","标准医保类型","性别","年龄区间","标准诊断","severe_case","标准科室",
+                                   "MOLECULE","MOLECULE_CATEGORY","BRAND","form","SPEC","PACK_NUMBER","MANUFACTURER",
+                                   "白细胞计数","c反应蛋白","降钙素原","嗜肺军团菌","肺炎衣原体","肺炎支原体","冠状病毒",
+                                   "合胞病毒","流感病毒","腺病毒","柯萨奇病毒","鲍曼氏不动杆菌","大肠埃希菌","肺炎克雷伯菌",
+                                   "肺炎链球菌","金黄色葡萄球菌","流感嗜血菌","嗜麦芽寡养单胞菌","嗜麦芽窄食单胞菌","铜绿假单胞菌",
+                                   "阴沟肠杆菌","混合感染","心律不齐","其他心血管疾病","脑血管疾病","神经系统疾病","高血糖","高血压",
+                                   "高血脂","肝功能异常","肾功能异常","结缔组织病","COPD","哮喘","支气管扩张","恶性实体瘤","PACK_ID","sales","patients"])
+    
+    # sales  patients 
+    df_table_2 = df_patient_std_pha.select(["年","月","就诊类型","标准医保类型","性别","年龄区间","标准诊断","severe_case","标准科室",
+                                       "single_or_formula","IF_FIRST_RX","IF_CHANGE_RX","formula","mole_comb",
+                                       "白细胞计数","c反应蛋白","降钙素原","嗜肺军团菌","肺炎衣原体","肺炎支原体","冠状病毒",
+                                       "合胞病毒","流感病毒","腺病毒","柯萨奇病毒","鲍曼氏不动杆菌","大肠埃希菌","肺炎克雷伯菌",
+                                       "肺炎链球菌","金黄色葡萄球菌","流感嗜血菌","嗜麦芽寡养单胞菌","嗜麦芽窄食单胞菌","铜绿假单胞菌",
+                                       "阴沟肠杆菌","混合感染","心律不齐","其他心血管疾病","脑血管疾病","神经系统疾病","高血糖","高血压",
+                                       "高血脂","肝功能异常","肾功能异常","结缔组织病","COPD","哮喘","支气管扩张","恶性实体瘤","sales","patients"])
     # %%
     
     # 保存结果
-    df_patient_analyse_std = df_patient_analyse_std.repartition(2)
-    df_patient_analyse_std.write.format("parquet") \
+    df_patient_std_pha = df_patient_std_pha.repartition(2)
+    df_patient_std_pha.write.format("parquet") \
         .mode("overwrite").save(p_patient_analyse_out)
+    # %%
+    df_table_0 = df_table_0.repartition(2)
+    df_table_0.write.format("parquet") \
+        .mode("overwrite").save("s3://ph-origin-files/user/zazhao/2020年结果-csv/HIS_result/analyse_table_result/0")
+    # %%
+    df_table_1 = df_table_1.repartition(2)
+    df_table_1.write.format("parquet") \
+        .mode("overwrite").save("s3://ph-origin-files/user/zazhao/2020年结果-csv/HIS_result/analyse_table_result/1")
+    # %%
+    df_table_2 = df_table_2.repartition(2)
+    df_table_2.write.format("parquet") \
+        .mode("overwrite").save("s3://ph-origin-files/user/zazhao/2020年结果-csv/HIS_result/analyse_table_result/2")
