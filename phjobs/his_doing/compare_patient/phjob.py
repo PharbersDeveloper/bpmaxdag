@@ -133,8 +133,8 @@ def execute(**kwargs):
     df_quinolone_delivery = df_quinolone_after.join(df_quinolone_before, on=["医院ID","患者ID","OUT_ID","就诊类型"], how="left")
     
     df_quinolone_delivery = df_quinolone_delivery.join(df_patient_tag,["医院ID","患者ID","OUT_ID","就诊类型"],"left")
-    
-    # print(quinolone_delivery.columns)
+
+(df_table_4_m.columns)
     # %%
     
     #初始头孢类换药
@@ -178,8 +178,7 @@ def execute(**kwargs):
     df_cephalosporin_delivery = df_cephalosporin_after.join(df_cephalosporin_before,["医院ID","患者ID","OUT_ID","就诊类型"],"left")
     
     df_cephalosporin_delivery = df_cephalosporin_delivery.join(df_patient_tag,["医院ID","患者ID","OUT_ID","就诊类型"],"left")
-    
-    # print(cephalosporin_delivery.columns)
+
     # %%
     
     # 进行判断重症医学科的操作
@@ -208,9 +207,24 @@ def execute(**kwargs):
     
     # df_cephalosporin_delivery = df_cephalosporin_delivery.join(df_tag_all,["患者ID","OUT_ID","就诊类型"],"left")
     
+    logger.debug(df_quinolone_delivery.columns)
+    logger.debug(df_cephalosporin_delivery.columns)
+    # %%
+    df_table_4 = df_quinolone_delivery.select(["患者ID","就诊序号","就诊类型","标准医保类型","标准性别","年龄区间","标准诊断","severe_case_before","标准科室"
+                                  ,"formula_before","mole_comb_before","single_or_formula_before","SEQ_before","std_rx_date_before",
+                                 "sales_before","formula_after","mole_comb_after","single_or_formula_after","SEQ_after","std_rx_date_after",
+                                 "sales_after","心律不齐","其他心血管疾病","脑血管疾病","神经系统疾病","高血糖","高血压","高血脂","肝功能异常",
+                                 "肾功能异常","结缔组织病","COPD","哮喘","支气管扩张","恶性实体瘤","白细胞计数","C反应蛋白","降钙素原","嗜肺军团菌",
+                                 "肺炎衣原体","肺炎支原体","冠状病毒","合胞病毒","流感病毒","腺病毒","柯萨奇病毒","鲍曼氏不动杆菌","大肠埃希菌",
+                                 "肺炎克雷伯菌","肺炎链球菌","金黄色葡萄球菌","流感嗜血菌","嗜麦芽寡养单胞菌","嗜麦芽窄食单胞菌","铜绿假单胞菌",
+                                 "阴沟肠杆菌","混合感染"])
 
     # %%
     
     df_quinolone_delivery.repartition(2).write.mode("overwrite").parquet( p_quinolone_result_dir)
     
     df_cephalosporin_delivery.repartition(2).write.mode("overwrite").parquet(p_cephalosporin_result_dir)
+    # %%
+    df_table_4 = df_table_4.repartition(2)
+    df_table_4.write.format("parquet") \
+        .mode("overwrite").save("s3://ph-origin-files/user/zazhao/2020年结果-csv/HIS_result/analyse_table_result/4")
