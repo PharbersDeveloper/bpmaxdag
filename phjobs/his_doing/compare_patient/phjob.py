@@ -48,7 +48,7 @@ def execute(**kwargs):
     p_patient_analyse_std_dir = "s3://ph-origin-files/user/zazhao/2020年结果-csv/HIS_result/analyse_data_result"
     
     # 输出文件
-    p_patient_std_compare_out = p_main_dir+"HIS_result/" + "compare_data_result"
+    p_patient_std_compare_out = p_main_dir + "HIS_result/" + "compare_data_result"
     p_quinolone_result_dir = p_patient_std_compare_out + "/quinolone_result"
     p_cephalosporin_result_dir =p_patient_std_compare_out + "/cephalosporin_result"
     # %%
