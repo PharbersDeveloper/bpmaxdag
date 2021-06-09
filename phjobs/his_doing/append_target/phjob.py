@@ -48,7 +48,7 @@ def execute(**kwargs):
     df_patient_std_correlation = spark.read.parquet(p_patient_std_correlation)
     # %%
     
-    ##  添加新的列
+    # 1.添加新的列
     df_patient_diagnois_target  = df_patient_std_correlation.withColumn("心律不齐",  when( col("诊断").\
                             rlike(r"心率失常|心律失常|心律不齐|心率不齐|心动过速|心动过缓|早搏|房室|QT|房颤|纤颤"), 1).otherwise(0) )\
                     .withColumn("心衰", when( col("诊断").rlike("心衰|心力衰竭"), 1 ).otherwise(0))\
@@ -71,7 +71,7 @@ def execute(**kwargs):
 
     # %%
     
-    # 3. 标签列生成
+    # 2. 标签列生成
     df_patient_more_target = df_patient_diagnois_target.withColumn("年龄区间",  Func.when( col("年龄")<8, lit("<8") )\
                                                       .when( (col("年龄") >=8)&(col("年龄") <=14), lit("8-14") )\
                                                       .when( (col("年龄") >=15)&(col("年龄") <=18), lit("15-18") )\
@@ -93,20 +93,20 @@ def execute(**kwargs):
                                                                   col("混合感染")+10 ).otherwise( col("混合感染") )  )  
     
     
-    str_case = '严重感染|重型感染|重度肺炎|重型肺炎|重度呼吸|重度上呼吸|重型呼吸|'+\
-         '重型上呼吸|重症肺炎|严重肺炎|重症呼吸|重症上呼吸|重度感染|重症感染|'+\
-         '高危感染|危重感染|感染\\（重|感染\\（中重|感染\\（高|感染\\（危|炎\\（重|炎\\（中重|炎\\（高|'+\
-         '炎\\（危|感染\\(重|感染\\(中重|感染\\(高|感染\\(危|炎\\(重|炎\\(中重|炎\\(高|炎\\(危'
+    str_case = "严重感染|重型感染|重度肺炎|重型肺炎|重度呼吸|重度上呼吸|重型呼吸|"+\
+         "重型上呼吸|重症肺炎|严重肺炎|重症呼吸|重症上呼吸|重度感染|重症感染|"+\
+         "高危感染|危重感染|感染\\（重|感染\\（中重|感染\\（高|感染\\（危|炎\\（重|炎\\（中重|炎\\（高|"+\
+         "炎\\（危|感染\\(重|感染\\(中重|感染\\(高|感染\\(危|炎\\(重|炎\\(中重|炎\\(高|炎\\(危"
     
     df_patient_more_target = df_patient_more_target.withColumn("severe_case", Func.when( col("诊断").rlike( str_case),"Y").otherwise("N"))
 
     # %%
     
-    # 院内感染患者
+    # 3. 院内感染患者
     df_patient_std_pha = df_patient_more_target.filter( col("就诊类型")=="住院")\
                             .withColumn("标准处方日期", col("标准处方日期").cast("int"))\
                             .withColumn("标准入院时间", col("标准入院时间").cast("int"))
-    df_patient_std_pha = df_patient_std_pha.select( ["医院ID",  "就诊类型", "患者ID","就诊序号","标准入院时间", "标准处方日期"] )
+    df_patient_std_pha = df_patient_std_pha.select( ["医院ID",  "就诊类型", "患者ID","就诊序号", "OUT_ID","标准入院时间", "标准处方日期"] )
     
     ##### 初始未使用 抗菌药的患者
     # temp_data = data.withColumn("初始无抗菌药", Func.when( ( col("标准处方日期")-col("标准入院时间")<=2 ) & \
@@ -124,17 +124,16 @@ def execute(**kwargs):
     
     
     # 筛选最小处方时间
-    win_2 = Window.partitionBy("医院ID",  "就诊类型", "患者ID","就诊序号","标准入院时间")
+    win_2 = Window.partitionBy("医院ID",  "就诊类型", "患者ID", "就诊序号", "OUT_ID" )
     df_patient_std_pha = df_patient_std_pha.withColumn("MIN_标准处方日期", Func.min( col("标准处方日期") ).over(win_2))\
                 .withColumn("HAP患者", Func.when((col("MIN_标准处方日期")-col("标准入院时间")>2),1 ).otherwise(0))\
                 .drop("MIN_标准处方日期")
     
-    df_patient_std_pha = df_patient_std_pha.select(["医院ID",  "就诊类型", "患者ID","就诊序号", "HAP患者"])
+    df_patient_std_pha = df_patient_std_pha.select(["医院ID",  "就诊类型", "患者ID","就诊序号", "OUT_ID", "HAP患者"]).distinct()
     # df_patient_std_pha.where(col("HAP患者")==1).show(1, vertical=True)
-    # print(df_patient_std_pha.count())
     
-    # df_patient_more_target = df_patient_more_target.join(df_patient_std_pha, on=["医院ID",  "就诊类型", "患者ID","就诊序号"], how="left" )
-    # df_patient_more_target = df_patient_more_target.withColumn("HAP患者", Func.when( col("HAP患者").isNotNull(), col("HAP患者") ).otherwise(0) )
+    df_patient_more_target = df_patient_more_target.join(df_patient_std_pha, on=["医院ID",  "就诊类型", "患者ID","就诊序号", "OUT_ID"], how="left" )
+    df_patient_more_target = df_patient_more_target.withColumn("HAP患者", Func.when( col("HAP患者").isNotNull(), col("HAP患者") ).otherwise(0) )
     # %%
     
     ## 6. 添加额外标签
@@ -172,8 +171,6 @@ def execute(**kwargs):
                                     .withColumn("seg3_grp3", Func.when( col("seg3_grp2").isNull()
                                                                 ,0).otherwise( col("seg3_grp2"))) 
                                     
-    # df_patient_with_target_.show(1)
-
     # %%
     
     ## 保存关联后的结果

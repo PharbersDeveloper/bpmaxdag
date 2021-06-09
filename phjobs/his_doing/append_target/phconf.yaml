@@ -19,7 +19,7 @@ spec:
       - key: g_input_paramater
         value: 'Empty'
       - key: g_partition_num
-        value: '2'
+        value: '3'
     outputs:
       - key: g_out_parameter
         value: 'Empty'
