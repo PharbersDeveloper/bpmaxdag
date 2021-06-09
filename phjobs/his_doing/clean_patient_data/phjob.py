@@ -25,8 +25,6 @@ def execute(**kwargs):
     g_out_dir = kwargs['g_out_dir']
     ### output args ###
 
-    
-    
     from pyspark.sql.types import IntegerType, DoubleType, StringType, StructType
     from pyspark.sql.functions import col, date_format, count, isnull, lit
     from pyspark.sql.functions import when, isnan, udf, pandas_udf, PandasUDFType
@@ -37,7 +35,7 @@ def execute(**kwargs):
     from typing import Iterator
     
     import pandas as pd
-    import re        # %%
+    import re            # %%
     # g_project_name = "HIS"
     # g_out_dir = "HIS_result"
     
@@ -63,7 +61,7 @@ def execute(**kwargs):
     p_input_patient = "s3://ph-origin-files/user/zazhao/2020年结果-csv/HIS_result/patient_simple_clean_out"
     # 输出文件
     p_out_main_dir = p_main_dir + "HIS_result/"
-    p_patient_std_out = p_out_main_dir + "clean_data_result"
+    p_patient_std_out = p_out_main_dir + "clean_patient_data_result"
     
 
     # %%
@@ -177,29 +175,6 @@ def execute(**kwargs):
 
     # %%
     
-    ##  添加新的列
-    df_patient_diagnois_target  = df_patient_diagnois.withColumn("心律不齐",  when( col("诊断").\
-                            rlike(r"心率失常|心律失常|心律不齐|心率不齐|心动过速|心动过缓|早搏|房室|QT|房颤|纤颤"), 1).otherwise(0) )\
-                    .withColumn("心衰", when( col("诊断").rlike("心衰|心力衰竭"), 1 ).otherwise(0))\
-                    .withColumn("其他心血管疾病", when( col("诊断").rlike("心功能|冠心病|冠状|动脉|心梗|心肌|心血管|心绞痛|心脏病"), 1 ).otherwise(0))\
-                    .withColumn("脑血管疾病", when( col("诊断").rlike("脑梗|脑血管|中风|脑血栓|脑出血"), 1 ).otherwise(0))\
-                    .withColumn("神经系统疾病", when( col("诊断").rlike("癫痫|EP|高颅压|颅内压增高|颅内高压|帕金森|阿尔兹海默|"+\
-                                                                       "痴呆|神经炎|颅内感染|脑神经损害|脊神经|神经病|周围神经系统"), 1 ).otherwise(0))\
-                    .withColumn("高血糖", when( col("诊断").rlike("高血糖"), 1 ).otherwise(0))\
-                    .withColumn("高血压", when( col("诊断").rlike("高血压"), 1 ).otherwise(0))\
-                    .withColumn("高血脂", when( col("诊断").rlike("高血脂|高脂|胆固醇"), 1 ).otherwise(0))\
-                    .withColumn("肝功能异常", when( col("诊断").rlike("肝炎|肝损|肝功|肝硬|肝病|肝衰|肝纤维|药肝|脂肪肝"), 1 ).otherwise(0))\
-                    .withColumn("肾功能异常", when( col("诊断").rlike("CRF|肾功|肾衰|肾病|透析|肾小管|肾小球|CAPD|尿毒|肾炎"), 1 ).otherwise(0))\
-                    .withColumn("结缔组织病", when( col("诊断").rlike("结缔|风湿|关节炎"), 1 ).otherwise(0))\
-                    .withColumn("COPD", when( col("诊断").rlike("COPD|慢性阻塞性肺|慢阻肺"), 1 ).otherwise(0))\
-                    .withColumn("哮喘", when( col("诊断").rlike("哮喘|哮支"), 1 ).otherwise(0))\
-                    .withColumn("支气管扩张", when( col("诊断").rlike("支气管扩张"), 1 ).otherwise(0))\
-                    .withColumn("恶性实体瘤", when( ( col("诊断").rlike("癌|恶性肿瘤|恶性瘤|占位|放疗|化疗|CA|原位|转移|黑色素瘤") )
-                                              &(col("诊断").rlike("CAPD|CAP")== False ) ,  1  ) .otherwise(0)) \
-                    .withColumn("原始诊断字符数", Func.length( col("诊断") ) )
-
-    # %%
-    
     ## ======================  清洗医保、科室清洗、医院ID ======================
     
     df_dept_mapping = spark.read.csv(p_dept_mapping,header=True).withColumnRenamed("std_dept", "标准科室")
@@ -285,7 +260,7 @@ def execute(**kwargs):
                                         .withColumnRenamed("spec", "SPEC")\
                                         .withColumnRenamed("pack_number", "PACK_NUMBER")\
                                         .withColumnRenamed("manufacturer", "MANUFACTURER")
-    # print(df_drug_mapping)
+    
     # left 方式匹配
     df_patient_std = df_patient_std.join(df_drug_mapping, on=["药品名称", "规格", "剂型", "厂家"], how="left")
     # print("无法匹配到的产品名称  ", df_patient_std.join(df_drug_mapping, on=["药品名称", "规格", "剂型", "厂家"], how="anti").count() )
