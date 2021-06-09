@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: PhJob
 metadata:
-  name: check_data
+  name: append_target
   description: "pharbers job description"
   labels:
-    name: check_data
+    name: append_target
     runtime: python3
     command: submit
 spec:
@@ -18,10 +18,8 @@ spec:
     args:
       - key: g_input_paramater
         value: 'Empty'
-      - key: g_partition_csv
-        value: '1'
       - key: g_partition_num
-        value: '2'
+        value: '3'
     outputs:
       - key: g_out_parameter
         value: 'Empty'

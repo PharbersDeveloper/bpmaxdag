@@ -17,12 +17,11 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--job_full_name')
 @click.option('--job_id')
 @click.option('--g_input_paramater')
-@click.option('--g_partition_csv')
 @click.option('--g_partition_num')
 @click.option('--g_out_parameter')
 def debug_execute(**kwargs):
     try:
-        args = {"name": "check_data"}
+        args = {"name": "append_target"}
         outputs = ["g_out_parameter"]
 
         args.update(kwargs)

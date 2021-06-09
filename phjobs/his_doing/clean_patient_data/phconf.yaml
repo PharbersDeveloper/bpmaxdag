@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: PhJob
 metadata:
-  name: check_data
+  name: clean_patient_data
   description: "pharbers job description"
   labels:
-    name: check_data
+    name: clean_patient_data
     runtime: python3
     command: submit
 spec:
@@ -17,13 +17,17 @@ spec:
     config: phconf.yaml
     args:
       - key: g_input_paramater
+        value: ''
+    outputs:
+      - key: g_project_name
         value: 'Empty'
-      - key: g_partition_csv
-        value: '1'
+      - key: depend_job_names_keys
+        value: '["patient_simple_clean_out"]'
       - key: g_partition_num
         value: '2'
-    outputs:
       - key: g_out_parameter
+        value: 'Empty'
+      - key: g_out_dir
         value: 'Empty'
 
 

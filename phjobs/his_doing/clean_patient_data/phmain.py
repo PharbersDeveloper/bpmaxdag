@@ -17,13 +17,15 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--job_full_name')
 @click.option('--job_id')
 @click.option('--g_input_paramater')
-@click.option('--g_partition_csv')
+@click.option('--g_project_name')
+@click.option('--depend_job_names_keys')
 @click.option('--g_partition_num')
 @click.option('--g_out_parameter')
+@click.option('--g_out_dir')
 def debug_execute(**kwargs):
     try:
-        args = {"name": "check_data"}
-        outputs = ["g_out_parameter"]
+        args = {"name": "clean_patient_data"}
+        outputs = ["g_project_name", "depend_job_names_keys", "g_partition_num", "g_out_parameter", "g_out_dir"]
 
         args.update(kwargs)
         result = exec_before(**args)

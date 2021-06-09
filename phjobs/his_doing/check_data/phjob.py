@@ -15,6 +15,7 @@ def execute(**kwargs):
     
     ### input args ###
     g_input_paramater = kwargs['g_input_paramater']
+    g_partition_csv = kwargs['g_partition_csv']
     g_partition_num = kwargs['g_partition_num']
     ### input args ###
     
@@ -22,8 +23,6 @@ def execute(**kwargs):
     g_out_parameter = kwargs['g_out_parameter']
     ### output args ###
 
-    
-    
     from pyspark.sql.types import IntegerType, DoubleType, StringType, StructType
     from pyspark.sql.functions import col, date_format, count, isnull
     from pyspark.sql.functions import when, isnan, udf, pandas_udf, PandasUDFType
@@ -56,6 +55,7 @@ def execute(**kwargs):
     
     ## 新方式连接
     # spark
+
     # %%
     ## ====== 输入文件和输出文件 ======
     
@@ -85,22 +85,6 @@ def execute(**kwargs):
     
     ## 读取条目数汇总 
     df_summary_sample = spark.read.format("csv").load(p_data_summary, header=True)
-
-    # %%
-    
-    ## 读取检测数据
-    df_raw_detection = spark.read.csv(p_detection, header=True)
-    
-    df_raw_detection = df_raw_detection.select([ "PATIENT_ID", "VISIT_ID", "ITEM_NAME", "SUBJECT", "REPORT_ITEM_NAME", 
-                                                "RESULT", "UNITS", "ABNORMAL_INDICATOR", "REQUESTED_DATE_TIME", 
-                                                "RESULTS_RPT_DATE_TIME", "DEPT_NAME"])
-    
-    df_raw_detection = df_raw_detection.withColumn("VISIT_ID", Func.col("VISIT_ID").cast("int"))\
-                                        .withColumnRenamed("PATIENT_ID", "患者ID") \
-                                        .withColumnRenamed("VISIT_ID", "就诊序号") \
-                                        .withColumn("REQUESTED_DATE_TIME_STD",  date_format("REQUESTED_DATE_TIME", "yyyyMMdd")) \
-                                        .withColumn("RESULTS_RPT_DATE_TIME_STD", date_format("RESULTS_RPT_DATE_TIME", "yyyyMMdd")) 
-    # df_raw_detection.where( df_raw_detection["VISIT_ID"].isNull() ).count()
 
     # %%
     
@@ -138,9 +122,9 @@ def execute(**kwargs):
     df_raw_patient = df_raw_patient.withColumn("标准处方日期", date_format("处方日期", "yyyyMMdd") )\
                                         .withColumn("标准入院时间", date_format("入院时间", "yyyyMMdd") )\
                                         .withColumn("标准出院时间", date_format("出院时间", "yyyyMMdd") )\
-                                        .withColumn("年月", date_format("入院时间", "yyyyMM") )\
-                                        .withColumn("年", date_format("入院时间", "yyyy") )\
-                                        .withColumn("月", date_format("入院时间", "MM") )
+                                        .withColumn("年月", date_format("处方日期", "yyyyMM") )\
+                                        .withColumn("年", date_format("处方日期", "yyyy") )\
+                                        .withColumn("月", date_format("处方日期", "MM") )
     
     ## 年龄转换成数字
     df_raw_patient = df_raw_patient.withColumn("年龄", col("年龄").cast("int"))\
@@ -184,7 +168,7 @@ def execute(**kwargs):
         df_last = df_all_count.union(df_null_sample_num).union(df_missing_rate)
         
         if save_result==True:
-            df_last.repartition( g_partition_num ).write.mode("overwrite").csv(p_full_result, sep=",", header="true", encoding="utf-8")
+            df_last.repartition( g_partition_csv ).write.mode("overwrite").csv(p_full_result, sep=",", header="true", encoding="utf-8")
         
             logger.debug("保存结果:  初查1-数据完整性")
     
@@ -348,12 +332,12 @@ def execute(**kwargs):
             df_outpatient =  df_outpatient.select(["医院ID", "就诊类型", "年月","标准分子名称", "总条目数", "药品层面总金额", 
                                "金额占比", "药品层面总数量", "数量占比"])
             
-            df_outpatient.repartition(g_partition_num).write.mode("overwrite").csv(p_outpatient_check_result_file, sep=",", header="true", encoding="utf-8")
+            df_outpatient.repartition(g_partition_csv).write.mode("overwrite").csv(p_outpatient_check_result_file, sep=",", header="true", encoding="utf-8")
             
             df_hospitalized =  df_hospitalized.select(["医院ID", "就诊类型", "年月","标准分子名称", "总条目数", "药品层面总金额", 
                                "金额占比", "药品层面总数量", "数量占比"])
     
-            df_hospitalized.repartition(g_partition_num).write.mode("overwrite").csv(p_hospitalized_check_result_file, sep=",", header="true", encoding="utf-8")
+            df_hospitalized.repartition(g_partition_csv).write.mode("overwrite").csv(p_hospitalized_check_result_file, sep=",", header="true", encoding="utf-8")
             
             logger.debug("保存结果:  分子层面比对")
     
@@ -393,13 +377,13 @@ def execute(**kwargs):
         
         if save_result==True:
             
-            df_sample_table.repartition(g_partition_num).write.mode("overwrite").csv(p_check_number, sep=",", header="true", encoding="utf-8")
+            df_sample_table.repartition(g_partition_csv).write.mode("overwrite").csv(p_check_number, sep=",", header="true", encoding="utf-8")
             
-            df_peopel_num_table.repartition(g_partition_num).write.mode("overwrite").csv(p_check_all_people, sep=",", header="true", encoding="utf-8")
+            df_peopel_num_table.repartition(g_partition_csv).write.mode("overwrite").csv(p_check_all_people, sep=",", header="true", encoding="utf-8")
     
-            df_money_table.repartition(g_partition_num).write.mode("overwrite").csv(p_check_money, sep=",", header="true", encoding="utf-8")
+            df_money_table.repartition(g_partition_csv).write.mode("overwrite").csv(p_check_money, sep=",", header="true", encoding="utf-8")
     
-            df_proportion.repartition(g_partition_num).write.mode("overwrite").csv(p_check_hospital_rate, sep=",", header="true", encoding="utf-8")
+            df_proportion.repartition(g_partition_csv).write.mode("overwrite").csv(p_check_hospital_rate, sep=",", header="true", encoding="utf-8")
             
             logger.debug("保存结果: 医院数据连续性和稳定性 和 门诊住院比例")
     
@@ -421,5 +405,3 @@ def execute(**kwargs):
     df_raw_patient = df_raw_patient.repartition(g_partition_num)
     df_raw_patient.write.format("parquet") \
         .mode("overwrite").save(p_patient_simple_clean_out)
-    
-
