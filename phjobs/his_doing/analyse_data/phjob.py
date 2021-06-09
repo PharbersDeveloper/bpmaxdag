@@ -110,9 +110,9 @@ def execute(**kwargs):
                                             .withColumn("single_or_formula", Func.when( col("formula").rlike("\+")
                                                                 ,"联用").otherwise("单药") )
     df_patient_analyse_std = df_patient_analyse_std.withColumn("single_or_formula", Func.when( col("formula").isin(
-                                                                    ['头孢菌素类+头孢菌素类','青霉素类+青霉素类','其他抗生素+其他抗生素',
-                                                                       '头孢菌素酶抑制剂+头孢菌素酶抑制剂','四环素类+四环素类',
-                                                                       '氨基糖甙+氨基糖甙','氟喹诺酮+氟喹诺酮']
+                                                                    ["头孢菌素类+头孢菌素类","青霉素类+青霉素类","其他抗生素+其他抗生素",
+                                                                       "头孢菌素酶抑制剂+头孢菌素酶抑制剂","四环素类+四环素类",
+                                                                       "氨基糖甙+氨基糖甙","氟喹诺酮+氟喹诺酮"]
                                                                 ),"单药").otherwise( col("single_or_formula") ) )
     # %%
     
