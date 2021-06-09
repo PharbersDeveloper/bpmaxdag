@@ -82,15 +82,13 @@ def execute(**kwargs):
     
     
     # 是否为初始药
-    win = Window.partitionBy(["医院ID", "就诊类型", "患者ID", "OUT_ID"]).orderBy( col("RX_DATE_STD").desc() )
-    df_data_c = df_data_a.withColumn("SEQ", Func.row_number().over( win ))\
+    win = Window.partitionBy(["医院ID", "就诊类型", "患者ID", "OUT_ID"])
+    df_data_c = df_data_a.withColumn("SEQ", Func.row_number().over( win.orderBy( col("RX_DATE_STD").desc() )  ))\
                             .withColumn("IF_FIRST_RX", when( col("SEQ")==1, 1).otherwise(0) )
+                            .withColumn("MAX_SEQ", Funct.max( col("SEQ") ).over( win )  )
     # df_data_c.show()
-    df_data_c_max = df_data_c.groupBy( ["医院ID", "就诊类型", "患者ID", "OUT_ID" ]).agg(Func.max("SEQ").alias("MAX_SEQ") )
-    # df_data_c_max.show()
-    
-    df_data_c = df_data_c.join( df_data_c_max, on=[ "医院ID", "就诊类型", "患者ID", "OUT_ID" ], how="inner")
-    # df_data_c_max.show()
+    # df_data_c_max = df_data_c.groupBy( ["医院ID", "就诊类型", "患者ID", "OUT_ID" ]).agg(Func.max("SEQ").alias("MAX_SEQ") )
+    # df_data_c = df_data_c.join( df_data_c_max, on=[ "医院ID", "就诊类型", "患者ID", "OUT_ID" ], how="inner")
     
     
     # 合并上面三个表
@@ -99,7 +97,7 @@ def execute(**kwargs):
     # 是否为换药
     df_data_e = df_data_d.groupBy(["医院ID", "就诊类型", "患者ID", "OUT_ID" ])\
                             .agg( Func.countDistinct("formula").alias("formula_numbers") )\
-                            .withColumn("IF_CHANGE",  Func.when(col("formula_numbers")>1, 1).otherwise(0))
+                            .withColumn("IF_CHANGE_RX",  Func.when(col("formula_numbers")>1, 1).otherwise(0))
     
     # 合并
     df_data_f = df_data_d.join( df_data_e, on=["医院ID", "就诊类型", "患者ID", "OUT_ID" ], how="left")
