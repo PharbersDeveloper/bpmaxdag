@@ -45,14 +45,14 @@ def execute(**kwargs):
     
     extract_df = spark.read.parquet(_extract_product_input)
     
-    mole_df = clean_df.selectExpr("MOLE_NAME_CH AS VALUE").distinct() \
+    mole_df = extract_df.selectExpr("MOLE_NAME_CH AS VALUE").distinct() \
         .withColumn("ID", gid()) \
         .withColumn("COMPANY", lit(_company)) \
         .withColumn("CATEGORY", lit("KEYWORD")) \
         .withColumn("TYPE", lit("MOLE")) \
         .withColumn("VERSION", lit(_version))
     
-    mnf_df = clean_df.selectExpr("MNF_NAME_CH AS VALUE").distinct() \
+    mnf_df = extract_df.selectExpr("MNF_NAME_CH AS VALUE").distinct() \
         .withColumn("ID", gid()) \
         .withColumn("COMPANY", lit(_company)) \
         .withColumn("CATEGORY", lit("KEYWORD")) \
