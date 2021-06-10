@@ -93,28 +93,29 @@ def execute(**kwargs):
             col("CORP_NAME_EN") == col("M_CORP_NAME_EN"),
             col("MNF_TYPE_NAME") == col("M_MNF_TYPE_NAME")
         ], "left_outer") \
-        .show()
-    #     .selectExpr("LM_VALUE AS MOLE_NAME", "PROD_NAME_CH", "PACK", "DOSAGE", 
-    #     "SPEC", "M_ID AS MNF_ID", "R_ID AS PACK_ID", "LM_ID AS MOLE_ID", 
-    #     "PC_ATC_ID AS ATC_ID", "PC_NFC_ID AS NFC_ID") \
-    #     .withColumn("PROD_DESC", lit("null")) \
-    #     .withColumn("PCK_DESC", lit("null")) \
-    #     .withColumn("EVENTS", lit("null")) \
-    #     .withColumn("ID", gid()) \
-    #     .withColumn("COMPANY", lit(_company)) \
-    #     .withColumn("VERSION", lit(_version)) \
-    #     .withColumn("CONTAINS", create_map(
-    #         lit('MOLE_ID'), col("MOLE_ID"),
-    #         lit('MOLE_NAME'), col("MOLE_NAME"),
-    #     ))
+        .selectExpr("LM_VALUE AS MOLE_NAME", "PROD_NAME_CH", "PACK", "DOSAGE", 
+        "SPEC", "M_ID AS MNF_ID", "R_ID AS PACK_ID", "LM_ID AS MOLE_ID", 
+        "PC_ATC_ID AS ATC_ID", "PC_NFC_ID AS NFC_ID") \
+        .withColumn("PROD_DESC", lit("null")) \
+        .withColumn("PCK_DESC", lit("null")) \
+        .withColumn("EVENTS", lit("null")) \
+        .withColumn("ID", gid()) \
+        .withColumn("COMPANY", lit(_company)) \
+        .withColumn("VERSION", lit(_version)) \
+        .withColumn("CONTAINS", create_map(
+            lit('MOLE_ID'), col("MOLE_ID"),
+            lit('MOLE_NAME'), col("MOLE_NAME"),
+        ))
     
     
-    # df.selectExpr("ID", "MOLE_NAME", "PROD_DESC", 
-    #     "PROD_NAME_CH", "PACK", "PCK_DESC", 
-    #     "DOSAGE", "SPEC", "CONTAINS", "MNF_ID", 
-    #     "PACK_ID", "ATC_ID", "NFC_ID", "EVENTS",
-    #     "COMPANY", "VERSION") \
-    #     .show()
+    df.selectExpr("ID", "MOLE_NAME", "PROD_DESC", 
+        "PROD_NAME_CH", "PACK", "PCK_DESC", 
+        "DOSAGE", "SPEC", "CONTAINS", "MNF_ID", 
+        "PACK_ID", "ATC_ID", "NFC_ID", "EVENTS",
+        "COMPANY", "VERSION") \
+        .write \
+        .partitionBy("COMPANY", "VERSION") \
+        .parquet(_product_drug_output, "append")
     
     
     
