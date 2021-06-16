@@ -5,6 +5,7 @@ This is job template for Pharbers Max Job
 """
 
 from phcli.ph_logs.ph_logs import phs3logger, LOG_DEBUG_LEVEL
+import re
 import uuid
 import pandas as pd
 import numpy as np
@@ -50,7 +51,7 @@ def execute(**kwargs):
 
     df_sim_pack = calulate_pack_similarity(df_seg_pack)
     
-    df_sim_pack = extract_max_similarity(df_sim_pack)
+#     df_sim_pack = extract_max_similarity(df_sim_pack)
 
 ############# == main functions == #####################
     df_sim_pack.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
@@ -98,11 +99,10 @@ def get_depends_path(kwargs):
 
 #### == loding files == ###
 def load_seg_pack_result(spark, path_segmentation_pack):
-    path_segmentation_pack = r's3a://ph-max-auto/2020-08-11/data_matching/refactor/runs/manual__2021-03-19T08_05_34.344972+00_00/cross_join_cutting/cross_result'
     df_seg_pack = spark.read.parquet(path_segmentation_pack)
-    df_seg_pack = df_seg_pack.select("ID","PACK_QTY","PACK_QTY_STANDARD")
+    df_seg_pack = df_seg_pack.select("ID","INDEX","PACK_QTY","PACK_QTY_STANDARD")
+    print(df_seg_pack.printSchema())
     return df_seg_pack  
-
 
 
 #计算相似性
@@ -112,9 +112,12 @@ def Get_spec_similarity(raw_spec,standard_spec):
             "standard_spec": standard_spec}
     df = pd.DataFrame(frame)
     def sure_pack_sim(raw_pack,standard_pack):
-        if float(raw_pack) == float(standard_pack):
-            sim_pack = 1.0
-        else:
+        try:
+            if float(re.findall(r'\d+',raw_pack)[0]) == float(re.findall(r'\d+',standard_pack)[0]):
+                sim_pack = 1.0
+            else:
+                sim_pack = 0.0
+        except:
             sim_pack = 0.0
         return sim_pack
     df['spec_eff'] = df.apply(lambda x: sure_pack_sim(x.raw_spec,x.standard_spec), axis=1)
@@ -154,20 +157,6 @@ def calulate_pack_similarity_after_seg(raw_pack,standard_pack):
 ##### == calulate_similarity == #######
 def calulate_pack_similarity(df_seg_pack):
     
-    df_seg_pack = df_seg_pack.withColumn("eff_pack",Get_spec_similarity(df_seg_pack.PACK_QTY,df_seg_pack.PACK_QTY_STANDARD))
+    df_seg_pack = df_seg_pack.withColumn("EFFECTIVENESS_PACK_QTY",Get_spec_similarity(df_seg_pack.PACK_QTY,df_seg_pack.PACK_QTY_STANDARD))
     
     return df_seg_pack
-
-
-##### == 取最大相似性 == #########
-def extract_max_similarity(df_sim_pack):
-    
-    window_pack = Window.partitionBy("ID")
-
-    df_sim_pack = df_sim_pack.withColumn("max_eff",F.max("eff_pack").over(window_pack))\
-                                .where(F.col("eff_pack") == F.col("max_eff"))\
-                                .drop("max_eff")\
-                                .drop_duplicates(["ID"])
-    df_sim_pack.show(500)
-    print(df_sim_pack.count())
-    return df_sim_pack

@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: price
+  description: "pharbers job description"
+  labels:
+    name: price
+    runtime: python3
+    command: submit
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    command: submit
+    timeout: 720.0
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: g_project_name
+        value: 'Empty'
+      - key: depend_job_names_keys
+        value: '["deal_poi#deal_poi_out#deal_poi_out"]'
+      - key: g_max_path
+        value: 's3a://ph-max-auto/v0.0.1-2020-06-08/'
+    outputs:
+      - key: g_price
+        value: 'price'
+      - key: g_price_city
+        value: 'price_city'
+
+
+

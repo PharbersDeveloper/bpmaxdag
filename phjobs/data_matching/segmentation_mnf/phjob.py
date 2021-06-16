@@ -31,8 +31,8 @@ def execute(**kwargs):
 ###################=======input==========#################
     depends = get_depends_path(kwargs)
     path_cross_result = depends["input_cross_result"]
-    path_mnf_lexicon = kwargs["mnf_lexicon_path"]
     path_mnf_stopwords = kwargs["mnf_stopwords_path"]
+    path_mnf_lexicon = kwargs["mnf_lexicon_path"]
     g_repartition_shared = int(kwargs["g_repartition_shared"])
     
 ###################=======input==========#################
@@ -46,14 +46,33 @@ def execute(**kwargs):
 
 ###################=======loading files==========#################
     df_seg_mnf = load_cross_result(spark,path_cross_result)
-    mnf_lexicon = load_mnf_lexicon(spark, path_mnf_lexicon)
     mnf_stopwords = load_mnf_stopwords(spark, path_mnf_stopwords)
+    mnf_lexicon = load_mnf_lexicon(spark,path_mnf_lexicon)
 ###################=======loading files==========#################
 
 ###################=======main functions==========#################
-    df_seg_mnf = cut_mnf_word(df_seg_mnf,mnf_lexicon,mnf_stopwords)
+    
+    #### == raw_table 分词、停用词处理
+    df_seg_mnf = phcleanning_mnf_seg(input_dataframe=df_seg_mnf,\
+                        input_lexicon=mnf_lexicon,\
+                        input_stopwords=mnf_stopwords,\
+                        inputCol="MANUFACTURER_NAME",\
+                        outputCol="MANUFACTURER_NAME_WORDS")
+    
+    #### == standard_table 分词、停用词处理
+    df_seg_mnf = phcleanning_mnf_seg(input_dataframe=df_seg_mnf,\
+                                     input_lexicon=mnf_lexicon,\
+                                     input_stopwords=mnf_stopwords,\
+                                     inputCol="MANUFACTURER_NAME_STANDARD",\
+                                     outputCol="MANUFACTURER_NAME_STANDARD_WORDS")
+
+    
 ###################=======main functions==========#################
-    df_seg_mnf.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
+    #写入路径
+    write_files(input_dataframe=df_seg_mnf,\
+                path_of_write=result_path,\
+                file_type="parquet",\
+               repartition_num = g_repartition_shared)
     return {}
 
 
@@ -93,62 +112,84 @@ def get_depends_path(kwargs):
     return result
 ##################  中间文件与结果文件路径  ######################
 
-def load_mnf_lexicon(spark, path_mnf_lexicon):
-    if path_mnf_lexicon == 'None':
-        return None
-    else:
-        mnf_lexicon = spark.read.csv(path_mnf_lexicon,header=True) 
-        return mnf_lexicon
-
 def load_mnf_stopwords(spark, path_mnf_stopwords):
-    if path_mnf_stopwords == "None":
-        return None
-    else:
+    
+    try:
         mnf_stopwords = spark.read.csv(path_mnf_stopwords,header=True)
         mnf_stopwords = mnf_stopwords.rdd.map(lambda x : x.STOPWORDS).collect()
-        return mnf_stopwords
+    except:
+        mnf_stopwords = None
+        
+    return mnf_stopwords
 
 def load_cross_result(spark,path_cross_result):
-    path_cross_result = r"s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs/manual__2021-03-19T08_05_34.344972+00_00/cross_join_cutting/cross_result"
+    
     df_seg_mnf = spark.read.parquet(path_cross_result)
-    df_seg_mnf = df_seg_mnf.select("ID","MANUFACTURER_NAME","MANUFACTURER_NAME_STANDARD","MANUFACTURER_NAME_EN_STANDARD")
+    df_seg_mnf = df_seg_mnf.select("ID","INDEX","MANUFACTURER_NAME","MANUFACTURER_NAME_STANDARD")
+    df_seg_mnf.persist()
+    
     return df_seg_mnf 
 
+def load_mnf_lexicon(spark,path_mnf_lexicon):
+    
+    try:
+        df_lexicon = spark.read.csv(path_mnf_lexicon,header=True)
+        mnf_lexicon = df_lexicon.rdd.map(lambda x: x.lexicon).distinct().collect()
+    except:
+        mnf_lexicon = None
+        
+    return mnf_lexicon
 
 ######## 分词逻辑 ##########
-def phcleanning_mnf_seg(df, df_lexicon, stopwords, inputCol, outputCol):
-    if df_lexicon is None: 
-        lexicon = None 
-    else:
-        lexicon = df_lexicon.rdd.map(lambda x: x.lexicon).collect()
-    seg = pkuseg.pkuseg(user_dict=lexicon)
+def phcleanning_mnf_seg(input_dataframe,\
+                        input_lexicon,\
+                        input_stopwords,\
+                        inputCol,\
+                        outputCol):
+    
+    seg = pkuseg.pkuseg(user_dict=input_lexicon)
+    inputColByCut = inputCol + 'ByCut'
+    
     @pandas_udf(ArrayType(StringType()), PandasUDFType.SCALAR)
-    def manifacture_name_pseg_cut(inputCol):
-        nonlocal seg 
+    def cut_words(inputCol):
+        nonlocal seg ,inputColByCut
         frame = {
             "inputCol_name": inputCol,
         }
         df = pd.DataFrame(frame)
-        df["be_cut_col"] = df["inputCol_name"].apply(lambda x: seg.cut(x))
-        return df["be_cut_col"]
+        df[inputColByCut] = df["inputCol_name"].apply(lambda x: seg.cut(x))
+        return df[inputColByCut]
     
     # 3. 中文的分词
-    df = df.withColumn(outputCol, manifacture_name_pseg_cut(col(inputCol)))
+    input_dataframe = input_dataframe.withColumn(inputColByCut, cut_words(col(inputCol)))
     # 4. 分词之后构建词库编码
+    
     # 4.1 stop word remover 去掉不需要的词
-    if stopwords is None:
-        pass
-    else:
-        remover = StopWordsRemover(stopWords=stopwords, inputCol=outputCol, outputCol=outputCol)
-        df = remover.transform(df)
-    return df
+    try:
+        remover = StopWordsRemover(stopWords=input_stopwords,\
+                                   inputCol=inputColByCut, outputCol=outputCol)
+        output_dataframe = remover.transform(input_dataframe).drop(inputColByCut)
+    except:
+        output_dataframe = input_dataframe.withColumnRenamed(inputColByCut,outputCol)
+        
+    return output_dataframe
+
 ########  分词逻辑  ############
 
-######  进行分词 ########
-def cut_mnf_word(df_seg_mnf,mnf_lexicon,mnf_stopwords):
+###### 写入文件
+def write_files(input_dataframe, path_of_write, file_type, repartition_num):
     
-    df_seg_mnf =phcleanning_mnf_seg(df=df_seg_mnf,df_lexicon=mnf_lexicon,stopwords=mnf_stopwords,inputCol="MANUFACTURER_NAME",outputCol="MANUFACTURER_NAME_CUT_WORDS")
-    df_seg_mnf =phcleanning_mnf_seg(df=df_seg_mnf,df_lexicon=mnf_lexicon,stopwords=mnf_stopwords,inputCol="MANUFACTURER_NAME_STANDARD",outputCol="MANUFACTURER_NAME_STANDARD_CUT_STANDARD_WORDS")
-    df_seg_mnf.select("ID","MANUFACTURER_NAME","MANUFACTURER_NAME_CUT_WORDS","MANUFACTURER_NAME_STANDARD","MANUFACTURER_NAME_STANDARD_CUT_STANDARD_WORDS").show(100)
-    return df_seg_mnf
-
+    try:
+        if file_type.lower() == "parquet":
+            input_dataframe.repartition(repartition_num).write.mode("overwrite").parquet(path_of_write)
+        else:
+            input_dataframe.repartition(1).write.mode("overwrite").csv(path_of_write,header=True)
+        message = fr"{path_of_write} {file_type} Write Success!"
+    except:
+        message = fr"{path_of_write} {file_type} Write Failed!"
+    print(message)
+    return message
+    
+    
+    
+    

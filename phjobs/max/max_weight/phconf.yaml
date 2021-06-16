@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: max_weight
+  description: "pharbers job description"
+  labels:
+    name: max_weight
+    runtime: python3
+    command: submit
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    command: submit
+    timeout: 720.0
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: g_project_name
+        value: 'Empty'
+      - key: g_market
+        value: 'Empty'
+      - key: g_universe
+        value: 'Empty'
+      - key: g_universe_ot
+        value: 'Empty'
+      - key: g_use_d_weight
+        value: 'Empty'
+      - key: g_monthly_update
+        value: 'Empty'
+      - key: depend_job_names_keys
+        value: '["panel_model#panel_result#panel_model_out", "panel_monthly#panel_result#panel_monthly_out"]'
+      - key: g_max_path
+        value: 's3a://ph-max-auto/v0.0.1-2020-06-08/'
+      - key: g_base_path
+        value: 's3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX'
+      - key: g_year
+        value: 'Empty'
+      - key: g_month
+        value: 'Empty'
+    outputs:
+      - key: g_max_out
+        value: 'max_weight_result'
+
+
+

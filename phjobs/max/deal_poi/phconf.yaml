@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: deal_poi
+  description: "pharbers job description"
+  labels:
+    name: deal_poi
+    runtime: python3
+    command: submit
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    command: submit
+    timeout: 720.0
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: g_project_name
+        value: 'Empty'
+      - key: depend_job_names_keys
+        value: '["product_mapping#product_mapping_out#product_mapping_out"]'
+      - key: g_max_path
+        value: 's3a://ph-max-auto/v0.0.1-2020-06-08/'
+      - key: g_base_path
+        value: 's3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX'
+    outputs:
+      - key: g_deal_poi
+        value: 'deal_poi_out'
+
+
+

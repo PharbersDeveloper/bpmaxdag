@@ -6,14 +6,17 @@ This is job template for Pharbers Max Job
 
 from phcli.ph_logs.ph_logs import phs3logger, LOG_DEBUG_LEVEL
 import uuid
+from itertools import product
 import pandas as pd
 import numpy as np
 from pyspark.sql import Window
-from pyspark.sql.types import DoubleType 
-from pyspark.sql.functions import pandas_udf, PandasUDFType
-from pyspark.sql import functions as F
+from pyspark.sql.types import DoubleType ,StringType
+from pyspark.sql.functions import pandas_udf, PandasUDFType ,col
+from pyspark.sql.functions import array_join 
+from pyspark.sql import functions as F 
 from itertools import product
 from nltk.metrics.distance import jaro_winkler_similarity
+
 
 
 def execute(**kwargs):
@@ -28,7 +31,7 @@ def execute(**kwargs):
     
 ############# ------- input ----------- #####################
     depends = get_depends_path(kwargs)
-    path_segmentation_mole = depends["input_seg_mole"]
+    path_seg_mole = depends["input_seg_mole"]
     
 ############# ------- input ------------ ####################
 
@@ -42,19 +45,34 @@ def execute(**kwargs):
 
 ############# == loading files == #####################
 
-    df_seg_mole = load_seg_mole_result(spark, path_segmentation_mole)
-    
+    df_seg_mole = loading_files(spark,\
+                               path_of_file=path_seg_mole,\
+                               file_type="parquet")
 ############# == loading files == #####################
-
-############# == main functions == #####################
-
-    df_sim_mole = calulate_mole_similarity(df_seg_mole)
     
-    df_sim_mole = extract_max_similarity(df_sim_mole)
+############# == main functions == #####################
+    
+    df_sim_mole = Get_similarity_of_RawColAndStandardCol(input_dataframe=df_seg_mole,\
+                                           RawColWords="MOLE_NAME_WORDS",\
+                                           StandardColWords="MOLE_NAME_STANDARD_WORDS",\
+                                           PrefixOfEffectiveness="Effectiveness")
+    
+    
+    df_sim_mole = Cause_ArrayStructureCol_Become_StringStructureCol(input_dataframe=df_sim_mole,\
+                                                                   inputCol="MOLE_NAME_WORDS")
+    
+    df_sim_mole = Cause_ArrayStructureCol_Become_StringStructureCol(input_dataframe=df_sim_mole,\
+                                                                   inputCol="MOLE_NAME_STANDARD_WORDS")
+    
 
 ############# == main functions == #####################
 
-    df_sim_mole.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
+########## === RESULT === ##############
+    write_files(input_dataframe=df_sim_mole,\
+                path_of_write=result_path,\
+                file_type="parquet",\
+                repartition_num=g_repartition_shared)
+########## === RESULT === ##############
 
     return {}
 
@@ -98,38 +116,40 @@ def get_depends_path(kwargs):
 
 
 #### == loding files == ###
-def load_seg_mole_result(spark, path_segmentation_mole):
-    df_seg_mole = spark.read.parquet(path_segmentation_mole)
-    return df_seg_mole  
+def loading_files(spark, path_of_file, file_type):
+    
+    try:
+        if file_type.lower() == 'parquet':
+            output_dataframe = spark.read.parquet(path_of_file)
+        else:
+            output_dataframe = spark.read.csv(path_of_file)
+        message = fr"{path_of_file} {file_type} Loading Success!"
+    except:
+        output_dataframe = None
+        message = fr"{path_of_file} {file_type} Loading Failed!"
+    print(message)
+    return output_dataframe
 
 
 
 #### 相似性计算 ########
 @pandas_udf(DoubleType(),PandasUDFType.SCALAR)
-def calulate_mole_similarity_after_seg(raw_mole,standard_mole):
-    frame = {"raw_mole":raw_mole,
-            "standard_mole":standard_mole}
-    df = pd.DataFrame(frame)
+
+def calulate_similarity_of_RawColAndStandardCol(RawCol,StandardCol):
     
-    def sure_sim(s1,s2):
-        if s1 == s2:
-            value = 1.0
-        else:
-            value = 0.0
-        return value
+    frame = {"RawCol":RawCol,
+            "StandardCol":StandardCol}
+    df = pd.DataFrame(frame)
     
     def Get_sim_value_data(input_raw, input_standard):
         all_possible_result = list(product(input_raw, input_standard))
-        if len(all_possible_result) == 1:
-            max_similarity_value = list(map(lambda x: sure_sim(x[0],x[-1]),all_possible_result))
-        else:
-            all_possible_sim_value = list(map(lambda x: jaro_winkler_similarity(x[0],x[-1]), all_possible_result))
-            all_possible_array_value = np.array(all_possible_sim_value)
-            all_possible_matrix_value = all_possible_array_value.reshape(int(len(input_raw)),int(len(input_standard)))
-            max_similarity_value = list(map(lambda x: max(x,default=0.0), all_possible_matrix_value))
+        all_possible_sim_value = list(map(lambda x: jaro_winkler_similarity(x[0],x[-1]), all_possible_result))
+        all_possible_array_value = np.array(all_possible_sim_value)
+        all_possible_matrix_value = all_possible_array_value.reshape(int(len(input_raw)),int(len(input_standard)))
+        max_similarity_value = list(map(lambda x: max(x), all_possible_matrix_value))
         return max_similarity_value
     
-    def handle_sim_value_data(raw_sentence, standard_sentence):
+    def Solve_sim_value_data(raw_sentence, standard_sentence):
         max_similarity_value = Get_sim_value_data(raw_sentence, standard_sentence)
         high_similarity_data = list(filter(lambda x: x >= 0.5, max_similarity_value))
         low_similarity_data = [x for x in max_similarity_value if x not in high_similarity_data]
@@ -140,27 +160,42 @@ def calulate_mole_similarity_after_seg(raw_mole,standard_mole):
             similarity_value = np.mean(low_similarity_data)
         return similarity_value
     
-    df['output_similarity_value'] = df.apply(lambda x: float(handle_sim_value_data(x.raw_mole,x.standard_mole)), axis=1)
+    df['output_similarity_value'] = df.apply(lambda x: float(Solve_sim_value_data(x.RawCol,x.StandardCol)), axis=1)
     return df['output_similarity_value']
 
-##### == calulate_similarity == #######
-def calulate_mole_similarity(df_seg_mole):
+
+
+##### == calculate_similarity == #######
+def Get_similarity_of_RawColAndStandardCol(input_dataframe,\
+                                           RawColWords,\
+                                           StandardColWords,\
+                                           PrefixOfEffectiveness):
     
-    df_seg_mole = df_seg_mole.withColumn("eff_mole",calulate_mole_similarity_after_seg(df_seg_mole.MOLE_CUT_WORDS,df_seg_mole.MOLE_CUT_STANDARD_WORDS))
-    df_seg_mole.show(500)
-    print(df_seg_mole.printSchema())
-    return df_seg_mole
-
-
-def extract_max_similarity(df_sim_mole):
+    EffectivenessName = (PrefixOfEffectiveness + '_' + RawColWords.split('_')[0]).upper()
     
-    window_mole = Window.partitionBy("ID")
+    output_dataframe = input_dataframe.withColumn(EffectivenessName,\
+                                                 calulate_similarity_of_RawColAndStandardCol(col(RawColWords),col(StandardColWords)))
+    
+    return output_dataframe
 
-    df_sim_mole = df_sim_mole.withColumn("max_eff",F.max("eff_mole").over(window_mole))\
-                                .where(F.col("eff_mole") == F.col("max_eff"))\
-                                .drop("max_eff")\
-                                .drop_duplicates(["ID"])
-    df_sim_mole.show(500)
-    print(df_sim_mole.count())
+##### == array 变 string
+def Cause_ArrayStructureCol_Become_StringStructureCol(input_dataframe,inputCol):
+    
+    output_dataframe = input_dataframe.withColumn(inputCol,array_join(col(inputCol),delimiter=' '))
+    
+    
+    return output_dataframe
 
-    return df_sim_mole
+###### 写入文件
+def write_files(input_dataframe, path_of_write, file_type, repartition_num):
+    
+    try:
+        if file_type.lower() == "parquet":
+            input_dataframe.repartition(repartition_num).write.mode("overwrite").parquet(path_of_write)
+        else:
+            input_dataframe.repartition(1).write.mode("overwrite").csv(path_of_write,header=True)
+        message = fr"{path_of_write} {file_type} Write Success!"
+    except:
+        message = fr"{path_of_write} {file_type} Write Failed!"
+    print(message)
+    return message
