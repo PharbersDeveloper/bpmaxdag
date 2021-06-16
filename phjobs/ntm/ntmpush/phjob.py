@@ -9,14 +9,13 @@ from pyspark.sql import SparkSession
 from pyspark.sql.types import *
 from pyspark.sql.functions import pandas_udf, PandasUDFType
 from pyspark.sql.functions import broadcast, lit, sum
-import psycopg2
-import psycopg2.extras
-from urllib.parse import urlparse
-
 import pandas as pd
 import os
 import uuid
 import random
+import psycopg2
+import psycopg2.extras
+from urllib.parse import urlparse
 
 
 def execute(**kwargs):
