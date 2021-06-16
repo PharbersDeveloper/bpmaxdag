@@ -22,6 +22,8 @@ def execute(**kwargs):
     g_out_parameter = kwargs['g_out_parameter']
     ### output args ###
 
+    
+    
     from pyspark.sql.types import IntegerType, DoubleType, StringType, StructType
     from pyspark.sql.functions import col, date_format, count, isnull, lit
     from pyspark.sql.functions import when, isnan, udf, pandas_udf, PandasUDFType
@@ -50,7 +52,10 @@ def execute(**kwargs):
     
     # 输出文件
     p_patient_union_drug_analyse_out = p_main_dir + "HIS_result/" + "patient_union_drug_analyse_result"
-
+    # 结果文件输出
+    p_result_table_0 = p_main_dir + "HIS_result/" + "Table_result/Table_result_0"
+    p_result_table_1 = p_main_dir + "HIS_result/" + "Table_result/Table_result_1"
+    p_result_table_2 = p_main_dir + "HIS_result/" + "Table_result/Table_result_2"
     # %%
     
     ## 读取处方表
@@ -115,8 +120,68 @@ def execute(**kwargs):
 
     # %%
     
+    # 计算分组后的sum与count值并加入为新列
+    df_patient_std_ps = df_patient_std_pha.groupBy(["年","月","就诊类型","标准医保类型","性别","年龄区间","标准诊断","severe_case","标准科室",
+                               "single_or_formula","IF_FIRST_RX","IF_CHANGE_RX","formula","mole_comb",
+                               "白细胞计数","c反应蛋白","降钙素原","嗜肺军团菌","肺炎衣原体","肺炎支原体","冠状病毒",
+                               "合胞病毒","流感病毒","腺病毒","柯萨奇病毒","鲍曼氏不动杆菌","大肠埃希菌","肺炎克雷伯菌",
+                               "肺炎链球菌","金黄色葡萄球菌","流感嗜血菌","嗜麦芽寡养单胞菌","嗜麦芽窄食单胞菌","铜绿假单胞菌",
+                               "阴沟肠杆菌","混合感染","心律不齐","其他心血管疾病","脑血管疾病","神经系统疾病","高血糖","高血压",
+                               "高血脂","肝功能异常","肾功能异常","结缔组织病","COPD","哮喘","支气管扩张","恶性实体瘤",
+                               "HAP患者","seg1_grp1","seg1_grp2","seg2_grp1","seg3_grp1","seg3_grp2","seg3_grp3"]) \
+                               .agg( Func.sum( col("金额") ).alias("sales"), Func.countDistinct("患者ID", "就诊序号").alias("patients")  )
+    
+    rule_ps = ["年","月","就诊类型","标准医保类型","性别","年龄区间","标准诊断","severe_case","标准科室",
+                               "single_or_formula","IF_FIRST_RX","IF_CHANGE_RX","formula","mole_comb",
+                               "白细胞计数","c反应蛋白","降钙素原","嗜肺军团菌","肺炎衣原体","肺炎支原体","冠状病毒",
+                               "合胞病毒","流感病毒","腺病毒","柯萨奇病毒","鲍曼氏不动杆菌","大肠埃希菌","肺炎克雷伯菌",
+                               "肺炎链球菌","金黄色葡萄球菌","流感嗜血菌","嗜麦芽寡养单胞菌","嗜麦芽窄食单胞菌","铜绿假单胞菌",
+                               "阴沟肠杆菌","混合感染","心律不齐","其他心血管疾病","脑血管疾病","神经系统疾病","高血糖","高血压",
+                               "高血脂","肝功能异常","肾功能异常","结缔组织病","COPD","哮喘","支气管扩张","恶性实体瘤",
+                               "HAP患者","seg1_grp1","seg1_grp2","seg2_grp1","seg3_grp1","seg3_grp2","seg3_grp3"]
+    
+    df_patient_std_pha = df_patient_std_pha.join(df_patient_std_ps,rule_ps,"left")
+    # %%
+    
+    # （sales  patients）单独分组计算的结果
+    df_table_0 = df_patient_std_pha.select(["年","月","就诊类型","标准医保类型","性别","年龄区间","标准诊断","severe_case","标准科室",
+                                   "心律不齐","其他心血管疾病","脑血管疾病","神经系统疾病","高血糖","高血压","高血脂","肝功能异常",
+                                   "肾功能异常","结缔组织病","COPD","哮喘","支气管扩张","恶性实体瘤","IF_CHANGE_RX","HAP患者","sales","patients"])
+    
+    #pfc  sales  patients 
+    df_table_1 = df_patient_std_pha.select(["年","月","就诊类型","标准医保类型","性别","年龄区间","标准诊断","severe_case","标准科室",
+                                   "MOLECULE","MOLECULE_CATEGORY","BRAND","form","SPEC","PACK_NUMBER","MANUFACTURER",
+                                   "白细胞计数","c反应蛋白","降钙素原","嗜肺军团菌","肺炎衣原体","肺炎支原体","冠状病毒",
+                                   "合胞病毒","流感病毒","腺病毒","柯萨奇病毒","鲍曼氏不动杆菌","大肠埃希菌","肺炎克雷伯菌",
+                                   "肺炎链球菌","金黄色葡萄球菌","流感嗜血菌","嗜麦芽寡养单胞菌","嗜麦芽窄食单胞菌","铜绿假单胞菌",
+                                   "阴沟肠杆菌","混合感染","心律不齐","其他心血管疾病","脑血管疾病","神经系统疾病","高血糖","高血压",
+                                   "高血脂","肝功能异常","肾功能异常","结缔组织病","COPD","哮喘","支气管扩张","恶性实体瘤","PACK_ID","sales","patients"])
+    
+    # sales  patients 
+    df_table_2 = df_patient_std_pha.select(["年","月","就诊类型","标准医保类型","性别","年龄区间","标准诊断","severe_case","标准科室",
+                                       "single_or_formula","IF_FIRST_RX","IF_CHANGE_RX","formula","mole_comb",
+                                       "白细胞计数","c反应蛋白","降钙素原","嗜肺军团菌","肺炎衣原体","肺炎支原体","冠状病毒",
+                                       "合胞病毒","流感病毒","腺病毒","柯萨奇病毒","鲍曼氏不动杆菌","大肠埃希菌","肺炎克雷伯菌",
+                                       "肺炎链球菌","金黄色葡萄球菌","流感嗜血菌","嗜麦芽寡养单胞菌","嗜麦芽窄食单胞菌","铜绿假单胞菌",
+                                       "阴沟肠杆菌","混合感染","心律不齐","其他心血管疾病","脑血管疾病","神经系统疾病","高血糖","高血压",
+                                       "高血脂","肝功能异常","肾功能异常","结缔组织病","COPD","哮喘","支气管扩张","恶性实体瘤","sales","patients"])
+    # %%
+    
     # 保存结果
-    df_patient_analyse_std = df_patient_analyse_std.repartition(2)
+    df_patient_analyse_std = df_patient_analyse_std.repartition(g_partition_num)
     df_patient_analyse_std.write.format("parquet") \
         .mode("overwrite").save(p_patient_union_drug_analyse_out)
-
+    # %%
+    df_table_0 = df_table_0.repartition(g_partition_num)
+    df_table_0.write.format("parquet") \
+        .mode("overwrite").save(p_result_table_0)
+    
+    # %%
+    df_table_1 = df_table_1.repartition(g_partition_num)
+    df_table_1.write.format("parquet") \
+        .mode("overwrite").save(p_result_table_1)
+    
+    # %%
+    df_table_2 = df_table_2.repartition(g_partition_num)
+    df_table_2.write.format("parquet") \
+        .mode("overwrite").save(p_result_table_2)
