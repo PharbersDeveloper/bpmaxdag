@@ -58,15 +58,16 @@ def execute(**kwargs):
             return spark.read.parquet(dim_path)
 
     
-    match_select = ["ID AS RAW_CODE", "MOLECULE AS RAW_MOLE_NAME", 
-        "BRAND AS RAW_PRODUCT_NAME", "FORM AS RAW_DOSAGE", 
-        "SPECIFICATIONS AS RAW_SPEC", "PACK_NUMBER AS RAW_PACK", "MANUFACTURER AS RAW_MANUFACTURER",
+    match_select = ["ID AS RAW_CODE", "RAW_HOSP_NAME AS RAWDATA_HOSP_NAME", 
+        "MOLECULE AS RAWDATA_MOLE_NAME", "BRAND AS RAWDATA_PRODUCT_NAME", "FORM AS RAWDATA_DOSAGE", 
+        "SPECIFICATIONS AS RAWDATA_SPEC", "PACK_NUMBER AS RAWDATA_PACK", "MANUFACTURER AS RAWDATA_MANUFACTURER",
         "RAW_MAPPING_MIN", "DATE", "SALES", "UNITS", "SOURCE", "TIME", "COMPANY"]
     
     
-    base_select = ["ID", "RAW_CODE", "RAW_MOLE_NAME", "RAW_PRODUCT_NAME", 
-        "RAW_DOSAGE", "RAW_SPEC", "RAW_PACK", "RAW_MANUFACTURER", "DATE", 
-        "SALES", "UNITS", "SOURCE", "PRODUCT_ID", "HOSPITAL_ID", "TIME", "COMPANY"]
+    base_select = ["ID", "RAW_PACK_ID", "RAW_CODE", 
+        "RAWDATA_HOSP_NAME", "RAWDATA_MOLE_NAME", "RAWDATA_PRODUCT_NAME", "RAWDATA_DOSAGE", "RAWDATA_SPEC", "RAWDATA_PACK", "RAWDATA_MANUFACTURER",
+        "RAW_MOLE_NAME", "RAW_PRODUCT_NAME", "RAW_DOSAGE", "RAW_SPEC", "RAW_PACK", "RAW_MANUFACTURER", 
+        "DATE", "SALES", "UNITS", "SOURCE", "PRODUCT_ID", "HOSPITAL_ID", "TIME", "COMPANY"]
     
     
     clean_df = spark.read.parquet(_input).filter(col("COMPANY") == _company) \
@@ -113,6 +114,6 @@ def execute(**kwargs):
     a = df.filter("PRODUCT_ID is null")
     a.show()
     print(a.count())
-    # df.repartition(2).write.partitionBy("TIME", "COMPANY").mode("append").parquet(_output)
+    df.repartition(2).write.partitionBy("TIME", "COMPANY").mode("append").parquet(_output)
     
     return {}

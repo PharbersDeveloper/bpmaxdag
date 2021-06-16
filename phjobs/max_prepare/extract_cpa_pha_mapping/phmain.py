@@ -14,17 +14,15 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--owner')
 @click.option('--run_id')
 @click.option('--job_id')
-@click.option('--base_path')
-@click.option('--input_dim_path')
-@click.option('--hospital_univers')
+@click.option('--input_path')
 @click.option('--time')
 @click.option('--company')
 @click.option('--version')
-@click.option('--output_tmp_fact_path')
+@click.option('--cpa_pha_mapping_output')
 def debug_execute(**kwargs):
     try:
-        args = {"name": "hospital_fact"}
-        outputs = ["output_tmp_fact_path"]
+        args = {"name": "extract_cpa_pha_mapping"}
+        outputs = ["cpa_pha_mapping_output"]
 
         args.update(kwargs)
         result = exec_before(**args)
@@ -39,7 +37,6 @@ def debug_execute(**kwargs):
     except Exception as e:
         logger = phs3logger(kwargs["job_id"])
         logger.error(traceback.format_exc())
-        print(traceback.format_exc())
         raise e
 
 

@@ -7,7 +7,7 @@ This is job template for Pharbers Max Job
 import random
 import string
 from phcli.ph_logs.ph_logs import phs3logger, LOG_DEBUG_LEVEL
-from pyspark.sql.functions import lit, udf, col, array_contains
+from pyspark.sql.functions import lit, udf, col, array, explode
 from functools import reduce
 from pyspark.sql.types import StringType
 from pyspark.sql import SparkSession
@@ -32,6 +32,8 @@ def execute(**kwargs):
     _version = str(kwargs["version"])
     
     
+    format_num_to_str = udf(lambda x: str(x).replace(".0", "").zfill(6), StringType())
+    
     def get_type_name(path, key):
         name = path.split("/")[-1][:len(key)]
         return name.upper()
@@ -45,29 +47,37 @@ def execute(**kwargs):
     def get_publish_df(path):
         _type = get_type_name(path, "Published")
         _date = get_date(path, "Published")
+        d = list(map(lambda x: lit(_date + "%02d" % (x + 1)), range(12)))
         readding = spark.read.csv(path, header=True).selectExpr("ID", "Source AS VALUE") \
+            .withColumn("ID", format_num_to_str(col("ID"))) \
             .withColumn("TYPE", lit(_type)) \
             .withColumn("TIME", lit(_time)) \
             .withColumn("COMPANY", lit("PHARBERS")) \
-            .withColumn("DATE", lit(_date)) \
-            .withColumn("VERSION", lit(_version))
+            .withColumn("DATES", array(d)) \
+            .withColumn("DATE", explode(col("DATES"))) \
+            .withColumn("VERSION", lit(_version)) \
+            .drop("DATES")
         return readding
     
     
     def get_not_arrived_df(path):
         _type = get_type_name(path, "Not_arrived")
-        _date = get_date(path, "Not_arrived")
-        readding = spark.read.csv(path, header=True).selectExpr("ID", "Date AS VALUE") \
+        # _date = get_date(path, "Not_arrived")
+        readding = spark.read.csv(path, header=True).selectExpr("ID", "Date AS DATE") \
+            .withColumn("ID", format_num_to_str(col("ID"))) \
             .withColumn("TYPE", lit(_type)) \
             .withColumn("TIME", lit(_time)) \
             .withColumn("COMPANY", lit("PHARBERS")) \
-            .withColumn("DATE", lit(_date)) \
+            .withColumn("VALUE", lit("")) \
             .withColumn("VERSION", lit(_version))
         return readding
         
         
-    publish_df = reduce(lambda dfl, dfr: dfl.union(dfr), list(map(get_publish_df, _input_publish_paths)))
-    not_arrived_df = reduce(lambda dfl, dfr: dfl.union(dfr), list(map(get_not_arrived_df, _input_notarrived_paths)))
+    publish_df = reduce(lambda dfl, dfr: dfl.union(dfr), list(map(get_publish_df, _input_publish_paths))) \
+        .selectExpr("ID", "TYPE", "VALUE", "DATE", "TIME", "COMPANY", "VERSION")
+        
+    not_arrived_df = reduce(lambda dfl, dfr: dfl.union(dfr), list(map(get_not_arrived_df, _input_notarrived_paths))) \
+        .selectExpr("ID", "TYPE", "VALUE", "DATE", "TIME", "COMPANY", "VERSION")
     
     un_df = publish_df.union(not_arrived_df)
     un_df.write \

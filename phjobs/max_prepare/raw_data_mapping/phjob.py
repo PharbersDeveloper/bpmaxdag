@@ -64,7 +64,7 @@ def execute(**kwargs):
         "RAW_MAPPING_MIN", "DATE", "SALES", "UNITS", "SOURCE", "TIME", "COMPANY"]
     
     
-    base_select = ["ID", "RAW_CODE", "RAW_MOLE_NAME", "RAW_PRODUCT_NAME", 
+    base_select = ["ID", "RAW_PACK_ID", "RAW_CODE", "RAW_MOLE_NAME", "RAW_PRODUCT_NAME", 
         "RAW_DOSAGE", "RAW_SPEC", "RAW_PACK", "RAW_MANUFACTURER", "DATE", 
         "SALES", "UNITS", "SOURCE", "PRODUCT_ID", "HOSPITAL_ID", "TIME", "COMPANY"]
     
@@ -92,6 +92,7 @@ def execute(**kwargs):
             "DATE", "SALES", "UNITS", 
             "SOURCE", "TIME", "COMPANY") \
         .withColumn("RAW_MAPPING_MIN", concat_ws("|", col("RAW_PRODUCT_NAME"), col("RAW_DOSAGE"), col("RAW_SPEC"), col("RAW_PACK"), col("RAW_MANUFACTURER") ))
+    
     
     mapping_packid_not_null_df =  mapping_std_info_df.filter("RAW_PACK_ID is not null")
     mapping_packid_null_df = mapping_std_info_df.filter("RAW_PACK_ID is null")
