@@ -149,13 +149,13 @@ def calulate_spec_similarity_after_seg(raw_spec,standard_spec):
 ##### == calulate_similarity == #######
 def calulate_spec_similarity(df_seg_spec):
     
-    df_sim_spec = df_seg_spec.withColumn("eff_spec",calulate_spec_similarity_after_seg(df_seg_spec.SPEC_CUT_WORDS,df_seg_spec.SPEC_CUT_STANDARD_WORDS))
-    df_sim_spec = df_sim_spec.withColumn("eff_spec",\
+    df_sim_spec = df_seg_spec.withColumn("EFFECTIVENESS_SPEC",calulate_spec_similarity_after_seg(df_seg_spec.SPEC_CUT_WORDS,df_seg_spec.SPEC_CUT_STANDARD_WORDS))
+    df_sim_spec = df_sim_spec.withColumn("EFFECTIVENESS_SPEC",\
                                          modify_first_spec_effectiveness(df_sim_spec.SPEC_STANDARD_GROSS,\
                                                                          df_sim_spec.SPEC_STANDARD_VALID,\
                                                                         df_sim_spec.SPEC_GROSS,\
                                                                         df_sim_spec.SPEC_VALID,\
-                                                                        df_sim_spec.eff_spec))
+                                                                        df_sim_spec.EFFECTIVENESS_SPEC))
     return df_sim_spec
 
 #### == 计算分词前文本相似度 == #####
@@ -178,7 +178,7 @@ def get_similarity_of_notCut(raw,standard):
 
 def get_maximum_similarity(df_sim_spec):
     
-    df_sim_spec = df_sim_spec.withColumn("eff_spec",get_max_sim_from_both(df_sim_spec.spec_before_cut,df_sim_spec.eff_spec))
+    df_sim_spec = df_sim_spec.withColumn("EFFECTIVENESS_SPEC",get_max_sim_from_both(df_sim_spec.spec_before_cut,df_sim_spec.EFFECTIVENESS_SPEC))
     
     return df_sim_spec 
 
@@ -213,17 +213,6 @@ def modify_first_spec_effectiveness(standard_gross, standard_valid, target_gross
     df["EFFTIVENESS_SPEC"] = df.apply(lambda x:adjust_spec_effectiveness(x), axis=1)
     return df["EFFTIVENESS_SPEC"]
 
-
-
-# def extract_max_similarity(df_sim_spec):
-    
-#     window_spec = Window.partitionBy("ID")
-
-#     df_sim_spec = df_sim_spec.withColumn("max_eff",sparkmax("eff_spec").over(window_spec))\
-#                                 .where(col("eff_spec") == col("max_eff"))\
-#                                 .drop("max_eff")\
-#                                 .drop_duplicates(["ID"])
-#     return df_sim_spec
 
 def let_array_become_string(df_sim_spec):
     

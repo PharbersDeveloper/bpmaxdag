@@ -15,6 +15,8 @@ from pyspark.sql.functions import udf, pandas_udf, PandasUDFType
 from pyspark.sql.functions import split , count , when , lit
 from pyspark.sql.functions import regexp_replace, upper, regexp_extract
 from pyspark.ml.feature import StopWordsRemover
+from nltk.tokenize import WhitespaceTokenizer
+
 
 
 def execute(**kwargs):
@@ -40,19 +42,25 @@ def execute(**kwargs):
 
 ###########--------------load file----------------------- ################
     df_standard = load_standard_prod(spark, path_master_prod)
-    df_standard.write.mode("overwrite").parquet(origin_path)
+    write_files(input_dataframe=df_standard,\
+                path_of_write=origin_path,\
+                file_type="parquet",\
+                repartition_num=10)
 ###########--------------load file----------------------- ################
+    
 
 #########--------------main function--------------------################# 
-
+    
     #dosage处理
     df_standard = make_dosage_standardization(df_standard)
-
+    
     #spec转成结构化数据
-    df_standard = make_spec_become_structured(df_standard)
+    df_standard = make_spec_become_structured(input_dataframe=df_standard)
+    
     
     #词形还原
     df_standard = restore_nonstandard_data_to_normal(df_standard)
+    
     #数据单位标准化
     df_standard = make_unit_standardization(df_standard)
     #spec有效性和总量拆分
@@ -61,8 +69,13 @@ def execute(**kwargs):
     df_standard = make_spec_become_string(df_standard)
     
     
-    df_standard.write.mode("overwrite").parquet(result_path)
+    write_files(input_dataframe=df_standard,\
+                path_of_write=result_path,\
+                file_type="parquet",\
+                repartition_num=10)
+    
 #########--------------main function--------------------################# 
+    
     return {}
 
 ################--------------------- functions ---------------------################
@@ -123,15 +136,59 @@ def make_dosage_standardization(df_standard):
     return df_standard
 
 #spec数据改为array
-def make_spec_become_structured(df_standard):
-    df_standard = df_standard.withColumn('SPEC_STANDARD_ORIGINAL', col("SPEC_STANDARD"))
-    split_spec_str = r'(\s+)'
-    df_standard = df_standard.withColumn("SPEC_STANDARD", split(col("SPEC_STANDARD"), split_spec_str,).cast(ArrayType(StringType())))
-    stopwords = ['PAED','OTCP','SUFR','ADLT','PAP.','IRBX','','/DOS','/ML','TN','x','INF.','/G','FSH','LH']
-    remover = StopWordsRemover(stopWords=stopwords, inputCol="SPEC_STANDARD", outputCol="SPEC__STANDARD_TEMP")
-    df_standard = remover.transform(df_standard)
-    df_standard = df_standard.drop("SPEC_STANDARD").withColumnRenamed("SPEC__STANDARD_TEMP","SPEC_STANDARD")
-    return df_standard
+def make_spec_become_structured(input_dataframe):
+    
+    input_dataframe = input_dataframe.withColumnRenamed('SPEC_STANDARD', "SPEC_STANDARD_ORIGINAL")
+    output_dataframe =  phcleanning_spec_seg(input_dataframe,\
+                                            inputCol="SPEC_STANDARD_ORIGINAL",\
+                                            outputCol="SPEC_STANDARD")
+    return output_dataframe
+
+######## 分词逻辑 ##########
+def phcleanning_spec_seg(input_dataframe,\
+                        inputCol,\
+                        outputCol):
+    input_stopwords = ['PAED','OTCP','SUFR','ADLT','PAP.','IRBX','','/DOS','/ML','TN','x','INF.','/G','FSH','LH']
+    
+    inputColByCut = inputCol + 'ByCut'
+    
+    @pandas_udf(ArrayType(StringType()), PandasUDFType.SCALAR)
+    def cut_words(inputCol):
+        nonlocal inputColByCut
+        frame = {
+            "inputCol_name": inputCol,
+        }
+        df = pd.DataFrame(frame)
+        
+        df[inputColByCut] = df["inputCol_name"].apply(lambda x: WhitespaceTokenizer().tokenize(str(x)))
+        
+        return df[inputColByCut]
+    
+    # 3. 中文的分词
+    input_dataframe = input_dataframe.withColumn(inputColByCut, cut_words(col(inputCol)))
+    # 4. 分词之后构建词库编码
+    
+    # 4.1 stop word remover 去掉不需要的词
+    try:
+        remover = StopWordsRemover(stopWords=input_stopwords,\
+                                   inputCol=inputColByCut, outputCol=outputCol)
+        output_dataframe = remover.transform(input_dataframe).drop(inputColByCut)
+    except:
+        output_dataframe = input_dataframe.withColumnRenamed(inputColByCut,outputCol)
+        
+    return output_dataframe
+
+
+@pandas_udf(ArrayType(StringType()), PandasUDFType.SCALAR)
+def make_sentence_to_array(inputCol):
+    
+    frame = {"input_col":inputCol}
+    
+    df = pd.DataFrame(frame)
+    
+    df["outputCol"]= df.apply(lambda x : WhitespaceTokenizer().tokenizer(x.input_col),axis=1)
+    
+    return df["outputCol"]
 
 def extract_useful_cpa_spec_data(df_standard):
     
@@ -141,8 +198,11 @@ def extract_useful_cpa_spec_data(df_standard):
 
 #处理spec中非标准数据
 def restore_nonstandard_data_to_normal(df_standard):
+    
     df_standard = df_standard.withColumn("SPEC_STANDARD", make_nonstandard_data_become_normal_addType(col("SPEC_STANDARD")))
+    
     df_standard = df_standard.withColumn("SPEC_STANDARD", make_nonstandard_data_become_normal_percent_or_rateType(col("SPEC_STANDARD")))
+    
 
     return df_standard
 
@@ -397,9 +457,9 @@ def make_spec_valid_data(spec,spec_gross_data):
     return df['valid_data']
 
 def make_spec_become_string(df_standard):
+    
     df_standard = df_standard.withColumn("SPEC_STANDARD", make_spec_from_array_into_string(col("SPEC_STANDARD")))
-#     df_standard.select("SPEC_STANDARD_ORIGINAL","SPEC_STANDARD","SPEC_STANDARD_GROSS","SPEC_STANDARD_VALID").distinct().show(500)
-#     print(df_standard.printSchema())
+    
     return df_standard
 
 @pandas_udf(StringType(), PandasUDFType.SCALAR)
@@ -416,4 +476,18 @@ def make_spec_from_array_into_string(spec_standard):
     df['out_put_col'] = df.apply(lambda x: make_elements_of_list_into_one_string(x.spec_standard), axis=1)
     return df['out_put_col']
 
+###### 写入文件
+def write_files(input_dataframe, path_of_write, file_type, repartition_num):
+    
+    try:
+        if file_type.lower() == "parquet":
+            input_dataframe.repartition(repartition_num).write.mode("overwrite").parquet(path_of_write)
+        else:
+            input_dataframe.repartition(1).write.mode("overwrite").csv(path_of_write,header=True)
+        message = fr"{path_of_write} {file_type} Write Success!"
+    except:
+        message = fr"{path_of_write} {file_type} Write Failed!"
+    print(message)
+    return message
 ################-----------------------functions---------------------------################
+

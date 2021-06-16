@@ -32,6 +32,7 @@ def execute(**kwargs):
     depends = get_depends_path(kwargs)
     path_cross_result = depends["input_cross_result"]
     path_mole_stopwords = kwargs["mole_stopwords_path"]
+    path_mole_lexicon = kwargs["mole_lexicon_path"]
     g_repartition_shared = int(kwargs["g_repartition_shared"])
     
 ###################=======input==========#################
@@ -46,12 +47,35 @@ def execute(**kwargs):
 ###################=======loading files==========#################
     df_seg_mole = load_cross_result(spark,path_cross_result)
     mole_stopwords = load_mole_stopwords(spark, path_mole_stopwords)
+    mole_lexicon = load_mole_lexicon(spark,path_mole_lexicon)
 ###################=======loading files==========#################
 
 ###################=======main functions==========#################
-    df_seg_mole = cut_mole_word(df_seg_mole,mole_stopwords)
+    
+    
+    #### == raw_table 分词、停用词处理
+    df_seg_mole = phcleanning_mole_seg(input_dataframe=df_seg_mole,\
+                        input_lexicon=mole_lexicon,\
+                        input_stopwords=mole_stopwords,\
+                        inputCol="MOLE_NAME",\
+                        outputCol="MOLE_NAME_WORDS")
+    
+    #### == standard_table 分词、停用词处理
+    df_seg_mole = phcleanning_mole_seg(input_dataframe=df_seg_mole,\
+                                     input_lexicon=mole_lexicon,\
+                                     input_stopwords=mole_stopwords,\
+                                     inputCol="MOLE_NAME_STANDARD",\
+                                     outputCol="MOLE_NAME_STANDARD_WORDS")
+    
+    
 ###################=======main functions==========#################
-    df_seg_mole.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
+    
+    #写入路径
+    write_files(input_dataframe=df_seg_mole,\
+                path_of_write=result_path,\
+                file_type="parquet",\
+               repartition_num = g_repartition_shared)
+   
     return {}
 
 
@@ -92,50 +116,83 @@ def get_depends_path(kwargs):
 ##################  中间文件与结果文件路径  ######################
 
 def load_mole_stopwords(spark, path_mole_stopwords):
-    if path_mole_stopwords == "None":
-        return None
-    else:
-        mole_stopwords = spark.csv(path_mole_stopwords,header=True)
+    
+    try:
+        mole_stopwords = spark.read.csv(path_mole_stopwords,header=True)
         mole_stopwords = mole_stopwords.rdd.map(lambda x : x.STOPWORDS).collect()
-        return mole_stopwords
+    except:
+        mole_stopwords = None
+        
+    return mole_stopwords
 
 def load_cross_result(spark,path_cross_result):
+    
     df_seg_mole = spark.read.parquet(path_cross_result)
     df_seg_mole = df_seg_mole.select("ID","INDEX","MOLE_NAME","MOLE_NAME_STANDARD")
     df_seg_mole.persist()
     
     return df_seg_mole 
 
+def load_mole_lexicon(spark,path_mole_lexicon):
+    
+    try:
+        df_lexicon = spark.read.csv(path_mole_lexicon,header=True)
+        mole_lexicon = df_lexicon.rdd.map(lambda x: x.lexicon).distinct().collect()
+    except:
+        mole_lexicon = None
+        
+    return mole_lexicon
 
 ######## 分词逻辑 ##########
-def phcleanning_mole_seg(df,stopwords, inputCol, outputCol):
-    lexicon = df.rdd.map(lambda x: x.MOLE_NAME_STANDARD).distinct().collect()
-    seg = pkuseg.pkuseg(user_dict=lexicon)
+def phcleanning_mole_seg(input_dataframe,\
+                        input_lexicon,\
+                        input_stopwords,\
+                        inputCol,\
+                        outputCol):
+    
+    seg = pkuseg.pkuseg(user_dict=input_lexicon)
+    inputColByCut = inputCol + 'ByCut'
+    
     @pandas_udf(ArrayType(StringType()), PandasUDFType.SCALAR)
-    def manifacture_name_pseg_cut(inputCol):
-        nonlocal seg 
+    def cut_words(inputCol):
+        nonlocal seg ,inputColByCut
         frame = {
             "inputCol_name": inputCol,
         }
         df = pd.DataFrame(frame)
-        df["be_cut_col"] = df["inputCol_name"].apply(lambda x: seg.cut(x))
-        return df["be_cut_col"]
+        df[inputColByCut] = df["inputCol_name"].apply(lambda x: seg.cut(x))
+        return df[inputColByCut]
     
     # 3. 中文的分词
-    df = df.withColumn(outputCol, manifacture_name_pseg_cut(col(inputCol)))
+    input_dataframe = input_dataframe.withColumn(inputColByCut, cut_words(col(inputCol)))
     # 4. 分词之后构建词库编码
+    
     # 4.1 stop word remover 去掉不需要的词
-    if stopwords is None:
-        pass
-    else:
-        remover = StopWordsRemover(stopWords=stopwords, inputCol=outputCol, outputCol=outputCol)
-        df = remover.transform(df) #.drop(inputCol)
-    return df
+    try:
+        remover = StopWordsRemover(stopWords=input_stopwords,\
+                                   inputCol=inputColByCut, outputCol=outputCol)
+        output_dataframe = remover.transform(input_dataframe).drop(inputColByCut)
+    except:
+        output_dataframe = input_dataframe.withColumnRenamed(inputColByCut,outputCol)
+        
+    return output_dataframe
+
 ########  分词逻辑  ############
 
-######  进行分词 ########
-def cut_mole_word(df_seg_mole,mole_stopwords):
+###### 写入文件
+def write_files(input_dataframe, path_of_write, file_type, repartition_num):
     
-    df_seg_mole =phcleanning_mole_seg(df=df_seg_mole,stopwords=mole_stopwords,inputCol="MOLE_NAME",outputCol="MOLE_CUT_WORDS")
-    return df_seg_mole
-
+    try:
+        if file_type.lower() == "parquet":
+            input_dataframe.repartition(repartition_num).write.mode("overwrite").parquet(path_of_write)
+        else:
+            input_dataframe.repartition(1).write.mode("overwrite").csv(path_of_write,header=True)
+        message = fr"{path_of_write} {file_type} Write Success!"
+    except:
+        message = fr"{path_of_write} {file_type} Write Failed!"
+    print(message)
+    return message
+    
+    
+    
+    

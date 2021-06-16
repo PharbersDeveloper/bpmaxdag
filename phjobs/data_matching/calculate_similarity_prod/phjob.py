@@ -106,13 +106,13 @@ def get_prod_similarity(eff_mole,eff_dosage):
     frame ={"eff_mole":eff_mole,
              "eff_dosage":eff_dosage} 
     df = pd.DataFrame(frame)
-    df['eff_prod'] = df.apply(lambda x: max(x.eff_mole,x.eff_dosage),axis=1)
+    df['eff_prod'] = df.apply(lambda x: np.mean([x.eff_mole,x.eff_dosage]),axis=1)
     return df['eff_prod']
     
 ##### == calulate_similarity == #######
 def calulate_prod_similarity(df_prod):
     
-    df_prod = df_prod.withColumn('eff_prod',get_prod_similarity(df_prod.eff_mole,df_prod.eff_dosage))
+    df_prod = df_prod.withColumn('EFFTIVENESS_PRODUCT',get_prod_similarity(df_prod.EFFECTIVENESS_MOLE,df_prod.EFFECTIVENESS_DOSAGE))
     
     return df_prod
 
