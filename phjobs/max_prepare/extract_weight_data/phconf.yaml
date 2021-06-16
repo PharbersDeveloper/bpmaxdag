@@ -1,0 +1,66 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: extract_weight_data
+  description: "pharbers job description"
+  labels:
+    name: extract_weight_data
+    runtime: python3
+    command: submit
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    command: submit
+    timeout: 60.0
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: input_weight_paths
+        # value: "s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/PHA_weight,s3a://ph-max-auto/v0.0.1-2020-06-08/奥鸿/PHA_weight"
+        value: "s3a://ph-max-auto/v0.0.1-2020-06-08/奥鸿/PHA_weight,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/PHA_weight,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/海坤/PHA_weight,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/汇宇/PHA_weight,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/京新/PHA_weight,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/康哲/PHA_weight,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/灵北/PHA_weight,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/神州/PHA_weight,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/Astellas/PHA_weight,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/PHA_weight,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/AZ2/PHA_weight,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/Bayer/PHA_weight,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/Chugai/PHA_weight,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/Eisai/PHA_weight,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/Gilead/PHA_weight,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/Merck/PHA_weight,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/Mylan/PHA_weight,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/NHWA/PHA_weight,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/Pfizer/PHA_weight,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/Qilu/PHA_weight,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/Sankyo/PHA_weight,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/Sanofi/PHA_weight,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/Servier/PHA_weight,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/Takeda/PHA_weight,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/Takeda2/PHA_weight,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/Tide/PHA_weight,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/XLT/PHA_weight,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/京新/PHA_weight_default,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/灵北/PHA_weight_default,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/AZ2/PHA_weight_default,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/Eisai/PHA_weight_default,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/Gilead/PHA_weight_default,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/Sanofi/PHA_weight_default,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/Takeda/PHA_weight_default,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/Takeda2/PHA_weight_default,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/Tide/PHA_weight_default"
+      - key: time
+        value: "2021-04-14"
+      - key: version
+        value: "0.0.1"
+    outputs:
+      - key: output_weight_path
+        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/MAPPING/WEIGHT"
+
+
+

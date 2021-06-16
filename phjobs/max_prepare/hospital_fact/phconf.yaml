@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: hospital_fact
+  description: "pharbers job description"
+  labels:
+    name: hospital_fact
+    runtime: python3
+    command: submit
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    command: submit
+    timeout: 60.0
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: input_dim_path
+        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/HOSPITAL_DIMENSION/"
+      - key: hospital_univers
+        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/MAPPING/HOSPITAL_UNIVERS/"
+      - key: time
+        value: "2021-04-14"
+      - key: company
+        value: "贝达"
+      - key: version
+        value: "0.0.1"
+    outputs:
+      - key: output_tmp_fact_path
+        # value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/TMP/HOSPITAL_FACT/"
+        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/FACT/HOSPITAL_FACT/"
+
+
+

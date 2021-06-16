@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: extract_product_data
+  description: "pharbers job description"
+  labels:
+    name: extract_product_data
+    runtime: python3
+    command: submit
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    command: submit
+    timeout: 60.0
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: time
+        value: "2021-04-14"
+      - key: product_inputs
+        value: "s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012/prod_mapping/"
+      - key: product_master_input
+        value: "s3a://ph-max-auto/v0.0.1-2020-06-08//Common_files/extract_data_files/master_data_map.csv"
+      - key: product_map_atc_input
+        value: "s3a://ph-max-auto/v0.0.1-2020-06-08//Common_files/extract_data_files/product_map_all_ATC.csv"
+    outputs:
+      - key: clean_output
+        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/TMP/PRODUCT_DIMENSION/"
+
+
+
