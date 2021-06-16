@@ -28,6 +28,7 @@ def execute(**kwargs):
     g_market = kwargs['g_market']
     depend_job_names_keys = kwargs['depend_job_names_keys']
     g_max_path = kwargs['g_max_path']
+    g_base_path = kwargs['g_base_path']
     g_out_dir = kwargs['g_out_dir']
     ### input args ###
     
@@ -39,6 +40,8 @@ def execute(**kwargs):
     
     
     
+    
+    
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType,StructField
     from pyspark.sql import functions as func
     from pyspark.sql.functions import col
@@ -46,6 +49,9 @@ def execute(**kwargs):
     import os           
     # %%
     
+    
+    # dag_name = 'Max'
+    # run_id = 'max_test_beida_202012'
     # g_project_name = "贝达"
     # g_market = 'BD1'
     # g_time_left = "202012"
@@ -56,8 +62,8 @@ def execute(**kwargs):
     # depends_path=get_depends_path({"name":job_name, "dag_name":dag_name, 
     #                                      "run_id":run_id, "depend_job_names_keys":depend_job_names_keys })
     
-    # # g_monthly_update = 'False'
-    # # g_year = '2019'
+    # # # g_monthly_update = 'False'
+    # # # g_year = '2019'
     
     # g_monthly_update = 'True'
     # g_year = '2020'
@@ -78,23 +84,7 @@ def execute(**kwargs):
     if g_monthly_update == 'True':
         g_month = int(g_month)
     
-    p_province_city_mapping = g_max_path + "/" + g_project_name + '/province_city_mapping'
-    p_market = g_max_path + "/" + g_project_name + '/mkt_mapping'
-    p_cpa_pha_mapping = g_max_path + "/" + g_project_name + "/cpa_pha_mapping"
-    if p_id_bedsize == 'Empty':
-        p_id_bedsize = g_max_path + "/Common_files/ID_Bedsize"
-    else:
-        p_id_bedsize = p_id_bedsize
-    
-    p_cpa_pha_mapping_common = g_max_path + "/Common_files/cpa_pha_mapping"
-    
     out_path_dir = g_max_path + "/" + g_project_name + '/' + g_out_dir
-    p_product_map = out_path_dir + "/prod_mapping"
-    
-    if g_if_two_source == "False":
-        p_raw_data_std = out_path_dir + "/product_mapping_out"
-    else:
-        p_raw_data_std = out_path_dir + "/raw_data_std"
     
     
     # 输入
@@ -104,134 +94,109 @@ def execute(**kwargs):
     p_max_result_city = result_path_prefix + g_max_result_city
 
     # %%
-    # # =========== 数据准备，测试用 =============
-    def dealIDlength(df):
-        # ID不足7位的补足0到6位
-        # 国药诚信医院编码长度是7位数字，cpa医院编码是6位数字，其他还有包含字母的ID
-        df = df.withColumn("ID", df["ID"].cast(StringType()))
-        # 去掉末尾的.0
-        df = df.withColumn("ID", func.regexp_replace("ID", "\\.0", ""))
-        df = df.withColumn("ID", func.when(func.length(df.ID) < 7, func.lpad(df.ID, 6, "0")).otherwise(df.ID))
-        return df
     
-    # 1、df_product_map
-    # g_if_two_source == "True"
-    df_product_map = spark.read.parquet(p_product_map)
-    for i in df_product_map.columns:
-        if i in ["标准通用名", "通用名_标准", "药品名称_标准", "S_Molecule_Name"]:
-            df_product_map = df_product_map.withColumnRenamed(i, "通用名")
-        if i in ["商品名_标准", "S_Product_Name"]:
-            df_product_map = df_product_map.withColumnRenamed(i, "标准商品名")
-        if i in ["min1_标准"]:
-            df_product_map = df_product_map.withColumnRenamed(i, "min2")
-        if i in ["标准途径"]:
-            df_product_map = df_product_map.withColumnRenamed(i, "std_route")
-    if "std_route" not in df_product_map.columns:
-            df_product_map = df_product_map.withColumn("std_route", func.lit(''))	
+    # p_max_weight_result = p_max_weight_result.replace("s3:", "s3a:")
+    # p_max_result_city = p_max_result_city.replace("s3:", "s3a:")
+    # %%
+    # 1. 创建临时表
+    def createView(company, table_name, sub_path, other = "",
+        time="2021-04-06",
+        base_path = g_base_path):
+             
+            definite_path = "{base_path}/{sub_path}/TIME={time}/COMPANY={company}/{other}"
+            path = definite_path.format(
+                base_path = base_path,
+                sub_path = sub_path,
+                time = time,
+                company = company,
+                other = other
+            )
+            spark.read.parquet(path).createOrReplaceTempView(table_name)
             
-    df_product_map = df_product_map.withColumnRenamed('min1', 'MIN') \
-                        .withColumnRenamed('min2', 'MIN_STD') \
-                        .withColumnRenamed('通用名', 'MOLECULE_STD') \
-                        .withColumnRenamed('标准商品名', 'BRAND_STD') \
-                        .withColumnRenamed('标准剂型', 'FORM_STD') \
-                        .withColumnRenamed('标准规格', 'SPECIFICATIONS_STD') \
-                        .withColumnRenamed('标准包装数量', 'PACK_NUMBER_STD') \
-                        .withColumnRenamed('标准生产企业', 'MANUFACTURER_STD') \
-                        .withColumnRenamed('标准集团', 'CORP_STD') \
-                        .withColumnRenamed('std_route', 'ROUTE_STD') \
-                        .withColumnRenamed('pfc', 'PACK_ID')
-    df_product_map = df_product_map.withColumn('PACK_NUMBER_STD', col('PACK_NUMBER_STD').cast(IntegerType())) \
-                            .withColumn('PACK_ID', col('PACK_ID').cast(IntegerType()))
-    df_product_map	
-
+    
+    # rawdata_std        
+    createView(g_project_name, "raw_data_std_fact", "FACT/RAW_DATA_STD_FACT", time = "2021-04-14")
+    # rawdata
+    createView(g_project_name, "raw_data_fact", "FACT/RAW_DATA_FACT", time = "2021-04-14")
+    
+    createView(g_project_name, "hospital_dimesion", "DIMENSION/HOSPITAL_DIMENSION", time = "2021-04-14")
+    createView(g_project_name, "product_dimesion", "DIMENSION/PRODUCT_DIMENSION", time = "2021-04-14")
+    createView(g_project_name, "mnf_dimesion", "DIMENSION/MNF_DIMENSION", time = "2021-04-14")
+    createView(g_project_name, "product_rel_dimesion", "DIMENSION/PRODUCT_RELATIONSHIP_DIMENSION", time = "2021-04-14")
+    #
+    createView(g_project_name, "province_city_mapping", "DIMENSION/MAPPING/PROVINCE_CITY_MAPPING", time = "2021-04-14")
+    createView(g_project_name, "mole_market_mapping", "DIMENSION/MAPPING/MARKET_MOLE_MAPPING", time = "2021-04-14") 
+    createView(g_project_name, "cpa_pha_mapping", "DIMENSION/MAPPING/CPA_PHA_MAPPING", time = "2021-04-14")
+    
+    createView("PHARBERS", "fill_cpa_pha_mapping", "DIMENSION/MAPPING/CPA_GYC_MAPPING/BACKFILL", time = "2021-04-14") 
+    createView("PHARBERS", "backfill_bedsize", "DIMENSION/MAPPING/BACKFILL_BEDSIZE", time = "2021-04-14")
     # %%
     # 2、df_product_map
-    # g_if_two_source == "True"
-    df_cpa_pha_mapping = spark.read.parquet(p_cpa_pha_mapping)
-    df_cpa_pha_mapping = df_cpa_pha_mapping.withColumnRenamed('推荐版本', 'COMMEND').where(col("COMMEND") == 1) \
-                                    .select('ID', 'PHA').distinct()
-    df_cpa_pha_mapping = dealIDlength(df_cpa_pha_mapping)
-
+    df_cpa_pha_mapping = spark.sql("SELECT * FROM cpa_pha_mapping").select('ID', 'PHA').distinct()
     # %%
     # 3、market_mapping
-    df_market = spark.read.parquet(p_market)
-    df_market = df_market.withColumnRenamed("标准通用名", "MOLECULE_STD") \
-                            .withColumnRenamed("model", "MARKET") \
-                            .withColumnRenamed("mkt", "MARKET") \
-                            .select("MARKET", "MOLECULE_STD").distinct()
+    mole_market_mapping_sql = """  SELECT * FROM mole_market_mapping """
+    df_market =  spark.sql(mole_market_mapping_sql).withColumnRenamed("COMMON_NAME", "MOLECULE_STD")\
+                        .select(["MARKET", "MOLECULE_STD"]).distinct()
     if df_market.select("MARKET").dtypes[0][1] == "double":
         df_market = df_market.withColumn("MARKET", col("MARKET").cast(IntegerType()))
-
     # %%
     # 4、province_city_mapping
-    df_province_city_mapping = spark.read.parquet(p_province_city_mapping)
-    df_province_city_mapping = df_province_city_mapping.distinct()
-    df_province_city_mapping = dealIDlength(df_province_city_mapping)
-    df_province_city_mapping = df_province_city_mapping.withColumnRenamed('Procince', 'PROVINCE') \
-                                            .withColumnRenamed('City', 'CITY') \
-                                            .select('ID', 'PROVINCE', 'CITY')
-    # df_province_city_mapping
-
+    province_city_mapping_sql = """  SELECT * FROM province_city_mapping  """
+    df_province_city_mapping = spark.sql(province_city_mapping_sql)
+    df_province_city_mapping = df_province_city_mapping.select(["ID", "PROVINCE","CITY"]).distinct()
     # %%
     # 5、province_city_mapping
-    df_cpa_pha_mapping_common = spark.read.parquet(p_cpa_pha_mapping_common)
-    df_cpa_pha_mapping_common = df_cpa_pha_mapping_common.withColumnRenamed('推荐版本', 'COMMEND') \
-                                                .where(col("COMMEND") == 1) \
-                                                .withColumnRenamed("PHA", "PHA_COMMON") \
-                                                .select("ID", "PHA_COMMON").distinct()
-    df_cpa_pha_mapping_common = dealIDlength(df_cpa_pha_mapping_common)
-
+    fill_cpa_pha_mapping_sql = """
+            SELECT * FROM fill_cpa_pha_mapping
+        """
+    df_cpa_pha_mapping_common = spark.sql(fill_cpa_pha_mapping_sql).select(["ID", "PHA"]).distinct()
     # %%
     # 6.ID_Bedsize
-    df_ID_Bedsize = spark.read.parquet(p_id_bedsize)
-    df_ID_Bedsize = dealIDlength(df_ID_Bedsize)
-    df_ID_Bedsize = df_ID_Bedsize.withColumnRenamed("Bedsize", "BEDSIZE") \
-                           .select("ID", "BEDSIZE").distinct()
-    # df_ID_Bedsize
-
+    backfill_bedsize_sql = """ SELECT * FROM backfill_bedsize """
+    df_ID_Bedsize = spark.sql(backfill_bedsize_sql)
+    df_ID_Bedsize = df_ID_Bedsize.select(["ID", "BEDSIZE"]).distinct()
     # %%
-    # 7.raw_data
-    df_raw_data = spark.read.parquet(p_raw_data_std)
-    # === 测试用 =====
-    for i in df_raw_data.columns:
-        if i in ["数量（支/片）", "最小制剂单位数量", "total_units", "SALES_QTY"]:
-            df_raw_data = df_raw_data.withColumnRenamed(i, "Units")
-        if i in ["金额（元）", "金额", "sales_value__rmb_", "SALES_VALUE"]:
-            df_raw_data = df_raw_data.withColumnRenamed(i, "Sales")
-        if i in ["Yearmonth", "YM", "Date", "year_month"]:
-            df_raw_data = df_raw_data.withColumnRenamed(i, "Date")
-        if i in ["医院编码", "BI_Code", "HOSP_CODE"]:
-            df_raw_data = df_raw_data.withColumnRenamed(i, "ID")
-            
-    for colname, coltype in df_raw_data.dtypes:
-        if coltype == "logical":
-            df_raw_data = df_raw_data.withColumn(colname, df_raw_data[colname].cast(StringType()))        
-    # === 测试用 =====
+    # 7.读取rawdata_std数据
+    raw_data_std_sql = """
+            SELECT
+                RW.RAW_CODE AS ID, HD.PANEL_ID AS PHA_ID, RW.RAW_PACK_ID AS PACK_ID, RW.RAW_MANUFACTURER AS MANUFACTURER_STD, RW.DATE,
+                RW.RAW_MOLE_NAME AS MOLECULE_STD,  RW.RAW_PRODUCT_NAME AS BRAND_STD, 
+                RW.RAW_PACK AS PACK_NUMBER_STD, RW.RAW_DOSAGE AS FORM_STD, RW.RAW_SPEC AS SPECIFICATIONS_STD,
+                RW.SALES, RW.UNITS
+            FROM raw_data_std_fact AS RW
+                LEFT JOIN hospital_dimesion AS HD ON RW.HOSPITAL_ID == HD.ID
+                LEFT JOIN product_dimesion AS PD ON RW.PRODUCT_ID == PD.ID
+                LEFT JOIN mnf_dimesion AS MD ON PD.MNF_ID == MD.ID
+                LEFT JOIN product_rel_dimesion AS PRM ON PD.PACK_ID == PRM.ID AND PRM.CATEGORY = 'IMS PACKID'
+        """
+    raw_data_sql = """
+            SELECT
+                RW.RAW_CODE AS ID, HD.PANEL_ID AS PHA_ID, RW.RAW_PACK_ID AS PACK_ID, RW.RAW_MANUFACTURER AS MANUFACTURER_STD, RW.DATE,
+                RW.RAW_MOLE_NAME AS MOLECULE_STD,  RW.RAW_PRODUCT_NAME AS BRAND_STD, 
+                RW.RAW_PACK AS PACK_NUMBER_STD, RW.RAW_DOSAGE AS FORM_STD, RW.RAW_SPEC AS SPECIFICATIONS_STD,
+                RW.SALES, RW.UNITS
+            FROM raw_data_fact AS RW
+                LEFT JOIN hospital_dimesion AS HD ON RW.HOSPITAL_ID == HD.ID
+                LEFT JOIN product_dimesion AS PD ON RW.PRODUCT_ID == PD.ID
+                LEFT JOIN mnf_dimesion AS MD ON PD.MNF_ID == MD.ID
+                LEFT JOIN product_rel_dimesion AS PRM ON PD.PACK_ID == PRM.ID AND PRM.CATEGORY = 'IMS PACKID'
+        """
     
-    df_raw_data = df_raw_data.withColumnRenamed('Form', 'FORM') \
-                        .withColumnRenamed('Specifications', 'SPECIFICATIONS') \
-                        .withColumnRenamed('Pack_Number', 'PACK_NUMBER') \
-                        .withColumnRenamed('Manufacturer', 'MANUFACTURER') \
-                        .withColumnRenamed('Molecule', 'MOLECULE') \
-                        .withColumnRenamed('Source', 'SOURCE') \
-                        .withColumnRenamed('Corp', 'CORP') \
-                        .withColumnRenamed('Route', 'ROUTE') \
-                        .withColumnRenamed('ORG_Measure', 'ORG_MEASURE') \
-                        .withColumnRenamed('Sales', 'SALES') \
-                        .withColumnRenamed('Units', 'UNITS') \
-                        .withColumnRenamed('Units_Box', 'UNITS_BOX') \
-                        .withColumnRenamed('Path', 'PATH') \
-                        .withColumnRenamed('Sheet', 'SHEET') \
-                        .withColumnRenamed('Raw_Hosp_Name', 'RAW_HOSP_NAME') \
-                        .withColumnRenamed('Date', 'DATE') \
-                        .withColumnRenamed('Brand', 'BRAND')
-    df_raw_data = df_raw_data.withColumn('DATE', col('DATE').cast(IntegerType())) \
-                        .withColumn('PACK_NUMBER', col('PACK_NUMBER').cast(IntegerType())) \
-                        .withColumn('SALES', col('SALES').cast(DoubleType())) \
-                        .withColumn('UNITS', col('UNITS').cast(DoubleType())) \
-                        .withColumn('UNITS_BOX', col('UNITS_BOX').cast(DoubleType()))
-    df_raw_data = dealIDlength(df_raw_data)
-
+    
+    #  选择raw_data数据来源
+    if g_if_two_source == "True":
+        df_raw_data = spark.sql(raw_data_std_sql)
+    elif g_if_two_source == "False":
+        df_raw_data = spark.sql(raw_data_sql)
+    else:
+        raise ValueError("请确定raw_data的正确来源")
+    
+    
+    df_raw_data = df_raw_data.withColumn("MIN_STD", func.format_string("%s|%s|%s|%s|%s", "BRAND_STD","FORM_STD",
+                                            "SPECIFICATIONS_STD", "PACK_NUMBER_STD", "MANUFACTURER_STD"))
+    df_raw_data = df_raw_data.withColumn("SALES", col("SALES").cast("double"))\
+                                    .withColumn("UNITS", col("UNITS").cast("double"))
     # %%
     # =========== 数据执行 =============
     '''
@@ -240,40 +205,16 @@ def execute(**kwargs):
     新：都统一读取raw，重新匹配
     '''
     # 一. raw文件处理
+    # 获得 PHA
+    df_raw_data = df_raw_data.join(df_cpa_pha_mapping, on="ID", how="left")
+        
+    ## 对raw_data日期进行控制
     if g_monthly_update == 'True':
         df_raw_data = df_raw_data.where(col("DATE")  == g_year * 100 + g_month)
     else:
         df_raw_data = df_raw_data.where((col("DATE") >= g_year * 100 + 1) & (col('DATE') <= g_year * 100 + 12))
     
-    if g_if_two_source == "True":
-        # 1、匹配产品信息和医院信息
-        # job1: df_raw_data 处理，匹配PHA，部分job1
-        # 匹配：cpa_pha_mapping
-        df_raw_data = dealIDlength(df_raw_data)    
-        df_raw_data = df_raw_data.join(df_cpa_pha_mapping, on="ID", how="left")
-    
-        # job2: df_raw_data 处理，生成min1，用product_map 匹配获得min2（MIN_STD），同job2
-        # if g_project_name != "Mylan":
-        df_raw_data = df_raw_data.withColumn("BRAND", func.when((col('BRAND').isNull()) | (col('BRAND') == 'NA'), col('MOLECULE')).
-                                       otherwise(col('BRAND')))
-    
-        # MIN 生成
-        df_raw_data = df_raw_data.withColumn('tmp', func.concat_ws(g_minimum_product_sep, 
-                                *[func.when(col(i).isNull(), func.lit("NA")).otherwise(col(i)) for i in g_minimum_product_columns]))
-       
-        # Mylan不重新生成minimum_product_newname: min1，其他项目生成min1
-        # if g_project_name == "Mylan":
-        #    df_raw_data = df_raw_data.drop("tmp")
-        # else:
-        df_raw_data = df_raw_data.withColumnRenamed("tmp", g_minimum_product_newname)
-    
-        df_product_map_for_rawdata = df_product_map.select("MIN", "MIN_STD", "MOLECULE_STD", "PACK_ID").distinct()
-        
-        # 匹配：
-        df_raw_data = df_raw_data.join(df_product_map_for_rawdata, on="MIN", how="left")
-                                #.drop("MOLECULE_STD") \
-                                #.withColumnRenamed("MOLECULE_STD", "MOLECULE_STD")
-
+    df_raw_data.persist()
     # %%
     # 2、匹配：市场名
     df_raw_data = df_raw_data.join(df_market, on="MOLECULE_STD", how="left")
@@ -338,6 +279,7 @@ def execute(**kwargs):
                                                     StructField('PREDICT_UNIT', DoubleType(), True) ])
     df_max_result = spark.read.format("parquet").load(p_max_weight_result, schema=strcut_type_max_weight_result)
     
+    # 日期控制
     if g_monthly_update == 'True':
         df_max_result = df_max_result.where(col('DATE') == (g_year*100 + g_month))
     elif g_monthly_update == 'False':
@@ -415,9 +357,13 @@ def execute(**kwargs):
 
     # %%
     # 月更
-    # df=spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012_test/MAX_result/MAX_result_202001_202012_city_level/')
-    # df.where(df.Date==202012).agg(func.sum('Predict_Sales'),func.sum('Predict_Unit')).show()
-
+    #df=spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012_test/MAX_result/MAX_result_202001_202012_city_level/')
+    #df = df.where(df.Date==202012)
+    #df.agg(func.sum('Predict_Sales'),func.sum('Predict_Unit')).show()
+    
+    #max_result_city.agg(func.sum('Predict_Sales'),func.sum('Predict_Unit')).show()
+    
+    #logger.debug(df.count(), max_result_city.count() )
     # %%
     # 模型
     # df=spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/201912_test/MAX_result/MAX_result_201701_201912_city_level')

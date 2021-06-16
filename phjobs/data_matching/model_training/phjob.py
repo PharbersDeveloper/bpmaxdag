@@ -51,16 +51,25 @@ def execute(**kwargs):
 
 ###########-------loading files-----------#################
     label_data = loading_files(spark,input_path=path_label_result)
-    model_state = judge_state_of_model(input_model_path=input_model_path)
 ###########-------loading files-----------#################
+    print(label_data.printSchema())
+    label_data = label_data.limit(5000)
 
 #####################-------main function-------------#####################
+    signal_of_files = Judge_TrainingData_OrNot(input_dataframe=label_data,\
+                                               inputCheckCol="pack_id_check")
+    signal_of_trainingModel =  singal_of_whether_training_model_ByOutSide(kwargs)
 
+    signal_of_model = Judge_Training_Model_OrNot(signal_of_dataframe=signal_of_files,\
+                                                 signal_of_whether_training_model=signal_of_trainingModel,\
+                                                input_model_path=input_model_path)
+    
+    
     ## == 生成features
     data_of_features = generate_features(input_data_frame=label_data)
     
     ## 生成模型
-    model = get_model(input_model_state=model_state,\
+    model = get_model(the_state_of_model=signal_of_model,\
                       input_data_frame=data_of_features)
     
 #####################-------main function-------------#####################
@@ -77,6 +86,7 @@ def execute(**kwargs):
                output_path=data_of_features_path) 
 
 ########## == RESULT == ###########
+    
     return {}
 
 
@@ -111,10 +121,10 @@ def get_depends_file_path(kwargs, job_name, job_key):
 
 def get_final_result_path(kwargs, tm, final_key):
     path_prefix = kwargs["final_prefix"]
-    if kwargs["run_id"]:
-        tm = tm
-    else:
+    if kwargs["run_id"] == None:
         tm = "test"
+    else:
+        tm = str(tm) 
     final_result_path = path_prefix + "/" + tm +"/" + final_key 
         
     return final_result_path
@@ -136,9 +146,11 @@ def get_depends_path(kwargs):
 def loading_files(spark,input_path):
     try:
         dataframe = spark.read.parquet(input_path)
+        print(fr"{input_path} 数据下载成功！")
     except:
-        print("数据下载失败！")
+        print(fr"{input_path} 数据下载失败！")
         dataframe = None
+    print(dataframe.printSchema())
     return dataframe
 
 ##### == 写入路径 
@@ -172,11 +184,58 @@ def judge_state_of_model(input_model_path):
         mode = None
     return mode
 
+#### == 判断数据类型
+def Judge_TrainingData_OrNot(input_dataframe,inputCheckCol):
+    
+    Cols_of_data = list(map(lambda x: x.upper(),input_dataframe.columns))
+    
+    Check_col = inputCheckCol.upper()
+    
+    if Check_col in Cols_of_data:
+        signal = True
+    else:
+        signal = False
+    
+    return signal
+
+def singal_of_whether_training_model_ByOutSide(kwargs):
+    
+    try:
+        if kwargs["Training_Model"] == True:
+            signal = True
+        else:
+            signal = False 
+    except:
+        signal = False
+    
+    return signal
+
+### == 判断是否训练模型
+def Judge_Training_Model_OrNot(signal_of_dataframe,\
+                               signal_of_whether_training_model,\
+                              input_model_path):
+    
+    if signal_of_dataframe == True:
+        
+        if signal_of_whether_training_model == True:
+            
+            signal_of_model = True
+        else:
+            signal_of_model = False
+    else:
+        signal_of_model = False
+        
+    if signal_of_model == False:
+        
+        signal_of_model = judge_state_of_model(input_model_path)
+    
+    return signal_of_model
+
 def generate_features(input_data_frame):
     
     assembler = VectorAssembler( \
-                                inputCols=["EFFTIVENESS_MOLE_NAME", "EFFTIVENESS_PRODUCT_NAME", "EFFTIVENESS_DOSAGE", "EFFTIVENESS_SPEC", \
-                                           "EFFTIVENESS_PACK_QTY", "EFFTIVENESS_MANUFACTURER"], \
+                                inputCols=["EFFECTIVENESS_MOLE", "EFFTIVENESS_PRODUCT", "EFFECTIVENESS_DOSAGE", "EFFECTIVENESS_SPEC", \
+                                           "EFFECTIVENESS_PACK_QTY", "EFFECTIVENESS_MANUFACTURER"], \
                                 outputCol="features")
     data_frame = assembler.transform(input_data_frame)
 
@@ -228,7 +287,10 @@ def get_training_and_test_data(input_data):
 def get_element_for_pipeline(input_data_frame):
     
     labelIndexer = StringIndexer(inputCol="label", outputCol="indexedLabel").fit(input_data_frame)
-    featureIndexer = VectorIndexer(inputCol="features", outputCol="indexedFeatures", maxCategories=6).fit(input_data_frame)
+    featureIndexer = VectorIndexer(inputCol="features",\
+                                   outputCol="indexedFeatures",\
+                                   maxCategories=6,\
+                                   handleInvalid="skip").fit(input_data_frame)
 
     # Train a DecisionTree model.
     dt = DecisionTreeClassifier(labelCol="indexedLabel", featuresCol="indexedFeatures")
@@ -246,96 +308,18 @@ def training_model(input_training_dataframe):
     model = pipeline.fit(input_training_dataframe)
     
     return model
+
+def get_model(the_state_of_model,input_data_frame):
     
-def get_model(input_model_state,input_data_frame):
-    
-    if input_model_state == None:
+    if the_state_of_model == True:
+        print("生成的模型")
         data_frame = get_training_and_test_data(input_data=input_data_frame)[0]   
         model = training_model(input_training_dataframe=data_frame)
-        print("生成的模型")
     else:
-        model = input_model_state
+        model = the_state_of_model
         print("调用的模型")
     
     return model
 
 ################-----------------------------------------------------################
     
-'''
-    if input_model_path == "unknown":
-        # 0. load the cleanning data
-        # features
-        # training_data = training_data.withColumn("EFFTIVENESS_DOSAGE", when(training_data.EFFTIVENESS_DOSAGE > 0.995, 0.995).otherwise(training_data.EFFTIVENESS_DOSAGE))
-        print(training_data.count())
-        assembler = VectorAssembler( \
-                                    inputCols=["EFFTIVENESS_MOLE_NAME", "EFFTIVENESS_PRODUCT_NAME", "EFFTIVENESS_DOSAGE", "EFFTIVENESS_SPEC", \
-                                               "EFFTIVENESS_PACK_QTY", "EFFTIVENESS_MANUFACTURER"], \
-                                    outputCol="features")
-        training_data = assembler.transform(training_data)
-
-
-        df_cleanning = training_data.select("ID").distinct()
-        # Split the data into training and test sets (30% held out for testing)
-        (df_training, df_test) = df_cleanning.randomSplit([0.7, 0.3])
-        # (df_training, df_test) = raw_data.randomSplit([0.7, 0.3])
-        print(df_training.count())
-        df_training.show(100, truncate=False)
-
-        # 1. load the training data
-        # 准备训练集合
-        df_result = training_data
-        df_result = df_result.select("ID", "label", "features")
-#         print(df_result.where(df_result.label > 0).count())
-#         df_result.where(df_result.label > 0).show(100, truncate=False)
-        labelIndexer = StringIndexer(inputCol="label", outputCol="indexedLabel").fit(df_result)
-        featureIndexer = VectorIndexer(inputCol="features", outputCol="indexedFeatures", maxCategories=6).fit(df_result)
-
-        # 1.1 构建训练集合
-        df_training = df_training.join(df_result, how="left", on="ID")
-        # df_training.show()
-
-        # 1.2 构建测试集合
-        df_test = df_test.join(df_result, how="left", on="ID")
-        df_test.write.mode("overwrite").parquet(validate_path)
-        # df_test.show()
-
-        # Train a DecisionTree model.
-        dt = DecisionTreeClassifier(labelCol="indexedLabel", featuresCol="indexedFeatures")
-
-        # Chain indexers and tree in a Pipeline
-        pipeline = Pipeline(stages=[labelIndexer, featureIndexer, dt])
-    
-        # Train model.  This also runs the indexers.
-        model = pipeline.fit(df_training)
-        model.write().overwrite().save(model_path)
-        model.write().overwrite().save(final_path)
-
-        # validata the model
-        # Make predictions.
-        df_predictions = model.transform(df_test)
-
-        # save predictions
-        #df_predictions.write.mode("overwrite").parquet(model_validata)
-
-        # Select (prediction, true label) and compute test error
-        #evaluator = MulticlassClassificationEvaluator(
-        #labelCol="indexedLabel", predictionCol="prediction", metricName="accuracy")
-        #accuracy = evaluator.evaluate(df_predictions)
-        #logger.warn("Test Error = %g " % (1.0 - accuracy))
-
-        # Create pandas data frame and convert it to a spark data frame 
-        #pandas_df = pd.DataFrame({"MODEL":["Decision Tree"], "ACCURACY": [accuracy]})
-        #spark_df = spark.createDataFrame(pandas_df)
-        #spark_df.repartition(1).write.mode("overwrite").parquet(validate_path)
-    else:
-        # load 
-        model = PipelineModel.load(input_model_path)
-        model.write().overwrite().save(model_path)
-        model.write().overwrite().save(final_path)
-
-    treeModel = model.stages[2]
-    # summary only
-    print(treeModel.toDebugString)
-    
-'''
- 

@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: dw2db
+  description: "pharbers job description"
+  labels:
+    name: dw2db
+    runtime: python3
+    command: submit
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    command: submit
+    timeout: 60.0
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: version
+        value: "0.0.2"
+#      - key: product_path
+#        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DIMENSION/PRODUCT_DIMENSION/"
+#      - key: manufacturer_path
+#        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DIMENSION/MNF_DIMENSION/"
+#      - key: mole_spec_path
+#        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DIMENSION/MOLE_SPEC_DIMENSION/"
+#      - key: product_category_path
+#        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DIMENSION/PRODUCT_CATEGORY_DIMENSION/"
+#      - key: product_relationship_path
+#        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DIMENSION/PRODUCT_RELATIONSHIP_DIMENSION/"
+#      - key: lexicon_path
+#        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/METADATA/LEXICON/"
+      - key: tables
+        value: "W3sidGFibGVfbmFtZSI6InByb2R1Y3QiLCJkd19wYXRoIjoiczNhOi8vcGgtbWF4LWF1dG8vMjAyMC0wOC0xMS9kYXRhX21hdGNoaW5nL3JlZmFjdG9yL2RhdGEvRElNRU5TSU9OL1BST0RVQ1RfRElNRU5TSU9OLyJ9LHsidGFibGVfbmFtZSI6InByb2R1Y3RjYXRlZ29yeSIsImR3X3BhdGgiOiJzM2E6Ly9waC1tYXgtYXV0by8yMDIwLTA4LTExL2RhdGFfbWF0Y2hpbmcvcmVmYWN0b3IvZGF0YS9ESU1FTlNJT04vUFJPRFVDVF9DQVRFR09SWV9ESU1FTlNJT04vIn0seyJ0YWJsZV9uYW1lIjoicHJvZHVjdHJlbGF0aW9uc2hpcCIsImR3X3BhdGgiOiJzM2E6Ly9waC1tYXgtYXV0by8yMDIwLTA4LTExL2RhdGFfbWF0Y2hpbmcvcmVmYWN0b3IvZGF0YS9ESU1FTlNJT04vUFJPRFVDVF9SRUxBVElPTlNISVBfRElNRU5TSU9OLyJ9LHsidGFibGVfbmFtZSI6Im1vbGVzcGVjIiwiZHdfcGF0aCI6InMzYTovL3BoLW1heC1hdXRvLzIwMjAtMDgtMTEvZGF0YV9tYXRjaGluZy9yZWZhY3Rvci9kYXRhL0RJTUVOU0lPTi9NT0xFX1NQRUNfRElNRU5TSU9OLyJ9LHsidGFibGVfbmFtZSI6Im1hbnVmYWN0dXJlciIsImR3X3BhdGgiOiJzM2E6Ly9waC1tYXgtYXV0by8yMDIwLTA4LTExL2RhdGFfbWF0Y2hpbmcvcmVmYWN0b3IvZGF0YS9ESU1FTlNJT04vTU5GX0RJTUVOU0lPTi8ifSx7InRhYmxlX25hbWUiOiJsZXhpY29uIiwiZHdfcGF0aCI6InMzYTovL3BoLW1heC1hdXRvLzIwMjAtMDgtMTEvZGF0YV9tYXRjaGluZy9yZWZhY3Rvci9kYXRhL01FVEFEQVRBL0xFWElDT04vIn1d"
+      - key: db_uri
+        value: "jdbc:postgresql://ph-db-lambda.cngk1jeurmnv.rds.cn-northwest-1.amazonaws.com.cn/test"
+      - key: db_user
+        value: "pharbers"
+      - key: db_password
+        value: "Abcde196125"
+    outputs:
+      - key: c
+        value: "abc"
+      - key: d
+        value: "abc"
+
+
+

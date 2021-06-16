@@ -13,6 +13,9 @@ import pandas as pd
 import os
 import uuid
 import random
+import psycopg2
+import psycopg2.extras
+from urllib.parse import urlparse
 
 
 def execute(**kwargs):
@@ -25,6 +28,7 @@ def execute(**kwargs):
 
 	spark = SparkSession.builder \
 		.master("yarn") \
+		# .appName("ntm push data to db from s3") \
 		.appName("ntm pull data from db") \
 		.config("spark.driver.memory", "1g") \
 		.config("spark.executor.cores", "1") \
@@ -92,6 +96,7 @@ def execute(**kwargs):
 
 	# cal_report = cal_hosp_data.unionByName(cal_res_data, allowMissingColumns=True).unionByName(cal_prod_data, allowMissingColumns=True)
 	cal_report = cal_hosp_data.union(cal_res_data).union(cal_prod_data)
+
 	cal_report = cal_report.drop("total_sales", "total_quota")
 	
 	competitor_data = spark.read.parquet(competitor_path)
@@ -106,7 +111,7 @@ def execute(**kwargs):
 									.withColumn("hospital", lit(""))
 
 	cal_report = cal_report.union(competitor_data)
-	
+
 	cal_report = cal_report.withColumn("patientNum", lit(0)) \
 						.withColumn("drugEntrance", lit("已准入")) \
 						.withColumn("quotaGrowthMOM", lit(0.0)) \
@@ -161,18 +166,27 @@ def execute(**kwargs):
 				.withColumnRenamed("manage_time", "manageTime") \
 				.withColumnRenamed("manage_team", "manageTeam")
 
-	final.persist()
-	final.repartition(1).write.mode("overwrite").parquet(final_result)
+	final.persist()	
+	###############---------------- write relevance final_id for project table -------------################
 	if g_is_push is 1:
-		final.write.format("jdbc") \
-				.option("url", g_postgres_uri) \
-				.option("dbtable", "final") \
-				.option("user", g_postgres_user) \
-				.option("password", g_postgres_pass) \
-				.option("driver", "org.postgresql.Driver") \
-				.mode("append") \
-				.save()
-	
+		pg_connection = connect_pg(g_postgres_uri, g_postgres_user, g_postgres_pass)
+		cursor = pg_connection.cursor(cursor_factory=psycopg2.extras.DictCursor)
+		
+		final_id = final.take(1)[0]['id']
+		
+		cursor.execute("SELECT * FROM project WHERE id ='{id}'".format(id=g_project_id))
+		finals = cursor.fetchone()['finals']
+		finals.append(final_id)
+		
+		cursor.execute("UPDATE project SET finals = '{finals}' WHERE id = '{id}'".format(
+			finals="{" + ",".join(finals) + "}", id=g_project_id)
+		)
+		pg_connection.commit()
+		
+		cursor.close()
+		pg_connection.close()
+	###############---------------- write relevance final_id for project table -------------################
+		
 	return {}
 
 
@@ -215,9 +229,9 @@ def get_depends_path(kwargs):
 		result[depends_name] = get_depends_file_path(kwargs, depends_job, depends_key)
 	return result
 
-
-def cal_report_meta(df, cat, gp_col):
-	df = df.groupBy(gp_col, "total_sales", "total_quota").agg(
+def cal_report_meta(df, cat, gp_cols):
+	cols = gp_cols + ["total_sales", "total_quota"]
+	df = df.groupBy(cols).agg(
 						sum(df.sales).alias("sales"),
 						sum(df.salesQuota).alias("salesQuota")
 					)
@@ -227,7 +241,7 @@ def cal_report_meta(df, cat, gp_col):
 			.withColumn("achievements", df.sales / df.salesQuota)
 			
 	cols = ["hospital", "resource", "product"]
-	cols = [n for n in cols if n != gp_col]
+	cols = [n for n in cols if n not in gp_cols]
 	for item in cols:
 		df = df.withColumn(item, lit(""))
 			
@@ -258,6 +272,17 @@ def general_report_id(a):
 	
 	df["result"] = df["a"].apply(lambda x: general_report_id_acc(x))
 	return df["result"]
-	
 
+def connect_pg(url, postgres_user, postgres_pass):
+	username = postgres_user
+	password = postgres_pass
+	hostname = url.split("/")[-2]
+	database = url.split("/")[-1]
+	connection = psycopg2.connect(
+	    database = database,
+	    user = username,
+	    password = password,
+	    host = hostname
+	)
+	return connection
 ################--------------------- functions ---------------------################
