@@ -34,6 +34,8 @@ spec:
         value: 'Empty'
       - key: g_max_path
         value: 's3a://ph-max-auto/v0.0.1-2020-06-08/'
+      - key: g_base_path
+        value: 's3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX'
     outputs:
       - key: g_adding_data
         value: 'adding_data'

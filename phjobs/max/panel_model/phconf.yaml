@@ -34,10 +34,6 @@ spec:
         value: 's3a://ph-max-auto/v0.0.1-2020-06-08/'
       - key: g_base_path
         value: 's3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX'
-      - key: g_city_47
-        value: '北京市, 上海市, 天津市, 重庆市, 广州市,深圳市, 西安市, 大连市, 成都市, 厦门市, 沈阳市'
-      - key: g_province_47
-        value: '河北省, 福建省, 河北, 福建'
     outputs:
       - key: g_panel
         value: 'panel_result'

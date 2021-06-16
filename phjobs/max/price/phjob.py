@@ -26,22 +26,25 @@ def execute(**kwargs):
 
     
     
+    
+    
     import pandas as pd
     import os
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
-    from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col            # %%
+    from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col            
+    # %%
     #测试用
     
+    # dag_name = 'Max'
+    # run_id = 'max_test_beida_202012'
     # g_project_name='贝达'
     # result_path_prefix=get_result_path({"name":job_name, "dag_name":dag_name, "run_id":run_id})
     # depends_path=get_depends_path({"name":job_name, "dag_name":dag_name, 
     #                                  "run_id":run_id, "depend_job_names_keys":depend_job_names_keys })
-
     # %%
     logger.debug('数据执行-start:价格计算')
-    # 测试输入
-    products_of_interest_path = g_max_path + "/" + g_project_name + "/poi.csv"
+    
     
     # 输入
     p_product_mapping_out = depends_path['deal_poi_out']
@@ -50,6 +53,11 @@ def execute(**kwargs):
     p_price = result_path_prefix + g_price
     p_price_city = result_path_prefix + g_price_city
 
+    # %%
+    ## 
+    # p_price = p_price.replace("s3:", "s3a:")
+    # p_price_city = p_price_city.replace("s3:", "s3a:")
+    # p_product_mapping_out = p_product_mapping_out.replace("s3:", "s3a:")
     # %%
     # =========== 数据执行 =============
     # df_raw_data = spark.read.parquet(p_product_mapping_out)
@@ -109,31 +117,69 @@ def execute(**kwargs):
 
     # %%
     # df_price.agg(func.sum('PRICE')).show()
-
-    # %%
     # df_price_city.agg(func.sum('PRICE')).show()
-
     # %%
     # df=spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012_test/price/')
     # df.agg(func.sum('Price')).show()
-
-    # %%
     # df=spark.read.parquet('s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012_test/price_city/')
     # df.agg(func.sum('Price')).show()
-
     # %%
-    # test_path = "s3a://ph-max-auto/2020-08-11/Max/refactor/runs/max_test_beida_202012_bk/price/price_city"
-    # df_test = spark.read.parquet(test_path).withColumnRenamed("PRICE", "PRICE_OLD")
+    # test_path = "s3a://ph-max-auto/2020-08-11/Max/refactor/runs/max_test_beida_202012_bk/price/price"
+    # df_data_old = spark.read.parquet(test_path)
+    # df_data_old =  df_data_old.withColumnRenamed("PRICE", "PRICE_OLD")
+    # df_data_old = df_data_old.where( (df_data_old["YEAR_MONTH"]>=201901 ) &(df_data_old["YEAR_MONTH"]<=201912))
     # df_test.show(1, vertical=True)
     
-    # df_test = df_test.filter( df_test.CITY.isNotNull() )
-    # df_price_city = df_price_city.filter( df_price_city.CITY.isNotNull() )
-    # print(df_test.count(), df_price_city.count() )
     
+    # print(df_price.count(), df_data_old.count())
     
-    # compare = df_price_city.join(df_test, on=["MIN_STD", "YEAR_MONTH", "CITY", "PROVINCE" ], how="inner")
+    # compare = df_price.join(df_data_old, on=["MIN_STD", "YEAR_MONTH", "CITY_TIER"  ], how="inner")
     # print(compare.count())
-
+    
+    # # #### 用差集去计算
+    # old_col_list = df_data_old.columns
+    # raw_col_list = df_price.columns
+    # sam_col_list = list( set(old_col_list)&set(raw_col_list)   )
+    # print(sam_col_list)
+    # df_data_old = df_data_old.select( sam_col_list  )
+    # df_price = df_price.select( sam_col_list )
+    # # df_raw_data.show(1, vertical=True)
+    # subtract_result_1 =  df_data_old.subtract( df_price )
+    # subtract_result_1.show(1)
+    # print( subtract_result_1.count() )
+    # subtract_result_2 =  df_price.subtract( df_data_old )
+    # subtract_result_2.show(1)
+    # print( subtract_result_2.count() )
+    # %%
+    # test_path = "s3a://ph-max-auto/2020-08-11/Max/refactor/runs/max_test_beida_202012_bk/price/price_city"
+    # df_data_old = spark.read.parquet(test_path)
+    # df_data_old =  df_data_old.withColumnRenamed("PRICE", "PRICE_OLD")
+    
+    
+    # ### join计算
+    # # df_test = df_test.filter( df_test.CITY.isNotNull() )
+    # # df_price_city = df_price_city.filter( df_price_city.CITY.isNotNull() )
+    # # print(df_test.count(), df_price_city.count() )
+    
+    # print(df_price_city.count(), df_data_old.count())
+    
+    # compare = df_price_city.join(df_data_old, on=["MIN_STD", "YEAR_MONTH", "CITY", "PROVINCE" ], how="inner")
+    # print(compare.count())
+    
+    # # #### 用差集去计算
+    # old_col_list = df_data_old.columns
+    # raw_col_list = df_price.columns
+    # sam_col_list = list( set(old_col_list)&set(raw_col_list)   )
+    # print(sam_col_list)
+    # df_data_old = df_data_old.select( sam_col_list  )
+    # df_price = df_price.select( sam_col_list )
+    # # df_raw_data.show(1, vertical=True)
+    # subtract_result_1 =  df_data_old.subtract( df_price )
+    # subtract_result_1.show(1)
+    # print( subtract_result_1.count() )
+    # subtract_result_2 =  df_price.subtract( df_data_old )
+    # subtract_result_2.show(1)
+    # print( subtract_result_2.count() )
     # %%
     
     ## 比较 PRICE 是否一致
