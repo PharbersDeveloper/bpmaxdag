@@ -6,12 +6,12 @@ metadata:
   labels:
     name: ntmpush
     runtime: python3
-    command: submit
+    command: script
 spec:
   containers:
     repository: local
     runtime: python3
-    command: submit
+    command: script
     timeout: 10.0
     code: phmain.py
     config: phconf.yaml

@@ -12,6 +12,7 @@ from pyspark.sql.functions import broadcast, lit, sum
 import psycopg2
 import psycopg2.extras
 from urllib.parse import urlparse
+
 import pandas as pd
 import os
 import uuid
@@ -28,7 +29,8 @@ def execute(**kwargs):
 
 	spark = SparkSession.builder \
 		.master("yarn") \
-		.appName("ntm push data to db from s3") \
+		# .appName("ntm push data to db from s3") \
+		.appName("ntm pull data from db") \
 		.config("spark.driver.memory", "1g") \
 		.config("spark.executor.cores", "1") \
 		.config("spark.executor.instance", "1") \
@@ -75,7 +77,7 @@ def execute(**kwargs):
 	result_path_prefix = get_result_path(kwargs, run_id, job_id)
 	report_path = result_path_prefix + kwargs["report_result"]
 	final_result = result_path_prefix + kwargs["final_result"]
-###############----------------output--------------###############
+###############----------------output--------------##################
 
 	cal_data = spark.read.parquet(cal_path)
 	# competitor_data = spark.read.parquet(competitor_path)
@@ -89,16 +91,13 @@ def execute(**kwargs):
 						.withColumnRenamed("quota", "salesQuota")
 	cal_data.persist()	
 	
-	cal_hosp_data = cal_report_meta(cal_data, "Hospital", ["hospital", "resource", "product"])
-	cal_hosp_data.show()
-	cal_res_data = cal_report_meta(cal_data, "Resource", ["product", "resource"])
-	cal_res_data.show()
-	cal_prod_data = cal_report_meta(cal_data, "Product", ["product"])
-	cal_prod_data.show()
+	cal_hosp_data = cal_report_meta(cal_data, "Hospital", "hospital")
+	cal_res_data = cal_report_meta(cal_data, "Resource", "resource")
+	cal_prod_data = cal_report_meta(cal_data, "Product", "product")
 
 	# cal_report = cal_hosp_data.unionByName(cal_res_data, allowMissingColumns=True).unionByName(cal_prod_data, allowMissingColumns=True)
-	cal_report = cal_hosp_data.unionByName(cal_res_data).unionByName(cal_prod_data)
-	cal_report.show()
+	cal_report = cal_hosp_data.union(cal_res_data).union(cal_prod_data)
+
 	cal_report = cal_report.drop("total_sales", "total_quota")
 	
 	competitor_data = spark.read.parquet(competitor_path)
@@ -113,6 +112,7 @@ def execute(**kwargs):
 									.withColumn("hospital", lit(""))
 
 	cal_report = cal_report.union(competitor_data)
+
 	cal_report = cal_report.withColumn("patientNum", lit(0)) \
 						.withColumn("drugEntrance", lit("已准入")) \
 						.withColumn("quotaGrowthMOM", lit(0.0)) \
@@ -125,7 +125,7 @@ def execute(**kwargs):
 	cal_report = cal_report.withColumn("proposalId", lit(g_proposal_id)) \
 							.withColumn("projectId", lit(g_project_id)) \
 							.withColumn("periodId", lit(g_period_id)) \
-							.withColumn("phase", lit(0)) \
+							.withColumn("phase", lit(1)) \
 							.withColumn("region", lit("")) \
 							.withColumn("periodReports", lit(g_period_id)).na.fill("")
 	cal_report = cal_report.withColumn("id", general_report_id(cal_report.projectId))
@@ -150,10 +150,7 @@ def execute(**kwargs):
 	assessments = spark.read.parquet(assessment_path)
 	assessments.show()
 	
-	final = assessments.drop("proposal_id") \
-						.drop("project_id") \
-						.drop("period_id") \
-						.withColumn("id", general_report_id(assessments.general_performance)) \
+	final = assessments.withColumn("id", general_report_id(assessments.general_performance)) \
 						.withColumn("sales", lit(total_sales)) \
 						.withColumn("quota", lit(total_quota)) \
 						.withColumn("budget", lit(total_budget)) \
@@ -171,7 +168,6 @@ def execute(**kwargs):
 				.withColumnRenamed("manage_team", "manageTeam")
 
 	final.persist()
-	final.show()
 	
 	###############---------------- write relevance final_id for project table -------------################
 	if g_is_push is 1:
@@ -192,18 +188,7 @@ def execute(**kwargs):
 		cursor.close()
 		pg_connection.close()
 	###############---------------- write relevance final_id for project table -------------################
-	
-	final.repartition(1).write.mode("overwrite").parquet(final_result)
-	if g_is_push is 1:
-		final.write.format("jdbc") \
-				.option("url", g_postgres_uri) \
-				.option("dbtable", "final") \
-				.option("user", g_postgres_user) \
-				.option("password", g_postgres_pass) \
-				.option("driver", "org.postgresql.Driver") \
-				.mode("append") \
-				.save()
-	
+		
 	return {}
 
 
@@ -216,7 +201,6 @@ def get_run_id(kwargs):
 	if not run_id:
 		run_id = "runid_" + "alfred_runner_test"
 	return run_id
-
 
 def get_job_id(kwargs):
 	job_name = kwargs["job_name"]
@@ -292,7 +276,6 @@ def general_report_id(a):
 	df["result"] = df["a"].apply(lambda x: general_report_id_acc(x))
 	return df["result"]
 	
-
 def connect_pg(url, postgres_user, postgres_pass):
 	username = postgres_user
 	password = postgres_pass
@@ -305,5 +288,4 @@ def connect_pg(url, postgres_user, postgres_pass):
 	    host = hostname
 	)
 	return connection
-
 ################--------------------- functions ---------------------################

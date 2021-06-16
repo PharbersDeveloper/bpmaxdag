@@ -39,6 +39,7 @@ def execute(**kwargs):
     result_path_prefix = get_result_path(kwargs, run_id, job_id)
     result_path = result_path_prefix + kwargs["cleaning_result"]
     origin_path = result_path_prefix + kwargs["cleaning_origin"]
+    raw_df_of_no_pack_check_id_path = result_path_prefix + kwargs["raw_table_of_no_exist_pack_check_id"]
 #########--------------output------------------------####################
 
 ###########--------------load file----------------------- ################
@@ -50,6 +51,12 @@ def execute(**kwargs):
 #########---------------load file------------------------################
 
 #########--------------main function--------------------#################   
+    #剔除无pack_check_id 的数据
+    print(df_cleanning.printSchema())
+    df_of_no_exist_pack_check_id = get_df_of_no_pack_check_id(input_df=df_cleanning,\
+                                                           input_col="PACK_ID_CHECK")
+    df_cleanning = get_df_of_has_pack_check_id(input_df=df_cleanning,\
+                                                           input_col="PACK_ID_CHECK")
     #spec预处理
     df_cleanning = make_spec_pre_treatment(df_cleanning)
 
@@ -66,14 +73,22 @@ def execute(**kwargs):
     df_cleanning = make_spec_become_normal(df_cleanning)
 
     #处理pack_id
-    df_cleanning = get_cpa_pack(df_cleanning)
+    df_cleanning = choose_correct_pack_id(df_cleanning,source_data_type)
 
     df_cleanning = get_inter(df_cleanning,df_second_interfere)
+    
     df_cleanning = select_cpa_col(df_cleanning)
     df_cleanning.write.mode("overwrite").parquet(result_path)
     
 ########------------main fuction-------------------------################
-        
+
+
+######### == RESULT == ###########
+######### ***** 缺pack_check_id数据
+    write_files(input_df_info=df_of_no_exist_pack_check_id,\
+                path_output=raw_df_of_no_pack_check_id_path)
+    
+######### == RESULT == ###########
     return {}
 
 
@@ -103,13 +118,11 @@ def get_result_path(kwargs, run_id, job_id):
 更高的并发数
 """
 def modify_pool_cleanning_prod(spark, raw_data_path):
-#     raw_data_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/azsanofi/raw_data"
-#     raw_data_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/qilu/raw_data2"
-#     raw_data_path = "s3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/eia/raw_data_2"
     if raw_data_path.endswith(".csv"):
         df_cleanning = spark.read.csv(path=raw_data_path, header=True).withColumn("ID", pudf_id_generator(col("MOLE_NAME")))
     else:
         df_cleanning = spark.read.parquet(raw_data_path).withColumn("ID", pudf_id_generator(col("MOLE_NAME")))
+                                               
     return df_cleanning
 
 @pandas_udf(StringType(), PandasUDFType.SCALAR)
@@ -124,6 +137,38 @@ def pudf_id_generator(oid):
 def load_second_interfere(spark,second_interfere_path):
     df_second_interfere = spark.read.parquet(second_interfere_path)
     return df_second_interfere
+
+#过滤数据
+def get_df_of_no_pack_check_id(input_df,input_col):
+    
+    df = input_df.filter(col(input_col).isNull())
+    print(df.count())
+    df_type = "csv"
+    
+    return df,df_type
+                                               
+## 取有效数据
+def get_df_of_has_pack_check_id(input_df,input_col):
+    
+    df = input_df.filter(col(input_col).isNotNull())
+                                               
+    return df 
+
+##### == 写入路径 == #########
+def write_files(input_df_info, path_output):
+    
+    try:
+        if input_df_info[-1].lower() == "parquet":
+            input_df_info[0].repartition(10).write.mode("overwrite").parquet(path_output)
+        else:
+            input_df_info[0].repartition(1).write.mode("overwrite").csv(path_output,header=True)
+        status_info = fr"{input_df_info[-1]} Write Success"
+    except:
+        status_info = fr"{input_df_info[-1]} Write Failed"
+        
+    print(status_info)
+    
+    return status_info
  
 
 #spec预处理
@@ -707,8 +752,42 @@ def make_spec_from_array_into_string(spec_standard):
     df['out_put_col'] = df.apply(lambda x: make_elements_of_list_into_one_string(x.spec_standard), axis=1)
     return df['out_put_col']
 
+#pakc_id 处理
+def choose_correct_pack_id(df_cleanning,source_data_type):
+    
+    if source_data_type.upper() == 'CHC':
+        df_cleanning = df_cleanning.withColumn("PACK_QTY",extract_chc_pack_id_from_spec(df_cleanning.SPEC_ORIGINAL,df_cleanning.PACK_QTY))
+    else:
+        df_cleanning = get_cpa_pack(df_cleanning)
+    
+    return df_cleanning
+
+@pandas_udf(StringType(),PandasUDFType.SCALAR)
+def extract_chc_pack_id_from_spec(spec_original, pack_qty):
+    frame = {"spec_original":spec_original,
+            "pack_qty":pack_qty}
+    df = pd.DataFrame(frame)
+    def extract_regex_pack_id(word,pack_original):
+        pack_id_pattern = r'[×*]?(\d+)[瓶贴支袋丸粒片吸]'
+        try:
+            if (re.findall(pack_id_pattern, word)) != 0:
+                pack_id = str(float(re.findall(pack_id_pattern,word)[0]))
+            else:
+                pack_id = str(float(pack_original))
+        except:
+            try:
+                pack_id = str(float(pack_original))
+            except:
+                pack_id = str(float(1.0))
+        
+        return pack_id
+        
+    df['pack_id'] = df.apply(lambda x: str(extract_regex_pack_id(x.spec_original, x.pack_qty)), axis=1)
+    
+    return df['pack_id']
+
 def get_cpa_pack(df_cleanning):
-    extract_pack_id = r'[×*](\d+)'
+    extract_pack_id = r'[×*]?(\d+)[瓶贴支袋丸粒片吸]'
     df_cleanning = df_cleanning.withColumnRenamed("PACK_QTY", "PACK_QTY_ORIGINAL")
     df_cleanning = df_cleanning.withColumn("PACK_QTY", regexp_extract(col("SPEC_ORIGINAL"), extract_pack_id, 1).cast('float'))
     df_cleanning = df_cleanning.withColumn("PACK_QTY", when(col("PACK_QTY").isNull(), col("PACK_QTY_ORIGINAL")).otherwise(col("PACK_QTY"))).drop(col("PACK_QTY_ORIGINAL"))
@@ -779,14 +858,6 @@ def get_inter(df_cleanning,df_second_interfere):
                                            .otherwise(df_cleanning.MOLE_NAME_STANDARD))\
                                             .drop("MOLE_NAME", "MOLE_NAME_LOST", "MOLE_NAME_STANDARD")\
                                             .withColumnRenamed("new", "MOLE_NAME")
-    return df_cleanning
-
-#抽取spec中pack_id数据
-def get_pack(df_cleanning):
-    extract_pack_id = r'[×x](\d+)./.'
-    df_cleanning = df_cleanning.withColumnRenamed("PACK_QTY", "PACK_QTY_ORIGINAL")
-    df_cleanning = df_cleanning.withColumn("PACK_QTY", regexp_extract(col("SPEC_ORIGINAL"), extract_pack_id, 1).cast('float'))
-    df_cleanning = df_cleanning.withColumn("PACK_QTY", when(col("PACK_QTY").isNull(), col("PACK_QTY_ORIGINAL")).otherwise(col("PACK_QTY"))).drop(col("PACK_QTY_ORIGINAL"))
     return df_cleanning
 
 def make_dosage_standardization(df_cleanning):

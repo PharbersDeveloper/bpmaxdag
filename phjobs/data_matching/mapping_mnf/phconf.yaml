@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: mapping_mnf
+  description: "pharbers job description"
+  labels:
+    name: mapping_mnf
+    runtime: python3
+    command: submit
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    command: submit
+    timeout: 1200.0
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: job_name 
+        value: mapping_mnf
+      - key: path_prefix
+        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs
+      - key: mnf_mapping_path
+        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MANUFACTURER_MAPPING/CHC/V0.0.1
+      - key: depend_job_names_keys
+        value:
+          - cross_join_cutting#cross_result#input_cross_result
+          - get_correct_mnf_mapping_table#correct_mnf_mapping_table_parquet#input_correct_mapping_table
+      - key: g_repartition_shared
+        value: 16
+    outputs:
+      - key: mapping_mnf_result
+        value: mapping_mnf_result
+      - key: original_mnf_mapping_table
+        value: original_mnf_mapping_table
+
+
+

@@ -20,15 +20,17 @@ spec:
       - key: path_prefix
         value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs
       - key: path_cleaning_data
-        value: s3a://ph-max-auto/2020-08-11/BPBatchDAG/refactor/zyyin/qilu/raw_data2 
+        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/CHC/*
       - key: path_human_interfere
         value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/HUMAN_INTERFERE
       - key: path_second_human_interfere
         value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DF_CONF/0.3
       - key: source_data_type
-        value: qilu 
+        value: chc 
     outputs:
       - key: cleaning_result
         value: cleaning_result
       - key: cleaning_origin
         value: cleaning_origin
+      - key: raw_table_of_no_exist_pack_check_id
+        value: raw_table_of_no_exist_pack_check_id
