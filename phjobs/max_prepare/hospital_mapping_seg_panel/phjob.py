@@ -125,7 +125,7 @@ def execute(**kwargs):
             .withColumn("ID", gid()) \
             .withColumn("CATEGORY", lit(item["CATEGORY"])) \
             .withColumn("TAG", lit(item["TAG"])) \
-            .withColumn("VALUE", col(item["COLUMN"])) \
+            .withColumn("VALUE", col(item["COLUMN"]).cast(StringType())) \
             .withColumn("COMPANY", lit(_company)) \
             .withColumn("TIME", lit(_time)) \
             .withColumn("VERSION", lit(_version)) \
@@ -141,6 +141,7 @@ def execute(**kwargs):
     logger.info("Hospital Market Mapping DF Count ===> " + str(hospital_market_mapping_df.count()))
     
     fact_df.drop("MARKET_TEMP") \
+        .selectExpr("ID", "HOSPITAL_ID", "PANEL_ID", "PHA_ID", "CATEGORY", "TAG", "VALUE", "COMPANY", "TIME", "VERSION") \
         .write \
         .partitionBy("TIME", "COMPANY") \
         .mode("append") \

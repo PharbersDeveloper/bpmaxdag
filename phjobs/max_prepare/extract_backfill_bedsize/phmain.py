@@ -14,17 +14,15 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--owner')
 @click.option('--run_id')
 @click.option('--job_id')
-@click.option('--base_path')
-@click.option('--input_dim_path')
-@click.option('--hospital_univers')
-@click.option('--time')
+@click.option('--input_path')
 @click.option('--company')
+@click.option('--time')
 @click.option('--version')
-@click.option('--output_tmp_fact_path')
+@click.option('--backfill_bedsize_output')
 def debug_execute(**kwargs):
     try:
-        args = {"name": "hospital_fact"}
-        outputs = ["output_tmp_fact_path"]
+        args = {"name": "extract_backfill_bedsize"}
+        outputs = ["backfill_bedsize_output"]
 
         args.update(kwargs)
         result = exec_before(**args)
