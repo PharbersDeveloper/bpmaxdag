@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: ntmpull
+  description: "pharbers job description"
+  labels:
+    name: ntmpull
+    runtime: python3
+    command: submit
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    command: submit
+    timeout: 10.0
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: job_name
+        value: ntmpull
+      - key: path_prefix
+        value: s3a://ph-max-auto/2020-08-11/NTM/runs
+      - key: provider
+        value: NTM
+      - key: proposal_id
+        value: 60505e4b81ef2c5db38b4699
+      - key: project_id
+        value: rR9lwp8e55q9izZdHdQZ
+      - key: period_id
+        value: o8mpVPkJTVrUFfgk6KR-
+      - key: phase
+        value: 1
+      - key: postgres_uri
+        value: jdbc:postgresql://ph-db-lambda.cngk1jeurmnv.rds.cn-northwest-1.amazonaws.com.cn/pharbers-ntm-client
+      - key: postgres_user
+        value: pharbers
+      - key: postgres_pass
+        value: Abcde196125
+    outputs:
+      - key: pull_result
+        value: pull_result
+      - key: competitor_result
+        value: competitor_result

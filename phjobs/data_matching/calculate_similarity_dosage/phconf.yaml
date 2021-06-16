@@ -22,7 +22,7 @@ spec:
         value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs
       - key: depend_job_names_keys
         value:
-        - segmentation_dosage#segmentation_dosage_result#input_seg_dosage
+        - mapping_dosage#mapping_dosage_result#input_mapping_dosage
       - key: g_repartition_shared
         value: 16
     outputs:

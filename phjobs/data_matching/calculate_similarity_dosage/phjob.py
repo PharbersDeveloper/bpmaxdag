@@ -9,8 +9,9 @@ import uuid
 import pandas as pd
 import numpy as np
 from pyspark.sql import Window
-from pyspark.sql.types import DoubleType 
+from pyspark.sql.types import DoubleType ,StringType
 from pyspark.sql.functions import pandas_udf, PandasUDFType 
+from pyspark.sql.functions import array_join 
 from pyspark.sql import functions as F 
 from itertools import product
 from nltk.metrics.distance import jaro_winkler_similarity
@@ -29,7 +30,7 @@ def execute(**kwargs):
     
 ############# ------- input ----------- #####################
     depends = get_depends_path(kwargs)
-    path_segmentation_dosage = depends["input_seg_dosage"]
+    path_mapping_dosage = depends["input_mapping_dosage"]
     
 ############# ------- input ------------ ####################
 
@@ -43,20 +44,21 @@ def execute(**kwargs):
 
 ############# == loading files == #####################
 
-    df_seg_dosage = load_seg_dosage_result(spark, path_segmentation_dosage)
+    df_mapping_dosage = load_mapping_dosage_result(spark, path_mapping_dosage)
     
 ############# == loading files == #####################
 
 ############# == main functions == #####################
 
-    df_sim_dosage = calulate_dosage_similarity(df_seg_dosage)
+    df_sim_dosage = calculate_dosage_similarity(df_mapping_dosage)
     
-    df_sim_dosage = extract_max_similaritey(df_sim_dosage)
+    
+    df_sim_dosage = let_array_become_string(df_sim_dosage)
 
 ############# == main functions == #####################
 
 ########## === RESULT === ##############
-#     df_sim_dosage.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
+    df_sim_dosage.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
 ########## === RESULT === ##############
 
     return {}
@@ -101,64 +103,47 @@ def get_depends_path(kwargs):
 
 
 #### == loding files == ###
-def load_seg_dosage_result(spark, path_segmentation_dosage):
-    df_seg_dosage = spark.read.parquet(path_segmentation_dosage)
-    return df_seg_dosage  
+def load_mapping_dosage_result(spark, path_mapping_dosage):
+    df_mapping_dosage = spark.read.parquet(path_mapping_dosage)
+    return df_mapping_dosage  
+
 
 #### 相似性计算 ########
 @pandas_udf(DoubleType(),PandasUDFType.SCALAR)
-def calulate_dosage_similarity_after_seg(raw_dosage,standard_dosage):
-    frame = {"raw_dosage":raw_dosage,
-            "standard_dosage":standard_dosage}
+def execute_calculate_dosage_similarity(dosage,master_dosage,dosage_standard):
+    frame = {"dosage":dosage,
+            "master_dosage":master_dosage,
+            "dosage_standard":dosage_standard}
     df = pd.DataFrame(frame)
+    def calculate_similarity(s1,s2,s3):
+        try:
+            if s1 in s2:
+                sim_value = float(1.0)
+            elif jaro_winkler_similarity(s1,s3) > 0.9 :
+                sim_value = float(jaro_winkler_similarity(s1,s3))
+            else:
+                sim_value = float(0.0)
+        except:
+            sim_value = float(0.0)
+        return sim_value
     
-    def sure_sim(s1,s2):
-        if s1 == s2:
-            value = 1.0
-        else:
-            value = 0.0
-        return value
-    
-    def Get_sim_value_data(input_raw, input_standard):
-        all_possible_result = list(product(input_raw, input_standard))
-        if len(all_possible_result) == 1:
-            max_similarity_value = list(map(lambda x: sure_sim(x[0],x[-1]),all_possible_result))
-        else:
-            all_possible_sim_value = list(map(lambda x: jaro_winkler_similarity(x[0],x[-1]), all_possible_result))
-            all_possible_array_value = np.array(all_possible_sim_value)
-            all_possible_matrix_value = all_possible_array_value.reshape(int(len(input_raw)),int(len(input_standard)))
-            max_similarity_value = list(map(lambda x: max(x,default=0.0), all_possible_matrix_value))
-        return max_similarity_value
-    
-    def handle_sim_value_data(raw_sentence, standard_sentence):
-        max_similarity_value = Get_sim_value_data(raw_sentence, standard_sentence)
-        high_similarity_data = list(filter(lambda x: x >= 0.5, max_similarity_value))
-        low_similarity_data = [x for x in max_similarity_value if x not in high_similarity_data]
-        high_similarity_rate = len(high_similarity_data) / len(max_similarity_value)
-        if high_similarity_rate >= 0.5:
-            similarity_value = np.mean(high_similarity_data)
-        else:
-            similarity_value = np.mean(low_similarity_data)
-        return similarity_value
-    
-    df['output_similarity_value'] = df.apply(lambda x: float(handle_sim_value_data(x.raw_dosage,x.standard_dosage)), axis=1)
-    return df['output_similarity_value']
+    df['dosage_sim'] = df.apply(lambda x: calculate_similarity(x.dosage, x.master_dosage,x.dosage_standard), axis=1)
+    return df['dosage_sim']
 
-##### == calulate_similarity == #######
-def calulate_dosage_similarity(df_seg_dosage):
+##### == calculate_similarity == #######
+def calculate_dosage_similarity(df_mapping_dosage):
     
-    df_sim_dosage = df_seg_dosage.withColumn("eff_dosage",calulate_dosage_similarity_after_seg(df_seg_dosage.DOSAGE_CUT_WORDS,df_seg_dosage.DOSAGE_CUT_STANDARD_WORDS))
+    df_sim_dosage = df_mapping_dosage.withColumn("EFFECTIVENESS_DOSAGE", execute_calculate_dosage_similarity(df_mapping_dosage.DOSAGE,\
+                                                                                       df_mapping_dosage.MASTER_DOSAGE,\
+                                                                                      df_mapping_dosage.DOSAGE_STANDARD))
+    
     return df_sim_dosage
 
-def extract_max_similaritey(df_sim_dosage):
+
+
+def let_array_become_string(df_sim_dosage):
     
-    window_dosage = Window.partitionBy("ID")
-    
-    df_sim_dosage = df_sim_dosage.withColumn("max_eff",F.max("eff_dosage").over(window_dosage))\
-                                .where(F.col("eff_dosage") == F.col("max_eff"))\
-                                .drop("max_eff")\
-                                .drop_duplicates(["ID"])
+    df_sim_dosage = df_sim_dosage.withColumn("MASTER_DOSAGE",array_join(df_sim_dosage.MASTER_DOSAGE,delimiter=' '))
     df_sim_dosage.show(500)
-    print(df_sim_dosage.count())
     
     return df_sim_dosage

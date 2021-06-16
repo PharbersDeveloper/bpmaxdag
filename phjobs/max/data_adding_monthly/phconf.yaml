@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: data_adding_monthly
+  description: "pharbers job description"
+  labels:
+    name: data_adding_monthly
+    runtime: python3
+    command: submit
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    command: submit
+    timeout: 10.0
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: g_project_name
+        value: 'Empty'
+      - key: g_model_month_right
+        value: '0'
+      - key: g_month
+        value: 'Empty'
+      - key: g_year
+        value: 'Empty'
+      - key: g_current_month
+        value: 'Empty'
+      - key: g_if_add_data
+        value: 'True'
+      - key: depend_job_names_keys
+        value: '["growth_monthly#growth_rate#growth_rate", "price#price#price", "price#price_city#price_city", "deal_poi#deal_poi_out#deal_poi_out"]'
+      - key: g_monthly_update
+        value: 'Empty'
+      - key: g_max_path
+        value: 's3a://ph-max-auto/v0.0.1-2020-06-08/'
+      - key: g_base_path
+        value: 's3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX'
+    outputs:
+      - key: g_adding_data
+        value: 'adding_data'
+      - key: g_raw_data_adding_final
+        value: 'raw_data_adding_final'
+
+
+

@@ -90,19 +90,15 @@ def execute(**kwargs):
         .withColumn("RAW_MANUFACTURER", col("MNF_NAME")) \
         .selectExpr("MAPPING_PACK_ID AS RAW_PACK_ID", "RAW_CODE", "RAW_MOLE_NAME", "RAW_PRODUCT_NAME", 
             "RAW_DOSAGE", "RAW_SPEC", "RAW_PACK", "RAW_MANUFACTURER", 
-            "RAWDATA_HOSP_NAME", "RAWDATA_MOLE_NAME", "RAWDATA_PRODUCT_NAME", "RAWDATA_DOSAGE", "RAWDATA_SPEC", "RAWDATA_PACK", "RAWDATA_MANUFACTURER",
             "DATE", "SALES", "UNITS", 
             "SOURCE", "TIME", "COMPANY") \
         .withColumn("RAW_MAPPING_MIN", concat_ws("|", col("RAW_PRODUCT_NAME"), col("RAW_DOSAGE"), col("RAW_SPEC"), col("RAW_PACK"), col("RAW_MANUFACTURER") ))
-    
-            
     
     mapping_packid_not_null_df =  mapping_std_info_df.filter("RAW_PACK_ID is not null")
     mapping_packid_null_df = mapping_std_info_df.filter("RAW_PACK_ID is null")
     mapping_packid_null_df = mapping_packid_null_df.join(map_all_atc_df, [col("RAW_MAPPING_MIN") == col("MIN")], "left_outer") \
         .selectExpr("PACK_ID AS RAW_PACK_ID", "RAW_CODE", "RAW_MOLE_NAME", "RAW_PRODUCT_NAME", 
             "RAW_DOSAGE", "RAW_SPEC", "RAW_PACK", "RAW_MANUFACTURER", 
-            "RAWDATA_HOSP_NAME", "RAWDATA_MOLE_NAME", "RAWDATA_PRODUCT_NAME", "RAWDATA_DOSAGE", "RAWDATA_SPEC", "RAWDATA_PACK", "RAWDATA_MANUFACTURER",
             "DATE", "SALES", "UNITS", 
             "SOURCE", "TIME", "COMPANY", "RAW_MAPPING_MIN")
     mapping_std_info_df = mapping_packid_not_null_df.union(mapping_packid_null_df)

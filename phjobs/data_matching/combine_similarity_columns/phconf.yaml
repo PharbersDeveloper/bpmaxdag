@@ -25,7 +25,6 @@ spec:
           - calculate_similarity_mnf#similarity_mnf_result#input_sim_mnf
           - calculate_similarity_mole#similarity_mole_result#input_sim_mole
           - calculate_similarity_pack#similarity_pack_result#input_sim_pack
-          - calculate_similarity_prod#similarity_prod_result#input_sim_prod
           - calculate_similarity_spec#similarity_spec_result#input_sim_spec
       - key: g_repartition_shared
         value: 16

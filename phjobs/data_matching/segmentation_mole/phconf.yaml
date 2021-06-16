@@ -20,10 +20,10 @@ spec:
         value: segmentation_mole
       - key: path_prefix
         value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs
-      - key: mole_lexicon_path
-        value: None
       - key: mole_stopwords_path
-        value: None
+        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DATA_OF_MOLE/LEXICON_OF_MOLE/V0.01/ 
+      - key: mole_lexicon_path
+        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DATA_OF_MOLE/LEXICON_OF_MOLE/V0.01/
       - key: depend_job_names_keys
         value:
           - cross_join_cutting#cross_result#input_cross_result

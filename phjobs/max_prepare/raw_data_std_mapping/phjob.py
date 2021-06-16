@@ -57,7 +57,6 @@ def execute(**kwargs):
             )
             return spark.read.parquet(dim_path)
 
-    
     match_select = ["ID AS RAW_CODE", "MOLECULE AS RAW_MOLE_NAME", 
         "BRAND AS RAW_PRODUCT_NAME", "FORM AS RAW_DOSAGE", 
         "SPECIFICATIONS AS RAW_SPEC", "PACK_NUMBER AS RAW_PACK", "MANUFACTURER AS RAW_MANUFACTURER",
@@ -67,7 +66,6 @@ def execute(**kwargs):
     base_select = ["ID", "RAW_PACK_ID", "RAW_CODE", "RAW_MOLE_NAME", "RAW_PRODUCT_NAME", 
         "RAW_DOSAGE", "RAW_SPEC", "RAW_PACK", "RAW_MANUFACTURER", "DATE", 
         "SALES", "UNITS", "SOURCE", "PRODUCT_ID", "HOSPITAL_ID", "TIME", "COMPANY"]
-    
     
     clean_df = spark.read.parquet(_input).filter(col("COMPANY") == _company) \
         .withColumn("RAW_MAPPING_MIN", concat_ws("|", col("BRAND"), col("FORM"), col("SPECIFICATIONS"), col("PACK_NUMBER"), col("MANUFACTURER") )) \
