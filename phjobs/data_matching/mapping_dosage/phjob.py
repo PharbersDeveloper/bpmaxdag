@@ -45,6 +45,7 @@ def execute(**kwargs):
 
 ###################=======loading files==========#################
     df_cross_dosage = load_cross_result(spark, path_cross_result)
+    
     df_mapping_dosage = loading_files(spark, path_mapping_path)
     
 ####################=======loading files==========#################
@@ -64,6 +65,7 @@ def execute(**kwargs):
     df_dosage.repartition(g_repartition_shared).write.mode("overwrite").parquet(result_path)
     
 ####################### == RESULT == #####################
+    
     return {}
 
 
@@ -105,10 +107,14 @@ def get_depends_path(kwargs):
 
 def load_cross_result(spark,path_cross_result):
     df_seg_dosage = spark.read.parquet(path_cross_result)
-    df_seg_dosage = df_seg_dosage.select("ID","INDEX","DOSAGE","DOSAGE_STANDARD","PACK_ID_CHECK","PACK_ID_STANDARD")
+    if "PACK_ID_CHECK" in df_seg_dosage.columns:
+        cols = ["ID","INDEX","DOSAGE","DOSAGE_STANDARD","PACK_ID_CHECK","PACK_ID_STANDARD"]
+    else:
+        cols = ["ID","INDEX","DOSAGE","DOSAGE_STANDARD","PACK_ID_MOFANG","PACK_ID_STANDARD"]
+    
+    df_seg_dosage = df_seg_dosage.select(cols)
     
     return df_seg_dosage 
-
 
 ######## == 下载文件 == ########
 def loading_files(spark, input_path):

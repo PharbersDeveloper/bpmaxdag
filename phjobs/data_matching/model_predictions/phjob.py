@@ -12,7 +12,7 @@ from pyspark.ml import PipelineModel
 from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.evaluation import MulticlassClassificationEvaluator
 from pyspark.sql.functions import udf, pandas_udf, PandasUDFType
-from pyspark.sql.functions import desc, col 
+from pyspark.sql.functions import desc, col ,when
 from pyspark.sql.functions import rank, lit, when, row_number
 from pyspark.sql import Window
 
@@ -46,19 +46,19 @@ def execute(**kwargs):
     job_id = get_job_id(kwargs)
     run_id = get_run_id(kwargs)
     result_path_prefix = get_result_path(kwargs, run_id, job_id)
-    prediction_path = result_path_prefix + kwargs["prediction_result"]
-    positive_result_path = result_path_prefix + kwargs["positive_result"]
-    negative_result_path = result_path_prefix + kwargs["negative_result"]
+    kwargs["prediction_path"] = result_path_prefix + kwargs["prediction_result"]
+    kwargs["positive_result_path"] = result_path_prefix + kwargs["positive_result"]
+    kwargs["negative_result_path"] = result_path_prefix + kwargs["negative_result"]
     ## rusult 目录文件
     tm = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
-    final_predictions = get_final_result_path(kwargs, tm, kwargs["final_predictions"])
-    final_positive_path = get_final_result_path(kwargs, tm, kwargs["final_positive"])
-    final_negative_path = get_final_result_path(kwargs, tm, kwargs["final_negative"])
-    final_report_path = get_final_result_path(kwargs, tm, kwargs["final_report"])
+    kwargs["final_predictions"] = get_final_result_path(kwargs, tm, kwargs["final_predictions"])
+    kwargs["final_positive_path"] = get_final_result_path(kwargs, tm, kwargs["final_positive"])
+    kwargs["final_negative_path"] = get_final_result_path(kwargs, tm, kwargs["final_negative"])
+    kwargs["final_report_path"] = get_final_result_path(kwargs, tm, kwargs["final_report"])
 ###################------------output------------#######################
 
 #################------------loading files--------------#################
-    df_test = loading_files(spark,input_path=df_of_features_path)
+    df_valid = loading_files(spark,input_path=df_of_features_path)
     df_origin_data = loading_files(spark,input_path=origin_data_path)
     df_of_no_pack_check_id = loading_csv_files(spark,input_path=path_of_no_exist_pack_check_id)
     model = loading_model(input_model_path=model_path)
@@ -67,49 +67,33 @@ def execute(**kwargs):
 
 ##################-----------main functions---------####################
     
-    df_predictions = let_model_to_classification(input_data=df_test,\
+    #判断文件类型
+    type_of_file = Judge_TrainingData_OrNot(input_dataframe=df_valid,\
+                                            inputCheckCol="label")
+    #进行模型预测
+    df_predictions = let_model_to_classification(input_data=df_valid,\
                                                  input_model=model)
+    
+    
+    data_of_output = PipeLine_Of_Data(spark,\
+                                      input_type_of_file=type_of_file,\
+                                      input_valid_data=df_valid,\
+                                      input_dataframe_of_predictions=df_predictions,\
+                                      input_dataframe_of_original=df_origin_data,\
+                                      input_dataframe_of_no_check_id=df_of_no_pack_check_id,\
+                                      input_shareholds=shareholds)
+    
+    
    
-    model_score = model_performance_evaluation(input_dataframe=df_predictions)
-    
-    
-    df_predictions,df_positive,df_negative = generate_output_dataframe(input_dataframe_of_predictions=df_predictions,\
-                                                input_shareholds=shareholds)
-    
-    report_data = get_data_of_report(input_dataframe_of_original=df_origin_data,\
-                                     input_dataframe_of_no_check_id=df_of_no_pack_check_id,\
-                                     input_dataframe_of_test=df_test,\
-                                     input_dataframe_of_predictions=df_predictions,\
-                                     input_dataframe_of_positive=df_positive,\
-                                     input_dataframe_of_negative=df_negative,\
-                                     input_socre_of_model=model_score)
-    
-    df_report = generate_output_report(spark,input_report_data=report_data)
+   
     
 ##################-----------main functions---------####################
 
 ###### == RESULT == ####
-    write_file(input_dataframe=df_predictions,\
-               write_path=prediction_path,\
-               write_file_type="parquet")
-    write_file(input_dataframe=df_predictions,\
-               write_path=final_predictions ,\
-               write_file_type="csv")
-    write_file(input_dataframe=df_positive,\
-               write_path=positive_result_path,\
-               write_file_type="parquet")
-    write_file(input_dataframe=df_positive,\
-               write_path=final_positive_path,\
-               write_file_type="csv")
-    write_file(input_dataframe=df_negative,\
-               write_path=negative_result_path,\
-               write_file_type="parquet")
-    write_file(input_dataframe=df_negative,\
-               write_path=final_negative_path,\
-               write_file_type="csv")
-    write_file(input_dataframe=df_report,\
-               write_path=final_report_path,\
-               write_file_type="csv")
+
+    #写入数据
+    Write_Result_To_Path(kwargs,input_type_of_file=type_of_file,\
+                         Result_Of_Data=data_of_output)
    
     return {}
 
@@ -140,11 +124,12 @@ def get_depends_file_path(kwargs, job_name, job_key):
 
 def get_final_result_path(kwargs, tm, final_key):
     path_prefix = kwargs["final_prefix"]
-    if kwargs["run_id"]:
-        tm = tm
-    else:
+    if kwargs["run_id"] == None:
         tm = "test"
+    else:
+        tm = str(tm)
     final_result_path = path_prefix + "/" + tm +"/" + final_key 
+    print(final_result_path)
         
     return final_result_path
 
@@ -179,6 +164,67 @@ def loading_csv_files(spark,input_path):
         print(fr"{input_path} csv_file loading fail")
         dataframe = None
     return dataframe
+
+def Write_Result_To_Path(kwargs,input_type_of_file,Result_Of_Data):
+    
+    try:
+        
+        if input_type_of_file == True:
+            
+            write_file(Result_Of_Data[0],\
+                       write_path=kwargs["prediction_path"],\
+                       write_file_type="parquet")
+            write_file(Result_Of_Data[0],\
+                       write_path=kwargs["final_predictions"],\
+                       write_file_type="csv")
+            write_file(Result_Of_Data[1],\
+                       write_path=kwargs["positive_result_path"],\
+                       write_file_type="parquet")
+            write_file(Result_Of_Data[1],\
+                       write_path=kwargs["final_positive_path"],\
+                       write_file_type="csv")
+            write_file(Result_Of_Data[2],\
+                       write_path=kwargs["negative_result_path"],\
+                       write_file_type="parquet")
+            write_file(Result_Of_Data[2],\
+                       write_path=kwargs["final_negative_path"],\
+                       write_file_type="csv")
+            write_file(Result_Of_Data[3],\
+                       write_path=kwargs["final_report_path"],\
+                       write_file_type="csv")
+            message = "报告文件写入成功！"
+
+        else:
+
+            write_file(input_dataframe=Result_Of_Data,\
+                       write_path=kwargs["prediction_path"],\
+                       write_file_type="parquet")
+            write_file(input_dataframe=Result_Of_Data,\
+                       write_path=kwargs["final_predictions"],\
+                       write_file_type="csv")
+            message = "预测文件写入成功！"
+    except:
+        
+        message = "文件写入失败！"
+    
+    print(message)
+
+    return message
+
+def Judge_TrainingData_OrNot(input_dataframe,inputCheckCol):
+
+    Cols_of_data = list(map(lambda x: x.upper(),input_dataframe.columns))
+
+    Check_col = inputCheckCol.upper()
+
+    if Check_col in Cols_of_data:
+        signal = True
+    else:
+        signal = False
+
+    print(signal)
+
+    return signal
 
 #### == 写入数据
 def write_file(input_dataframe,write_path,write_file_type):
@@ -306,6 +352,8 @@ def generate_output_report(spark,input_report_data):
                                      lit(str(input_report_data["negative"])))
     df_report = df_report.withColumn("matching_rate",\
                                      lit(str(input_report_data["matching_rate"])))
+    df_report = df_report.withColumn("Accuracy",\
+                                     lit(str(input_report_data["Accuracy"])))
     df_report = df_report.withColumn("Precision",\
                                      lit(str(input_report_data["Precision"])))
     df_report = df_report.withColumn("Recall",\
@@ -319,10 +367,82 @@ def generate_output_report(spark,input_report_data):
 
 def similarity(df, shareholds):
     df = df.withColumn("SIMILARITY", \
-                       (df.EFFTIVENESS_MOLE_NAME * shareholds[0] + df.EFFTIVENESS_PRODUCT_NAME * shareholds[1] + df.EFFTIVENESS_DOSAGE * shareholds[2] \
-                        + df.EFFTIVENESS_SPEC * shareholds[3] + df.EFFTIVENESS_PACK_QTY * shareholds[4] + df.EFFTIVENESS_MANUFACTURER * shareholds[5]))
-    windowSpec = Window.partitionBy("ID").orderBy(desc("SIMILARITY"), desc("EFFTIVENESS_MOLE_NAME"), desc("EFFTIVENESS_DOSAGE"), desc("PACK_ID_STANDARD"))
+                       (df.EFFECTIVENESS_MOLE * shareholds[0] + df.EFFTIVENESS_PRODUCT * shareholds[1] + df.EFFECTIVENESS_DOSAGE * shareholds[2] \
+                        + df.EFFECTIVENESS_SPEC * shareholds[3] + df.EFFECTIVENESS_PACK_QTY * shareholds[4] + df.EFFECTIVENESS_MANUFACTURER * shareholds[5]))
+    windowSpec = Window.partitionBy("ID").orderBy(desc("SIMILARITY"), desc("EFFECTIVENESS_MOLE"), desc("EFFECTIVENESS_DOSAGE"), desc("PACK_ID_STANDARD"))
     df = df.withColumn("RANK", row_number().over(windowSpec))
     df = df.where((df.RANK <= 5) | (df.label == 1.0))
     return df
+
+
+def Generate_data_of_report(spark,\
+                            input_valid_data,\
+                            input_dataframe_of_predictions,\
+                            input_dataframe_of_original,\
+                            input_dataframe_of_no_check_id,\
+                            input_shareholds):
+    
+    model_score = model_performance_evaluation(input_dataframe_of_predictions)
+    
+    df_predictions,df_positive,df_negative = generate_output_dataframe(input_dataframe_of_predictions,\
+                                                input_shareholds)
+    
+    report_data = get_data_of_report(input_dataframe_of_original,\
+                                     input_dataframe_of_no_check_id,\
+                                     input_valid_data,\
+                                     df_predictions,\
+                                     df_positive,\
+                                     df_negative,\
+                                     model_score)
+
+    df_report = generate_output_report(spark,report_data)
+    
+    
+    return df_predictions,df_positive,df_negative,df_report 
+
+def Generate_data_of_prediction(input_dataframe_of_predictions):
+    
+    input_dataframe_of_predictions = input_dataframe_of_predictions.drop("indexedFeatures","rawPrediction",\
+                                         "probability","features")
+    
+    col_of_prediction = ("prediction" + "_id").upper()
+    df_prediction = input_dataframe_of_predictions.withColumn(col_of_prediction,when(col("prediction") == 1.0,col("PACK_ID_STANDARD")).otherwise("未匹配"))
+    
+    return df_prediction
+
+def extract_max_similaritey(input_dataframe):
+    
+    window_max = Window.partitionBy("ID")
+    
+    output_dataframe = input_dataframe.withColumn("max_prediction",F.max("prediction").over(window_max))\
+                                .where(F.col("prediction") == F.col("max_prediction"))\
+                                .drop("max_prediction")
+    
+    return output_dataframe
+    
+def PipeLine_Of_Data(spark,\
+                     input_type_of_file,\
+                     input_valid_data,\
+                     input_dataframe_of_predictions,\
+                     input_dataframe_of_original,\
+                     input_dataframe_of_no_check_id,\
+                     input_shareholds):
+    
+    if input_type_of_file == True:
+        print("报告！")
+        
+        data_of_output = Generate_data_of_report(spark,\
+                                               input_valid_data,\
+                                               input_dataframe_of_predictions,\
+                                               input_dataframe_of_original,\
+                                               input_dataframe_of_no_check_id,\
+                                               input_shareholds)
+        
+    else: 
+        data_of_output = Generate_data_of_prediction(input_dataframe_of_predictions)
+        print("预测数据！")
+        
+    
+    return data_of_output
+    
 ################-----------------------------------------------------################

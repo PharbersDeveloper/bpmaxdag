@@ -17,14 +17,11 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--job_name')
 @click.option('--path_prefix')
 @click.option('--depend_job_names_keys')
-@click.option('--cleaning_origin')
-@click.option('--prediction_result')
-@click.option('--prediction_origin_result')
-@click.option('--lost_data_result')
+@click.option('--output_be_cutting_data')
 def debug_execute(**kwargs):
     try:
-        args = {"name": "data_matching_model_result"}
-        outputs = ["prediction_origin_result","lost_data_result"]
+        args = {"name": "find_be_cutting_data"}
+        outputs = ["output_be_cutting_data"]
 
         args.update(kwargs)
         result = exec_before(**args)
@@ -39,6 +36,7 @@ def debug_execute(**kwargs):
     except Exception as e:
         logger = phs3logger(kwargs["job_id"])
         logger.error(traceback.format_exc())
+        print(traceback.format_exc())
         raise e
 
 

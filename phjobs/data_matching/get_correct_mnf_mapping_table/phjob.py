@@ -135,7 +135,7 @@ def write_files(input_df_info, path_output):
         if input_df_info[-1].lower() == "parquet":
             input_df_info[0].repartition(10).write.mode("overwrite").parquet(path_output)
         else:
-            input_df_info[0].repartition(1).write.mode("overwrite").csv(path_output)
+            input_df_info[0].repartition(1).write.mode("overwrite").csv(path_output,header=True)
         status_info = fr"{input_df_info[-1]} Write Success"
     except:
         status_info = fr"{input_df_info[-1]} Write Failed"

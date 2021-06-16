@@ -31,8 +31,8 @@ def execute(**kwargs):
 ###################=======input==========#################
     depends = get_depends_path(kwargs)
     path_cross_result = depends["input_cross_result"]
-    path_mole_stopwords = kwargs["mole_stopwords_path"]
-    path_mole_lexicon = kwargs["mole_lexicon_path"]
+    path_mnf_stopwords = kwargs["mnf_stopwords_path"]
+    path_mnf_lexicon = kwargs["mnf_lexicon_path"]
     g_repartition_shared = int(kwargs["g_repartition_shared"])
     
 ###################=======input==========#################
@@ -41,41 +41,38 @@ def execute(**kwargs):
     job_id = get_job_id(kwargs)
     run_id = get_run_id(kwargs)
     result_path_prefix = get_result_path(kwargs, run_id, job_id)
-    result_path = result_path_prefix + kwargs["segmentation_mole_result"]
+    result_path = result_path_prefix + kwargs["segmentation_mnf_result"]
 ###################=======output==========#################
 
 ###################=======loading files==========#################
-    df_seg_mole = load_cross_result(spark,path_cross_result)
-    mole_stopwords = load_mole_stopwords(spark, path_mole_stopwords)
-    mole_lexicon = load_mole_lexicon(spark,path_mole_lexicon)
+    df_seg_mnf = load_cross_result(spark,path_cross_result)
+    mnf_stopwords = load_mnf_stopwords(spark, path_mnf_stopwords)
+    mnf_lexicon = load_mnf_lexicon(spark,path_mnf_lexicon)
 ###################=======loading files==========#################
 
 ###################=======main functions==========#################
     
-    
     #### == raw_table 分词、停用词处理
-    df_seg_mole = phcleanning_mole_seg(input_dataframe=df_seg_mole,\
-                        input_lexicon=mole_lexicon,\
-                        input_stopwords=mole_stopwords,\
-                        inputCol="MOLE_NAME",\
-                        outputCol="MOLE_NAME_WORDS")
+    df_seg_mnf = phcleanning_mnf_seg(input_dataframe=df_seg_mnf,\
+                        input_lexicon=mnf_lexicon,\
+                        input_stopwords=mnf_stopwords,\
+                        inputCol="MANUFACTURER_NAME",\
+                        outputCol="MANUFACTURER_NAME_WORDS")
     
     #### == standard_table 分词、停用词处理
-    df_seg_mole = phcleanning_mole_seg(input_dataframe=df_seg_mole,\
-                                     input_lexicon=mole_lexicon,\
-                                     input_stopwords=mole_stopwords,\
-                                     inputCol="MOLE_NAME_STANDARD",\
-                                     outputCol="MOLE_NAME_STANDARD_WORDS")
-    
+    df_seg_mnf = phcleanning_mnf_seg(input_dataframe=df_seg_mnf,\
+                                     input_lexicon=mnf_lexicon,\
+                                     input_stopwords=mnf_stopwords,\
+                                     inputCol="MANUFACTURER_NAME_STANDARD",\
+                                     outputCol="MANUFACTURER_NAME_STANDARD_WORDS")
+
     
 ###################=======main functions==========#################
-    
     #写入路径
-    write_files(input_dataframe=df_seg_mole,\
+    write_files(input_dataframe=df_seg_mnf,\
                 path_of_write=result_path,\
                 file_type="parquet",\
                repartition_num = g_repartition_shared)
-   
     return {}
 
 
@@ -115,36 +112,36 @@ def get_depends_path(kwargs):
     return result
 ##################  中间文件与结果文件路径  ######################
 
-def load_mole_stopwords(spark, path_mole_stopwords):
+def load_mnf_stopwords(spark, path_mnf_stopwords):
     
     try:
-        mole_stopwords = spark.read.csv(path_mole_stopwords,header=True)
-        mole_stopwords = mole_stopwords.rdd.map(lambda x : x.STOPWORDS).collect()
+        mnf_stopwords = spark.read.csv(path_mnf_stopwords,header=True)
+        mnf_stopwords = mnf_stopwords.rdd.map(lambda x : x.STOPWORDS).collect()
     except:
-        mole_stopwords = None
+        mnf_stopwords = None
         
-    return mole_stopwords
+    return mnf_stopwords
 
 def load_cross_result(spark,path_cross_result):
     
-    df_seg_mole = spark.read.parquet(path_cross_result)
-    df_seg_mole = df_seg_mole.select("ID","INDEX","MOLE_NAME","MOLE_NAME_STANDARD")
-    df_seg_mole.persist()
+    df_seg_mnf = spark.read.parquet(path_cross_result)
+    df_seg_mnf = df_seg_mnf.select("ID","INDEX","MANUFACTURER_NAME","MANUFACTURER_NAME_STANDARD")
+    df_seg_mnf.persist()
     
-    return df_seg_mole 
+    return df_seg_mnf 
 
-def load_mole_lexicon(spark,path_mole_lexicon):
+def load_mnf_lexicon(spark,path_mnf_lexicon):
     
     try:
-        df_lexicon = spark.read.csv(path_mole_lexicon,header=True)
-        mole_lexicon = df_lexicon.rdd.map(lambda x: x.lexicon).distinct().collect()
+        df_lexicon = spark.read.csv(path_mnf_lexicon,header=True)
+        mnf_lexicon = df_lexicon.rdd.map(lambda x: x.lexicon).distinct().collect()
     except:
-        mole_lexicon = None
+        mnf_lexicon = None
         
-    return mole_lexicon
+    return mnf_lexicon
 
 ######## 分词逻辑 ##########
-def phcleanning_mole_seg(input_dataframe,\
+def phcleanning_mnf_seg(input_dataframe,\
                         input_lexicon,\
                         input_stopwords,\
                         inputCol,\
