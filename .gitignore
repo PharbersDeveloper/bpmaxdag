@@ -9,3 +9,5 @@ dags/*
 phjobs/temp/*
 phjobs/new_data_matching/*
 phjobs/functional_tools/*
+
+*.ipynb
