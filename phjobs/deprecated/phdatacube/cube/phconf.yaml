@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: alfred
+  description: "pharbers job description"
+  labels:
+    name: alfred
+spec:
+  containers:
+    repository: local
+    runtime: python2
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: sd
+        value: 201800
+      - key: ed
+        value: 202000
+      - key: replace
+        value: False
+    outputs:
+      - key: a
+        value: abcde
+      - key: b
+        value: 6789
