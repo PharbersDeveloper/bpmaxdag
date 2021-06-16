@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: extract_other_universe
+  description: "pharbers job description"
+  labels:
+    name: extract_other_universe
+    runtime: python3
+    command: submit
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    command: submit
+    timeout: 60.0
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: other_input
+        value: "s3://ph-max-auto/v0.0.1-2020-06-08/贝达/universe_onc/"
+      - key: version
+        value: "0.0.1"
+      - key: company
+        value: "BeiDa"
+      - key: label
+        value: "ONC"
+    outputs:
+      - key: other_output
+        value: "s3://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/TMP/REFACTOR/EXTRACT/OTHER_HOSPITAL"
+
+
+

@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: hospital_mapping
+  description: "pharbers job description"
+  labels:
+    name: hospital_mapping
+    runtime: python3
+    command: submit
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    command: submit
+    timeout: 60.0
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: input
+        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/MAPPING/CSV/2020_MAX.csv"
+    outputs:
+      - key: output
+        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/MAPPING/HOSPITAL_UNIVERSE/"
+
+
+
