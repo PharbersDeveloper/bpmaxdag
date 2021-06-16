@@ -114,7 +114,7 @@ def load_spec_stopwords(spark, path_spec_stopwords):
 
 def load_cross_result(spark,path_cross_result):
     df_seg_spec = spark.read.parquet(path_cross_result)
-    df_seg_spec = df_seg_spec.select("ID","INDEX","SPEC","SPEC_STANDARD","SPEC_VALID","SPEC_GROSS","SPEC_STANDARD_VALID","SPEC_STANDARD_GROSS")
+    df_seg_spec = df_seg_spec.select("ID","INDEX","SPEC","SPEC_STANDARD","SPEC_VALID","SPEC_GROSS","SPEC_STANDARD_VALID","SPEC_STANDARD_GROSS","SPEC_ORIGINAL")
     return df_seg_spec 
 
 

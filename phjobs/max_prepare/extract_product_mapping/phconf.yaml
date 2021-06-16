@@ -1,0 +1,59 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: extract_product_mapping
+  description: "pharbers job description"
+  labels:
+    name: extract_product_mapping
+    runtime: python3
+    command: submit
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    command: submit
+    timeout: 60.0
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: product_mapping_inputs
+        value: "s3a://ph-max-auto/v0.0.1-2020-06-08/奥鸿/202012/prod_mapping/,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/贝达/202012/prod_mapping/,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/海坤/202012/prod_mapping/,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/汇宇/202012/prod_mapping/,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/京新/202101/prod_mapping/,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/康哲/202012/prod_mapping/,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/灵北/202101/prod_mapping/,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/神州/202012/prod_mapping/,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/Astellas/202012/prod_mapping/,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/AZ/202012/prod_mapping/,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/AZ2/202012/prod_mapping/,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/Bayer/202010/prod_mapping/,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/Beite/202007/prod_mapping/,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/Chugai/202101/prod_mapping/,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/Eisai/202012/prod_mapping/,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/Gilead/202101/prod_mapping/,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/Janssen/202007/prod_mapping/,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/Merck/202009/prod_mapping/,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/Mylan/202012/prod_mapping/,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/NHWA/202012/prod_mapping/,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/Novartis/202007/prod_mapping/,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/Pfizer/202101/prod_mapping/,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/Qilu/202101/prod_mapping/,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/Sankyo/202012/prod_mapping/,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/Sanofi/202101/prod_mapping/,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/Servier/202101/prod_mapping/,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/Takeda/202012/prod_mapping/,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/Takeda2/201712/prod_mapping/,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/Tide/202012/prod_mapping/,
+                s3a://ph-max-auto/v0.0.1-2020-06-08/XLT/202101/prod_mapping/"
+      - key: time
+        value: "2021-04-14"
+      - key: version
+        value: "0.0.1"
+    outputs:
+      - key: output_prod_mapping_path
+        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/MAPPING/PRODUCT_MAPPING"
+
+
+

@@ -17,10 +17,10 @@ spec:
     config: phconf.yaml
     args:
       - key: path_standard_table
-        value: s3a://ph-stream/common/public/prod/0.0.24
+        value: s3a://ph-max-auto/2020-08-11/data_matching/temp/mzhang/0422蓝皮书csv/
     outputs:
       - key: path_write_file
-        value: #s3a://ph-stream/common/public/prod/0.0.24
+        value: s3a://ph-max-auto/2020-08-11/data_matching/temp/mzhang/0422蓝皮书_raw_data
 
 
 
