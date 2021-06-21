@@ -41,6 +41,7 @@ def execute(**kwargs):
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
     import os
+    import pandas as pd
     from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col    # %%
     # project_name = '京新'
     # out_dir = 'test'
