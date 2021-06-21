@@ -56,7 +56,7 @@ def execute(**kwargs):
         raise ValueError('wrong input: data_type, max or raw')
     
     if extract_file == "Empty":
-        path_for_extract_path = extract_path + "/path_for_extract.csv"
+        path_for_extract_path = max_path + "/Common_files/extract_data_files/path_for_extract.csv"
     else:
         path_for_extract_path = extract_file
     
