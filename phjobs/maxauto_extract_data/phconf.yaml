@@ -19,9 +19,9 @@ spec:
       - key: max_path
         value: 's3://ph-max-auto/v0.0.1-2020-06-08/'
       - key: extract_path
-        value: 's3://ph-stream/common/public/max_result/0.0.5/'
+        value: 's3://ph-platform/2020-11-11/etl/extract/'
       - key: out_path
-        value: 's3://ph-stream/common/public/max_result/0.0.5/extract_data_out'
+        value: 's3://ph-platform/2020-11-11/etl/extract/extract_data_out'
       - key: extract_file
         value: 'Empty'
       - key: time_left
