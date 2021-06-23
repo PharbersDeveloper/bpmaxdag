@@ -56,7 +56,7 @@ def execute(**kwargs):
         raise ValueError('wrong input: data_type, max or raw')
     
     if extract_file == "Empty":
-        path_for_extract_path = extract_path + "/path_for_extract.csv"
+        path_for_extract_path = max_path + "/Common_files/extract_data_files/path_for_extract.csv"
     else:
         path_for_extract_path = extract_file
     
@@ -112,7 +112,7 @@ def execute(**kwargs):
     packID_ACT_map_path = max_path  + "/Common_files/extract_data_files/packID_ATC_map.csv"
     
     # packid市场名
-    market_define_file_path = "s3://ph-stream/common/public/max_result/0.0.5/market_define.csv"
+    market_define_file_path = max_path + "/Common_files/extract_data_files/market_define.csv"
     
     # b. 输出
     timenow = time.strftime("%Y-%m-%d", time.localtime()).replace("-", "_")
