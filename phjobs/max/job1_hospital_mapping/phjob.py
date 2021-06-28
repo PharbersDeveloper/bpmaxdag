@@ -14,130 +14,114 @@ def execute(**kwargs):
     depends_path = kwargs["depends_path"]
     
     ### input args ###
-    max_path = kwargs['max_path']
     project_name = kwargs['project_name']
-    cpa_gyc = kwargs['cpa_gyc']
     if_others = kwargs['if_others']
     out_path = kwargs['out_path']
-    out_dir = kwargs['out_dir']
-    auto_max = kwargs['auto_max']
-    need_test = kwargs['need_test']
+    run_id = kwargs['run_id']
+    owner = kwargs['owner']
+    g_input_version = kwargs['g_input_version']
     ### input args ###
     
     ### output args ###
-    a = kwargs['a']
-    b = kwargs['b']
+    g_out_table = kwargs['g_out_table']
     ### output args ###
 
+    
+    
     from pyspark.sql import SparkSession, Window
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
     import os
-    from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col    # %%
-    # project_name = '京新'
-    # out_dir = 'test'
-    # %%
-    if auto_max == "False":
-        raise ValueError('auto_max: False 非自动化')
-    
-    logger.debug('job1_hospital_mapping')
-    # 输入
+    from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col    
+    import json    # %% 
+    # 输入参数设置
+    dict_input_version = json.loads(g_input_version)
+    logger.debug(dict_input_version)
     if if_others != "False" and if_others != "True":
         logger.error('wrong input: if_others, False or True') 
         raise ValueError('wrong input: if_others, False or True')
         
-    universe_path = max_path + "/" + project_name + "/universe_base"
-    cpa_pha_mapping_path = max_path + "/" + project_name + "/cpa_pha_mapping"
     if if_others == "True":
-        raw_data_path = max_path + "/" + project_name + "/" + out_dir + "/raw_data_box"
+        g_raw_data_type = "data_box"
     else:
-        raw_data_path = max_path + "/" + project_name + "/" + out_dir + "/raw_data"
-        
-    # 输出
-    if if_others == "True":
-        out_dir = out_dir + "/others_box/"
-    hospital_mapping_out_path = out_path + "/" + project_name + "/" + out_dir  + "/hospital_mapping_out"
-    # =========== 数据检查 =============
-    logger.debug('数据检查-start')
-    # 存储文件的缺失列
-    misscols_dict = {}
-    # universe file
-    # universe_path = "/common/projects/max/Sankyo/universe_base"
-    universe = spark.read.parquet(universe_path)
-    colnames_universe = universe.columns
-    misscols_dict.setdefault("universe", [])
-    if ("City_Tier" not in colnames_universe) and ("CITYGROUP" not in colnames_universe) and ("City_Tier_2010" not in colnames_universe):
-        misscols_dict["universe"].append("City_Tier/CITYGROUP")
-    if ("Panel_ID" not in colnames_universe) and ("PHA" not in colnames_universe):
-        misscols_dict["universe"].append("Panel_ID/PHA")
-    # if ("Hosp_name" not in colnames_universe) and ("HOSP_NAME" not in colnames_universe):
-    #    misscols_dict["universe"].append("Hosp_name/HOSP_NAME")
-    if "City" not in colnames_universe:
-        misscols_dict["universe"].append("City")
-    if "Province" not in colnames_universe:
-        misscols_dict["universe"].append("Province")
-    # cpa_pha_mapping file
-    # cpa_pha_mapping_path = "/common/projects/max/Sankyo/cpa_pha_mapping"
-    cpa_pha_mapping = spark.read.parquet(cpa_pha_mapping_path)
-    colnames_map = cpa_pha_mapping.columns
-    misscols_dict.setdefault("cpa_pha_mapping", [])
-    if "推荐版本" not in colnames_map:
-        misscols_dict["cpa_pha_mapping"].append("推荐版本")
-    if ("ID" not in colnames_map) and ("BI_hospital_code" not in colnames_map):
-        misscols_dict["cpa_pha_mapping"].append("ID/BI_hospital_code")
-    if ("PHA" not in colnames_map) and ("PHA_ID_x" not in colnames_map):
-        misscols_dict["cpa_pha_mapping"].append("PHA")
-    # raw_data file
-    # raw_data_path = "/common/projects/max/Sankyo/raw_data"
-    raw_data = spark.read.parquet(raw_data_path)
-    colnames_raw_data = raw_data.columns
-    misscols_dict.setdefault("raw_data", [])
-    if ("Units" not in colnames_raw_data) and ("数量（支/片）" not in colnames_raw_data) and ("最小制剂单位数量" not in colnames_raw_data) and ("total_units" not in colnames_raw_data) and ("SALES_QTY" not in colnames_raw_data):
-        misscols_dict["raw_data"].append("about Units")
-    if ("Sales" not in colnames_raw_data) and ("金额（元）" not in colnames_raw_data) and ("金额" not in colnames_raw_data) and ("sales_value__rmb_" not in colnames_raw_data) and ("SALES_VALUE" not in colnames_raw_data):
-        misscols_dict["raw_data"].append("about Sales")
-    if ("year_month" not in colnames_raw_data) and ("Yearmonth" not in colnames_raw_data) and ("YM" not in colnames_raw_data) and ("Date" not in colnames_raw_data):
-        misscols_dict["raw_data"].append("about year_month")
-    if "ID" not in colnames_raw_data:
-        misscols_dict["raw_data"].append("ID")
-    if ("Molecule" not in colnames_raw_data) and ("通用名" not in colnames_raw_data) and ("药品名称" not in colnames_raw_data) and ("molecule_name" not in colnames_raw_data) and ("MOLE_NAME" not in colnames_raw_data):
-        misscols_dict["raw_data"].append("about Molecule")
-    if ("Brand" not in colnames_raw_data) and ("商品名" not in colnames_raw_data) and ("药品商品名" not in colnames_raw_data) and ("product_name" not in colnames_raw_data) and ("PRODUCT_NAME" not in colnames_raw_data):
-        misscols_dict["raw_data"].append("about Brand")
-    if ("Specifications" not in colnames_raw_data) and ("规格" not in colnames_raw_data) and ("pack_description" not in colnames_raw_data) and ("SPEC" not in colnames_raw_data):
-        misscols_dict["raw_data"].append("about Specifications")
-    if ("Form" not in colnames_raw_data) and ("剂型" not in colnames_raw_data) and ("formulation_name" not in colnames_raw_data) and ("DOSAGE" not in colnames_raw_data):
-        misscols_dict["raw_data"].append("about Form")
-    if ("Manufacturer" not in colnames_raw_data) and ("生产企业" not in colnames_raw_data) and ("company_name" not in colnames_raw_data) and ("MANUFACTURER_NAME" not in colnames_raw_data):
-        misscols_dict["raw_data"].append("about Manufacturer")
-    # 判断输入文件是否有缺失列
-    misscols_dict_final = {}
-    for eachfile in misscols_dict.keys():
-        if len(misscols_dict[eachfile]) != 0:
-            misscols_dict_final[eachfile] = misscols_dict[eachfile]
-    # 如果有缺失列，则报错，停止运行
-    if misscols_dict_final:
-        logger.debug('miss columns: %s' % (misscols_dict_final))
-        raise ValueError('miss columns: %s' % (misscols_dict_final))
-    logger.debug('数据检查-Pass')
-
-    # %%
-    # =========== 数据执行 =============
-    logger.debug('数据执行-start')
-    # 1. 首次补数
-    # read_universe
-    if "CITYGROUP" in universe.columns:
-        universe = universe.withColumnRenamed("CITYGROUP", "City_Tier_2010")
-    elif "City_Tier" in universe.columns:
-        universe = universe.withColumnRenamed("City_Tier", "City_Tier_2010")
-    universe = universe.withColumnRenamed("Panel_ID", "PHA") \
-        .withColumnRenamed("Hosp_name", "HOSP_NAME")
-        
-    universe = universe.withColumn("City_Tier_2010", universe["City_Tier_2010"].cast(StringType()))
-    PHA_city_in_universe = universe.select("PHA", "City", "City_Tier_2010").distinct()
+        g_raw_data_type = "data"
     
-    # 1.2 读取CPA与PHA的匹配关系:
-    # map_cpa_pha
+    # 输出
+    # if if_others == "True":
+    #     out_dir = out_dir + "/others_box/"
+    p_out_path = out_path + g_out_table
+    # %% 
+    # 输入数据读取
+    df_raw_data = spark.sql("SELECT * FROM phdatacat.raw_data WHERE provider='%s' AND filetype='%s' AND version='%s'" 
+                         %(project_name, g_raw_data_type, dict_input_version['raw_data'][g_raw_data_type]))
+    # print(df_raw_data)
+    # print(df_raw_data.count())
+    
+    df_universe =  spark.sql("SELECT * FROM phdatacat.universe_base WHERE provider='%s' AND version='%s'" 
+                             %(project_name, dict_input_version['universe_base']))
+    # print(df_universe)
+    # print(df_universe.count())
+    
+    df_cpa_pha_mapping =  spark.sql("SELECT * FROM phdatacat.cpa_pha_mapping WHERE provider='%s' AND version='%s'" 
+                             %(project_name, dict_input_version['cpa_pha_mapping']))
+    # print(df_cpa_pha_mapping)
+    # print(df_cpa_pha_mapping.count())
+
+    # %% 
+    # =========== 数据清洗 =============
+    logger.debug('数据清洗-start')
+    # 函数定义
+    def getTrueCol(df, l_colnames, l_df_columns):
+        # 检索出正确列名
+        l_true_colname = []
+        for i in l_colnames:
+            if i.lower() in l_df_columns and df.where(~col(i).isNull()).count() > 0:
+                l_true_colname.append(i)
+        if len(l_true_colname) > 1:
+           raise ValueError('有重复列名: %s' %(true_colnames)) 
+        return l_true_colname[0]  
+    
+    def getTrueColRenamed(df, dict_cols, l_df_columns):
+        # 对列名重命名
+        for i in dict_cols.keys():
+            true_colname = getTrueCol(df, dict_cols[i], l_df_columns)
+            logger.debug(true_colname)
+            if true_colname != i:
+                df = df.withColumnRenamed(true_colname, i)
+        return df
+    
+    def dealScheme(df, dict_scheme):
+        # 数据类型处理
+        for i in dict_scheme.keys():
+            df = df.withColumn(i, col(i).cast(dict_scheme[i]))
+        return df
+    
+    # 1、列名清洗
+    # 待清洗列名
+    dict_cols_universe = {"City_Tier_2010":["City_Tier", "CITYGROUP", "City_Tier_2010"], "PHA":["Panel_ID", "PHA"]}
+    
+    #  执行
+    l_universe_cols = df_universe.columns
+    df_universe = getTrueColRenamed(df_universe, dict_cols_universe, l_universe_cols)
+    
+    # 2、选择标准列
+    # 标准列名
+    std_cols_cpa_pha_mapping = ['ID', 'PHA', '推荐版本']
+    std_cols_raw_data = ['Date', 'ID', 'Raw_Hosp_Name', 'Brand', 'Form', 'Specifications', 'Pack_Number', 'Manufacturer', 'Molecule', 'Source', 'Corp', 
+                     'Route', 'ORG_Measure', 'Sales', 'Units', 'Units_Box', 'Path', 'Sheet']
+    std_cols_universe = ["PHA", "City", "City_Tier_2010", "Province"]
+    
+    #  执行
+    df_universe = df_universe.select(std_cols_universe)
+    df_raw_data = df_raw_data.select(std_cols_raw_data)
+    df_cpa_pha_mapping = df_cpa_pha_mapping.select(std_cols_cpa_pha_mapping)
+    
+    # 3、数据类型处理
+    dict_scheme_raw_data = {"Date":"int", "Sales":"double", "Units":"double", "Units_Box":"double", "Pack_Number":"int"}
+        
+    df_raw_data = dealScheme(df_raw_data, dict_scheme_raw_data)
+    
+    # 4、ID列补位
     def deal_ID_length(df):
         # ID不足7位的补足0到6位
         # 国药诚信医院编码长度是7位数字，cpa医院编码是6位数字，其他还有包含字母的ID
@@ -147,82 +131,37 @@ def execute(**kwargs):
         df = df.withColumn("ID", func.when(func.length(df.ID) < 7, func.lpad(df.ID, 6, "0")).otherwise(df.ID))
         return df
     
-    cpa_pha_mapping = deal_ID_length(cpa_pha_mapping)
-    cpa_pha_mapping = cpa_pha_mapping.filter(cpa_pha_mapping["推荐版本"] == 1) \
-        .withColumnRenamed("ID", "BI_hospital_code") \
-        .withColumnRenamed("PHA", "PHA_ID_x") \
-        .select("PHA_ID_x", "BI_hospital_code").distinct()
-    cpa_pha_mapping = cpa_pha_mapping.join(universe.select("PHA", "Province", "City"),
-                                           cpa_pha_mapping.PHA_ID_x == universe.PHA,
-                                           how="left") \
-        .drop("PHA")
+    # 5、其他处理
+    if df_raw_data.where(~col('Pack_Number').isNull()).count() == 0:
+        df_raw_data = df_raw_data.withColumn("Pack_Number", func.lit(0))
+
     # %%
-    # 1.3 读取原始样本数据:
-    # read_raw_data
-    raw_data = deal_ID_length(raw_data)
-    raw_data = raw_data.withColumnRenamed("ID", "BI_Code") \
-        .drop("Province", "City")
-    raw_data = raw_data.join(cpa_pha_mapping.select("PHA_ID_x", "BI_hospital_code", 'Province', 'City'),
-                             raw_data.BI_Code == cpa_pha_mapping.BI_hospital_code,
-                             how="left")
-    # format_raw_data
-    # cpa_gyc = True
-    for col in raw_data.columns:
-        if col in ["数量（支/片）", "最小制剂单位数量", "total_units", "SALES_QTY"]:
-            raw_data = raw_data.withColumnRenamed(col, "Units")
-        if col in ["金额（元）", "金额", "sales_value__rmb_", "SALES_VALUE"]:
-            raw_data = raw_data.withColumnRenamed(col, "Sales")
-        if col in ["Yearmonth", "YM", "Date"]:
-            raw_data = raw_data.withColumnRenamed(col, "year_month")
-        if col in ["年", "年份", "YEAR"]:
-            raw_data = raw_data.withColumnRenamed(col, "Year")
-        if col in ["月", "月份", "MONTH"]:
-            raw_data = raw_data.withColumnRenamed(col, "Month")
-        if col in ["医院编码", "BI_Code", "HOSP_CODE"]:
-            raw_data = raw_data.withColumnRenamed(col, "ID")
-        if col in ["通用名", "药品名称", "molecule_name", "MOLE_NAME"]:
-            raw_data = raw_data.withColumnRenamed(col, "Molecule")
-        if col in ["商品名", "药品商品名", "product_name", "PRODUCT_NAME"]:
-            raw_data = raw_data.withColumnRenamed(col, "Brand")
-        if col in ["规格", "pack_description", "SPEC"]:
-            raw_data = raw_data.withColumnRenamed(col, "Specifications")
-        if col in ["剂型", "formulation_name", "DOSAGE"]:
-            raw_data = raw_data.withColumnRenamed(col, "Form")
-        if col in ["包装数量", "包装规格", "PACK_QTY"]:
-            raw_data = raw_data.withColumnRenamed(col, "Pack_Number")
-        if col in ["生产企业", "company_name", "MANUFACTURER_NAME"]:
-            raw_data = raw_data.withColumnRenamed(col, "Manufacturer")
-        if col in ["省份", "省", "省/自治区/直辖市", "province_name", "PROVINCE_NAME"]:
-            raw_data = raw_data.withColumnRenamed(col, "Province")
-        if col in ["城市", "city_name", "CITY_NAME"]:
-            raw_data = raw_data.withColumnRenamed(col, "City")
-        if col in ["PHA_ID_x", "PHA_ID"]:
-            raw_data = raw_data.withColumnRenamed(col, "PHA")
+    # =========== 数据执行 =============
+    logger.debug('数据执行-start')
+    
+    # 1.2 读取CPA与PHA的匹配关系:
+    df_cpa_pha_mapping = deal_ID_length(df_cpa_pha_mapping)
+    df_cpa_pha_mapping = df_cpa_pha_mapping.where(col("推荐版本") == 1) \
+                                        .select("ID", "PHA").distinct()
+    # 1.3 读取原始样本数据:    
+    df_raw_data = deal_ID_length(df_raw_data)
+    df_raw_data = df_raw_data.join(df_cpa_pha_mapping, on='ID', how="left") \
+                        .join(df_universe.select("PHA", "City", "Province").distinct(), on='PHA', how='left') \
+                        .join(df_universe.select("PHA", "City", "City_Tier_2010").distinct(), on=["PHA", "City"], how="left")
+    
+    df_raw_data = df_raw_data.withColumn("Month", (col('Date') % 100).cast(IntegerType())) \
+                            .withColumn("Year", ((col('Date') - col('Month')) / 100).cast(IntegerType()))
+
     # %%
-    # ID 的长度统一
-    def distinguish_cpa_gyc(col, gyc_hospital_id_length):
-        # gyc_hospital_id_length是国药诚信医院编码长度，一般是7位数字，cpa医院编码一般是6位数字。医院编码长度可以用来区分cpa和gyc
-        return (func.length(col) < gyc_hospital_id_length)
-    def deal_ID_length(df):
-        df = df.withColumn("ID", df["ID"].cast(StringType()))
-        df = df.withColumn("ID", func.regexp_replace("ID", "\\.0", ""))
-        df = df.withColumn("ID", func.when(distinguish_cpa_gyc(df.ID, 7), func.lpad(df.ID, 6, "0")).otherwise(df.ID))
-        return df
-    raw_data = deal_ID_length(raw_data)
-    if "year_month" in raw_data.columns:
-        raw_data = raw_data.withColumn("year_month", raw_data["year_month"].cast(IntegerType()))
-    if "Month" not in raw_data.columns:
-        raw_data = raw_data.withColumn("Month", raw_data.year_month % 100)
-    if "Pack_Number" not in raw_data.columns:
-        raw_data = raw_data.withColumn("Pack_Number", func.lit(0))
-    if "Year" not in raw_data.columns:
-        raw_data = raw_data.withColumn("Year", (raw_data.year_month - raw_data.Month) / 100)
-    raw_data = raw_data.withColumn("Year", raw_data["Year"].cast(IntegerType())) \
-        .withColumn("Month", raw_data["Month"].cast(IntegerType()))
-    raw_data = raw_data.join(PHA_city_in_universe, on=["PHA", "City"], how="left")
-    # %%
-    hospital_mapping_out = raw_data.repartition(2)
-    hospital_mapping_out.write.format("parquet") \
-        .mode("overwrite").save(hospital_mapping_out_path)
-    logger.debug("输出 hospital_mapping 结果：" + hospital_mapping_out_path)
+    # =========== 数据输出 =============
+    hospital_mapping_out = df_raw_data.withColumn('version', func.lit(run_id)) \
+                                    .withColumn('provider', func.lit(project_name)) \
+                                    .withColumn('owner', func.lit(owner))
+    
+    hospital_mapping_out.repartition(1).write.format("parquet") \
+             .mode("append").partitionBy("version", "provider", "owner") \
+             .parquet(p_out_path)
+    
+    logger.debug("输出 hospital_mapping 结果：" + p_out_path)
     logger.debug('数据执行-Finish')
+
