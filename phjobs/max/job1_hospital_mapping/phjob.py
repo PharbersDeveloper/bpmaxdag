@@ -32,6 +32,7 @@ def execute(**kwargs):
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
     import os
+    import boto3
     from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col    
     import json    # %% 
     # 输入参数设置
@@ -101,8 +102,7 @@ def execute(**kwargs):
     dict_cols_universe = {"City_Tier_2010":["City_Tier", "CITYGROUP", "City_Tier_2010"], "PHA":["Panel_ID", "PHA"]}
     
     #  执行
-    l_universe_cols = df_universe.columns
-    df_universe = getTrueColRenamed(df_universe, dict_cols_universe, l_universe_cols)
+    df_universe = getTrueColRenamed(df_universe, dict_cols_universe, df_universe.columns)
     
     # 2、选择标准列
     # 标准列名
@@ -163,5 +163,25 @@ def execute(**kwargs):
              .parquet(p_out_path)
     
     logger.debug("输出 hospital_mapping 结果：" + p_out_path)
+    
+    # 创建分区
+    logger.debug('创建分区')
+    Location = p_out_path + '/version=' + run_id + '/provider=' + project_name + '/owner=' + owner
+    
+    partition_input_list = [{
+     "Values": [run_id, project_name,  owner], 
+    "StorageDescriptor": {
+        "SerdeInfo": {
+            "SerializationLibrary": "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"
+        }, 
+        "Location": Location, 
+    } 
+        }]
+    
+    
+    client = boto3.client('glue')
+    glue_info = client.batch_create_partition(DatabaseName="phdatatemp", TableName=g_out_table, PartitionInputList=partition_input_list)
+    print(glue_info)
+       
     logger.debug('数据执行-Finish')
 
