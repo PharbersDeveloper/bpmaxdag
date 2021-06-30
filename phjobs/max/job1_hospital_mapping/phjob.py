@@ -20,12 +20,18 @@ def execute(**kwargs):
     run_id = kwargs['run_id']
     owner = kwargs['owner']
     g_input_version = kwargs['g_input_version']
+    g_database_temp = kwargs['g_database_temp']
+    g_database_input = kwargs['g_database_input']
     ### input args ###
     
     ### output args ###
     g_out_table = kwargs['g_out_table']
     ### output args ###
 
+    
+    
+    
+    
     
     
     from pyspark.sql import SparkSession, Window
@@ -53,18 +59,18 @@ def execute(**kwargs):
     p_out_path = out_path + g_out_table
     # %% 
     # 输入数据读取
-    df_raw_data = spark.sql("SELECT * FROM phdatacat.raw_data WHERE provider='%s' AND filetype='%s' AND version='%s'" 
-                         %(project_name, g_raw_data_type, dict_input_version['raw_data'][g_raw_data_type]))
+    df_raw_data = spark.sql("SELECT * FROM %s.raw_data WHERE provider='%s' AND filetype='%s' AND version='%s'" 
+                         %(g_database_input, project_name, g_raw_data_type, dict_input_version['raw_data'][g_raw_data_type]))
     # print(df_raw_data)
     # print(df_raw_data.count())
     
-    df_universe =  spark.sql("SELECT * FROM phdatacat.universe_base WHERE provider='%s' AND version='%s'" 
-                             %(project_name, dict_input_version['universe_base']))
+    df_universe =  spark.sql("SELECT * FROM %s.universe_base WHERE provider='%s' AND version='%s'" 
+                             %(g_database_input, project_name, dict_input_version['universe_base']))
     # print(df_universe)
     # print(df_universe.count())
     
-    df_cpa_pha_mapping =  spark.sql("SELECT * FROM phdatacat.cpa_pha_mapping WHERE provider='%s' AND version='%s'" 
-                             %(project_name, dict_input_version['cpa_pha_mapping']))
+    df_cpa_pha_mapping =  spark.sql("SELECT * FROM %s.cpa_pha_mapping WHERE provider='%s' AND version='%s'" 
+                             %(g_database_input, project_name, dict_input_version['cpa_pha_mapping']))
     # print(df_cpa_pha_mapping)
     # print(df_cpa_pha_mapping.count())
 
@@ -79,7 +85,9 @@ def execute(**kwargs):
             if i.lower() in l_df_columns and df.where(~col(i).isNull()).count() > 0:
                 l_true_colname.append(i)
         if len(l_true_colname) > 1:
-           raise ValueError('有重复列名: %s' %(true_colnames)) 
+           raise ValueError('有重复列名: %s' %(l_true_colname))
+        if len(l_true_colname) == 0:
+           raise ValueError('缺少列信息: %s' %(l_colnames)) 
         return l_true_colname[0]  
     
     def getTrueColRenamed(df, dict_cols, l_df_columns):
@@ -88,6 +96,9 @@ def execute(**kwargs):
             true_colname = getTrueCol(df, dict_cols[i], l_df_columns)
             logger.debug(true_colname)
             if true_colname != i:
+                if i in l_df_columns:
+                    # 删除原表中已有的重复列名
+                    df = df.drop(i)
                 df = df.withColumnRenamed(true_colname, i)
         return df
     
@@ -153,35 +164,38 @@ def execute(**kwargs):
                             .withColumn("Year", ((col('Date') - col('Month')) / 100).cast(IntegerType()))
 
     # %%
-    # =========== 数据输出 =============
-    hospital_mapping_out = df_raw_data.withColumn('version', func.lit(run_id)) \
-                                    .withColumn('provider', func.lit(project_name)) \
-                                    .withColumn('owner', func.lit(owner))
-    
-    hospital_mapping_out.repartition(1).write.format("parquet") \
-             .mode("append").partitionBy("version", "provider", "owner") \
-             .parquet(p_out_path)
-    
+    # =========== 数据输出 =============    
+    def createPartition(p_out):
+        # 创建分区
+        logger.debug('创建分区')
+        Location = p_out + '/version=' + run_id + '/provider=' + project_name + '/owner=' + owner
+        g_out_table = p_out.split('/')[-1]
+        
+        partition_input_list = [{
+         "Values": [run_id, project_name,  owner], 
+        "StorageDescriptor": {
+            "SerdeInfo": {
+                "SerializationLibrary": "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"
+            }, 
+            "Location": Location, 
+        } 
+            }]    
+        client = boto3.client('glue')
+        glue_info = client.batch_create_partition(DatabaseName=g_database_temp, TableName=g_out_table, PartitionInputList=partition_input_list)
+        logger.debug(glue_info)
+        
+    def outResult(df, p_out):
+        df = df.withColumn('version', func.lit(run_id)) \
+                .withColumn('provider', func.lit(project_name)) \
+                .withColumn('owner', func.lit(owner))
+        df.repartition(1).write.format("parquet") \
+                 .mode("append").partitionBy("version", "provider", "owner") \
+                 .parquet(p_out)
+        
+    # 1、hospital_mapping_out
+    outResult(df_raw_data, p_out_path)
     logger.debug("输出 hospital_mapping 结果：" + p_out_path)
+    createPartition(p_out_path)
     
-    # 创建分区
-    logger.debug('创建分区')
-    Location = p_out_path + '/version=' + run_id + '/provider=' + project_name + '/owner=' + owner
-    
-    partition_input_list = [{
-     "Values": [run_id, project_name,  owner], 
-    "StorageDescriptor": {
-        "SerdeInfo": {
-            "SerializationLibrary": "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"
-        }, 
-        "Location": Location, 
-    } 
-        }]
-    
-    
-    client = boto3.client('glue')
-    glue_info = client.batch_create_partition(DatabaseName="phdatatemp", TableName=g_out_table, PartitionInputList=partition_input_list)
-    print(glue_info)
-       
     logger.debug('数据执行-Finish')
 
