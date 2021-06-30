@@ -34,6 +34,10 @@ spec:
         value: 'Airflow'
       - key: g_input_version
         value: '{"prod_mapping":"202103_u0079u0079u0077"}'
+      - key: g_database_temp
+        value: 'phdatatemp'
+      - key: g_database_input
+        value: 'phdatacat'
     outputs:
       - key: g_out_table
         value: 'product_mapping_out'
