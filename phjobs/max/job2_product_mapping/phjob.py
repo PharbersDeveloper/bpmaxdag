@@ -23,6 +23,8 @@ def execute(**kwargs):
     run_id = kwargs['run_id']
     owner = kwargs['owner']
     g_input_version = kwargs['g_input_version']
+    g_database_temp = kwargs['g_database_temp']
+    g_database_input = kwargs['g_database_input']
     ### input args ###
     
     ### output args ###
@@ -30,6 +32,8 @@ def execute(**kwargs):
     g_need_clean_table = kwargs['g_need_clean_table']
     ### output args ###
 
+    
+    
     from pyspark.sql import SparkSession, Window
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
@@ -53,15 +57,16 @@ def execute(**kwargs):
     p_out_need_clean = out_path + g_need_clean_table
     # %% 
     # 输入数据读取
-    df_raw_data = spark.sql("SELECT * FROM phdatatemp.hospital_mapping_out WHERE version='%s' AND provider='%s' AND  owner='%s'" 
-                         %(run_id, project_name, owner))
+    df_raw_data = spark.sql("SELECT * FROM %s.hospital_mapping_out WHERE version='%s' AND provider='%s' AND  owner='%s'" 
+                         %(g_database_temp, run_id, project_name, owner))
     # print(df_raw_data)
     # print(df_raw_data.count())
     
-    df_prod_mapping =  spark.sql("SELECT * FROM phdatacat.prod_mapping WHERE provider='%s' AND version='%s'" 
-                             %(project_name, dict_input_version['prod_mapping']))
+    df_prod_mapping =  spark.sql("SELECT * FROM %s.prod_mapping WHERE provider='%s' AND version='%s'" 
+                             %(g_database_input, project_name, dict_input_version['prod_mapping']))
     # print(df_prod_mapping)
     # print(df_prod_mapping.count())
+
     # %% 
     # =========== 数据清洗 =============
     logger.debug('数据清洗-start')
@@ -122,6 +127,7 @@ def execute(**kwargs):
     dict_scheme_prod_mapping = {"标准包装数量":"int", "pfc":"int"}
     
     df_prod_mapping = dealScheme(df_prod_mapping, dict_scheme_prod_mapping)
+
     # %%
     # =========== 数据执行 =============
     logger.debug('数据执行-start')
@@ -148,12 +154,14 @@ def execute(**kwargs):
                             .select(need_cleaning_cols) \
                             .distinct()
     logger.debug('待清洗行数: ' + str(df_need_cleaning.count()))
+
     # %%
     # =========== 数据输出 =============
     def createPartition(p_out):
         # 创建分区
         logger.debug('创建分区')
-        Location = p_out_path + '/version=' + run_id + '/provider=' + project_name + '/owner=' + owner
+        Location = p_out + '/version=' + run_id + '/provider=' + project_name + '/owner=' + owner
+        g_out_table = p_out.split('/')[-1]
         
         partition_input_list = [{
          "Values": [run_id, project_name,  owner], 
@@ -165,34 +173,28 @@ def execute(**kwargs):
         } 
             }]    
         client = boto3.client('glue')
-        glue_info = client.batch_create_partition(DatabaseName="phdatatemp", TableName=g_out_table, PartitionInputList=partition_input_list)
+        glue_info = client.batch_create_partition(DatabaseName=g_database_temp, TableName=g_out_table, PartitionInputList=partition_input_list)
         logger.debug(glue_info)
+        
+    def outResult(df, p_out):
+        df = df.withColumn('version', func.lit(run_id)) \
+                .withColumn('provider', func.lit(project_name)) \
+                .withColumn('owner', func.lit(owner))
+        df.repartition(1).write.format("parquet") \
+                 .mode("append").partitionBy("version", "provider", "owner") \
+                 .parquet(p_out)
+        
     
     # 1、待清洗
-    if df_need_cleaning.count() > 0: 
-        df_need_cleaning = df_need_cleaning.withColumn('version', func.lit(run_id)) \
-                                        .withColumn('provider', func.lit(project_name)) \
-                                        .withColumn('owner', func.lit(owner))
-    
-        df_need_cleaning.repartition(1).write.format("parquet") \
-                 .mode("append").partitionBy("version", "provider", "owner") \
-                 .parquet(p_out_path)
-        
+    if df_need_cleaning.count() > 0:
+        outResult(df_need_cleaning, p_out_need_clean)        
         logger.debug("已输出待清洗文件至:  " + p_out_need_clean)
-        
         createPartition(p_out_need_clean)
-        
-    
-    
-    # 2、product_mapping_out  
-    product_mapping_out = df_raw_data.withColumn('version', func.lit(run_id)) \
-                                    .withColumn('provider', func.lit(project_name)) \
-                                    .withColumn('owner', func.lit(owner))
-    
-    product_mapping_out.repartition(1).write.format("parquet") \
-             .mode("append").partitionBy("version", "provider", "owner") \
-             .parquet(p_out_path)
-    
-    logger.debug("输出 hospital_mapping 结果：" + p_out_path)
-    
+            
+    # 2、product_mapping_out
+    outResult(df_raw_data, p_out_path)      
+    logger.debug("输出 product_mapping_out 结果：" + p_out_path)
     createPartition(p_out_path)
+    
+    
+
