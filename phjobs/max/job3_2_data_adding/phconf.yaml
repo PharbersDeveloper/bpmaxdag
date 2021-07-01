@@ -19,7 +19,7 @@ spec:
       - key: project_name
         value: 'Takeda'
       - key: model_month_right
-        value: '0'
+        value: '202012'
       - key: max_month
         value: '0'
       - key: year_missing
@@ -39,7 +39,7 @@ spec:
       - key: out_path
         value: 's3://ph-platform/2020-11-11/etl/temporary_files/'
       - key: run_id
-        value: 'run_id_max_test'
+        value: 'run_id_max_test_2'
       - key: owner
         value: 'Airflow'
       - key: g_input_version
@@ -49,8 +49,6 @@ spec:
       - key: g_database_input
         value: 'phdatacat'
     outputs:
-      - key: g_out_adding_data_tmp
-        value: 'adding_data_tmp'
       - key: g_out_adding_data
         value: 'adding_data'
       - key: g_out_new_hospital
