@@ -130,19 +130,22 @@ def execute(**kwargs):
         return df
     
     # 1、选择标准列
-    df_published = df_published.select('id', 'source', 'year').distinct()
-    df_not_arrived = df_not_arrived.select('id', 'date').distinct()
     df_poi = df_poi.select('poi').distinct()
     df_raw_data = df_raw_data.drop('version', 'provider', 'owner')
     df_cpa_pha_mapping = df_cpa_pha_mapping.select('ID', 'PHA', '推荐版本').distinct()
     df_price = df_price.select('min2', 'date', 'city_tier_2010', 'price')
     df_price_city = df_price_city.select('min2', 'date', 'city', 'province', 'price')
     growth_rate = df_growth_rate.drop('version', 'provider', 'owner')
+    if monthly_update == "True":
+        df_published = df_published.select('id', 'source', 'year').distinct()
+        df_not_arrived = df_not_arrived.select('id', 'date').distinct()
     
     # 2、ID列补位
-    df_published = deal_ID_length(df_published)
-    df_not_arrived = deal_ID_length(df_not_arrived)
     df_cpa_pha_mapping = deal_ID_length(df_cpa_pha_mapping)
+    if monthly_update == "True":
+        df_published = deal_ID_length(df_published)
+        df_not_arrived = deal_ID_length(df_not_arrived)
+    
     # %%
     # =========== 函数定义：输出结果 =============
     def createPartition(p_out):
