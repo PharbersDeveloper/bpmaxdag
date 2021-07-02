@@ -122,14 +122,16 @@ def execute(**kwargs):
         return df
     
     # 1、选择标准列
-    df_published = df_published.select('id', 'source', 'year').distinct()
-    df_not_arrived = df_not_arrived.select('id', 'date').distinct()
+    if monthly_update == "True":   
+        df_published = df_published.select('id', 'source', 'year').distinct()
+        df_not_arrived = df_not_arrived.select('id', 'date').distinct()
     df_poi = df_poi.select('poi').distinct()
     df_raw_data = df_raw_data.drop('version', 'provider', 'owner')
     
     # 2、ID列补位
-    df_published = deal_ID_length(df_published)
-    df_not_arrived = deal_ID_length(df_not_arrived)
+    if monthly_update == "True":   
+        df_published = deal_ID_length(df_published)
+        df_not_arrived = deal_ID_length(df_not_arrived)
 
     # %%
     # =========== 函数定义：输出结果 =============
