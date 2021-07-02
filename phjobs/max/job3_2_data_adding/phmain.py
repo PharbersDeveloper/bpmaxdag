@@ -32,14 +32,13 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--g_input_version')
 @click.option('--g_database_temp')
 @click.option('--g_database_input')
-@click.option('--g_out_adding_data_tmp')
 @click.option('--g_out_adding_data')
 @click.option('--g_out_new_hospital')
 @click.option('--g_out_raw_data_adding_final')
 def debug_execute(**kwargs):
     try:
         args = {"name": "job3_2_data_adding"}
-        outputs = ["g_out_adding_data_tmp", "g_out_adding_data", "g_out_new_hospital", "g_out_raw_data_adding_final"]
+        outputs = ["g_out_adding_data", "g_out_new_hospital", "g_out_raw_data_adding_final"]
 
         args.update(kwargs)
         result = exec_before(**args)
