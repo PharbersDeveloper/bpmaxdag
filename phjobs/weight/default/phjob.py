@@ -30,6 +30,8 @@ def execute(**kwargs):
 
     
     
+    
+    
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
     import os
@@ -45,6 +47,7 @@ def execute(**kwargs):
     # weight_upper = "1.25"
     # job_choice = "weight_default"
     # test = "True"
+
     # %%
     # 是否运行此job
     if test != "False" and test != "True":
@@ -83,7 +86,8 @@ def execute(**kwargs):
             universe_path = project_path + '/universe_base'
     
         universe = spark.read.parquet(universe_path)
-        universe = universe.fillna(0, 'Est_DrugIncome_RMB')
+        universe = universe.fillna(0, 'Est_DrugIncome_RMB') \
+                            .withColumn('Est_DrugIncome_RMB', func.when(func.isnan('Est_DrugIncome_RMB'), 0).otherwise(col('Est_DrugIncome_RMB')))
         
         # 数据处理
         universe_panel = universe.where(col('PANEL') == 1).select('Panel_ID', 'Est_DrugIncome_RMB', 'Seg')
@@ -113,7 +117,7 @@ def execute(**kwargs):
             Province = pdf['Province'][0]
             a = pdf['Est_DrugIncome_RMB_x'].drop_duplicates().values.astype(float)
             b = pdf['Est_DrugIncome_RMB'].values.astype(float)
-            pvalue = round(mannwhitneyu(a, b, alternative="two-sided")[1],6) # 等同于R中的wilcox.test()     
+            pvalue = round(mannwhitneyu(a, b, alternative="two-sided")[1],6) # 等同于R中的wilcox.test()
             return pd.DataFrame([[Panel_ID] + [City] + [Province] + [pvalue]], columns=["Panel_ID", "City", "Province", "pvalue"])
     
         universe_m_wilcox = universe_m.groupby('Panel_ID', 'City', 'Province') \
