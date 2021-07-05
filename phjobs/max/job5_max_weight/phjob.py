@@ -14,7 +14,6 @@ def execute(**kwargs):
     depends_path = kwargs["depends_path"]
     
     ### input args ###
-    max_path = kwargs['max_path']
     project_name = kwargs['project_name']
     if_base = kwargs['if_base']
     time_left = kwargs['time_left']
@@ -25,11 +24,13 @@ def execute(**kwargs):
     right_models_time_right = kwargs['right_models_time_right']
     all_models = kwargs['all_models']
     universe_choice = kwargs['universe_choice']
-    if_others = kwargs['if_others']
-    out_path = kwargs['out_path']
-    out_dir = kwargs['out_dir']
-    need_test = kwargs['need_test']
     use_d_weight = kwargs['use_d_weight']
+    out_path = kwargs['out_path']
+    run_id = kwargs['run_id']
+    owner = kwargs['owner']
+    g_input_version = kwargs['g_input_version']
+    g_database_temp = kwargs['g_database_temp']
+    g_database_input = kwargs['g_database_input']
     ### input args ###
     
     ### output args ###
@@ -37,60 +38,70 @@ def execute(**kwargs):
     b = kwargs['b']
     ### output args ###
 
+    
+    
     import os
     import pandas as pd
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
-    from pyspark.sql.functions import col     # %%
-    # project_name = '京新'
-    # out_dir = 'test'
-    # monthly_update = "True"
-    # model_month_left = "201901"
-    # model_month_right = "201912"
-    # all_models = "他汀"
-    # universe_choice = "他汀:universe_他汀"
-    # need_cleaning_cols = "Molecule, Brand, Form, Specifications, Pack_Number, Manufacturer, min1"
-    # time_left = "202001"
-    # time_right = "202004"
-    # first_month = "1"
-    # current_month = "4"
+    from pyspark.sql.functions import col     
+    import json
+    import boto3
+    
+    
     # %%
+    # project_name = 'Empty'
+    # if_base = 'False'
+    # time_left = 0
+    # time_right = 0
+    # left_models = 'Empty'
+    # left_models_time_left = 'Empty'
+    # right_models = 'Empty'
+    # right_models_time_right = 'Empty'
+    # all_models = 'Empty'
+    # universe_choice = 'Empty'
+    # if_others = 'False'
+    # use_d_weight = 'Empty'
+# # %%
+# print('job5_max')
+# # 输入输出
+
+# if left_models != "Empty":
+#     left_models = left_models.replace(", ",",").split(",")
+# else:
+#     left_models = []
+# if right_models != "Empty":
+#     right_models = right_models.replace(", ",",").split(",")
+# else:
+#     right_models = []
+# if left_models_time_left == "Empty":
+#     left_models_time_left = 0
+# if right_models_time_right == "Empty":
+#     right_models_time_right = 0
+# time_parameters = [int(time_left), int(time_right), left_models, int(left_models_time_left), right_models, int(right_models_time_right)]
+    # %% 
+    # 输入参数设置
     logger.debug('job5_max')
-    # 输入输出
     if if_base == "False":
         if_base = False
     elif if_base == "True":
         if_base = True
     else:
         raise ValueError('if_base: False or True')
-    if left_models != "Empty":
-        left_models = left_models.replace(", ",",").split(",")
-    else:
-        left_models = []
-    if right_models != "Empty":
-        right_models = right_models.replace(", ",",").split(",")
-    else:
-        right_models = []
-    if left_models_time_left == "Empty":
-        left_models_time_left = 0
-    if right_models_time_right == "Empty":
-        right_models_time_right = 0
-    time_parameters = [int(time_left), int(time_right), left_models, int(left_models_time_left), right_models, int(right_models_time_right)]
+        
     if all_models != "Empty":
         all_models = all_models.replace(", ",",").split(",")
     else:
         all_models = []
-    project_path = max_path + "/" + project_name
-    if if_others == "True":
-        out_dir = out_dir + "/others_box/"
-    out_path_dir = out_path + "/" + project_name + '/' + out_dir
-    
+        
     if use_d_weight != "Empty":
         use_d_weight = use_d_weight.replace(" ","").split(",")
     else:
         use_d_weight = []
-
-    # %%
+    
+    dict_input_version = json.loads(g_input_version)
+    logger.debug(dict_input_version)
+    
     # 市场的universe文件
     universe_choice_dict={}
     if universe_choice != "Empty":
@@ -98,172 +109,198 @@ def execute(**kwargs):
             market_name = each.split(":")[0]
             universe_name = each.split(":")[1]
             universe_choice_dict[market_name]=universe_name
-    # 医院权重文件	 
-    PHA_weight_path = max_path + "/" + project_name + '/PHA_weight'
-    PHA_weight = spark.read.parquet(PHA_weight_path)   
+universe_choice_dict
+    # %% 
+    # 输入数据读取
+    df_panel_result = spark.sql("SELECT * FROM %s.panel_result WHERE version='%s' AND provider='%s' AND  owner='%s'" 
+                                     %(g_database_temp, run_id, project_name, owner))
+    
+    
+    df_PHA_weight =  spark.sql("SELECT * FROM %s.weight WHERE provider='%s' AND filetype='%s' AND version='%s'" 
+                                     %(g_database_input, project_name, 'weight', dict_input_version['weight']['weight']))
+    
+    if use_d_weight:
+        df_PHA_weight_default =  spark.sql("SELECT * FROM %s.weight WHERE provider='%s' AND filetype='%s' AND version='%s'" 
+                                         %(g_database_input, project_name, 'weight_default', dict_input_version['weight']['weight_default']))
+df_panel_result
+    # %% 
+    # =========== 数据清洗 =============
+    logger.debug('数据清洗-start')
+    
+    # 函数定义
+    def getTrueCol(df, l_colnames, l_df_columns):
+        # 检索出正确列名
+        l_true_colname = []
+        for i in l_colnames:
+            if i.lower() in l_df_columns and df.where(~col(i).isNull()).count() > 0:
+                l_true_colname.append(i)
+        if len(l_true_colname) > 1:
+           raise ValueError('有重复列名: %s' %(l_true_colname))
+        if len(l_true_colname) == 0:
+           raise ValueError('缺少列信息: %s' %(l_colnames)) 
+        return l_true_colname[0]  
+    
+    def getTrueColRenamed(df, dict_cols, l_df_columns):
+        # 对列名重命名
+        for i in dict_cols.keys():
+            true_colname = getTrueCol(df, dict_cols[i], l_df_columns)
+            logger.debug(true_colname)
+            if true_colname != i:
+                if i in l_df_columns:
+                    # 删除原表中已有的重复列名
+                    df = df.drop(i)
+                df = df.withColumnRenamed(true_colname, i)
+        return df
+    
+    def dealScheme(df, dict_scheme):
+        # 数据类型处理
+        for i in dict_scheme.keys():
+            df = df.withColumn(i, col(i).cast(dict_scheme[i]))
+        return df
+    
+    def deal_ID_length(df):
+        # ID不足7位的补足0到6位
+        # 国药诚信医院编码长度是7位数字，cpa医院编码是6位数字，其他还有包含字母的ID
+        df = df.withColumn("ID", df["ID"].cast(StringType()))
+        # 去掉末尾的.0
+        df = df.withColumn("ID", func.regexp_replace("ID", "\\.0", ""))
+        df = df.withColumn("ID", func.when(func.length(df.ID) < 7, func.lpad(df.ID, 6, "0")).otherwise(df.ID))
+        return df
+        
+    # 1、列名清洗
+    # 待清洗列名
+    def cleanUniverse(df_universe):
+        dict_cols_universe = {"City_Tier_2010":["City_Tier", "CITYGROUP", "City_Tier_2010"], "PHA":["Panel_ID", "PHA"]}
+        df_universe = getTrueColRenamed(df_universe, dict_cols_universe, df_universe.columns)
+        df_universe = df_universe.select("PHA", "City", "Province", "City_Tier_2010", "HOSP_NAME", "PANEL", "BEDSIZE", "Seg", "Est_DrugIncome_RMB").distinct()
+        return df_universe
+    def cleanFactor(df_factor):
+        dict_factor_universe = {"factor":["factor_new", "factor"]}
+        df_factor = getTrueColRenamed(df_factor, dict_factor_universe, df_factor.columns)
+        df_factor = df_factor.select("factor", "City", "Province").distinct()
+        return df_factor
+    
+    # 2、选择标准列
+    df_panel_result = df_panel_result.drop('version', 'provider', 'owner').distinct()
+    df_PHA_weight = df_PHA_weight.select('province', 'city', 'doi', 'weight', 'pha').distinct()
+    if use_d_weight:
+        df_PHA_weight = df_PHA_weight_default.select('province', 'city', 'doi', 'weight', 'pha').distinct()
+    # %%
+    # =========== 函数定义：输出结果 =============
+    def createPartition(p_out):
+        # 创建分区
+        logger.debug('创建分区')
+        Location = p_out + '/version=' + run_id + '/provider=' + project_name + '/owner=' + owner
+        g_out_table = p_out.split('/')[-1]
+        
+        partition_input_list = [{
+         "Values": [run_id, project_name,  owner], 
+        "StorageDescriptor": {
+            "SerdeInfo": {
+                "SerializationLibrary": "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"
+            }, 
+            "Location": Location, 
+        } 
+            }]    
+        client = boto3.client('glue', region_name='cn-northwest-1')
+        glue_info = client.batch_create_partition(DatabaseName=g_database_temp, TableName=g_out_table, PartitionInputList=partition_input_list)
+        logger.debug(glue_info)
+        
+    def outResult(df, p_out):
+        df = df.withColumn('version', func.lit(run_id)) \
+                .withColumn('provider', func.lit(project_name)) \
+                .withColumn('owner', func.lit(owner))
+        df.repartition(1).write.format("parquet") \
+                 .mode("append").partitionBy("version", "provider", "owner") \
+                 .parquet(p_out)
+    # %%
+    # =========== 数据准备 =============
+    # 医院权重文件 
     # 是否加上 weight_default
     if use_d_weight:
-        PHA_weight_default_path = max_path + "/" + project_name + '/PHA_weight_default'
-        PHA_weight_default = spark.read.parquet(PHA_weight_default_path)
-        PHA_weight_default = PHA_weight_default.where(PHA_weight_default.DOI.isin(use_d_weight))
-        PHA_weight_default = PHA_weight_default.withColumnRenamed('Weight', 'Weight_d')
-        PHA_weight = PHA_weight.join(PHA_weight_default, on=['Province', 'City', 'DOI', 'PHA'], how='full')
-        PHA_weight = PHA_weight.withColumn('Weight', func.when(col('Weight').isNull(), col('Weight_d')).otherwise(col('Weight')))
+        df_PHA_weight_default = df_PHA_weight_default.where(col('DOI').isin(use_d_weight))
+        df_PHA_weight_default = df_PHA_weight_default.withColumnRenamed('Weight', 'Weight_d')
+        df_PHA_weight = df_PHA_weight.join(df_PHA_weight_default, on=['Province', 'City', 'DOI', 'PHA'], how='full')
+        df_PHA_weight = df_PHA_weight.withColumn('Weight', func.when(col('Weight').isNull(), col('Weight_d')).otherwise(col('Weight')))
     
-    PHA_weight = PHA_weight.select('Province', 'City', 'DOI', 'Weight', 'PHA')
-    PHA_weight = PHA_weight.withColumnRenamed('Province', 'Province_w') \
-                            .withColumnRenamed('City', 'City_w')
+    df_PHA_weight = df_PHA_weight.select('Province', 'City', 'DOI', 'Weight', 'PHA')
+    df_PHA_weight = df_PHA_weight.withColumnRenamed('Province', 'Province_w') \
+                                    .withColumnRenamed('City', 'City_w')
 
     # %%
-    # 计算max 函数
+    # =========== 计算 max 函数 =============
     def calculate_max(market, if_base=False, if_box=False):
         logger.debug('market:' + market)
         # =========== 输入 =============
-        # 根据 market 选择 universe 文件：choose_uni
+        # universe 读取
         if market in universe_choice_dict.keys():
-            universe_path = project_path + '/' + universe_choice_dict[market]
+            filetype = universe_choice_dict[market]
+            df_universe =  spark.sql("SELECT * FROM %s.universe_other WHERE provider='%s' AND filetype='%s' AND version='%s'" 
+                                     %(g_database_input, project_name, filetype, dict_input_version['universe_other'][filetype]))    
         else:
-            universe_path = project_path + '/universe_base'
-        # universe_outlier_path 以及 factor_path 文件选择
-        universe_outlier_path = project_path + "/universe/universe_ot_" + market
+            df_universe =  spark.sql("SELECT * FROM %s.universe_base WHERE provider='%s' AND version='%s'" 
+                                 %(g_database_input, project_name, dict_input_version['universe_base']))
+        df_universe = cleanUniverse(df_universe)
+                   
+            
+        # universe_outlier 读取
+        df_universe_outlier = spark.sql("SELECT * FROM %s.universe_outlier WHERE provider='%s' AND filetype='%s' AND version='%s'" 
+                                     %(g_database_input, project_name, market, dict_input_version['universe_outlier'][market]))
+        df_universe_outlier = cleanUniverse(df_universe_outlier)
+        
+        # factor 读取
         if if_base:
-            factor_path = project_path + "/factor/factor_base"
+            df_factor = spark.sql("SELECT * FROM %s.factor WHERE provider='%s' AND filetype='%s' AND version='%s'" 
+                                     %(g_database_input, project_name, market, dict_input_version['factor']['base']))
         else:
-            factor_path = project_path + "/factor/factor_" + market
-        # panel 文件选择与读取 获得 original_panel
-        panel_box_path = out_path_dir + "/panel_result_box"
-        panel_path = out_path_dir + "/panel_result"
-        if if_box:
-            original_panel_path = panel_box_path
-        else:
-            original_panel_path = panel_path
-        PHA_weight_market = PHA_weight.where(PHA_weight.DOI == market)
-        # =========== 数据检查 =============
-        logger.debug('数据检查-start')
-        # 存储文件的缺失列
-        misscols_dict = {}
-        # universe file
-        universe = spark.read.parquet(universe_path)
-        colnames_universe = universe.columns
-        misscols_dict.setdefault("universe", [])
-        if ("City_Tier" not in colnames_universe) and ("CITYGROUP" not in colnames_universe) and ("City_Tier_2010" not in colnames_universe):
-            misscols_dict["universe"].append("City_Tier/CITYGROUP")
-        if ("Panel_ID" not in colnames_universe) and ("PHA" not in colnames_universe):
-            misscols_dict["universe"].append("Panel_ID/PHA")
-        # if ("Hosp_name" not in colnames_universe) and ("HOSP_NAME" not in colnames_universe):
-        #     misscols_dict["universe"].append("Hosp_name/HOSP_NAME")
-        if "PANEL" not in colnames_universe:
-            misscols_dict["universe"].append("PANEL")
-        if "BEDSIZE" not in colnames_universe:
-            misscols_dict["universe"].append("BEDSIZE")
-        if "Seg" not in colnames_universe:
-            misscols_dict["universe"].append("Seg")
-        # universe_outlier file
-        universe_outlier = spark.read.parquet(universe_outlier_path)
-        colnames_universe_outlier = universe_outlier.columns
-        misscols_dict.setdefault("universe_outlier", [])
-        if ("City_Tier" not in colnames_universe) and ("CITYGROUP" not in colnames_universe) and ("City_Tier_2010" not in colnames_universe):
-            misscols_dict["universe_outlier"].append("City_Tier/CITYGROUP")
-        if ("Panel_ID" not in colnames_universe) and ("PHA" not in colnames_universe):
-            misscols_dict["universe_outlier"].append("Panel_ID/PHA")
-        # if ("Hosp_name" not in colnames_universe) and ("HOSP_NAME" not in colnames_universe):
-        #     misscols_dict["universe_outlier"].append("Hosp_name/HOSP_NAME")
-        if "PANEL" not in colnames_universe:
-            misscols_dict["universe_outlier"].append("PANEL")
-        if "BEDSIZE" not in colnames_universe:
-            misscols_dict["universe_outlier"].append("BEDSIZE")
-        if "Seg" not in colnames_universe:
-            misscols_dict["universe_outlier"].append("Seg")
-        if "Est_DrugIncome_RMB" not in colnames_universe:
-            misscols_dict["universe_outlier"].append("Est_DrugIncome_RMB")
-        # factor file
-        factor = spark.read.parquet(factor_path)
-        colnames_factor = factor.columns
-        misscols_dict.setdefault("factor", [])
-        if ("factor_new" not in colnames_factor) and ("factor" not in colnames_factor):
-            misscols_dict["factor"].append("factor")
-        if "City" not in colnames_factor:
-            misscols_dict["factor"].append("City")
-        # original_panel file
-        original_panel = spark.read.parquet(original_panel_path)
-        colnames_original_panel = original_panel.columns
-        misscols_dict.setdefault("original_panel", [])
-        colnamelist = ["DOI", 'HOSP_ID', 'Province', 'City', 'Date', 'Molecule', 'Prod_Name', 'Sales', 'Units']
-        for each in colnamelist:
-            if each not in colnames_original_panel:
-                misscols_dict["original_panel"].append(each)
-        # 判断输入文件是否有缺失列
-        misscols_dict_final = {}
-        for eachfile in misscols_dict.keys():
-            if len(misscols_dict[eachfile]) != 0:
-                misscols_dict_final[eachfile] = misscols_dict[eachfile]
-        # 如果有缺失列，则报错，停止运行
-        if misscols_dict_final:
-            logger.debug('miss columns: %s' % (misscols_dict_final))
-            raise ValueError('miss columns: %s' % (misscols_dict_final))
-        logger.debug('数据检查-Pass')
+            df_factor = spark.sql("SELECT * FROM %s.factor WHERE provider='%s' AND filetype='%s' AND version='%s'" 
+                                     %(g_database_input, project_name, market, dict_input_version['factor'][market]))   
+        df_factor = cleanFactor(df_factor)   
+            
+        # weight 文件
+        PHA_weight_market = PHA_weight.where(col('DOI') == market)
+    
         # =========== 数据执行 =============
         logger.debug('数据执行-start')
         # 选择 market 的时间范围：choose_months
-        time_left = time_parameters[0]
-        time_right = time_parameters[1]
-        left_models = time_parameters[2]
-        left_models_time_left = time_parameters[3]
-        right_models = time_parameters[4]
-        right_models_time_right = time_parameters[5]
-        if market in left_models:
-            time_left = left_models_time_left
-        if market in right_models:
-            time_right = right_models_time_right
         time_range = str(time_left) + '_' + str(time_right)
-        # universe_outlier 文件读取与处理：read_uni_ot
-        # universe_outlier = spark.read.parquet(universe_outlier_path)
-        if "CITYGROUP" in universe_outlier.columns:
-            universe_outlier = universe_outlier.withColumnRenamed("CITYGROUP", "City_Tier_2010")
-        elif "City_Tier" in universe_outlier.columns:
-            universe_outlier = universe_outlier.withColumnRenamed("City_Tier", "City_Tier_2010")
-        universe_outlier = universe_outlier.withColumnRenamed("Panel_ID", "PHA") \
-            .withColumnRenamed("Hosp_name", "HOSP_NAME")
-        universe_outlier = universe_outlier.withColumn("City_Tier_2010", universe_outlier["City_Tier_2010"].cast(StringType()))
-        universe_outlier = universe_outlier.select("PHA", "Est_DrugIncome_RMB", "PANEL", "Seg", "BEDSIZE")
+    
+        df_universe_outlier = df_universe_outlier.withColumn("City_Tier_2010", col("City_Tier_2010").cast(StringType()))
+        df_universe_outlier = df_universe_outlier.select("PHA", "Est_DrugIncome_RMB", "PANEL", "Seg", "BEDSIZE")
+        
         # universe 文件读取与处理：read_universe
-        # universe = spark.read.parquet(universe_path)
-        if "CITYGROUP" in universe.columns:
-            universe = universe.withColumnRenamed("CITYGROUP", "City_Tier_2010")
-        elif "City_Tier" in universe.columns:
-            universe = universe.withColumnRenamed("City_Tier", "City_Tier_2010")
-        universe = universe.withColumnRenamed("Panel_ID", "PHA") \
-            .withColumnRenamed("Hosp_name", "HOSP_NAME")
-        universe = universe.withColumn("City_Tier_2010", universe["City_Tier_2010"].cast(StringType()))
+        df_universe = df_universe.withColumn("City_Tier_2010", col("City_Tier_2010").cast(StringType()))
+        
         # panel 文件读取 获得 original_panel
-        # original_panel = spark.read.parquet(original_panel_path)
-        original_panel = original_panel.where((original_panel.DOI == market) & (original_panel.Date >= time_left) & (original_panel.Date <= time_right)).cache() # TEST
+        original_panel = df_panel_result.where((col('DOI') == market) & (col('Date') >= time_left) & (col('Date') <= time_right)).persist()
+        
         # 获得 panel, panel_seg：group_panel_by_seg
         # panel：整理成max的格式，包含了所有在universe的panel列标记为1的医院，当作所有样本医院的max
-        universe_panel_all = universe.where(universe.PANEL == 1).select('PHA', 'BEDSIZE', 'PANEL', 'Seg')
+        universe_panel_all = df_universe.where(col('PANEL') == 1).select('PHA', 'BEDSIZE', 'PANEL', 'Seg')
+        
         panel = original_panel \
-            .join(universe_panel_all, original_panel.HOSP_ID == universe_panel_all.PHA, how="inner") \
+            .join(universe_panel_all, on='PHA', how="inner") \
             .groupBy('PHA', 'Province', 'City', 'Date', 'Molecule', 'Prod_Name', 'BEDSIZE', 'PANEL', 'Seg') \
             .agg(func.sum("Sales").alias("Predict_Sales"), func.sum("Units").alias("Predict_Unit")).cache()
         # panel_seg：整理成seg层面，包含了所有在universe_ot的panel列标记为1的医院，可以用来得到非样本医院的max
         panel_drugincome = universe_outlier.where(universe_outlier.PANEL == 1) \
             .groupBy("Seg") \
             .agg(func.sum("Est_DrugIncome_RMB").alias("DrugIncome_Panel")).cache() # TEST
-        original_panel_tmp = original_panel.join(universe_outlier, original_panel.HOSP_ID == universe_outlier.PHA, how='left').cache() # TEST
+        original_panel_tmp = original_panel.join(universe_outlier, original_panel.HOSP_ID == universe_outlier.PHA, how='left').persist()
         panel_seg = original_panel_tmp.where(original_panel_tmp.PANEL == 1) \
             .groupBy('Date', 'Prod_Name', 'Seg', 'Molecule') \
             .agg(func.sum("Sales").alias("Sales_Panel"), func.sum("Units").alias("Units_Panel")).cache()
         panel_seg = panel_seg.join(panel_drugincome, on="Seg", how="left").cache() # TEST
         # *** PHA_city 权重计算
         original_panel_weight = original_panel_tmp.join(PHA_weight_market, on=['PHA'], how='left')
-        original_panel_weight = original_panel_weight.withColumn('Weight', func.when(original_panel_weight.Weight.isNull(), func.lit(1)) \
-                                                                                .otherwise(original_panel_weight.Weight))
-        original_panel_weight = original_panel_weight.withColumn('Sales_w', original_panel_weight.Sales * original_panel_weight.Weight) \
+        original_panel_weight = original_panel_weight.withColumn('Weight', func.when(col('Weight').isNull(), func.lit(1)) \
+                                                                                .otherwise(col('Weight')))
+        original_panel_weight = original_panel_weight.withColumn('Sales_w', col('Sales') * original_panel_weight.Weight) \
                                                     .withColumn('Units_w', original_panel_weight.Units * original_panel_weight.Weight)
         panel_seg_weight = original_panel_weight.where(original_panel_weight.PANEL == 1) \
             .groupBy('Date', 'Prod_Name', 'Seg', 'Molecule', 'Province_w', 'City_w') \
-            .agg(func.sum("Sales_w").alias("Sales_Panel_w"), func.sum("Units_w").alias("Units_Panel_w")).cache() # TEST
-        panel_seg_weight = panel_seg_weight.join(panel_drugincome, on="Seg", how="left").cache() # TEST
+            .agg(func.sum("Sales_w").alias("Sales_Panel_w"), func.sum("Units_w").alias("Units_Panel_w")).persist()
+        panel_seg_weight = panel_seg_weight.join(panel_drugincome, on="Seg", how="left").persist()
         panel_seg_weight = panel_seg_weight.withColumnRenamed('Province_w', 'Province') \
                         .withColumnRenamed('City_w', 'City')
         # 将非样本的segment和factor等信息合并起来：get_uni_with_factor
@@ -273,10 +310,10 @@ def execute(**kwargs):
             
         if 'Province' in factor.columns:
             factor = factor.select('City', 'factor', 'Province').distinct()
-            universe_factor_panel = universe.join(factor, on=["City", 'Province'], how="left").cache() # TEST
+            universe_factor_panel = universe.join(factor, on=["City", 'Province'], how="left").persist()
         else:
             factor = factor.select('City', 'factor').distinct()
-            universe_factor_panel = universe.join(factor, on=["City"], how="left").cache() # TEST
+            universe_factor_panel = universe.join(factor, on=["City"], how="left").cache().persist()
             
         universe_factor_panel = universe_factor_panel \
             .withColumn("factor", func.when(func.isnull(universe_factor_panel.factor), func.lit(1)).otherwise(universe_factor_panel.factor)) \
