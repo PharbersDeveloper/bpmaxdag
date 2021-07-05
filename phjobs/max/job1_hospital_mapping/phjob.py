@@ -180,7 +180,7 @@ def execute(**kwargs):
             "Location": Location, 
         } 
             }]    
-        client = boto3.client('glue')
+        client = boto3.client('glue', region_name='cn-northwest-1')
         glue_info = client.batch_create_partition(DatabaseName=g_database_temp, TableName=g_out_table, PartitionInputList=partition_input_list)
         logger.debug(glue_info)
         
