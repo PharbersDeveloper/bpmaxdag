@@ -24,20 +24,14 @@ spec:
         value: '202101'
       - key: time_right
         value: '202103'
-      - key: left_models
-        value: 'Empty'
-      - key: left_models_time_left
-        value: 'Empty'
-      - key: right_models
-        value: 'Empty'
-      - key: right_models_time_right
-        value: 'Empty'
       - key: all_models
         value: 'TK1'
       - key: universe_choice
         value: 'Empty'
       - key: use_d_weight
         value: 'Empty'
+      - key: if_others
+        value: 'False'
       - key: out_path
         value: 's3://ph-platform/2020-11-11/etl/temporary_files/'
       - key: run_id
@@ -51,10 +45,8 @@ spec:
       - key: g_database_input
         value: 'phdatacat'
     outputs:
-      - key: a
-        value: 'abcde'
-      - key: b
-        value: '6789'
+      - key: g_out_max
+        value: 'max_result_raw'
 
 
 

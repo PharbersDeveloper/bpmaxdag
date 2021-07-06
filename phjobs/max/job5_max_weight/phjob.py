@@ -18,13 +18,10 @@ def execute(**kwargs):
     if_base = kwargs['if_base']
     time_left = kwargs['time_left']
     time_right = kwargs['time_right']
-    left_models = kwargs['left_models']
-    left_models_time_left = kwargs['left_models_time_left']
-    right_models = kwargs['right_models']
-    right_models_time_right = kwargs['right_models_time_right']
     all_models = kwargs['all_models']
     universe_choice = kwargs['universe_choice']
     use_d_weight = kwargs['use_d_weight']
+    if_others = kwargs['if_others']
     out_path = kwargs['out_path']
     run_id = kwargs['run_id']
     owner = kwargs['owner']
@@ -34,22 +31,16 @@ def execute(**kwargs):
     ### input args ###
     
     ### output args ###
-    a = kwargs['a']
-    b = kwargs['b']
+    g_out_max = kwargs['g_out_max']
     ### output args ###
 
-    
-    
     import os
     import pandas as pd
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
     from pyspark.sql.functions import col     
     import json
-    import boto3
-    
-    
-    # %%
+    import boto3    # %%
     # project_name = 'Empty'
     # if_base = 'False'
     # time_left = 0
@@ -62,23 +53,6 @@ def execute(**kwargs):
     # universe_choice = 'Empty'
     # if_others = 'False'
     # use_d_weight = 'Empty'
-# # %%
-# print('job5_max')
-# # 输入输出
-
-# if left_models != "Empty":
-#     left_models = left_models.replace(", ",",").split(",")
-# else:
-#     left_models = []
-# if right_models != "Empty":
-#     right_models = right_models.replace(", ",",").split(",")
-# else:
-#     right_models = []
-# if left_models_time_left == "Empty":
-#     left_models_time_left = 0
-# if right_models_time_right == "Empty":
-#     right_models_time_right = 0
-# time_parameters = [int(time_left), int(time_right), left_models, int(left_models_time_left), right_models, int(right_models_time_right)]
     # %% 
     # 输入参数设置
     logger.debug('job5_max')
@@ -99,6 +73,10 @@ def execute(**kwargs):
     else:
         use_d_weight = []
     
+    time_left = int(time_left)
+    time_right = int(time_right)
+        
+        
     dict_input_version = json.loads(g_input_version)
     logger.debug(dict_input_version)
     
@@ -109,11 +87,13 @@ def execute(**kwargs):
             market_name = each.split(":")[0]
             universe_name = each.split(":")[1]
             universe_choice_dict[market_name]=universe_name
-universe_choice_dict
+            
+    # 输出
+    p_out_max = out_path + g_out_max
     # %% 
     # 输入数据读取
-    df_panel_result = spark.sql("SELECT * FROM %s.panel_result WHERE version='%s' AND provider='%s' AND  owner='%s'" 
-                                     %(g_database_temp, run_id, project_name, owner))
+    df_panel_result = spark.sql("SELECT * FROM %s.panel_result WHERE version='%s' AND provider='%s' AND  owner='%s' AND date >=%s AND date <=%s" 
+                                     %(g_database_temp, run_id, project_name, owner, time_left, time_right))
     
     
     df_PHA_weight =  spark.sql("SELECT * FROM %s.weight WHERE provider='%s' AND filetype='%s' AND version='%s'" 
@@ -122,7 +102,6 @@ universe_choice_dict
     if use_d_weight:
         df_PHA_weight_default =  spark.sql("SELECT * FROM %s.weight WHERE provider='%s' AND filetype='%s' AND version='%s'" 
                                          %(g_database_input, project_name, 'weight_default', dict_input_version['weight']['weight_default']))
-df_panel_result
     # %% 
     # =========== 数据清洗 =============
     logger.debug('数据清洗-start')
@@ -167,8 +146,7 @@ df_panel_result
         df = df.withColumn("ID", func.when(func.length(df.ID) < 7, func.lpad(df.ID, 6, "0")).otherwise(df.ID))
         return df
         
-    # 1、列名清洗
-    # 待清洗列名
+    # 1、清洗
     def cleanUniverse(df_universe):
         dict_cols_universe = {"City_Tier_2010":["City_Tier", "CITYGROUP", "City_Tier_2010"], "PHA":["Panel_ID", "PHA"]}
         df_universe = getTrueColRenamed(df_universe, dict_cols_universe, df_universe.columns)
@@ -258,105 +236,92 @@ df_panel_result
         df_factor = cleanFactor(df_factor)   
             
         # weight 文件
-        PHA_weight_market = PHA_weight.where(col('DOI') == market)
+        df_PHA_weight_market = df_PHA_weight.where(col('DOI') == market)
     
         # =========== 数据执行 =============
         logger.debug('数据执行-start')
-        # 选择 market 的时间范围：choose_months
-        time_range = str(time_left) + '_' + str(time_right)
-    
+        # universe 文件读取与处理：
         df_universe_outlier = df_universe_outlier.withColumn("City_Tier_2010", col("City_Tier_2010").cast(StringType()))
-        df_universe_outlier = df_universe_outlier.select("PHA", "Est_DrugIncome_RMB", "PANEL", "Seg", "BEDSIZE")
-        
-        # universe 文件读取与处理：read_universe
+        df_universe_outlier = df_universe_outlier.select("PHA", "Est_DrugIncome_RMB", "PANEL", "Seg", "BEDSIZE")      
         df_universe = df_universe.withColumn("City_Tier_2010", col("City_Tier_2010").cast(StringType()))
         
-        # panel 文件读取 获得 original_panel
-        original_panel = df_panel_result.where((col('DOI') == market) & (col('Date') >= time_left) & (col('Date') <= time_right)).persist()
+        # panel 文件 
+        df_original_panel = df_panel_result.where(col('DOI') == market)
         
-        # 获得 panel, panel_seg：group_panel_by_seg
-        # panel：整理成max的格式，包含了所有在universe的panel列标记为1的医院，当作所有样本医院的max
-        universe_panel_all = df_universe.where(col('PANEL') == 1).select('PHA', 'BEDSIZE', 'PANEL', 'Seg')
+        # 获得 panel, panel_seg：
+        # 1. 样本数据
+        # panel：整理成 max的格式，包含了所有在universe 的panel列标记为1的医院，当作所有样本医院的 max
+        df_universe_panel_all = df_universe.where(col('PANEL') == 1).select('PHA', 'BEDSIZE', 'PANEL', 'Seg')
+        df_panel = df_original_panel.join(df_universe_panel_all, on='PHA', how="inner") \
+                                .groupBy('PHA', 'Province', 'City', 'Date', 'Molecule', 'Prod_Name', 'BEDSIZE', 'PANEL', 'Seg') \
+                                .agg(func.sum("Sales").alias("Predict_Sales"), func.sum("Units").alias("Predict_Unit")).persist()
         
-        panel = original_panel \
-            .join(universe_panel_all, on='PHA', how="inner") \
-            .groupBy('PHA', 'Province', 'City', 'Date', 'Molecule', 'Prod_Name', 'BEDSIZE', 'PANEL', 'Seg') \
-            .agg(func.sum("Sales").alias("Predict_Sales"), func.sum("Units").alias("Predict_Unit")).cache()
-        # panel_seg：整理成seg层面，包含了所有在universe_ot的panel列标记为1的医院，可以用来得到非样本医院的max
-        panel_drugincome = universe_outlier.where(universe_outlier.PANEL == 1) \
-            .groupBy("Seg") \
-            .agg(func.sum("Est_DrugIncome_RMB").alias("DrugIncome_Panel")).cache() # TEST
-        original_panel_tmp = original_panel.join(universe_outlier, original_panel.HOSP_ID == universe_outlier.PHA, how='left').persist()
-        panel_seg = original_panel_tmp.where(original_panel_tmp.PANEL == 1) \
-            .groupBy('Date', 'Prod_Name', 'Seg', 'Molecule') \
-            .agg(func.sum("Sales").alias("Sales_Panel"), func.sum("Units").alias("Units_Panel")).cache()
-        panel_seg = panel_seg.join(panel_drugincome, on="Seg", how="left").cache() # TEST
+        # panel_seg：整理成seg层面，包含了所有在universe_ot 的panel列标记为1的医院，可以用来得到非样本医院的 max
+        df_panel_drugincome = df_universe_outlier.where(col('PANEL') == 1) \
+                                            .groupBy("Seg") \
+                                            .agg(func.sum("Est_DrugIncome_RMB").alias("DrugIncome_Panel")).persist()
+        df_original_panel_tmp = df_original_panel.join(df_universe_outlier, on='PHA', how='left').persist()
+        df_panel_seg = df_original_panel_tmp.where(col('PANEL') == 1) \
+                                        .groupBy('Date', 'Prod_Name', 'Seg', 'Molecule') \
+                                        .agg(func.sum("Sales").alias("Sales_Panel"), func.sum("Units").alias("Units_Panel"))
+        df_panel_seg = df_panel_seg.join(df_panel_drugincome, on="Seg", how="left").cache()
+        
         # *** PHA_city 权重计算
-        original_panel_weight = original_panel_tmp.join(PHA_weight_market, on=['PHA'], how='left')
-        original_panel_weight = original_panel_weight.withColumn('Weight', func.when(col('Weight').isNull(), func.lit(1)) \
+        df_original_panel_weight = df_original_panel_tmp.join(df_PHA_weight_market, on=['PHA'], how='left')
+        df_original_panel_weight = df_original_panel_weight.withColumn('Weight', func.when(col('Weight').isNull(), func.lit(1)) \
                                                                                 .otherwise(col('Weight')))
-        original_panel_weight = original_panel_weight.withColumn('Sales_w', col('Sales') * original_panel_weight.Weight) \
-                                                    .withColumn('Units_w', original_panel_weight.Units * original_panel_weight.Weight)
-        panel_seg_weight = original_panel_weight.where(original_panel_weight.PANEL == 1) \
-            .groupBy('Date', 'Prod_Name', 'Seg', 'Molecule', 'Province_w', 'City_w') \
-            .agg(func.sum("Sales_w").alias("Sales_Panel_w"), func.sum("Units_w").alias("Units_Panel_w")).persist()
-        panel_seg_weight = panel_seg_weight.join(panel_drugincome, on="Seg", how="left").persist()
-        panel_seg_weight = panel_seg_weight.withColumnRenamed('Province_w', 'Province') \
-                        .withColumnRenamed('City_w', 'City')
-        # 将非样本的segment和factor等信息合并起来：get_uni_with_factor
-        # factor = spark.read.parquet(factor_path)
-        if "factor" not in factor.columns:
-            factor = factor.withColumnRenamed("factor_new", "factor")
-            
-        if 'Province' in factor.columns:
-            factor = factor.select('City', 'factor', 'Province').distinct()
-            universe_factor_panel = universe.join(factor, on=["City", 'Province'], how="left").persist()
+        df_original_panel_weight = df_original_panel_weight.withColumn('Sales_w', col('Sales') * col('Weight')) \
+                                                    .withColumn('Units_w', col('Units') * col('Weight'))
+        df_panel_seg_weight = df_original_panel_weight.where(col('PANEL') == 1) \
+                                        .groupBy('Date', 'Prod_Name', 'Seg', 'Molecule', 'Province_w', 'City_w') \
+                                        .agg(func.sum("Sales_w").alias("Sales_Panel_w"), func.sum("Units_w").alias("Units_Panel_w")).persist()
+        df_panel_seg_weight = df_panel_seg_weight.join(df_panel_drugincome, on="Seg", how="left").persist()
+        df_panel_seg_weight = df_panel_seg_weight.withColumnRenamed('Province_w', 'Province') \
+                                            .withColumnRenamed('City_w', 'City')
+        
+        # 2. 非样本数据
+        # 将非样本的segment和factor等信息合并起来：
+        if df_factor.where(~col('Province').isNull()).count() == 0:
+            df_factor = df_factor.select('City', 'factor').distinct()
+            df_universe_factor_panel = df_universe.join(df_factor, on=["City"], how="left").cache().persist()
         else:
-            factor = factor.select('City', 'factor').distinct()
-            universe_factor_panel = universe.join(factor, on=["City"], how="left").cache().persist()
+            df_factor = df_factor.select('City', 'factor', 'Province').distinct()
+            df_universe_factor_panel = df_universe.join(df_factor, on=["City", 'Province'], how="left").persist()
             
-        universe_factor_panel = universe_factor_panel \
-            .withColumn("factor", func.when(func.isnull(universe_factor_panel.factor), func.lit(1)).otherwise(universe_factor_panel.factor)) \
-            .where(universe_factor_panel.PANEL == 0) \
-            .select('Province', 'City', 'PHA', 'Est_DrugIncome_RMB', 'Seg', 'BEDSIZE', 'PANEL', 'factor').cache() # TEST
+        df_universe_factor_panel = df_universe_factor_panel.withColumn("factor", func.when(func.isnull(col('factor')), func.lit(1)).otherwise(col('factor'))) \
+                                            .where(col('PANEL') == 0) \
+                                            .select('Province', 'City', 'PHA', 'Est_DrugIncome_RMB', 'Seg', 'BEDSIZE', 'PANEL', 'factor')
+        
         # 为这些非样本医院匹配上样本金额、产品、年月、所在segment的drugincome之和
         # 优先有权重的结果
-        max_result = universe_factor_panel.join(panel_seg, on="Seg", how="left")
-        max_result = max_result.join(panel_seg_weight.select('Date', 'Prod_Name', 'Molecule', 'Seg', 'Province', 'City', 'Sales_Panel_w', 'Units_Panel_w').distinct(), 
-                                        on=['Date', 'Prod_Name', 'Molecule', 'Seg', 'Province', 'City'], how="left")
-        max_result = max_result.withColumn('Sales_Panel', func.when(max_result.Sales_Panel_w.isNull(), max_result.Sales_Panel) \
-                                                                .otherwise(max_result.Sales_Panel_w)) \
-                                .withColumn('Units_Panel', func.when(max_result.Units_Panel_w.isNull(), max_result.Units_Panel) \
-                                                                .otherwise(max_result.Units_Panel_w)) \
+        df_max_result = df_universe_factor_panel.join(df_panel_seg, on="Seg", how="left")
+        df_max_result = df_max_result.join(df_panel_seg_weight.select('Date', 'Prod_Name', 'Molecule', 'Seg', 'Province', 'City', 'Sales_Panel_w', 'Units_Panel_w').distinct(), 
+                                        on=['Date', 'Prod_Name', 'Molecule', 'Seg', 'Province', 'City'], how="left").cache()
+        df_max_result = df_max_result.withColumn('Sales_Panel', func.when(col('Sales_Panel_w').isNull(), col('Sales_Panel')) \
+                                                                .otherwise(col('Sales_Panel_w'))) \
+                                .withColumn('Units_Panel', func.when(col('Units_Panel_w').isNull(), col('Units_Panel')) \
+                                                                .otherwise(col('Units_Panel_w'))) \
                                 .drop('Sales_Panel_w', 'Units_Panel_w')
         # 预测值等于样本金额乘上当前医院drugincome再除以所在segment的drugincome之和
-        max_result = max_result.withColumn("Predict_Sales", (max_result.Sales_Panel / max_result.DrugIncome_Panel) * max_result.Est_DrugIncome_RMB) \
-            .withColumn("Predict_Unit", (max_result.Units_Panel / max_result.DrugIncome_Panel) * max_result.Est_DrugIncome_RMB).cache() # TEST
-        # 为什么有空，因为部分segment无样本或者样本金额为0：remove_nega
-        max_result = max_result.where(~func.isnull(max_result.Predict_Sales))
-        max_result = max_result.withColumn("positive", func.when(max_result["Predict_Sales"] > 0, 1).otherwise(0))
-        max_result = max_result.withColumn("positive", func.when(max_result["Predict_Unit"] > 0, 1).otherwise(max_result.positive))
-        max_result = max_result.where(max_result.positive == 1).drop("positive")
+        df_max_result = df_max_result.withColumn("Predict_Sales", (col('Sales_Panel') / col('DrugIncome_Panel')) * col('Est_DrugIncome_RMB')) \
+                                    .withColumn("Predict_Unit", (col('Units_Panel') / col('DrugIncome_Panel')) * col('Est_DrugIncome_RMB'))
+        # 为什么有空，因为部分segment无样本或者样本金额为0：
+        df_max_result = df_max_result.where(~func.isnull(col('Predict_Sales')))
+        df_max_result = df_max_result.withColumn("positive", func.when(col("Predict_Sales") > 0, 1).otherwise(0))
+        df_max_result = df_max_result.withColumn("positive", func.when(col("Predict_Unit") > 0, 1).otherwise(col('positive')))
+        df_max_result = df_max_result.where(col('positive') == 1).drop("positive")
         # 乘上factor
-        max_result = max_result.withColumn("Predict_Sales", max_result.Predict_Sales * max_result.factor) \
-            .withColumn("Predict_Unit", max_result.Predict_Unit * max_result.factor) \
-            .select('PHA', 'Province', 'City', 'Date', 'Molecule', 'Prod_Name', 'BEDSIZE', 'PANEL',
-                    'Seg', 'Predict_Sales', 'Predict_Unit')
-        # 合并样本部分
-        max_result = max_result.union(panel.select(max_result.columns))
+        df_max_result = df_max_result.withColumn("Predict_Sales", col("Predict_Sales") * col('factor')) \
+                                .withColumn("Predict_Unit", col('Predict_Unit') *col('factor')) \
+                                .select('PHA', 'Province', 'City', 'Date', 'Molecule', 'Prod_Name', 'BEDSIZE', 'PANEL',
+                                        'Seg', 'Predict_Sales', 'Predict_Unit')
+        # 3. 合并样本部分
+        df_max_result = df_max_result.union(df_panel.select(df_max_result.columns))
         # 输出结果
-        # if if_base == False:
-        max_result = max_result.repartition(2)
-        if if_box:
-            max_path = out_path_dir + "/MAX_result/MAX_result_" + time_range + '_'  + market + "_hosp_level_box"
-            max_result.write.format("parquet") \
-                .mode("overwrite").save(max_path)
-        else:
-            max_path = out_path_dir + "/MAX_result/MAX_result_" + time_range + '_' + market + "_hosp_level"
-            max_result.write.format("parquet") \
-                .mode("overwrite").save(max_path)
-        logger.debug('数据执行-Finish')
-
+        df_max_result = df_max_result.withColumn("DOI", func.lit(market))
+        
+        outResult(df_max_result, p_out_max)
+        logger.debug("输出 max_result：" + market)
     # %%
     # 执行函数
     if if_others == "False":
@@ -365,39 +330,6 @@ df_panel_result
     elif if_others == "True":
         for i in all_models:
             calculate_max(i, if_base=if_base, if_box=True)
-
-    # %%
-    # =========== 数据验证 =============
-    # 与原R流程运行的结果比较正确性:
-    if int(need_test) > 0:
-        logger.debug('数据验证-start')
-        def check_out(my_out_path, R_out_path):
-            my_out = spark.read.parquet(my_out_path)
-            R_out = spark.read.parquet(R_out_path)
-            R_out = R_out.where(R_out.Date/100 < 2020)
-            # 检查内容：列缺失，列的类型，列的值
-            for colname, coltype in R_out.dtypes:
-                # 列是否缺失
-                if colname not in my_out.columns:
-                    logger.warning ("miss columns:", colname)
-                else:
-                    # 数据类型检查
-                    if my_out.select(colname).dtypes[0][1] != coltype:
-                        logger.debug("different type columns: " + colname + ", " + my_out.select(colname).dtypes[0][1] + ", " + "right type: " + coltype)
-                    # 数值列的值检查
-                    if coltype == "double" or coltype == "int":
-                        sum_my_out = my_out.groupBy().sum(colname).toPandas().iloc[0, 0]
-                        sum_R = R_out.groupBy().sum(colname).toPandas().iloc[0, 0]
-                        # print(colname, sum_raw_data, sum_R)
-                        if (sum_my_out - sum_R) != 0:
-                            logger.debug("different value(sum) columns: " + colname + ", " + str(sum_my_out) + ", " + "right value: " + str(sum_R))
-        my_out_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/京新/MAX_result/MAX_result_201801-202004他汀_hosp_level"
-        R_out_path = u"/common/projects/max/京新/MAX_result/MAX_result_201801-202004他汀_hosp_level"
-        logger.debug(u"他汀")
-        check_out(my_out_path, R_out_path)
-        my_out_path = u"s3a://ph-max-auto/v0.0.1-2020-06-08/京新/MAX_result/MAX_result_201801-202004癫痫新分子_hosp_level"
-        R_out_path = u"/common/projects/max/京新/MAX_result/MAX_result_201801-202004癫痫新分子_hosp_level"
-        logger.debug(u"癫痫新分子")
-        check_out(my_out_path, R_out_path)
-        logger.debug('数据验证-Finish')
-
+            
+    createPartition(p_out_max)
+    logger.debug('数据执行-Finish')
