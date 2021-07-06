@@ -16,19 +16,11 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--run_id')
 @click.option('--job_full_name')
 @click.option('--job_id')
-@click.option('--max_path')
 @click.option('--project_name')
 @click.option('--time_left')
 @click.option('--time_right')
-@click.option('--left_models')
-@click.option('--left_models_time_left')
-@click.option('--right_models')
-@click.option('--right_models_time_right')
 @click.option('--all_models')
 @click.option('--if_others')
-@click.option('--out_path')
-@click.option('--out_dir')
-@click.option('--need_test')
 @click.option('--minimum_product_columns')
 @click.option('--minimum_product_sep')
 @click.option('--minimum_product_newname')
@@ -36,12 +28,17 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--hospital_level')
 @click.option('--bedsize')
 @click.option('--id_bedsize_path')
-@click.option('--c')
-@click.option('--d')
+@click.option('--out_path')
+@click.option('--run_id')
+@click.option('--owner')
+@click.option('--g_input_version')
+@click.option('--g_database_temp')
+@click.option('--g_database_input')
+@click.option('--g_out_max_backfill')
 def debug_execute(**kwargs):
     try:
         args = {"name": "job6_max_city"}
-        outputs = ["c", "d"]
+        outputs = ["g_out_max_backfill"]
 
         args.update(kwargs)
         result = exec_before(**args)
