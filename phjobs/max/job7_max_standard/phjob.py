@@ -31,6 +31,8 @@ def execute(**kwargs):
 
     
     
+    
+    
     from pyspark.sql import SparkSession, Window
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
@@ -46,6 +48,7 @@ def execute(**kwargs):
     # 输出, 放哪？？ 会更新替换
     p_out_max_standard = out_path + g_out_max_standard
     p_out_max_standard_brief = out_path + g_out_max_standard_brief
+
     # %% 
     # 输入数据读取
     df_max_city_normalize =  spark.sql("SELECT * FROM %s.province_city_mapping WHERE provider='%s' AND version='%s'" 
@@ -62,6 +65,7 @@ def execute(**kwargs):
     
     df_max_result_backfill = spark.sql("SELECT * FROM %s.max_result_backfill WHERE version='%s' AND provider='%s' AND  owner='%s'" 
                              %(g_database_temp, run_id, project_name, owner))
+
     # %% 
     # =========== 数据清洗 =============
     logger.debug('数据清洗-start')
@@ -142,6 +146,7 @@ def execute(**kwargs):
                                     .withColumn("min2", func.regexp_replace("min2", "&amp;", "&")) \
                                     .withColumn("min2", func.regexp_replace("min2", "&lt;", "<")) \
                                     .withColumn("min2", func.regexp_replace("min2", "&gt;", ">"))
+
     # %%
     # =========== 函数定义：输出结果 =============
     def createPartition(p_out):
@@ -170,6 +175,7 @@ def execute(**kwargs):
         df.repartition(1).write.format("parquet") \
                  .mode("append").partitionBy("version", "provider", "owner") \
                  .parquet(p_out)
+
     # %%
     # ========== 数据准备 =========
     
@@ -217,7 +223,7 @@ def execute(**kwargs):
     # %%
     # ========== 数据 mapping =========
     
-    # 1. max_result 处理
+    # 一. max_result 基础信息匹配
     df_max_result = df_max_result_backfill.withColumn("Prod_Name_tmp", col('Prod_Name'))
     df_max_result = df_max_result.withColumn("Prod_Name_tmp", func.regexp_replace("Prod_Name_tmp", "&amp;", "&")) \
                         .withColumn("Prod_Name_tmp", func.regexp_replace("Prod_Name_tmp", "&lt;", "<")) \
@@ -227,62 +233,69 @@ def execute(**kwargs):
     if project_name == "NHWA":
         df_max_result = df_max_result.withColumn("Prod_Name_tmp", func.regexp_replace("Prod_Name_tmp", "迪施宁乳剂", "迪施乐乳剂"))
     
-    # 2. product_map 匹配 min2 ：获得 PACK_ID, 通用名, 标准商品名, 标准剂型, 标准规格, 标准包装数量, 标准生产企业
-    df_max_standard = df_max_result.join(df_product_map, df_max_result["Prod_Name_tmp"] == df_product_map["min2"], how="left") \
+    # product_map 匹配 min2 ：获得 PACK_ID, 通用名, 标准商品名, 标准剂型, 标准规格, 标准包装数量, 标准生产企业
+    df_max_result = df_max_result.join(df_product_map, df_max_result["Prod_Name_tmp"] == df_product_map["min2"], how="left") \
                                     .drop("min2","Prod_Name_tmp")
+    # %%
+    # 二. 标准化
+    def getStandard(df):
+        '''
+        用通用 packID_master_map， molecule_atc_map，max_city_normalize 文件标准化结果
+        '''
+        # 1. packID_master_map 匹配 PACK_ID ：获得 MOLE_NAME_CH_1, ATC4_1, PROD_NAME_CH, CORP_NAME_CH, DOSAGE, SPEC, PACK
+        df_data_standard = df.join(df_packID_master_map, on=["PACK_ID"], how="left")
     
-    # 3. packID_master_map 匹配 PACK_ID ：获得 MOLE_NAME_CH_1, ATC4_1, PROD_NAME_CH, CORP_NAME_CH, DOSAGE, SPEC, PACK
-    df_max_standard = df_max_standard.join(df_packID_master_map, on=["PACK_ID"], how="left")
+        # 2. molecule_ACT_map 匹配 通用名：获得 MOLE_NAME_CH_2, ATC4_2
+        df_data_standard = df_data_standard.join(df_molecule_atc_map, on=["通用名"], how="left")
     
-    # 4. molecule_ACT_map 匹配 通用名：获得 MOLE_NAME_CH_2, ATC4_2
-    df_max_standard = df_max_standard.join(df_molecule_atc_map, on=["通用名"], how="left")
+        # 3. 整合 master 匹配结果 和 product_map, molecule_ACT_map 匹配结果
+        '''
+        ATC4_1 和 MOLE_NAME_CH_1 来自 master 有 pack_id 匹配得到 ; ATC4_2 和 MOLE_NAME_CH_2 来自 molecule_ACT_map 
+        '''
+        # 3.1 优先使用 ATC4_1，缺失的用 ATC4_2 补充
+        df_data_standard = df_data_standard.withColumn("ATC", func.when(col("ATC4_1").isNull(), col("ATC4_2")) \
+                                                .otherwise(col("ATC4_1")))
+        # 3.2 A10C/D/E是胰岛素, 通用名和公司名用 master来源, 其他信息用product_map来源的                                     
+        df_data_standard_yidaosu = df_data_standard.where(func.substring(col('ATC'), 0, 4).isin(['A10C', 'A10D', 'A10E'])) \
+                                            .withColumn("PROD_NAME_CH", col('标准商品名')) \
+                                            .withColumn("DOSAGE", col('标准剂型')) \
+                                            .withColumn("SPEC", col('标准规格')) \
+                                            .withColumn("PACK", col('标准包装数量'))
     
-    # 5. 整合 master 匹配结果 和 product_map, molecule_ACT_map 匹配结果
-    '''
-    ATC4_1 和 MOLE_NAME_CH_1 来自 master 有 pack_id 匹配得到 ; ATC4_2 和 MOLE_NAME_CH_2 来自 molecule_ACT_map 
-    '''
-    # 5.1 优先使用 ATC4_1，缺失的用 ATC4_2 补充
-    df_max_standard = df_max_standard.withColumn("ATC", func.when(col("ATC4_1").isNull(), col("ATC4_2")) \
-                                            .otherwise(col("ATC4_1")))
-    # 5.2 A10C/D/E是胰岛素, 通用名和公司名用 master来源, 其他信息用product_map来源的                                     
-    df_max_standard_yidaosu = df_max_standard.where(func.substring(col('ATC'), 0, 4).isin(['A10C', 'A10D', 'A10E'])) \
-                                        .withColumn("PROD_NAME_CH", col('标准商品名')) \
-                                        .withColumn("DOSAGE", col('标准剂型')) \
-                                        .withColumn("SPEC", col('标准规格')) \
-                                        .withColumn("PACK", col('标准包装数量'))
+        df_data_standard_others = df_data_standard.where((~func.substring(col('ATC'), 0, 4).isin(['A10C', 'A10D', 'A10E'])) | col('ATC').isNull())
     
-    df_max_standard_others = df_max_standard.where((~func.substring(col('ATC'), 0, 4).isin(['A10C', 'A10D', 'A10E'])) | col('ATC').isNull())
+        # 合并 max_standard_yidaosu 和 max_standard_others
+        df_data_standard = df_data_standard_others.union(df_data_standard_yidaosu.select(df_data_standard_others.columns))
     
-    # 合并 max_standard_yidaosu 和 max_standard_others
-    df_max_standard = df_max_standard_others.union(df_max_standard_yidaosu.select(df_max_standard_others.columns))
+        # 3.3 master 匹配不上的(ATC4_1是null) 用 molecule_ACT_map 和 product_map 信息
+        df_data_standard = df_data_standard.withColumn("标准通用名", func.when(col("MOLE_NAME_CH_1").isNull(), col("MOLE_NAME_CH_2")) \
+                                                .otherwise(col("MOLE_NAME_CH_1"))) \
+                                .withColumn("标准商品名", func.when(col("ATC4_1").isNull(), col("标准商品名")) \
+                                                .otherwise(col("PROD_NAME_CH"))) \
+                                .withColumn("标准剂型", func.when(col("ATC4_1").isNull(), col("标准剂型")) \
+                                                .otherwise(col("DOSAGE"))) \
+                                .withColumn("标准规格", func.when(col("ATC4_1").isNull(), col("标准规格")) \
+                                                .otherwise(col("SPEC"))) \
+                                .withColumn("标准包装数量", func.when(col("ATC4_1").isNull(), col("标准包装数量")) \
+                                                .otherwise(col("PACK"))) \
+                                .withColumn("标准生产企业", func.when(col("ATC4_1").isNull(), col("标准生产企业")) \
+                                                .otherwise(col("CORP_NAME_CH"))) \
+                                .drop("ATC4_1", "ATC4_2", "MOLE_NAME_CH_1", "MOLE_NAME_CH_2")
     
-    # 5.3 master 匹配不上的(ATC4_1是null) 用 molecule_ACT_map 和 product_map 信息
-    df_max_standard = df_max_standard.withColumn("标准通用名", func.when(col("MOLE_NAME_CH_1").isNull(), col("MOLE_NAME_CH_2")) \
-                                            .otherwise(col("MOLE_NAME_CH_1"))) \
-                            .withColumn("标准商品名", func.when(col("ATC4_1").isNull(), col("标准商品名")) \
-                                            .otherwise(col("PROD_NAME_CH"))) \
-                            .withColumn("标准剂型", func.when(col("ATC4_1").isNull(), col("标准剂型")) \
-                                            .otherwise(col("DOSAGE"))) \
-                            .withColumn("标准规格", func.when(col("ATC4_1").isNull(), col("标准规格")) \
-                                            .otherwise(col("SPEC"))) \
-                            .withColumn("标准包装数量", func.when(col("ATC4_1").isNull(), col("标准包装数量")) \
-                                            .otherwise(col("PACK"))) \
-                            .withColumn("标准生产企业", func.when(col("ATC4_1").isNull(), col("标准生产企业")) \
-                                            .otherwise(col("CORP_NAME_CH"))) \
-                            .drop("ATC4_1", "ATC4_2", "MOLE_NAME_CH_1", "MOLE_NAME_CH_2")
+        # 没有标准通用名的 用原始的通用名
+        df_data_standard = df_data_standard.withColumn("标准通用名", func.when(col('标准通用名').isNull(), col('通用名')) \
+                                                            .otherwise(col('标准通用名')))
     
-    # 没有标准通用名的 用原始的通用名
-    df_max_standard = df_max_standard.withColumn("标准通用名", func.when(col('标准通用名').isNull(), col('通用名')) \
-                                                        .otherwise(col('标准通用名')))
+        # 4. city 标准化：
+        '''
+        先标准化省，再用(标准省份-City)标准化市
+        '''
+        df_data_standard = df_data_standard.join(df_max_city_normalize.select("Province", "标准省份名称").distinct(), on=["Province"], how="left")
+        df_data_standard = df_data_standard.join(df_max_city_normalize.select("City", "标准省份名称", "标准城市名称").distinct(),
+                                on=["标准省份名称", "City"], how="left")
+        return df_data_standard
     
-    # city 标准化：
-    '''
-    先标准化省，再用(标准省份-City)标准化市
-    '''
-    df_max_standard = df_max_standard.join(df_max_city_normalize.select("Province", "标准省份名称").distinct(), on=["Province"], how="left")
-    df_max_standard = df_max_standard.join(df_max_city_normalize.select("City", "标准省份名称", "标准城市名称").distinct(),
-                            on=["标准省份名称", "City"], how="left")
-
+    df_max_standard = getStandard(df_max_result)
     # %%
     # ========== 数据结果 =========
     
@@ -296,6 +309,7 @@ def execute(**kwargs):
         
     # 目录结果汇总,
     df_max_standard_brief = df_max_standard.select("project", "Date", "标准通用名", "ATC", "DOI", "PACK_ID").distinct()
+
     # %%
     # ========== 数据输出 =========
     
@@ -318,3 +332,4 @@ def execute(**kwargs):
     # max_standard_brief = max_standard_brief.repartition(1)
     # max_standard_brief.write.format("parquet") \
     # .mode("overwrite").save(max_standard_brief_path)
+
