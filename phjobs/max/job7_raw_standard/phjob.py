@@ -19,6 +19,7 @@ def execute(**kwargs):
     if_two_source = kwargs['if_two_source']
     minimum_product_sep = kwargs['minimum_product_sep']
     minimum_product_columns = kwargs['minimum_product_columns']
+    g_for_extract = kwargs['g_for_extract']
     out_path = kwargs['out_path']
     run_id = kwargs['run_id']
     owner = kwargs['owner']
@@ -32,6 +33,8 @@ def execute(**kwargs):
     g_out_raw_standard_brief = kwargs['g_out_raw_standard_brief']
     ### output args ###
 
+    
+    
     
     
     from pyspark.sql import SparkSession, Window
@@ -49,9 +52,9 @@ def execute(**kwargs):
         minimum_product_sep = ''
     minimum_product_columns = minimum_product_columns.replace(' ', '').split(',')
     
-    # 输出, 放哪？？ 会更新替换
-    p_out_raw_standard = out_path + g_out_raw_standard
-    p_out_raw_standard_brief = out_path + g_out_raw_standard_brief
+    # 输出
+    p_out_raw_standard = extract_path + g_out_raw_standard + '/project=' + project_name
+    p_out_raw_standard_brief = extract_path + g_out_raw_standard_brief + '/project=' + project_name
     # %% 
     # 输入数据读取
     df_max_city_normalize =  spark.sql("SELECT * FROM %s.province_city_mapping WHERE provider='%s' AND version='%s'" 
@@ -77,6 +80,7 @@ def execute(**kwargs):
     
     df_raw_data = spark.sql("SELECT * FROM %s.raw_data WHERE provider='%s' AND filetype='%s' AND version='%s'" 
                                  %(g_database_input, project_name, 'data_delivery', dict_input_version['raw_data']['data_delivery']))
+
     # %% 
     # =========== 数据清洗 =============
     logger.debug('数据清洗-start')
@@ -172,34 +176,7 @@ def execute(**kwargs):
     # 4、ID列补位
     df_raw_data = dealIDLength(df_raw_data)
     df_cpa_pha_mapping = dealIDLength(df_cpa_pha_mapping)
-    # %%
-    # =========== 函数定义：输出结果 =============
-    def createPartition(p_out):
-        # 创建分区
-        logger.debug('创建分区')
-        Location = p_out + '/version=' + run_id + '/provider=' + project_name + '/owner=' + owner
-        g_out_table = p_out.split('/')[-1]
-        
-        partition_input_list = [{
-         "Values": [run_id, project_name,  owner], 
-        "StorageDescriptor": {
-            "SerdeInfo": {
-                "SerializationLibrary": "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"
-            }, 
-            "Location": Location, 
-        } 
-            }]    
-        client = boto3.client('glue', region_name='cn-northwest-1')
-        glue_info = client.batch_create_partition(DatabaseName=g_database_temp, TableName=g_out_table, PartitionInputList=partition_input_list)
-        logger.debug(glue_info)
-        
-    def outResult(df, p_out):
-        df = df.withColumn('version', func.lit(run_id)) \
-                .withColumn('provider', func.lit(project_name)) \
-                .withColumn('owner', func.lit(owner))
-        df.repartition(1).write.format("parquet") \
-                 .mode("append").partitionBy("version", "provider", "owner") \
-                 .parquet(p_out)
+
     # %%
     # ========== 数据准备 =========
     # 1. 城市标准化
@@ -239,6 +216,7 @@ def execute(**kwargs):
                             .drop("PackID_add")
     # 去重：保证每个min2只有一条信息, dropDuplicates会取first
     df_product_map = df_product_map.dropDuplicates(["min1"])
+
     # %%
     # ========== 数据 mapping =========
     # 一. raw_data 基础信息匹配
@@ -265,6 +243,7 @@ def execute(**kwargs):
                         .join(df_universe, on="PHA", how="left") \
                         .join(df_product_map, on='min1', how="left") \
                         .join(df_mkt_mapping, on="通用名", how="left")
+
     # %%
     # 二. 标准化
     def getStandard(df):
@@ -325,6 +304,7 @@ def execute(**kwargs):
         return df_data_standard
     
     df_raw_data_standard = getStandard(df_raw_data)
+
     # %%
     # 全量结果汇总
     std_names = ["Date", "ID", "Raw_Hosp_Name", "Brand", "Form", "Specifications", "Pack_Number", "Manufacturer", "Molecule",
@@ -342,25 +322,67 @@ def execute(**kwargs):
     for each in df_raw_data_standard.columns:                                                                
         df_raw_data_standard = df_raw_data_standard.withColumn(each, col(each).cast(StringType()))
     
-    df_raw_data_standard = df_raw_data_standard.withColumn("project", func.lit(project_name))
+    # df_raw_data_standard = df_raw_data_standard.withColumn("project", func.lit(project_name))
         
     df_raw_data_standard = df_raw_data_standard.select(std_names + ["DOI", "标准通用名", "标准商品名", "标准剂型", "标准规格", 
         "标准包装数量", "标准生产企业", "标准省份名称", "标准城市名称", "PACK_ID", "ATC", "project"])
     
-    df_raw_data_standard = df_raw_data_standard.withColumn("Date_copy", col('Date'))
+    # df_raw_data_standard = df_raw_data_standard.withColumn("Date_copy", col('Date'))
     
     # 目录结果汇总
     df_raw_data_standard_brief = df_raw_data_standard.select("project", "Date", "标准通用名", "ATC", "DOI", "PHA", "Source").distinct()
+    
+    
+    # 列名转为大写
+    df_raw_data_standard = df_raw_data_standard.toDF(*[i.upper() for i in df_raw_data_standard.columns])
+    df_raw_data_standard_brief = df_raw_data_standard_brief.toDF(*[i.upper() for i in df_raw_data_standard_brief.columns])
 
+    # %%
+    # =========== 函数定义：输出结果 =============
+    def createPartition(p_out):
+        # 创建分区
+        logger.debug('创建分区')
+        Location = p_out + '/version=' + run_id + '/provider=' + project_name + '/owner=' + owner
+        g_out_table = p_out.split('/')[-1]
+        
+        partition_input_list = [{
+         "Values": [run_id, project_name,  owner], 
+        "StorageDescriptor": {
+            "SerdeInfo": {
+                "SerializationLibrary": "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"
+            }, 
+            "Location": Location, 
+        } 
+            }]    
+        client = boto3.client('glue', region_name='cn-northwest-1')
+        glue_info = client.batch_create_partition(DatabaseName=g_database_temp, TableName=g_out_table, PartitionInputList=partition_input_list)
+        logger.debug(glue_info)
+        
+    def outResult(df, p_out):
+        df = df.withColumn('version', func.lit(run_id)) \
+                .withColumn('provider', func.lit(project_name)) \
+                .withColumn('owner', func.lit(owner))
+        df.repartition(1).write.format("parquet") \
+                 .mode("append").partitionBy("version", "provider", "owner") \
+                 .parquet(p_out)
+    
+    def outResultForExtractRaw(df, p_out):
+        df = df.withColumn('version', func.lit(run_id)) \
+                .withColumn('provider', func.lit(project_name)) \
+                .withColumn('owner', func.lit(owner))
+        df.repartition(1).write.format("parquet") \
+                 .mode("overwrite").partitionBy("Date") \
+                 .parquet(p_out)
     # %%
     # ========== 数据输出 =========
     
-    outResult(df_raw_data_standard, p_out_raw_standard)
+    outResultForExtractRaw(df_raw_data_standard, p_out_raw_standard)
     logger.debug("输出 raw_standard_out：" + p_out_raw_standard)
     
-    outResult(df_raw_data_standard_brief, p_out_raw_standard_brief)
+    outResultForExtractRaw(df_raw_data_standard_brief, p_out_raw_standard_brief)
     logger.debug("输出 raw_standard_brief：" + p_out_raw_standard_brief)
     
-    createPartition(p_out_raw_standard)
-    createPartition(p_out_raw_standard_brief)
+    #createPartition(p_out_raw_standard)
+    #createPartition(p_out_raw_standard_brief)
     logger.debug('数据执行-Finish')
+
