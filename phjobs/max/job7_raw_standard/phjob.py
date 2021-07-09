@@ -53,8 +53,8 @@ def execute(**kwargs):
     minimum_product_columns = minimum_product_columns.replace(' ', '').split(',')
     
     # 输出
-    p_out_raw_standard = extract_path + g_out_raw_standard + '/project=' + project_name
-    p_out_raw_standard_brief = extract_path + g_out_raw_standard_brief + '/project=' + project_name
+    p_out_raw_standard = out_path + g_out_raw_standard
+    p_out_raw_standard_brief = out_path + g_out_raw_standard_brief
     # %% 
     # 输入数据读取
     df_max_city_normalize =  spark.sql("SELECT * FROM %s.province_city_mapping WHERE provider='%s' AND version='%s'" 
@@ -371,18 +371,18 @@ def execute(**kwargs):
                 .withColumn('provider', func.lit(project_name)) \
                 .withColumn('owner', func.lit(owner))
         df.repartition(1).write.format("parquet") \
-                 .mode("overwrite").partitionBy("Date") \
+                 .mode("overwrite").partitionBy("DATE") \
                  .parquet(p_out)
     # %%
     # ========== 数据输出 =========
     
-    outResultForExtractRaw(df_raw_data_standard, p_out_raw_standard)
+    outResult(df_raw_data_standard, p_out_raw_standard)
     logger.debug("输出 raw_standard_out：" + p_out_raw_standard)
     
-    outResultForExtractRaw(df_raw_data_standard_brief, p_out_raw_standard_brief)
+    outResult(df_raw_data_standard_brief, p_out_raw_standard_brief)
     logger.debug("输出 raw_standard_brief：" + p_out_raw_standard_brief)
     
-    #createPartition(p_out_raw_standard)
-    #createPartition(p_out_raw_standard_brief)
+    createPartition(p_out_raw_standard)
+    createPartition(p_out_raw_standard_brief)
     logger.debug('数据执行-Finish')
 

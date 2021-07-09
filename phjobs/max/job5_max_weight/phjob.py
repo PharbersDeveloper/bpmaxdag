@@ -34,6 +34,8 @@ def execute(**kwargs):
     g_out_max = kwargs['g_out_max']
     ### output args ###
 
+    
+    
     import os
     import pandas as pd
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
@@ -90,6 +92,7 @@ def execute(**kwargs):
             
     # 输出
     p_out_max = out_path + g_out_max
+
     # %% 
     # 输入数据读取
     df_panel_result = spark.sql("SELECT * FROM %s.panel_result WHERE version='%s' AND provider='%s' AND  owner='%s' AND date >=%s AND date <=%s" 
@@ -102,6 +105,7 @@ def execute(**kwargs):
     if use_d_weight:
         df_PHA_weight_default =  spark.sql("SELECT * FROM %s.weight WHERE provider='%s' AND filetype='%s' AND version='%s'" 
                                          %(g_database_input, project_name, 'weight_default', dict_input_version['weight']['weight_default']))
+
     # %% 
     # =========== 数据清洗 =============
     logger.debug('数据清洗-start')
@@ -162,7 +166,8 @@ def execute(**kwargs):
     df_panel_result = df_panel_result.drop('version', 'provider', 'owner').distinct()
     df_PHA_weight = df_PHA_weight.select('province', 'city', 'doi', 'weight', 'pha').distinct()
     if use_d_weight:
-        df_PHA_weight = df_PHA_weight_default.select('province', 'city', 'doi', 'weight', 'pha').distinct()
+        df_PHA_weight_default = df_PHA_weight_default.select('province', 'city', 'doi', 'weight', 'pha').distinct()
+
     # %%
     # =========== 函数定义：输出结果 =============
     def createPartition(p_out):
@@ -191,6 +196,7 @@ def execute(**kwargs):
         df.repartition(1).write.format("parquet") \
                  .mode("append").partitionBy("version", "provider", "owner") \
                  .parquet(p_out)
+
     # %%
     # =========== 数据准备 =============
     # 医院权重文件 
@@ -322,6 +328,7 @@ def execute(**kwargs):
         
         outResult(df_max_result, p_out_max)
         logger.debug("输出 max_result：" + market)
+
     # %%
     # 执行函数
     if if_others == "False":
@@ -333,3 +340,4 @@ def execute(**kwargs):
             
     createPartition(p_out_max)
     logger.debug('数据执行-Finish')
+

@@ -114,10 +114,9 @@ def execute(**kwargs):
     df_cpa_pha_mapping =  spark.sql("SELECT * FROM %s.cpa_pha_mapping WHERE provider='%s' AND version='%s'" 
                              %(g_database_input, project_name, dict_input_version['cpa_pha_mapping']))
     
-    if monthly_update == "True":   
-        df_published =  spark.sql("SELECT * FROM %s.published WHERE provider='common' AND version IN %s" 
+    df_published =  spark.sql("SELECT * FROM %s.published WHERE provider='common' AND version IN %s" 
                                  %(g_database_input, tuple(dict_input_version['published'].replace(' ','').split(','))))
-    
+    if monthly_update == "True":       
         df_not_arrived =  spark.sql("SELECT * FROM %s.not_arrived WHERE provider='common' AND version IN %s" 
                                  %(g_database_input, tuple(dict_input_version['not_arrived'].replace(' ','').split(','))))
 
@@ -139,14 +138,14 @@ def execute(**kwargs):
     df_price = df_price.select('min2', 'date', 'city_tier_2010', 'price')
     df_price_city = df_price_city.select('min2', 'date', 'city', 'province', 'price')
     growth_rate = df_growth_rate.drop('version', 'provider', 'owner')
-    if monthly_update == "True":
-        df_published = df_published.select('id', 'source', 'year').distinct()
+    df_published = df_published.select('id', 'source', 'year').distinct()
+    if monthly_update == "True":        
         df_not_arrived = df_not_arrived.select('id', 'date').distinct()
     
     # 2、ID列补位
     df_cpa_pha_mapping = deal_ID_length(df_cpa_pha_mapping)
-    if monthly_update == "True":
-        df_published = deal_ID_length(df_published)
+    df_published = deal_ID_length(df_published)
+    if monthly_update == "True":        
         df_not_arrived = deal_ID_length(df_not_arrived)
     
 

@@ -323,14 +323,14 @@ def execute(**kwargs):
                 .withColumn('owner', func.lit(owner))
         
         # 当期数据包含的时间
-        anti_data = df.select('Date').distinct()
+        anti_data = df.select('DATE').distinct()
         # 去掉已有数据中重复时间
         try:
             df_old = spark.read.parquet(p_out)
         except:
             df_old = df
                
-        df_old_keep = df_old.join(anti_data, on='Date', how='left_anti') 
+        df_old_keep = df_old.join(anti_data, on='DATE', how='left_anti') 
         
         # 合并
         df_new = df_old_keep.union(df.select(df_old_keep.columns))
@@ -347,32 +347,24 @@ def execute(**kwargs):
         df_new = df_new.toDF(*[i.upper() for i in df_new.columns])
         
         df_new.repartition(1).write.format("parquet") \
-                 .mode("overwrite").partitionBy("Date") \
+                 .mode("overwrite").partitionBy("DATE") \
                  .parquet(p_out)
     # %%
     # ========== 数据输出 =========
-    if g_for_extract == 'True':
-        outResultForExtract(df_max_standard_out, p_out_max_standard, p_tmp_out_max_standard, "max_result_standard")
-        outResultForExtract(df_max_standard_brief, p_out_max_standard_brief, p_tmp_out_max_standard_brief, "max_result_standard_brief")
-        logger.debug("输出 max_standard_out：" + p_out_max_standard)
-        logger.debug("输出 max_standard_brief：" + p_out_max_standard_brief)
-    else:
-        outResult(df_max_standard_out, p_tmp_out_max_standard)
-        createPartition(p_tmp_out_max_standard)
-        outResult(df_max_standard_out, p_tmp_out_max_standard_brief)
-        createPartition(p_tmp_out_max_standard_brief)
-        logger.debug("输出 max_standard_out：" + p_tmp_out_max_standard)
-        logger.debug("输出 max_standard_brief：" + p_tmp_out_max_standard_brief)
+    # if g_for_extract == 'True':
+    #     outResultForExtract(df_max_standard_out, p_out_max_standard, p_tmp_out_max_standard, "max_result_standard")
+    #     outResultForExtract(df_max_standard_brief, p_out_max_standard_brief, p_tmp_out_max_standard_brief, "max_result_standard_brief")
+    #     logger.debug("输出 max_standard_out：" + p_out_max_standard)
+    #     logger.debug("输出 max_standard_brief：" + p_out_max_standard_brief)
+    # else:
+    outResult(df_max_standard_out, p_tmp_out_max_standard)
+    logger.debug("输出 max_standard_out：" + p_tmp_out_max_standard)
+      
+    outResult(df_max_standard_out, p_tmp_out_max_standard_brief)
+    logger.debug("输出 max_standard_brief：" + p_tmp_out_max_standard_brief)
     
+    createPartition(p_tmp_out_max_standard)
+    createPartition(p_tmp_out_max_standard_brief)
+        
     logger.debug('数据执行-Finish')
-    
-    
-    # # 根据日期分桶写出
-    # max_standard_all = max_standard_all.repartition("Date_copy")
-    # max_standard_all.write.format("parquet").partitionBy("Date_copy") \
-    # .mode("overwrite").save(max_standard_path)
-    # # 输出brief结果
-    # max_standard_brief = max_standard_brief.repartition(1)
-    # max_standard_brief.write.format("parquet") \
-    # .mode("overwrite").save(max_standard_brief_path)
 
