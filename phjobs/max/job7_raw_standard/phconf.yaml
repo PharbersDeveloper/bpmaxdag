@@ -17,7 +17,7 @@ spec:
     config: phconf.yaml
     args:
       - key: extract_path
-        value: 's3://ph-platform/2020-11-11/etl/extract/rawdata_standard'
+        value: 's3://ph-platform/2020-11-11/etl/extract/'
       - key: project_name
         value: 'Takeda'
       - key: if_two_source
@@ -26,6 +26,8 @@ spec:
         value: '|'
       - key: minimum_product_columns
         value: 'Brand, Form, Specifications, Pack_Number, Manufacturer'
+      - key: g_for_extract
+        value: 'True'
       - key: out_path
         value: 's3://ph-platform/2020-11-11/etl/temporary_files/'
       - key: run_id
@@ -40,9 +42,9 @@ spec:
         value: 'phdatacat'
     outputs:
       - key: g_out_raw_standard
-        value: 'rawdata_standard'
+        value: 'raw_data_standard'
       - key: g_out_raw_standard_brief
-        value: 'rawdata_standard_brief'
+        value: 'raw_data_standard_brief'
 
 
 

@@ -16,6 +16,7 @@ def execute(**kwargs):
     ### input args ###
     extract_path = kwargs['extract_path']
     project_name = kwargs['project_name']
+    g_for_extract = kwargs['g_for_extract']
     out_path = kwargs['out_path']
     run_id = kwargs['run_id']
     owner = kwargs['owner']
@@ -29,25 +30,23 @@ def execute(**kwargs):
     g_out_max_standard_brief = kwargs['g_out_max_standard_brief']
     ### output args ###
 
-    
-    
-    
-    
     from pyspark.sql import SparkSession, Window
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
     import os
     from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col
     import json
-    import boto3
-    # %% 
+    import boto3    # %% 
     # 输入参数设置
     dict_input_version = json.loads(g_input_version)
     logger.debug(dict_input_version)
     
-    # 输出, 放哪？？ 会更新替换
-    p_out_max_standard = out_path + g_out_max_standard
-    p_out_max_standard_brief = out_path + g_out_max_standard_brief
+    # 输出
+    p_out_max_standard = extract_path + g_out_max_standard + '/project=' + project_name
+    p_out_max_standard_brief = extract_path + g_out_max_standard_brief + '/project=' + project_name
+    
+    p_tmp_out_max_standard = out_path + g_out_max_standard
+    p_tmp_out_max_standard_brief = out_path + g_out_max_standard_brief
 
     # %% 
     # 输入数据读取
@@ -148,35 +147,6 @@ def execute(**kwargs):
                                     .withColumn("min2", func.regexp_replace("min2", "&gt;", ">"))
 
     # %%
-    # =========== 函数定义：输出结果 =============
-    def createPartition(p_out):
-        # 创建分区
-        logger.debug('创建分区')
-        Location = p_out + '/version=' + run_id + '/provider=' + project_name + '/owner=' + owner
-        g_out_table = p_out.split('/')[-1]
-        
-        partition_input_list = [{
-         "Values": [run_id, project_name,  owner], 
-        "StorageDescriptor": {
-            "SerdeInfo": {
-                "SerializationLibrary": "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"
-            }, 
-            "Location": Location, 
-        } 
-            }]    
-        client = boto3.client('glue', region_name='cn-northwest-1')
-        glue_info = client.batch_create_partition(DatabaseName=g_database_temp, TableName=g_out_table, PartitionInputList=partition_input_list)
-        logger.debug(glue_info)
-        
-    def outResult(df, p_out):
-        df = df.withColumn('version', func.lit(run_id)) \
-                .withColumn('provider', func.lit(project_name)) \
-                .withColumn('owner', func.lit(owner))
-        df.repartition(1).write.format("parquet") \
-                 .mode("append").partitionBy("version", "provider", "owner") \
-                 .parquet(p_out)
-
-    # %%
     # ========== 数据准备 =========
     
     # mapping用文件：注意各种mapping的去重，唯一匹配
@@ -236,6 +206,7 @@ def execute(**kwargs):
     # product_map 匹配 min2 ：获得 PACK_ID, 通用名, 标准商品名, 标准剂型, 标准规格, 标准包装数量, 标准生产企业
     df_max_result = df_max_result.join(df_product_map, df_max_result["Prod_Name_tmp"] == df_product_map["min2"], how="left") \
                                     .drop("min2","Prod_Name_tmp")
+
     # %%
     # 二. 标准化
     def getStandard(df):
@@ -296,31 +267,103 @@ def execute(**kwargs):
         return df_data_standard
     
     df_max_standard = getStandard(df_max_result)
+
     # %%
     # ========== 数据结果 =========
     
     # 全量结果汇总
-    df_max_standard_out = df_max_standard.withColumn("project", func.lit(project_name))
+    # df_max_standard_out = df_max_standard.withColumn("project", func.lit(project_name))
     
-    df_max_standard_out = df_max_standard_out.select("project", "Province", "City" ,"Date", "Prod_Name", "Molecule", "PANEL", "DOI", "Predict_Sales", "Predict_Unit", 
+    df_max_standard_out = df_max_standard.select("Province", "City" ,"Date", "Prod_Name", "Molecule", "PANEL", "DOI", "Predict_Sales", "Predict_Unit", 
                                            "标准通用名", "标准商品名", "标准剂型", "标准规格", "标准包装数量", "标准生产企业", "标准省份名称", "标准城市名称", 
                                             "PACK_ID", "ATC")
-    df_max_standard_out = df_max_standard_out.withColumn("Date_copy", col('Date'))
+    
+    
+    #df_max_standard_out = df_max_standard_out.withColumn("Date_copy", col('Date'))
         
     # 目录结果汇总,
     df_max_standard_brief = df_max_standard.select("project", "Date", "标准通用名", "ATC", "DOI", "PACK_ID").distinct()
+    
+    # 列名转为大写
+    df_max_standard_out = df_max_standard_out.toDF(*[i.upper() for i in df_max_standard_out.columns])
+    df_max_standard_brief = df_max_standard_brief.toDF(*[i.upper() for i in df_max_standard_brief.columns])
 
     # %%
+    # =========== 函数定义：输出结果 =============
+    def createPartition(p_out):
+        # 创建分区
+        logger.debug('创建分区')
+        Location = p_out + '/version=' + run_id + '/provider=' + project_name + '/owner=' + owner
+        g_out_table = p_out.split('/')[-1]
+        
+        partition_input_list = [{
+         "Values": [run_id, project_name,  owner], 
+        "StorageDescriptor": {
+            "SerdeInfo": {
+                "SerializationLibrary": "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"
+            }, 
+            "Location": Location, 
+        } 
+            }]    
+        client = boto3.client('glue', region_name='cn-northwest-1')
+        glue_info = client.batch_create_partition(DatabaseName=g_database_temp, TableName=g_out_table, PartitionInputList=partition_input_list)
+        logger.debug(glue_info)
+        
+    def outResult(df, p_out):
+        df = df.withColumn('version', func.lit(run_id)) \
+                .withColumn('provider', func.lit(project_name)) \
+                .withColumn('owner', func.lit(owner))
+        df.repartition(1).write.format("parquet") \
+                 .mode("append").partitionBy("version", "provider", "owner") \
+                 .parquet(p_out)
+    
+    def outResultForExtract(df, p_out, p_tmp_out, table):
+        df = df.withColumn('version', func.lit(run_id)) \
+                .withColumn('provider', func.lit(project_name)) \
+                .withColumn('owner', func.lit(owner))
+        
+        # 当期数据包含的时间
+        anti_data = df.select('Date').distinct()
+        # 去掉已有数据中重复时间
+        try:
+            df_old = spark.read.parquet(p_out)
+        except:
+            df_old = df
+               
+        df_old_keep = df_old.join(anti_data, on='Date', how='left_anti') 
+        
+        # 合并
+        df_new = df_old_keep.union(df.select(df_old_keep.columns))
+        # 输出临时位置
+        df_new.repartition(1).write.format("parquet") \
+                 .mode("append").partitionBy("version", "provider", "owner") \
+                 .parquet(p_tmp_out)
+        
+        createPartition(p_tmp_out)
+        
+        # 重新写出
+        df_new = spark.sql("SELECT * FROM %s.%s WHERE version='%s' AND provider='%s' AND  owner='%s'" 
+                             %(g_database_temp, table, run_id, project_name, owner))
+        df_new = df_new.toDF(*[i.upper() for i in df_new.columns])
+        
+        df_new.repartition(1).write.format("parquet") \
+                 .mode("overwrite").partitionBy("Date") \
+                 .parquet(p_out)
+    # %%
     # ========== 数据输出 =========
+    if g_for_extract == 'True':
+        outResultForExtract(df_max_standard_out, p_out_max_standard, p_tmp_out_max_standard, "max_result_standard")
+        outResultForExtract(df_max_standard_brief, p_out_max_standard_brief, p_tmp_out_max_standard_brief, "max_result_standard_brief")
+        logger.debug("输出 max_standard_out：" + p_out_max_standard)
+        logger.debug("输出 max_standard_brief：" + p_out_max_standard_brief)
+    else:
+        outResult(df_max_standard_out, p_tmp_out_max_standard)
+        createPartition(p_tmp_out_max_standard)
+        outResult(df_max_standard_out, p_tmp_out_max_standard_brief)
+        createPartition(p_tmp_out_max_standard_brief)
+        logger.debug("输出 max_standard_out：" + p_tmp_out_max_standard)
+        logger.debug("输出 max_standard_brief：" + p_tmp_out_max_standard_brief)
     
-    outResult(df_max_standard_out, p_out_max_standard)
-    logger.debug("输出 max_standard_out：" + p_out_max_standard)
-    
-    outResult(df_max_standard_brief, p_out_max_standard_brief)
-    logger.debug("输出 max_standard_brief：" + p_out_max_standard_brief)
-    
-    createPartition(p_out_max_standard)
-    createPartition(p_out_max_standard_brief)
     logger.debug('数据执行-Finish')
     
     
