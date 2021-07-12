@@ -112,13 +112,14 @@ def execute(**kwargs):
 
     # %% 
     # =========== 数据清洗 =============
-    def deal_ID_length(df):
-        # ID不足7位的补足0到6位
-        # 国药诚信医院编码长度是7位数字，cpa医院编码是6位数字，其他还有包含字母的ID
-        df = df.withColumn("ID", df["ID"].cast(StringType()))
+    def dealIDLength(df, colname='ID'):
+        # ID不足7位的前面补0到6位
+        # 国药诚信医院编码长度是7位数字，cpa医院编码是6位数字
+        # 其他来源的ID 还有包含字母的, 所以要为字符型，不能转为 数值型
+        df = df.withColumn(colname, col(colname).cast(StringType()))
         # 去掉末尾的.0
-        df = df.withColumn("ID", func.regexp_replace("ID", "\\.0", ""))
-        df = df.withColumn("ID", func.when(func.length(df.ID) < 7, func.lpad(df.ID, 6, "0")).otherwise(df.ID))
+        df = df.withColumn(colname, func.regexp_replace(colname, "\\.0", ""))
+        df = df.withColumn(colname, func.when(func.length(col(colname)) < 7, func.lpad(col(colname), 6, "0")).otherwise(col(colname)))
         return df
     
     # 1、选择标准列
@@ -130,8 +131,8 @@ def execute(**kwargs):
     
     # 2、ID列补位
     if monthly_update == "True":   
-        df_published = deal_ID_length(df_published)
-        df_not_arrived = deal_ID_length(df_not_arrived)
+        df_published = dealIDLength(df_published)
+        df_not_arrived = dealIDLength(df_not_arrived)
 
     # %%
     # =========== 函数定义：输出结果 =============
@@ -184,16 +185,16 @@ def execute(**kwargs):
     price2 = raw_data.groupBy("min2", "date") \
         .agg((func.sum("Sales") / func.sum("Units")).alias("Price2"))
     price = price.join(price2, on=["min2", "date"], how="left")
-    price = price.withColumn("Price", func.when(func.isnull(price.Price), price.Price2).
-                             otherwise(price.Price))
-    price = price.withColumn("Price", func.when(func.isnull(price.Price), func.lit(0)).
-                             otherwise(price.Price)) \
+    price = price.withColumn("Price", func.when(func.isnull(col('Price')), col('Price2')).
+                             otherwise(col('Price')))
+    price = price.withColumn("Price", func.when(func.isnull(col('Price')), func.lit(0)).
+                             otherwise(col('Price'))) \
         .drop("Price2")
     
     # 2、城市层面
     price_city = raw_data.groupBy("min2", "date", 'City', 'Province') \
                         .agg((func.sum("Sales") / func.sum("Units")).alias("Price"))
-    price_city = price_city.where(~price_city.Price.isNull())
+    price_city = price_city.where(~col('Price').isNull())
     
     # ==== ** 输出 ** ====
     outResult(price, p_out_price)
@@ -207,7 +208,7 @@ def execute(**kwargs):
     def calculate_growth(raw_data, max_month=12):
         # TODO: 完整年用完整年增长，不完整年用不完整年增长
         if max_month < 12:
-            raw_data = raw_data.where(raw_data.Month <= max_month)
+            raw_data = raw_data.where(col('Month') <= max_month)
         # raw_data 处理
         growth_raw_data = raw_data.na.fill({"City_Tier_2010": 5.0})
         growth_raw_data = growth_raw_data.withColumn("CITYGROUP", col('City_Tier_2010'))
@@ -238,14 +239,14 @@ def execute(**kwargs):
     logger.debug('3 增长率计算')
     
     if monthly_update == "False":
-        raw_data = raw_data.where(raw_data.Year < ((model_month_right // 100) + 1))
+        raw_data = raw_data.where(col('Year') < ((model_month_right // 100) + 1))
         # AZ-Sanofi 要特殊处理
         if project_name != "Sanofi" and project_name != "AZ":
             growth_rate = calculate_growth(raw_data)
         else:
             year_missing_df = pd.DataFrame(year_missing, columns=["Year"])
             year_missing_df = spark.createDataFrame(year_missing_df)
-            year_missing_df = year_missing_df.withColumn("Year", year_missing_df["Year"].cast(IntegerType()))
+            year_missing_df = year_missing_df.withColumn("Year", col("Year").cast(IntegerType()))
             # 完整年
             growth_rate_p1 = calculate_growth(raw_data.join(year_missing_df, on=["Year"], how="left_anti"))
             # 不完整年
@@ -264,7 +265,7 @@ def execute(**kwargs):
                 how="left")
             
         # ==== **** 输出 **** ====
-        outResult(growth_rate_month, p_growth_rate)
+        outResult(growth_rate, p_out_growth_rate)
             
     elif monthly_update == "True":
         published_right = df_published.where(col('year') == current_year).select('ID').distinct()

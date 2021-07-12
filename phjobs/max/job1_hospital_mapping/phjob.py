@@ -108,6 +108,16 @@ def execute(**kwargs):
             df = df.withColumn(i, col(i).cast(dict_scheme[i]))
         return df
     
+    def dealIDLength(df, colname='ID'):
+        # ID不足7位的前面补0到6位
+        # 国药诚信医院编码长度是7位数字，cpa医院编码是6位数字
+        # 其他来源的ID 还有包含字母的, 所以要为字符型，不能转为 数值型
+        df = df.withColumn(colname, col(colname).cast(StringType()))
+        # 去掉末尾的.0
+        df = df.withColumn(colname, func.regexp_replace(colname, "\\.0", ""))
+        df = df.withColumn(colname, func.when(func.length(col(colname)) < 7, func.lpad(col(colname), 6, "0")).otherwise(col(colname)))
+        return df
+    
     # 1、列名清洗
     # 待清洗列名
     dict_cols_universe = {"City_Tier_2010":["City_Tier", "CITYGROUP", "City_Tier_2010"], "PHA":["Panel_ID", "PHA"]}
@@ -133,14 +143,8 @@ def execute(**kwargs):
     df_raw_data = dealScheme(df_raw_data, dict_scheme_raw_data)
     
     # 4、ID列补位
-    def deal_ID_length(df):
-        # ID不足7位的补足0到6位
-        # 国药诚信医院编码长度是7位数字，cpa医院编码是6位数字，其他还有包含字母的ID
-        df = df.withColumn("ID", df["ID"].cast(StringType()))
-        # 去掉末尾的.0
-        df = df.withColumn("ID", func.regexp_replace("ID", "\\.0", ""))
-        df = df.withColumn("ID", func.when(func.length(df.ID) < 7, func.lpad(df.ID, 6, "0")).otherwise(df.ID))
-        return df
+    df_cpa_pha_mapping = dealIDLength(df_cpa_pha_mapping)
+    df_raw_data = dealIDLength(df_raw_data)
     
     # 5、其他处理
     if df_raw_data.where(~col('Pack_Number').isNull()).count() == 0:
@@ -151,11 +155,9 @@ def execute(**kwargs):
     logger.debug('数据执行-start')
     
     # 1.2 读取CPA与PHA的匹配关系:
-    df_cpa_pha_mapping = deal_ID_length(df_cpa_pha_mapping)
     df_cpa_pha_mapping = df_cpa_pha_mapping.where(col("推荐版本") == 1) \
                                         .select("ID", "PHA").distinct()
     # 1.3 读取原始样本数据:    
-    df_raw_data = deal_ID_length(df_raw_data)
     df_raw_data = df_raw_data.join(df_cpa_pha_mapping, on='ID', how="left") \
                         .join(df_universe.select("PHA", "City", "Province").distinct(), on='PHA', how='left') \
                         .join(df_universe.select("PHA", "City", "City_Tier_2010").distinct(), on=["PHA", "City"], how="left")
@@ -188,9 +190,14 @@ def execute(**kwargs):
         df = df.withColumn('version', func.lit(run_id)) \
                 .withColumn('provider', func.lit(project_name)) \
                 .withColumn('owner', func.lit(owner))
+        # df = df.colToUpper(df)
         df.repartition(1).write.format("parquet") \
                  .mode("append").partitionBy("version", "provider", "owner") \
                  .parquet(p_out)
+        
+    def colToUpper(df):
+        return df.toDF(*[i.upper() for i in df.columns])
+        
         
     # 1、hospital_mapping_out
     outResult(df_raw_data, p_out_path)
