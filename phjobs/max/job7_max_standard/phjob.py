@@ -360,7 +360,7 @@ def execute(**kwargs):
     outResult(df_max_standard_out, p_tmp_out_max_standard)
     logger.debug("输出 max_standard_out：" + p_tmp_out_max_standard)
       
-    outResult(df_max_standard_out, p_tmp_out_max_standard_brief)
+    outResult(df_max_standard_out_brief, p_tmp_out_max_standard_brief)
     logger.debug("输出 max_standard_brief：" + p_tmp_out_max_standard_brief)
     
     createPartition(p_tmp_out_max_standard)
