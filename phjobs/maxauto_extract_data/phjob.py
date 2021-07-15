@@ -209,7 +209,10 @@ def execute(**kwargs):
     # "project", "Date", "标准通用名", "ATC", "DOI"  ("PHA", "Source")
     index = 0
     for eachpath in path_all_brief:
-        df = spark.read.parquet(eachpath)
+        try:
+            df = spark.read.parquet(eachpath)
+        except:
+            continue
         if 'PACK_ID' not in df.columns:
             df = df.withColumn('PACK_ID', func.lit(0))
         if index ==0:
