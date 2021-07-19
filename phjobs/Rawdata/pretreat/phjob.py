@@ -93,10 +93,11 @@ def execute(**kwargs):
     
     if test == 'False':
         all_raw_data_path = max_path + '/' + project_name + '/' + outdir + '/raw_data'
+        tmp_path_raw_data_dedup  = max_path + '/' + project_name + '/' + outdir + '/Raw_tmp/raw_data_dedup'
         raw_data_delivery_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_delivery'
         if if_two_source == 'True':
             all_raw_data_std_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_std'
-        
+            tmp_path_raw_data_dedup_std = max_path + '/' + project_name + '/' + outdir + '/Raw_tmp/raw_data_dedup_std'
     else:
         all_raw_data_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_check/raw_data'
         raw_data_delivery_path = max_path + '/' + project_name + '/' + outdir + '/raw_data_check/raw_data_delivery'
@@ -288,8 +289,8 @@ def execute(**kwargs):
             return df_all
     
         raw_data_dedup_std = drop_dup_hospital(raw_data_dedup, cpa_pha_mapping_common)                  
-        raw_data_dedup = drop_dup_hospital(raw_data_dedup, cpa_pha_mapping)    
-
+        raw_data_dedup = drop_dup_hospital(raw_data_dedup, cpa_pha_mapping)
+        
     # %%
     # 4. 与历史数据合并
     def union_raw_data(raw_data_dedup, history_raw_data_path, all_raw_data_path, cpa_pha_map):
@@ -329,19 +330,29 @@ def execute(**kwargs):
                                     .drop('PHA')
         all_raw_data = deal_ID_length(all_raw_data)
     
-        all_raw_data = all_raw_data.repartition(2)
+        all_raw_data = all_raw_data.repartition(4)
         all_raw_data.write.format("parquet") \
             .mode("overwrite").save(all_raw_data_path)
 
     # %%
-    # 与历史数据合并
+    # 与历史数据合并   
     if if_union == 'True':
+        # 输出临时文件
+        raw_data_dedup.repartition(4).write.format("parquet") \
+                .mode("overwrite").save(tmp_path_raw_data_dedup)   
+        if if_two_source == 'True':
+            raw_data_dedup_std.repartition(4).write.format("parquet") \
+                .mode("overwrite").save(tmp_path_raw_data_dedup_std)
+            
         # 用于max计算
+        raw_data_dedup = spark.read.parquet(tmp_path_raw_data_dedup)
         union_raw_data(raw_data_dedup, history_raw_data_path, all_raw_data_path, cpa_pha_mapping)             
         if if_two_source == 'True':
             # 用于max计算
+            raw_data_dedup_std = spark.read.parquet(tmp_path_raw_data_dedup_std)
             union_raw_data(raw_data_dedup_std, history_raw_data_std_path, all_raw_data_std_path, cpa_pha_mapping_common)
             # 备份生成手动修改前的交付结果，用于交付和提数
+            raw_data_dedup_std = spark.read.parquet(tmp_path_raw_data_dedup_std)
             union_raw_data(raw_data_dedup_std, history_raw_data_delivery_path, raw_data_delivery_path, cpa_pha_mapping_common)
         else:
             # 备份生成手动修改前的交付结果，用于交付和提数
@@ -350,14 +361,14 @@ def execute(**kwargs):
     else:
         raw_data_dedup = deal_ID_length(raw_data_dedup)
     
-        raw_data_dedup = raw_data_dedup.repartition(2)
+        raw_data_dedup = raw_data_dedup.repartition(4)
         raw_data_dedup.write.format("parquet") \
             .mode("overwrite").save(all_raw_data_path)
     
         if if_two_source == 'True':
             raw_data_dedup_std = deal_ID_length(raw_data_dedup_std)
     
-            raw_data_dedup_std = raw_data_dedup_std.repartition(2)
+            raw_data_dedup_std = raw_data_dedup_std.repartition(4)
             raw_data_dedup_std.write.format("parquet") \
                 .mode("overwrite").save(all_raw_data_std_path)
             # 备份生成手动修改前的交付结果
