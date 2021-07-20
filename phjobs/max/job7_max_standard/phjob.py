@@ -282,7 +282,7 @@ def execute(**kwargs):
     #df_max_standard_out = df_max_standard_out.withColumn("Date_copy", col('Date'))
         
     # 目录结果汇总,
-    df_max_standard_brief = df_max_standard.select("project", "Date", "标准通用名", "ATC", "DOI", "PACK_ID").distinct()
+    df_max_standard_brief = df_max_standard.select("Date", "标准通用名", "ATC", "DOI", "PACK_ID").distinct()
     
     # 列名转为大写
     df_max_standard_out = df_max_standard_out.toDF(*[i.upper() for i in df_max_standard_out.columns])
@@ -360,7 +360,7 @@ def execute(**kwargs):
     outResult(df_max_standard_out, p_tmp_out_max_standard)
     logger.debug("输出 max_standard_out：" + p_tmp_out_max_standard)
       
-    outResult(df_max_standard_out_brief, p_tmp_out_max_standard_brief)
+    outResult(df_max_standard_brief, p_tmp_out_max_standard_brief)
     logger.debug("输出 max_standard_brief：" + p_tmp_out_max_standard_brief)
     
     createPartition(p_tmp_out_max_standard)
