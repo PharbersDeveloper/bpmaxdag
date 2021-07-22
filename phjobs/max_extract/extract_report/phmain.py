@@ -16,16 +16,9 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--run_id')
 @click.option('--job_full_name')
 @click.option('--job_id')
-@click.option('--time_left')
-@click.option('--time_right')
-@click.option('--molecule')
-@click.option('--molecule_sep')
-@click.option('--atc')
-@click.option('--project')
-@click.option('--doi')
 @click.option('--out_suffix')
 @click.option('--data_type')
-@click.option('--market_define')
+@click.option('--atc')
 @click.option('--out_path')
 @click.option('--run_id')
 @click.option('--owner')
@@ -36,7 +29,7 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--d')
 def debug_execute(**kwargs):
     try:
-        args = {"name": "extract_data"}
+        args = {"name": "extract_report"}
         outputs = ["c", "d"]
 
         args.update(kwargs)
@@ -64,7 +57,7 @@ def debug_execute(**kwargs):
 @click.option('--job_args_name')
 def online_debug_execute(**kwargs):
     try:
-        args = {"name": "extract_data"}
+        args = {"name": "extract_report"}
         outputs = ["c", "d"]
         
         args.update(kwargs)

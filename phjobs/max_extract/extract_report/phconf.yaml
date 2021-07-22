@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: PhJob
 metadata:
-  name: extract_data
+  name: extract_report
   description: "pharbers job description"
   labels:
-    name: extract_data
+    name: extract_report
     runtime: python3
     command: submit
 spec:
@@ -16,25 +16,11 @@ spec:
     code: phmain.py
     config: phconf.yaml
     args:
-      - key: time_left
-        value: '201701'
-      - key: time_right
-        value: '201912'
-      - key: molecule
-        value: '瑞格列奈, 多西他赛, 曲司氯铵'
-      - key: molecule_sep
-        value: 'Empty'
-      - key: atc
-        value: 'Empty'
-      - key: project
-        value: 'Empty'
-      - key: doi
-        value: 'Empty'
       - key: out_suffix
         value: 'test_2'
       - key: data_type
         value: 'max'
-      - key: market_define
+      - key: atc
         value: 'Empty'
       - key: out_path
         value: 's3://ph-platform/2020-11-11/etl/extract/extract_data_out'
@@ -43,7 +29,7 @@ spec:
       - key: owner
         value: 'ywyuan'
       - key: g_input_version
-        value: '{"project_rank":"project_rank_20210721", "market_define":"market_define_20210720", "project_for_extract":"project_for_extract_20210721"}'
+        value: '{"ims_mapping":"ims_mapping_202007", "cn_IMS_Sales_Fdata":"cn_IMS_Sales_Fdata_202007", "product_map_all_ATC":"20210617", "master_data_map":"20210623_u0079u0079u0077"}'
       - key: g_database_input
         value: 'phdatacat'
       - key: g_database_result
