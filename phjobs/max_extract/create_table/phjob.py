@@ -49,12 +49,12 @@ def execute(**kwargs):
         provider = path.split('/provider=')[1].split('/')[0]
         #owner = path.split('/owner=')[1].split('/')[0]
         
-        pdf=df.select('DATE', 'DOI').distinct().toPandas()
+        pdf=df.select('DATE').distinct().toPandas()
             
         for indexs in pdf.index:
             data = pdf.loc[indexs]
             i_data = data['DATE']
-            i_doi = data['DOI']      
+            #i_doi = data['DOI']      
             
             # 创建分区
             logger.debug('创建分区')    
