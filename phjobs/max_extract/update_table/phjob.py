@@ -86,9 +86,12 @@ def execute(**kwargs):
         logger.debug(glue_info)
     # %%
     for date in l_update_month:
-        #version_old = spark.sql("SELECT DISTINCT version FROM %s.%s WHERE provider='%s' AND filetype='%s' AND date='%s'" 
-        #                         %(g_database, g_table, g_provider, g_filetype, str(date))).toPandas()['version'][0]
-        #print(date, ':', version_old)
-        #deletePartition(version_old, date)
+        try:
+            version_old = spark.sql("SELECT DISTINCT version FROM %s.%s WHERE provider='%s' AND filetype='%s' AND date='%s'" 
+                                     %(g_database, g_table, g_provider, g_filetype, str(date))).toPandas()['version'][0]
+            print(date, ':', version_old)
+            deletePartition(version_old, date)
+        except:
+            continue     
         createPartition(g_version, date)
 

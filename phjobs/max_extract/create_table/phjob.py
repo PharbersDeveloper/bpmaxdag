@@ -44,7 +44,6 @@ def execute(**kwargs):
         recordCount = df.count()
         l_dict_scheme = getScheme(df)
             
-        Location = path
         run_id = path.split('/version=')[1].split('/')[0]
         provider = path.split('/provider=')[1].split('/')[0]
         #owner = path.split('/owner=')[1].split('/')[0]
@@ -57,6 +56,7 @@ def execute(**kwargs):
             #i_doi = data['DOI']      
             
             # 创建分区
+            Location = path + '/DATE=' + str(i_data)
             logger.debug('创建分区')    
             partition_input_list = [{
              "Values": [run_id, provider, filetype, str(i_data)], 

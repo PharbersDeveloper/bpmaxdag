@@ -17,11 +17,11 @@ spec:
     config: phconf.yaml
     args:
       - key: time_left
-        value: '201701'
+        value: 'Empty'
       - key: time_right
-        value: '201912'
+        value: 'Empty'
       - key: molecule
-        value: '瑞格列奈, 多西他赛, 曲司氯铵'
+        value: 'Empty'
       - key: molecule_sep
         value: 'Empty'
       - key: atc
@@ -31,7 +31,7 @@ spec:
       - key: doi
         value: 'Empty'
       - key: out_suffix
-        value: 'test_2'
+        value: 'Empty'
       - key: data_type
         value: 'max'
       - key: market_define
@@ -39,7 +39,7 @@ spec:
       - key: out_path
         value: 's3://ph-platform/2020-11-11/etl/extract/extract_data_out'
       - key: run_id
-        value: 'extract_test_0721'
+        value: 'extract_test_0723'
       - key: owner
         value: 'ywyuan'
       - key: g_input_version
