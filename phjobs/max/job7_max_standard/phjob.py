@@ -314,7 +314,7 @@ def execute(**kwargs):
                 .withColumn('provider', func.lit(project_name)) \
                 .withColumn('owner', func.lit(owner))
         df.repartition(1).write.format("parquet") \
-                 .mode("append").partitionBy("version", "provider", "owner") \
+                 .mode("append").partitionBy("version", "provider", "owner", "DATE") \
                  .parquet(p_out)
     
     def outResultForExtract(df, p_out, p_tmp_out, table):

@@ -17,6 +17,7 @@ def execute(**kwargs):
     out_suffix = kwargs['out_suffix']
     data_type = kwargs['data_type']
     atc = kwargs['atc']
+    molecule = kwargs['molecule']
     out_path = kwargs['out_path']
     run_id = kwargs['run_id']
     owner = kwargs['owner']
@@ -47,11 +48,11 @@ def execute(**kwargs):
     # out_suffix = "test"
     # market_define = "AZ"
     
-    time_left = "201801"
-    time_right = "201912"
-    project = "Servier"
-    molecule = "二甲双胍, 格列喹酮"
-    out_suffix = "test_2"    # %%
+    # time_left = "201801"
+    # time_right = "201912"
+    # project = "Servier"
+    # molecule = "二甲双胍, 格列喹酮"
+    # out_suffix = "test_2"    # %%
     # a. 输入
     if data_type != "max" and data_type != "raw":
         phlogger.error('wrong input: data_type, max or raw') 

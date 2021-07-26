@@ -37,6 +37,8 @@ def execute(**kwargs):
     d = kwargs['d']
     ### output args ###
 
+    
+    
     from pyspark.sql import SparkSession, Window
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
@@ -139,6 +141,7 @@ def execute(**kwargs):
     if data_type == 'max':
         df_max_result_brief = df_max_result_brief.select("DATE", "标准通用名", "ATC", "DOI", "PACK_ID", "provider") \
                                                     .withColumnRenamed("provider", "project")
+
     # %%
     # ================ 数据执行 ==================
     '''
@@ -165,6 +168,7 @@ def execute(**kwargs):
         df_market_packid = df_market_define.where(col('market_define') == market_define) \
                                         .where(col('Market').isin(doi)) \
                                         .select('PACK_ID', 'Market').distinct()
+
     # %%
     # 二. 根据 max_standard_brief_all 确定最终提数来源
     
@@ -179,6 +183,7 @@ def execute(**kwargs):
         
     df_max_standard_brief_all = df_max_result_brief.where(col('project').isin(project_all)) \
                                             .fillna(0, 'PACK_ID')
+
     # %%
     # 2. 根据提数需求获取 max_filter_path_month
     
@@ -196,6 +201,7 @@ def execute(**kwargs):
         df_max_filter_list = df_max_filter_list.where(col('ATC').isin(atc))
     if molecule:
         df_max_filter_list = df_max_filter_list.where(col('标准通用名').isin(molecule))
+
     # %%
     # 3. 注释项目排名
     df_max_filter_list = df_max_filter_list.join(project_rank, on="project", how="left").persist()
@@ -294,10 +300,11 @@ def execute(**kwargs):
     df_max_filter_list = df_max_filter_list.join(report_a.where(report_a.flag == 1).select(cols_list).distinct(), 
                                 on=[*cols_list], 
                                 how="inner").persist()
+
     # %%
     # 三. 原始数据提取
-    df_max_filter_raw = df_max_result_all.join(df_max_filter_list.select('project', 'DATE'), on=['project', 'DATE'], how='inner')
-            
+    df_max_filter_raw = df_max_result_all.join(df_max_filter_list.select('project', 'DATE').distinct(), on=['project', 'DATE'], how='inner')
+        
     # 过滤数据
     if doi:
         df_max_filter_raw = df_max_filter_raw.join(df_market_packid, on='PACK_ID', how='inner') \
@@ -321,6 +328,8 @@ def execute(**kwargs):
         df_max_filter_raw = df_max_filter_raw.join(report_a.where(col('flag') == 1).select("标准通用名", "project").distinct(), 
                                     on=["标准通用名", "project"], 
                                     how="inner").persist()
+        
+
     # %%
     # 4. 注释项目排名
     df_max_filter_out = df_max_filter_raw.join(project_rank, on="project", how="left").persist()
@@ -389,8 +398,10 @@ def execute(**kwargs):
     # 列名转为大写
     df_max_filter_out = df_max_filter_out.select(out_cols).distinct()
     df_max_filter_out = df_max_filter_out.toDF(*[i.upper() for i in df_max_filter_out.columns])
+
     # %%
     # 输出提数结果
     df_max_filter_out = df_max_filter_out.repartition(1)
     df_max_filter_out.write.format("csv").option("header", "true") \
         .mode("overwrite").save(out_extract_data_path)
+

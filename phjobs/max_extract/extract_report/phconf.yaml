@@ -17,15 +17,17 @@ spec:
     config: phconf.yaml
     args:
       - key: out_suffix
-        value: 'test_2'
+        value: 'Empty'
       - key: data_type
         value: 'max'
       - key: atc
         value: 'Empty'
+      - key: molecule
+        value: 'Empty'
       - key: out_path
         value: 's3://ph-platform/2020-11-11/etl/extract/extract_data_out'
       - key: run_id
-        value: 'extract_test_0721'
+        value: 'extract_test_0723'
       - key: owner
         value: 'ywyuan'
       - key: g_input_version

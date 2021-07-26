@@ -19,6 +19,7 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--out_suffix')
 @click.option('--data_type')
 @click.option('--atc')
+@click.option('--molecule')
 @click.option('--out_path')
 @click.option('--run_id')
 @click.option('--owner')
