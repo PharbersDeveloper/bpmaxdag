@@ -24,6 +24,8 @@ spec:
         value: 'Empty'
       - key: molecule
         value: 'Empty'
+      - key: molecule_sep
+        value: 'Empty'
       - key: out_path
         value: 's3://ph-platform/2020-11-11/etl/extract/extract_data_out'
       - key: run_id

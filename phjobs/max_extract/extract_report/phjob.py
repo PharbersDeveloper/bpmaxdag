@@ -18,6 +18,7 @@ def execute(**kwargs):
     data_type = kwargs['data_type']
     atc = kwargs['atc']
     molecule = kwargs['molecule']
+    molecule_sep = kwargs['molecule_sep']
     out_path = kwargs['out_path']
     run_id = kwargs['run_id']
     owner = kwargs['owner']
@@ -31,6 +32,8 @@ def execute(**kwargs):
     d = kwargs['d']
     ### output args ###
 
+    
+    
     from pyspark.sql import SparkSession, Window
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
@@ -71,6 +74,14 @@ def execute(**kwargs):
     else:
         atc = atc.replace(" ","").split(",")
         
+    if molecule == "Empty":
+        molecule = [] 
+    else:
+        if molecule_sep == "Empty": 
+            molecule = molecule.replace(" ","").split(",")
+        else:
+            molecule = molecule.replace(" ","").split(molecule_sep)
+        
     # b. 输出
     outdir = run_id + "_" + out_suffix
     
@@ -102,6 +113,7 @@ def execute(**kwargs):
                             .drop('owner', 'provider', 'version')
     
     df_extract_data = spark.read.csv(out_extract_data_path, header=True)
+
     # %%
     # ================ 数据执行 ==================
     '''
@@ -180,6 +192,7 @@ def execute(**kwargs):
     report_c = report_c.repartition(1)
     report_c.write.format("csv").option("header", "true") \
         .mode("overwrite").save(report_c_path)
+
     # %%
     # report_atc
     if atc:
@@ -203,6 +216,7 @@ def execute(**kwargs):
         report_b = report_b.repartition(1)
         report_b.write.format("csv").option("header", "true") \
             .mode("overwrite").save(report_b_path)
+
     # %%
     # report_molecule        
     if molecule:
@@ -226,3 +240,4 @@ def execute(**kwargs):
         report_d = report_d.repartition(1)
         report_d.write.format("csv").option("header", "true") \
             .mode("overwrite").save(report_d_path)
+
