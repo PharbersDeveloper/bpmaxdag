@@ -30,6 +30,8 @@ def execute(**kwargs):
     g_out_max_standard_brief = kwargs['g_out_max_standard_brief']
     ### output args ###
 
+    
+    
     from pyspark.sql import SparkSession, Window
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
@@ -47,7 +49,6 @@ def execute(**kwargs):
     
     p_tmp_out_max_standard = out_path + g_out_max_standard
     p_tmp_out_max_standard_brief = out_path + g_out_max_standard_brief
-
     # %% 
     # 输入数据读取
     df_max_city_normalize =  spark.sql("SELECT * FROM %s.province_city_mapping WHERE provider='%s' AND version='%s'" 
@@ -290,14 +291,14 @@ def execute(**kwargs):
 
     # %%
     # =========== 函数定义：输出结果 =============
-    def createPartition(p_out):
+    def createPartition(p_out, date):
         # 创建分区
         logger.debug('创建分区')
-        Location = p_out + '/version=' + run_id + '/provider=' + project_name + '/owner=' + owner
+        Location = p_out + '/version=' + run_id + '/provider=' + project_name + '/owner=' + owner + '/DATE=' + date
         g_out_table = p_out.split('/')[-1]
         
         partition_input_list = [{
-         "Values": [run_id, project_name,  owner], 
+         "Values": [run_id, project_name,  owner,  date], 
         "StorageDescriptor": {
             "SerdeInfo": {
                 "SerializationLibrary": "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"
@@ -349,22 +350,21 @@ def execute(**kwargs):
         df_new.repartition(1).write.format("parquet") \
                  .mode("overwrite").partitionBy("DATE") \
                  .parquet(p_out)
+
     # %%
-    # ========== 数据输出 =========
-    # if g_for_extract == 'True':
-    #     outResultForExtract(df_max_standard_out, p_out_max_standard, p_tmp_out_max_standard, "max_result_standard")
-    #     outResultForExtract(df_max_standard_brief, p_out_max_standard_brief, p_tmp_out_max_standard_brief, "max_result_standard_brief")
-    #     logger.debug("输出 max_standard_out：" + p_out_max_standard)
-    #     logger.debug("输出 max_standard_brief：" + p_out_max_standard_brief)
-    # else:
+    # ========== 数据输出 =========    
     outResult(df_max_standard_out, p_tmp_out_max_standard)
     logger.debug("输出 max_standard_out：" + p_tmp_out_max_standard)
       
     outResult(df_max_standard_brief, p_tmp_out_max_standard_brief)
     logger.debug("输出 max_standard_brief：" + p_tmp_out_max_standard_brief)
     
-    createPartition(p_tmp_out_max_standard)
-    createPartition(p_tmp_out_max_standard_brief)
+    pdf = df_max_standard_brief.select('DATE').distinct().toPandas()
+    for indexs in pdf.index:
+        data = pdf.loc[indexs]
+        i_data = str(data['DATE'])
+        createPartition(p_tmp_out_max_standard, i_data)
+        createPartition(p_tmp_out_max_standard_brief, i_data)
         
     logger.debug('数据执行-Finish')
 
