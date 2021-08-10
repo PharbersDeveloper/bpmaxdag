@@ -86,6 +86,15 @@ def execute(**kwargs):
     # %%
     # =======  数据执行  ============
     
+    def deal_ID_length(df):
+        # ID不足7位的补足0到6位
+        # 国药诚信医院编码长度是7位数字，cpa医院编码是6位数字，其他还有包含字母的ID
+        df = df.withColumn("ID", df["ID"].cast(StringType()))
+        # 去掉末尾的.0
+        df = df.withColumn("ID", func.regexp_replace("ID", "\\.0", ""))
+        df = df.withColumn("ID", func.when(func.length(df.ID) < 7, func.lpad(df.ID, 6, "0")).otherwise(df.ID))
+        return df
+    
     # 1. == 文件准备 ==
     
     # 1.1  doctor 文件
@@ -122,6 +131,7 @@ def execute(**kwargs):
     
     # 1.4 cpa_pha_mapping 文件
     hosp_mapping = spark.read.parquet(cpa_pha_mapping_path)
+    hosp_mapping = deal_ID_length(hosp_mapping)
     
     # 1.5 product_map 文件
     molecule_map = spark.read.parquet(product_map_path)
@@ -137,6 +147,7 @@ def execute(**kwargs):
     
     # 1.7 rawdata 数据
     rawdata = spark.read.parquet(raw_data_path)
+    rawdata = deal_ID_length(rawdata)
     rawdata = rawdata.withColumn('Date', col('Date').cast(IntegerType()))
     rawdata = rawdata.where((col('Date') >= model_month_left) & (col('Date') <= model_month_right))
     rawdata = rawdata.join(molecule_mkt_map, on='Molecule', how='left') \
