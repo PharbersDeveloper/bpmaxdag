@@ -25,6 +25,8 @@ def execute(**kwargs):
     d = kwargs['d']
     ### output args ###
 
+    
+    
     from pyspark.sql import SparkSession, Window
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
@@ -42,6 +44,7 @@ def execute(**kwargs):
         g_filetype = 'brief'
     else:
         g_filetype = 'all'
+
     # %%
     def getScheme(df):
         file_scheme = df.dtypes
@@ -74,7 +77,7 @@ def execute(**kwargs):
         "StorageDescriptor": 
             {
             "SerdeInfo": {"SerializationLibrary": "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"}, 
-            "Location": g_path, 
+            "Location": g_path + '/DATE=' + str(date), 
             "Columns": l_dict_scheme,
             "Parameters": {"compressionType": "none", 
                         "classification": "parquet", 
@@ -84,14 +87,16 @@ def execute(**kwargs):
         client = boto3.client('glue')
         glue_info = client.batch_create_partition(DatabaseName=g_database, TableName=g_table, PartitionInputList=partition_input_list)
         logger.debug(glue_info)
+
     # %%
     for date in l_update_month:
         try:
             version_old = spark.sql("SELECT DISTINCT version FROM %s.%s WHERE provider='%s' AND filetype='%s' AND date='%s'" 
                                      %(g_database, g_table, g_provider, g_filetype, str(date))).toPandas()['version'][0]
-            print(date, ':', version_old)
+            logger.debug(date, ':', version_old)
             deletePartition(version_old, date)
+            createPartition(g_version, date)
         except:
-            continue     
-        createPartition(g_version, date)
+            createPartition(g_version, date)     
+        
 
