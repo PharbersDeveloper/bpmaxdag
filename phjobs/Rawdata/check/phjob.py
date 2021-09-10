@@ -32,6 +32,8 @@ def execute(**kwargs):
     d = kwargs['d']
     ### output args ###
 
+    
+    
     from pyspark.sql import SparkSession, Window
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
@@ -78,8 +80,13 @@ def execute(**kwargs):
     check_9_2_path = raw_data_check_path + '/check_9_2_所有产品每个月份额.csv'
     check_9_3_path = raw_data_check_path + '/check_9_3_所有产品每个月排名.csv'
     check_10_path = raw_data_check_path + '/check_10_在售产品医院个数.csv'
+    
     check_11_path = raw_data_check_path + '/check_11_金额_医院贡献率等级.csv'
+    check_11_1_path = raw_data_check_path + '/check_11_1_金额_1级头部医院变化倍率.csv'
+    
     check_12_path = raw_data_check_path + '/check_12_金额_医院分子贡献率等级.csv'
+    check_12_1_path = raw_data_check_path + '/check_12_1_金额_1级头部医院分子变化倍率.csv'
+    
     check_13_path = raw_data_check_path + '/check_13_数量_医院贡献率等级.csv'
     check_14_path = raw_data_check_path + '/check_14_数量_医院分子贡献率等级.csv'
     check_15_path = raw_data_check_path + '/check_15_最近12期每家医院每个月每个产品的价格与倍数.csv'
@@ -212,6 +219,12 @@ def execute(**kwargs):
                             .withColumnRenamed('min2', 'Prod_Name')
 
     # %%
+    #========== 定义 ==========
+    def WriteCsvOut(df, out_path, repartition_num=1):
+        df = df.repartition(repartition_num)
+        df.write.format("csv").option("header", "true") \
+            .mode("overwrite").save(out_path)
+    # %%
     #========== check_1 ==========
     
     # 每个月产品个数(min2)
@@ -225,10 +238,7 @@ def execute(**kwargs):
     PREMTH_product_num = check_1.where(check_1.Date == PREMTH).toPandas()['每月产品个数_min2'][0]
     check_result_1 = (MTH_product_num/PREMTH_product_num < 0.08)
     
-    check_1 = check_1.repartition(1)
-    check_1.write.format("csv").option("header", "true") \
-        .mode("overwrite").save(check_1_path)
-
+    WriteCsvOut(check_1, check_1_path)
     # %%
     #========== check_2 ==========
     
@@ -243,10 +253,7 @@ def execute(**kwargs):
         MTH_product_Sales = 0
     check_result_2 = (MTH_product_Sales/PREMTH_product_Sales < 0.08)
     
-    check_2 = check_2.repartition(1)
-    check_2.write.format("csv").option("header", "true") \
-        .mode("overwrite").save(check_2_path)
-
+    WriteCsvOut(check_2, check_2_path)
     # %%
     #========== check_3 ==========
     
@@ -261,10 +268,7 @@ def execute(**kwargs):
     PREMTH_hospital_num = check_3.where(check_3.Date == PREMTH).toPandas()['医院个数'][0]
     check_result_3 = (MTH_hospital_num/PREMTH_hospital_num -1 < 0.01)
     
-    check_3 = check_3.repartition(1)
-    check_3.write.format("csv").option("header", "true") \
-        .mode("overwrite").save(check_3_path)
-
+    WriteCsvOut(check_3, check_3_path)
     # %%
     #========== check_5 ==========
     
@@ -296,71 +300,70 @@ def execute(**kwargs):
     
     check_5 = check_5_1.join(check_5_2, on='ID', how='left').orderBy('ID').persist()
     
-    check_5 = check_5.repartition(1)
-    check_5.write.format("csv").option("header", "true") \
-        .mode("overwrite").save(check_5_path)
-
+    WriteCsvOut(check_5, check_5_path)
     # %%
     #========== check_6 ==========
+    # 目前没用
+    def Check6():
+        # 最近12期每家医院每个月的销量规模
+        check_6_1 = Raw_data.where(Raw_data.Date > (current_year-1)*100+current_month-1) \
+                            .groupby('ID', 'Date').agg(func.sum('Units').alias('Units')) \
+                            .groupBy("ID").pivot("Date").agg(func.sum('Units')).persist()
     
-    # 最近12期每家医院每个月的销量规模
-    check_6_1 = Raw_data.where(Raw_data.Date > (current_year-1)*100+current_month-1) \
-                        .groupby('ID', 'Date').agg(func.sum('Units').alias('Units')) \
-                        .groupBy("ID").pivot("Date").agg(func.sum('Units')).persist()
+        # 每家医院的月销数量在最近12期的误差范围内（mean+-1.96std），范围内的医院数量占比大于95%；
+        check_6_2 = Raw_data.where((Raw_data.Date > (current_year-1)*100+current_month-1 ) & (Raw_data.Date < current_year*100+current_month)) \
+                            .groupBy('ID', 'Date').agg(func.sum('Units').alias('Units')) \
+                            .groupBy('ID').agg(func.mean('Units').alias('Mean_Units'), func.stddev('Units').alias('Sd_Units'))
+        check_6_2 = check_6_2.join(Raw_data.where(Raw_data.Date == current_year*100+current_month).groupBy('ID').agg(func.sum('Units').alias('Units_newmonth')), 
+                                                on='ID', how='left').persist()
+        check_6_2 = check_6_2.withColumn('Check', func.when(check_6_2.Units_newmonth < check_6_2.Mean_Units-1.96*check_6_2.Sd_Units, func.lit('F')) \
+                                                    .otherwise(func.when(check_6_2.Units_newmonth > check_6_2.Mean_Units+1.96*check_6_2.Sd_Units, func.lit('F')) \
+                                                                    .otherwise(func.lit('T'))))
+        check_6_2 = check_6_2.withColumn('Check', func.when(func.isnan(check_6_2.Mean_Units) | func.isnan(check_6_2.Sd_Units) | check_6_2.Units_newmonth.isNull(), func.lit(None)) \
+                                                        .otherwise(check_6_2.Check)) 
     
-    # 每家医院的月销数量在最近12期的误差范围内（mean+-1.96std），范围内的医院数量占比大于95%；
-    check_6_2 = Raw_data.where((Raw_data.Date > (current_year-1)*100+current_month-1 ) & (Raw_data.Date < current_year*100+current_month)) \
-                        .groupBy('ID', 'Date').agg(func.sum('Units').alias('Units')) \
-                        .groupBy('ID').agg(func.mean('Units').alias('Mean_Units'), func.stddev('Units').alias('Sd_Units'))
-    check_6_2 = check_6_2.join(Raw_data.where(Raw_data.Date == current_year*100+current_month).groupBy('ID').agg(func.sum('Units').alias('Units_newmonth')), 
-                                            on='ID', how='left').persist()
-    check_6_2 = check_6_2.withColumn('Check', func.when(check_6_2.Units_newmonth < check_6_2.Mean_Units-1.96*check_6_2.Sd_Units, func.lit('F')) \
-                                                .otherwise(func.when(check_6_2.Units_newmonth > check_6_2.Mean_Units+1.96*check_6_2.Sd_Units, func.lit('F')) \
-                                                                .otherwise(func.lit('T'))))
-    check_6_2 = check_6_2.withColumn('Check', func.when(func.isnan(check_6_2.Mean_Units) | func.isnan(check_6_2.Sd_Units) | check_6_2.Units_newmonth.isNull(), func.lit(None)) \
-                                                    .otherwise(check_6_2.Check)) 
-    
-    check_6 = check_6_1.join(check_6_2, on='ID', how='left').orderBy('ID')
+        check_6 = check_6_1.join(check_6_2, on='ID', how='left').orderBy('ID')
 
     # %%
     #========== check_7 ==========
+    # 目前没用
+    def Check7():
+        # 最近12期每家医院每个月每个产品(Packid)的平均价格
+        check_7_1 = Raw_data_1.where(Raw_data_1.Date > (current_year-1)*100+current_month-1) \
+                            .groupBy('ID', 'Date', '通用名','商品名','Pack_ID') \
+                            .agg(func.sum('Sales').alias('Sales'), func.sum('Units').alias('Units')).persist()
+        check_7_1 = check_7_1.withColumn('Price', check_7_1.Sales/check_7_1.Units)
+        check_7_1 = check_7_1.groupBy('ID', '通用名', '商品名', 'Pack_ID').pivot("Date").agg(func.sum('Price')) \
+                            .orderBy('ID', '通用名', '商品名').persist()
     
-    # 最近12期每家医院每个月每个产品(Packid)的平均价格
-    check_7_1 = Raw_data_1.where(Raw_data_1.Date > (current_year-1)*100+current_month-1) \
-                        .groupBy('ID', 'Date', '通用名','商品名','Pack_ID') \
-                        .agg(func.sum('Sales').alias('Sales'), func.sum('Units').alias('Units')).persist()
-    check_7_1 = check_7_1.withColumn('Price', check_7_1.Sales/check_7_1.Units)
-    check_7_1 = check_7_1.groupBy('ID', '通用名', '商品名', 'Pack_ID').pivot("Date").agg(func.sum('Price')) \
-                        .orderBy('ID', '通用名', '商品名').persist()
+        # 每家医院的每个产品单价在最近12期的误差范围内（mean+-1.96std或gap10%以内），范围内的产品数量占比大于95%；
+        check_7_2 = Raw_data_1.where((Raw_data_1.Date > (current_year-1)*100+current_month-1 ) & (Raw_data_1.Date < current_year*100+current_month)) \
+                            .groupBy('ID', 'Date', '通用名', '商品名', 'Pack_ID') \
+                            .agg(func.sum('Sales').alias('Sales'), func.sum('Units').alias('Units'))
+        check_7_2 = check_7_2.withColumn('Price', check_7_2.Sales/check_7_2.Units)
+        check_7_2 = check_7_2.groupBy('ID', '通用名', '商品名', 'Pack_ID') \
+                            .agg(func.mean('Price').alias('Mean_Price'), func.stddev('Price').alias('Sd_Price'))
+        check_7_2 = check_7_2.withColumn('Sd_Price', func.when(func.isnan(check_7_2.Sd_Price), func.lit(0)).otherwise(check_7_2.Sd_Price))
+        Raw_data_1_tmp = Raw_data_1.where(Raw_data_1.Date == current_year*100+current_month) \
+                                    .groupBy('ID', '通用名', '商品名', 'Pack_ID') \
+                                    .agg(func.sum('Sales').alias('Sales_newmonth'), func.sum('Units').alias('Units_newmonth'))
+        Raw_data_1_tmp = Raw_data_1_tmp.withColumn('Price_newmonth', Raw_data_1_tmp.Sales_newmonth/Raw_data_1_tmp.Units_newmonth)
+        Raw_data_1_tmp = Raw_data_1_tmp.withColumn('Pack_ID', func.when(Raw_data_1_tmp.Pack_ID.isNull(), func.lit(0)).otherwise(Raw_data_1_tmp.Pack_ID))
+        check_7_2 = check_7_2.withColumn('Pack_ID', func.when(check_7_2.Pack_ID.isNull(), func.lit(0)).otherwise(check_7_2.Pack_ID))
+        check_7_2 = check_7_2.join(Raw_data_1_tmp, on=['ID', '通用名', '商品名', 'Pack_ID'], how='left').persist()
     
-    # 每家医院的每个产品单价在最近12期的误差范围内（mean+-1.96std或gap10%以内），范围内的产品数量占比大于95%；
-    check_7_2 = Raw_data_1.where((Raw_data_1.Date > (current_year-1)*100+current_month-1 ) & (Raw_data_1.Date < current_year*100+current_month)) \
-                        .groupBy('ID', 'Date', '通用名', '商品名', 'Pack_ID') \
-                        .agg(func.sum('Sales').alias('Sales'), func.sum('Units').alias('Units'))
-    check_7_2 = check_7_2.withColumn('Price', check_7_2.Sales/check_7_2.Units)
-    check_7_2 = check_7_2.groupBy('ID', '通用名', '商品名', 'Pack_ID') \
-                        .agg(func.mean('Price').alias('Mean_Price'), func.stddev('Price').alias('Sd_Price'))
-    check_7_2 = check_7_2.withColumn('Sd_Price', func.when(func.isnan(check_7_2.Sd_Price), func.lit(0)).otherwise(check_7_2.Sd_Price))
-    Raw_data_1_tmp = Raw_data_1.where(Raw_data_1.Date == current_year*100+current_month) \
-                                .groupBy('ID', '通用名', '商品名', 'Pack_ID') \
-                                .agg(func.sum('Sales').alias('Sales_newmonth'), func.sum('Units').alias('Units_newmonth'))
-    Raw_data_1_tmp = Raw_data_1_tmp.withColumn('Price_newmonth', Raw_data_1_tmp.Sales_newmonth/Raw_data_1_tmp.Units_newmonth)
-    Raw_data_1_tmp = Raw_data_1_tmp.withColumn('Pack_ID', func.when(Raw_data_1_tmp.Pack_ID.isNull(), func.lit(0)).otherwise(Raw_data_1_tmp.Pack_ID))
-    check_7_2 = check_7_2.withColumn('Pack_ID', func.when(check_7_2.Pack_ID.isNull(), func.lit(0)).otherwise(check_7_2.Pack_ID))
-    check_7_2 = check_7_2.join(Raw_data_1_tmp, on=['ID', '通用名', '商品名', 'Pack_ID'], how='left').persist()
+        check_7_2 = check_7_2.withColumn('Check', \
+                    func.when((check_7_2.Price_newmonth < check_7_2.Mean_Price-1.96*check_7_2.Sd_Price) & (check_7_2.Price_newmonth < check_7_2.Mean_Price*0.9), func.lit('F')) \
+                        .otherwise(func.when((check_7_2.Price_newmonth > check_7_2.Mean_Price+1.96*check_7_2.Sd_Price) & (check_7_2.Price_newmonth > check_7_2.Mean_Price*1.1), func.lit('F')) \
+                                        .otherwise(func.lit('T'))))
+        check_7_2 = check_7_2.withColumn('Check', func.when(check_7_2.Sales_newmonth.isNull() | check_7_2.Units_newmonth.isNull(), func.lit(None)) \
+                                                        .otherwise(check_7_2.Check)) 
     
-    check_7_2 = check_7_2.withColumn('Check', \
-                func.when((check_7_2.Price_newmonth < check_7_2.Mean_Price-1.96*check_7_2.Sd_Price) & (check_7_2.Price_newmonth < check_7_2.Mean_Price*0.9), func.lit('F')) \
-                    .otherwise(func.when((check_7_2.Price_newmonth > check_7_2.Mean_Price+1.96*check_7_2.Sd_Price) & (check_7_2.Price_newmonth > check_7_2.Mean_Price*1.1), func.lit('F')) \
-                                    .otherwise(func.lit('T'))))
-    check_7_2 = check_7_2.withColumn('Check', func.when(check_7_2.Sales_newmonth.isNull() | check_7_2.Units_newmonth.isNull(), func.lit(None)) \
-                                                    .otherwise(check_7_2.Check)) 
+        check_7_1 = check_7_1.withColumn('Pack_ID', func.when(check_7_1.Pack_ID.isNull(), func.lit(0)).otherwise(check_7_1.Pack_ID))
+        check_7 = check_7_1.join(check_7_2, on=['ID', '通用名', '商品名', 'Pack_ID'], how='left').orderBy('ID', '通用名', '商品名').persist()
+        check_7 = check_7.withColumn('Pack_ID', func.when(check_7.Pack_ID == 0, func.lit(None)).otherwise(check_7.Pack_ID))
     
-    check_7_1 = check_7_1.withColumn('Pack_ID', func.when(check_7_1.Pack_ID.isNull(), func.lit(0)).otherwise(check_7_1.Pack_ID))
-    check_7 = check_7_1.join(check_7_2, on=['ID', '通用名', '商品名', 'Pack_ID'], how='left').orderBy('ID', '通用名', '商品名').persist()
-    check_7 = check_7.withColumn('Pack_ID', func.when(check_7.Pack_ID == 0, func.lit(None)).otherwise(check_7.Pack_ID))
-    
-    check_7.groupby('Check').count().show()
+        check_7.groupby('Check').count().show()
 
     # %%
     #========== check_8 ==========
@@ -381,10 +384,7 @@ def execute(**kwargs):
     
     check_result_8 = (check_8_2/check_8_1 < 0.03)
     
-    check_8 = check_8.repartition(1)
-    check_8.write.format("csv").option("header", "true") \
-        .mode("overwrite").save(check_8_path)
-
+    WriteCsvOut(check_8, check_8_path)
     # %%
     #========== check_9 ==========
     
@@ -399,18 +399,9 @@ def execute(**kwargs):
     check_9_3 = check_9_3.withColumn('Rank', func.row_number().over(Window.partitionBy('Date').orderBy(check_9_3['Sales'].desc())))
     check_9_3 = check_9_3.groupBy('商品名').pivot('Date').agg(func.sum('Rank')).persist()
     
-    check_9_1 = check_9_1.repartition(1)
-    check_9_1.write.format("csv").option("header", "true") \
-        .mode("overwrite").save(check_9_1_path)
-    
-    check_9_2 = check_9_2.repartition(1)
-    check_9_2.write.format("csv").option("header", "true") \
-        .mode("overwrite").save(check_9_2_path)
-    
-    check_9_3 = check_9_3.repartition(1)
-    check_9_3.write.format("csv").option("header", "true") \
-        .mode("overwrite").save(check_9_3_path)
-
+    WriteCsvOut(check_9_1, check_9_1_path)
+    WriteCsvOut(check_9_2, check_9_2_path)
+    WriteCsvOut(check_9_3, check_9_3_path)
     # %%
     #========== check_10 ==========
     
@@ -420,11 +411,7 @@ def execute(**kwargs):
                         .groupBy('Date', 'Prod_Name').count() \
                         .withColumnRenamed('count', '在售产品医院个数') \
                         .groupBy('Prod_Name').pivot('Date').agg(func.sum('在售产品医院个数')).persist()
-    
-    check_10 = check_10.repartition(1)
-    check_10.write.format("csv").option("header", "true") \
-        .mode("overwrite").save(check_10_path)
-
+    WriteCsvOut(check_10, check_10_path)
     # %%
     #========== check_贡献率等级相关 ==========
     
@@ -498,7 +485,28 @@ def execute(**kwargs):
         check_num = check_num.orderBy(col('min_diff').desc(), col('mean_adj').desc())
         
         return check_num
-
+    
+    def CheckTopChange(check_path, Raw_data, grouplist):
+        # 1级头部医院变化倍率检查
+        check_have = spark.read.csv(check_path, header=True)
+        check_top = Raw_data.join(check_have.where(col('row_min') == 1).select('ID').distinct(), on='ID', how='inner') \
+                                .groupby(grouplist + ['Date']).agg(func.sum('Sales').alias('Sales'))
+    
+        check_top_tmp = check_top.groupby(grouplist) \
+                    .agg(func.max('Sales').alias('max_Sales'), 
+                         func.min('Sales').alias('min_Sales'), 
+                         func.sum('Sales').alias('sum_Sales'),
+                         func.count('Sales').alias('count'))
+    
+        check_top = check_top.join(check_top_tmp, on=grouplist, how='left') \
+                                .withColumn('Mean_Sales', func.when(col('count') > 2, (col('sum_Sales') - col('max_Sales') - col('min_Sales'))/(col('count') -2) ) \
+                                                        .otherwise(col('sum_Sales')/col('count') )) \
+                                .withColumn('Mean_times', func.round(col('Sales')/col('Mean_Sales'),1 )) \
+                                .groupBy(grouplist).pivot('Date').agg(func.sum('Mean_times'))
+    
+        check_top = check_top.withColumn("max", func.greatest(*list(set(check_top.columns) - set(grouplist))))
+        
+        return check_top
     # %%
     Raw_data = deal_ID_length(Raw_data)
     
@@ -515,11 +523,11 @@ def execute(**kwargs):
     check_11 = Raw_data.groupby(["Date"]).apply(pudf_cumsum_level_11)
     check_11 = check_11.groupby('ID').pivot('month').agg(func.sum('level')).persist()
     check_11 = colculate_diff(check_11, grouplist=['ID'])
+    WriteCsvOut(check_11, check_11_path)
     
-    check_11 = check_11.repartition(1)
-    check_11.write.format("csv").option("header", "true") \
-        .mode("overwrite").save(check_11_path)
-
+    # 1级头部医院金额变化倍率检查
+    check_11_1 = CheckTopChange(check_11_path, Raw_data, grouplist=['ID'])
+    WriteCsvOut(check_11_1, check_11_1_path)
     # %%
     #========== check_12 金额==========
     if g_id_molecule == 'True':
@@ -536,11 +544,11 @@ def execute(**kwargs):
         check_12 = Raw_data.groupby(["Date"]).apply(pudf_cumsum_level_12)
         check_12 = check_12.groupby('ID', "Molecule").pivot('month').agg(func.sum('level')).persist()
         check_12 = colculate_diff(check_12, grouplist=['ID', 'Molecule'])
+        WriteCsvOut(check_12, check_12_path)
     
-        check_12 = check_12.repartition(1)
-        check_12.write.format("csv").option("header", "true") \
-            .mode("overwrite").save(check_12_path)
-
+        # 1级头部医院 医院分子 变化倍率检查
+        check_12_1 = CheckTopChange(check_12_path, Raw_data, grouplist=['ID', 'Molecule'])
+        WriteCsvOut(check_12_1, check_12_1_path)
     # %%
     #========== check_13 数量==========
     
@@ -557,10 +565,7 @@ def execute(**kwargs):
     check_13 = check_13.groupby('ID').pivot('month').agg(func.sum('level')).persist()
     check_13 = colculate_diff(check_13, grouplist=['ID'])
     
-    check_13 = check_13.repartition(1)
-    check_13.write.format("csv").option("header", "true") \
-        .mode("overwrite").save(check_13_path)
-
+    WriteCsvOut(check_13, check_13_path)
     # %%
     #========== check_14 数量==========
     if g_id_molecule == 'True':
@@ -577,11 +582,8 @@ def execute(**kwargs):
         check_14 = Raw_data.groupby(["Date"]).apply(pudf_cumsum_level_12)
         check_14 = check_14.groupby('ID', "Molecule").pivot('month').agg(func.sum('level')).persist()
         check_14 = colculate_diff(check_14, grouplist=['ID', 'Molecule'])
-    
-        check_14 = check_14.repartition(1)
-        check_14.write.format("csv").option("header", "true") \
-            .mode("overwrite").save(check_14_path)
-
+        
+        WriteCsvOut(check_14, check_14_path)
     # %%
     #========== check_15 价格==========
     if g_id_molecule == 'True':
@@ -607,10 +609,7 @@ def execute(**kwargs):
     
         check_15 = check_15.withColumn('max', func.greatest(*[i for i in check_15.columns if "20" in i]))
     
-        check_15 = check_15.repartition(1)
-        check_15.write.format("csv").option("header", "true") \
-            .mode("overwrite").save(check_15_path)
-
+        WriteCsvOut(check_15, check_15_path)
     # %%
     #========== check_16 价格==========
     check_16_a = Raw_data.join(province_city_mapping.select('ID','Province').distinct(), on='ID', how='left')
@@ -625,10 +624,7 @@ def execute(**kwargs):
                             .withColumn('level', func.ceil(func.abs('gap')*10) ) \
                             .where(col('Date') > current_year*100)
     
-    check_16 = check_16.repartition(1)
-    check_16.write.format("csv").option("header", "true") \
-        .mode("overwrite").save(check_16_path)
-
+    WriteCsvOut(check_16, check_16_path)
     # %%
     #========== 汇总检查结果 ==========
     
@@ -641,7 +637,4 @@ def execute(**kwargs):
         ('全部医院的全部产品总个数与最近三个月的均值相差不超过0.03', str(check_result_8))], 
         ('check', 'result'))
     
-    check_result = check_result.repartition(1)
-    check_result.write.format("csv").option("header", "true") \
-        .mode("overwrite").save(check_result_path)
-
+    WriteCsvOut(check_result, check_result_path)
