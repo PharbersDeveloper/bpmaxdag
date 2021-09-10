@@ -27,6 +27,8 @@ def execute(**kwargs):
     d = kwargs['d']
     ### output args ###
 
+    
+    
     from pyspark.sql.types import StringType, IntegerType, DoubleType
     from pyspark.sql import functions as func
     import os
@@ -36,7 +38,6 @@ def execute(**kwargs):
     # time_left = "202001"
     # time_right = "202012"
     # out_dir = "202012"
-
     # %%
     # 输入文件
     product_map_path = max_path + "/" + project_name + "/" + out_dir + "/prod_mapping"
@@ -67,7 +68,7 @@ def execute(**kwargs):
     check_4_path = check_path + '/check_4_放大比例.csv'
     check_5_path = check_path + '/check_5_产品个数.csv'
     check_6_path = check_path + '/check_6_样本医院个数.csv'
-
+    check_7_path = check_path + '/check_7_各省城市份额.csv'
     # %%
     # ==========  数据执行  ============
     
@@ -159,6 +160,12 @@ def execute(**kwargs):
     panel = deal_ID_length(panel)
 
     # %%
+    #========== 定义 ==========
+    def WriteCsvOut(df, out_path, repartition_num=1):
+        df = df.repartition(repartition_num)
+        df.write.format("csv").option("header", "true") \
+            .mode("overwrite").save(out_path)
+    # %%
     # ====  三. 检查步骤  ====
     '''
     1.产品层面：样本 vs MAX vs IMS 对比，group by Packid&Date
@@ -201,11 +208,8 @@ def execute(**kwargs):
                                 .withColumn('Year', func.substring(col('Date'), 0, 4)) \
                                 .select('Date', 'Prod_Name', '标准通用名', 'Pack_ID', 'Molecule_Composition', 'max_Sales', 'cpa_Sales', 
                                         'ims_Sales', 'Rank', 'Year')
-    check_result = check_result.repartition(1)
-    check_result.write.format("csv").option("header", "true") \
-            .mode("overwrite").save(check_1_path)
     
-
+    WriteCsvOut(check_result, check_1_path)
     # %%
     # 2.按城市检查：样本 vs MAX vs IMS 对比，group by City&Date
     
@@ -253,10 +257,8 @@ def execute(**kwargs):
     check_result_bycity = check_result_bycity.withColumn('ims_Sales', func.when(col('Rank') > 1, func.lit(0)).otherwise(col('ims_Sales'))) \
                                 .withColumn('Year', func.substring(col('Date'), 0, 4)) \
                                 .select('Date', 'Province', 'City', 'Prod_Name', '标准通用名', 'Pack_ID', 'max_Sales', 'cpa_Sales', 'ims_Sales')
-    check_result_bycity = check_result_bycity.repartition(1)
-    check_result_bycity.write.format("csv").option("header", "true") \
-        .mode("overwrite").save(check_2_path)
-
+    
+    WriteCsvOut(check_result_bycity, check_2_path)
     # %%
     # 3.补数金额比例：占总金额 1-3%
     check_sales = panel.groupby('Date', 'Molecule', 'add_flag').agg(func.sum('Sales').alias('Sales'))
@@ -264,17 +266,15 @@ def execute(**kwargs):
     check_sales = check_sales.withColumn('补数比例', col('1')/col('0')) \
                               .withColumnRenamed('Molecule', '标准通用名') 
     
-    check_sales = check_sales.repartition(1)
-    check_sales.write.format("csv").option("header", "true") \
-        .mode("overwrite").save(check_3_path)
+    WriteCsvOut(check_sales, check_3_path)
+    
     # 4.放大比例
     check_max_sales = max_data_m.groupby('Date', '标准通用名', 'PANEL').agg(func.sum('Predict_Sales').alias('金额'))
     check_max_sales = check_max_sales.groupBy('Date', '标准通用名').pivot('PANEL').agg(func.sum('金额')).persist()
     check_max_sales = check_max_sales.withColumn('放大比例', (col('1')+col('0'))/col('1'))
     
-    check_max_sales = check_max_sales.repartition(1)
-    check_max_sales.write.format("csv").option("header", "true") \
-        .mode("overwrite").save(check_4_path)
+    WriteCsvOut(check_max_sales, check_4_path)
+    
     # 5.每个月的产品个数（min2）MAX，CPA
     check_max_1_count = check_max_1.select('Date', 'Prod_Name').distinct() \
                         .groupby('Date').count() \
@@ -285,15 +285,21 @@ def execute(**kwargs):
     data_prd = check_max_1_count.join(check_cpa_1_count, on='Date', how='left') \
                                 .orderBy('Date')
     
-    data_prd = data_prd.repartition(1)
-    data_prd.write.format("csv").option("header", "true") \
-        .mode("overwrite").save(check_5_path)
+    WriteCsvOut(data_prd, check_5_path)
+    
     # 6.每个月的CPA医院个数
     data_cpa_pha = panel.join(hospital_map.select('ID', '医院名称').distinct(), on='ID', how='left') \
                         .select('Date', '医院名称').distinct() \
                         .groupby('Date').count() \
                         .withColumnRenamed('count', '医院个数') \
                         .orderBy('Date')
-    data_cpa_pha = data_cpa_pha.repartition(1)
-    data_cpa_pha.write.format("csv").option("header", "true") \
-        .mode("overwrite").save(check_6_path)
+    
+    WriteCsvOut(data_cpa_pha, check_6_path)
+    
+    # 7.各省城市贡献度检查
+    check7_panel = panel.join(max_data_m.select('Molecule').distinct(), on='Molecule', how='inner') \
+                .groupby('Province', 'City', 'Date', 'Molecule').agg(func.sum('Sales').alias('Sample_Sales'))
+    
+    check7_max = max_data_m.groupby('Province', 'City', 'Date', 'Molecule').agg(func.sum('Predict_Sales').alias('MAX_Sales'))
+    check7 = check7_max.join(check7_panel, on=['Province', 'City', 'Date', 'Molecule'], how='left')
+    WriteCsvOut(check7, check_7_path)
