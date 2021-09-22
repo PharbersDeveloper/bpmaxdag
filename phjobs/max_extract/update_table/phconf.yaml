@@ -17,9 +17,11 @@ spec:
     config: phconf.yaml
     args:
       - key: g_path
-        value: 's3://ph-platform/2020-11-11/etl/temporary_files/max_result_standard/version=Max_manual_move_2021-09-01/provider=Pfizer/owner=ywyuan'
+        value: 's3://ph-platform/2020-11-11/etl/temporary_files/max_result_standard/version=Max_manual_move_2021-09-22/provider=Astellas/owner=ywyuan'
+      - key: g_info
+        value: '{"version": "Max_manual_move_2021-09-22", "provider": "Astellas", "filetype": "all"}'
       - key: g_update
-        value: '202006, 201905, 202101, 201902, 202105, 201812, 201807, 201810, 202002, 201705, 202008, 201703, 201903, 201910, 201702, 201701, 202102, 201710, 201709, 202005, 201806, 202011, 202103, 201911, 202003, 201704, 201906, 201908, 201708, 201805, 201909, 202009, 201802, 202104, 202001, 201809, 201912, 202010, 201706, 201801, 201712, 201808, 202106, 201811, 201803, 201907, 201711, 201901, 202007, 202004, 201707, 201904, 201804, 202012'
+        value: '202006， 202001'
       - key: g_database
         value: 'phresult'
       - key: g_table
