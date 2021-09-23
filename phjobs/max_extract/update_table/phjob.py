@@ -38,12 +38,6 @@ def execute(**kwargs):
     g_version = dict_info['version']
     g_provider = dict_info['provider']
     g_filetype = dict_info['filetype']
-    
-    if g_update == 'all':
-        l_update_month = spark.sql("SELECT DISTINCT date FROM %s.%s WHERE provider='%s' AND filetype='%s'" 
-                                     %(g_database, g_table, g_provider, g_filetype)).toPandas()['date'].values.tolist()
-    else:
-        l_update_month = g_update.replace(' ','').split(',')
     # %%
     def getScheme(df):
         file_scheme = df.dtypes
@@ -57,6 +51,11 @@ def execute(**kwargs):
     
     df = spark.read.parquet(g_path)
     l_dict_scheme = getScheme(df)
+    
+    if g_update == 'all':
+        l_update_month = df.select('date').distinct().toPandas()['date'].values.tolist()
+    else:
+        l_update_month = g_update.replace(' ','').split(',')
     # %%
     os.environ["AWS_DEFAULT_REGION"] = "cn-northwest-1"
     os.environ["AWS_SECRET_ACCESS_KEY"] = "3/tbzPaW34MRvQzej4koJsVQpNMNaovUSSY1yn0J"
@@ -89,14 +88,14 @@ def execute(**kwargs):
         logger.debug('创建分区')    
         partition_input_list = [partition_input]
         glue_info = client.batch_create_partition(DatabaseName=g_database, TableName=g_table, PartitionInputList=partition_input_list)
-        logger.debug(glue_info)
+        #logger.debug(glue_info)
     
     def UpdatePartition(g_database, g_table, partition_input, old_partition_value):
         # 更新分区
         logger.debug('更新分区')
         # 对哪个分区进行更新（已有分区信息）:PartitionValueList， 更新后的分区信息 :PartitionInput
         glue_info = client.update_partition(DatabaseName=g_database, TableName=g_table, PartitionInput=partition_input, PartitionValueList=old_partition_value)
-        logger.debug(glue_info)    
+        #logger.debug(glue_info)    
     
         
     def GetTableScheme(database, table_name):
@@ -118,10 +117,10 @@ def execute(**kwargs):
                 "TableType": "EXTERNAL_TABLE"
             },
         )
-        logger.debug(response) 
+        #logger.debug(response) 
         
     def GetPartitions(g_database, g_table, g_provider, g_filetype, date):
-        # 不能返回所有？
+        # 不能返回所有？ 最多 500？
         all_partitions = [i['Values'] for i in client.get_partitions(DatabaseName=g_database,TableName=g_table)['Partitions']]
         find_partitions = [i for i in all_partitions if i[1] == g_provider and i[2] == g_filetype and i[3] == str(date)]
         return find_partitions
@@ -133,15 +132,16 @@ def execute(**kwargs):
                                      %(g_database, g_table, g_provider, g_filetype, str(date))).toPandas()['version'].values.tolist()    
         if len(version_old) > 0:
             if len(version_old) > 1:
-                raise ValueError(f'{date} 有重复数据：{version_old}')
+                raise ValueError(f'{g_provider} {date} 有重复数据：{version_old}')
             else:
-                old_partition_value = [version_old, g_provider, g_filetype, str(date)]
+                old_partition_value = [version_old[0], g_provider, g_filetype, str(date)]
                 UpdatePartition(g_database, g_table, partition_input, old_partition_value)
-                logger.debug(f"{date} 更新分区：{version_old} 更新为 {g_version}")
+                logger.debug(f"{g_provider} {date} 更新分区：{version_old[0]} 更新为 {g_version}")
         else:
             CreatePartition(g_database, g_table, partition_input)
-            logger.debug(f"{date} 创建分区：{g_version}")
+            logger.debug(f"{g_provider} {date} 创建分区：{g_version}")
             
     # 更新table
+    logger.debug('更新table')
     table_info = GetTableScheme(g_database, g_table)    
     UpdateTable(g_database, g_table, table_info)
