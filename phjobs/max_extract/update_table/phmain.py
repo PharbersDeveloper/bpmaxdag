@@ -17,6 +17,7 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--job_full_name')
 @click.option('--job_id')
 @click.option('--g_path')
+@click.option('--g_info')
 @click.option('--g_update')
 @click.option('--g_database')
 @click.option('--g_table')
