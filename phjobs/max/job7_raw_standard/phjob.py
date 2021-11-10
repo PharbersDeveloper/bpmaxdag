@@ -325,12 +325,15 @@ def execute(**kwargs):
     # df_raw_data_standard = df_raw_data_standard.withColumn("project", func.lit(project_name))
         
     df_raw_data_standard = df_raw_data_standard.select(std_names + ["DOI", "标准通用名", "标准商品名", "标准剂型", "标准规格", 
-        "标准包装数量", "标准生产企业", "标准省份名称", "标准城市名称", "PACK_ID", "ATC", "project"])
+        "标准包装数量", "标准生产企业", "标准省份名称", "标准城市名称", "PACK_ID", "ATC"])
     
-    # df_raw_data_standard = df_raw_data_standard.withColumn("Date_copy", col('Date'))
+    df_raw_data_standard = df_raw_data_standard.withColumn("SALES", col('SALES').cast('double')) \
+                                                .withColumn("UNITS", col('UNITS').cast('double')) \
+                                                .withColumn("UNITS_BOX", col('UNITS_BOX').cast('double')) \
+                                                .withColumn("PACK_ID", col('PACK_ID').cast('int'))
     
     # 目录结果汇总
-    df_raw_data_standard_brief = df_raw_data_standard.select("project", "Date", "标准通用名", "ATC", "DOI", "PHA", "Source").distinct()
+    df_raw_data_standard_brief = df_raw_data_standard.select("Date", "标准通用名", "ATC", "DOI", "PHA", "Source").distinct()
     
     
     # 列名转为大写
@@ -339,14 +342,14 @@ def execute(**kwargs):
 
     # %%
     # =========== 函数定义：输出结果 =============
-    def createPartition(p_out):
+    def createPartition(p_out, date):
         # 创建分区
         logger.debug('创建分区')
-        Location = p_out + '/version=' + run_id + '/provider=' + project_name + '/owner=' + owner
+        Location = p_out + '/version=' + run_id + '/provider=' + project_name + '/owner=' + owner + '/DATE=' + date
         g_out_table = p_out.split('/')[-1]
         
         partition_input_list = [{
-         "Values": [run_id, project_name,  owner], 
+         "Values": [run_id, project_name,  owner,  date], 
         "StorageDescriptor": {
             "SerdeInfo": {
                 "SerializationLibrary": "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"
@@ -363,7 +366,7 @@ def execute(**kwargs):
                 .withColumn('provider', func.lit(project_name)) \
                 .withColumn('owner', func.lit(owner))
         df.repartition(1).write.format("parquet") \
-                 .mode("append").partitionBy("version", "provider", "owner") \
+                 .mode("append").partitionBy("version", "provider", "owner", "DATE") \
                  .parquet(p_out)
     
     def outResultForExtractRaw(df, p_out):
@@ -382,7 +385,11 @@ def execute(**kwargs):
     outResult(df_raw_data_standard_brief, p_out_raw_standard_brief)
     logger.debug("输出 raw_standard_brief：" + p_out_raw_standard_brief)
     
-    createPartition(p_out_raw_standard)
-    createPartition(p_out_raw_standard_brief)
+    pdf = df_raw_data_standard_brief.select('DATE').distinct().toPandas()
+    for indexs in pdf.index:
+        data = pdf.loc[indexs]
+        i_data = str(data['DATE'])    
+        createPartition(p_out_raw_standard, i_data)
+        createPartition(p_out_raw_standard_brief, i_data)
     logger.debug('数据执行-Finish')
 
