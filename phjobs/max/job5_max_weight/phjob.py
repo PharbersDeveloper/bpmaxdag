@@ -25,7 +25,6 @@ def execute(**kwargs):
     out_path = kwargs['out_path']
     run_id = kwargs['run_id']
     owner = kwargs['owner']
-    g_input_version = kwargs['g_input_version']
     g_database_temp = kwargs['g_database_temp']
     g_database_input = kwargs['g_database_input']
     ### input args ###
@@ -34,6 +33,8 @@ def execute(**kwargs):
     g_out_max = kwargs['g_out_max']
     ### output args ###
 
+    
+    
     
     
     import os
@@ -57,6 +58,7 @@ def execute(**kwargs):
     # use_d_weight = 'Empty'
     # %% 
     # 输入参数设置
+    g_out_max = 'max_result_raw'
     logger.debug('job5_max')
     if if_base == "False":
         if_base = False
@@ -79,8 +81,8 @@ def execute(**kwargs):
     time_right = int(time_right)
         
         
-    dict_input_version = json.loads(g_input_version)
-    logger.debug(dict_input_version)
+    # dict_input_version = json.loads(g_input_version)
+    # print(dict_input_version)
     
     # 市场的universe文件
     universe_choice_dict={}
@@ -95,16 +97,12 @@ def execute(**kwargs):
 
     # %% 
     # 输入数据读取
-    df_panel_result = spark.sql("SELECT * FROM %s.panel_result WHERE version='%s' AND provider='%s' AND  owner='%s' AND date >=%s AND date <=%s" 
-                                     %(g_database_temp, run_id, project_name, owner, time_left, time_right))
+    df_panel_result = kwargs['df_panel_result']
     
-    
-    df_PHA_weight =  spark.sql("SELECT * FROM %s.weight WHERE provider='%s' AND filetype='%s' AND version='%s'" 
-                                     %(g_database_input, project_name, 'weight', dict_input_version['weight']['weight']))
+    df_PHA_weight =  kwargs['df_weight']
     
     if use_d_weight:
-        df_PHA_weight_default =  spark.sql("SELECT * FROM %s.weight WHERE provider='%s' AND filetype='%s' AND version='%s'" 
-                                         %(g_database_input, project_name, 'weight_default', dict_input_version['weight']['weight_default']))
+        df_PHA_weight_default =  kwargs['df_weight_default']
 
     # %% 
     # =========== 数据清洗 =============
@@ -339,5 +337,19 @@ def execute(**kwargs):
             calculate_max(i, if_base=if_base, if_box=True)
             
     createPartition(p_out_max)
+    
+    # 读回
+    df_max_result_raw = spark.sql("SELECT * FROM %s.max_result_raw WHERE version='%s' AND provider='%s' AND  owner='%s'" 
+                                 %(g_database_temp, run_id, project_name, owner))
+    
+    
+    # =========== 数据输出 =============
+    def lowerColumns(df):
+        df = df.toDF(*[i.lower() for i in df.columns])
+        return df
+    
+    df_max_result_raw = lowerColumns(df_max_result_raw)
+    
     logger.debug('数据执行-Finish')
-
+    
+    return {'out_df':df_max_result_raw}

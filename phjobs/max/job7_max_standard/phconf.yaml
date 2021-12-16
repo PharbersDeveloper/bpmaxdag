@@ -28,8 +28,6 @@ spec:
         value: 'run_id_max_test_2'
       - key: owner
         value: 'Airflow'
-      - key: g_input_version
-        value: '{"prod_mapping":"202103_u0079u0079u0077", "product_map_all_atc":"20210617", "master_data_map":"20210623_u0079u0079u0077", "province_city_mapping_common":"20210623_u0079u0079u0077"}'
       - key: g_database_temp
         value: 'phdatatemp'
       - key: g_database_input

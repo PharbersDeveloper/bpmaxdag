@@ -25,7 +25,6 @@ def execute(**kwargs):
     out_path = kwargs['out_path']
     run_id = kwargs['run_id']
     owner = kwargs['owner']
-    g_input_version = kwargs['g_input_version']
     g_database_temp = kwargs['g_database_temp']
     g_database_input = kwargs['g_database_input']
     ### input args ###
@@ -41,18 +40,9 @@ def execute(**kwargs):
     import pandas as pd
     from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col
     import json
-    import boto3    # %%
-    # project_name = 'Empty'
-    # model_month_left = 0
-    # model_month_right = 0
-    # if_others = 'False'
-    # current_year = 2020
-    # current_month = 'Empty'
-    # panel_for_union = 'Empty'
-    # monthly_update = 'Empty'
-    # add_47 = 'False'
-    # %% 
+    import boto3    # %% 
     # 输入参数设置
+    g_out_panel_result = 'panel_result'
     logger.debug('job4_panel')
     
     if add_47 != "False" and add_47 != "True":
@@ -73,24 +63,19 @@ def execute(**kwargs):
 
     # %% 
     # 输入数据读取
-    df_raw_data_adding_final = spark.sql("SELECT * FROM %s.raw_data_adding_final WHERE version='%s' AND provider='%s' AND  owner='%s'" 
-                                             %(g_database_temp, run_id, project_name, owner))
+    df_raw_data_adding_final = df_raw_data_adding_final
     
-    df_mkt_mapping =  spark.sql("SELECT * FROM %s.mkt_mapping WHERE provider='%s' AND version='%s'" 
-                                     %(g_database_input, project_name, dict_input_version['mkt_mapping']))
+    df_mkt_mapping = df_mkt_mapping
     
-    df_universe =  spark.sql("SELECT * FROM %s.universe_base WHERE provider='%s' AND version='%s'" 
-                                 %(g_database_input, project_name, dict_input_version['universe_base']))
+    df_universe =  df_universe_base
     
     if monthly_update == "True":   
-        df_published =  spark.sql("SELECT * FROM %s.published WHERE provider='common' AND version IN %s" 
-                                 %(g_database_input, tuple(dict_input_version['published'].replace(' ','').split(','))))
+        df_published =  df_published
     
-        df_not_arrived =  spark.sql("SELECT * FROM %s.not_arrived WHERE provider='common' AND version IN %s" 
-                                 %(g_database_input, tuple(dict_input_version['not_arrived'].replace(' ','').split(','))))
+        df_not_arrived =  df_not_arrived
     else:
-        df_new_hospital = spark.sql("SELECT * FROM %s.new_hospital WHERE version='%s' AND provider='%s' AND  owner='%s'" 
-                                             %(g_database_temp, run_id, project_name, owner))
+        df_new_hospital = df_new_hospital
+
     # %% 
     # =========== 数据清洗 =============
     logger.debug('数据清洗-start')
@@ -159,6 +144,7 @@ def execute(**kwargs):
         df_universe = df_universe.withColumn("HOSP_NAME", func.lit("0"))
     
     df_mkt_mapping = df_mkt_mapping.withColumnRenamed("标准通用名", "通用名")
+
     # %%
     # =========== 数据执行 =============
     logger.debug('数据执行-start')
@@ -229,6 +215,7 @@ def execute(**kwargs):
                                             .join(future_range, on=["Date", "ID"], how="inner") \
                                             .select(panel_raw_data.columns)
         panel_filtered = panel_raw_data.union(panel_add_data_future)    
+
     # %%
     # =========== 函数定义：输出结果 =============
     def createPartition(p_out):
@@ -260,7 +247,17 @@ def execute(**kwargs):
 
     # %%
     # ==== **** 输出补数结果 **** ==== 
-    outResult(panel_filtered, p_out_panel_result)
-    logger.debug("输出 p_out_panel_result：" + p_out_panel_result)
-    createPartition(p_out_panel_result)
+    # outResult(panel_filtered, p_out_panel_result)
+    # print("输出 p_out_panel_result：" + p_out_panel_result)
+    # createPartition(p_out_panel_result)
+    # print('数据执行-Finish')
+    
+    def lowerColumns(df):
+        df = df.toDF(*[i.lower() for i in df.columns])
+        return df
+    
+    panel_filtered = lowerColumns(panel_filtered)
+    
     logger.debug('数据执行-Finish')
+    
+    return {'out_df':panel_filtered}

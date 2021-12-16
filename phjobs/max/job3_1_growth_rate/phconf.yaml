@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: PhJob
 metadata:
-  name: job3_2_data_adding
+  name: job3_1_growth_rate
   description: "pharbers job description"
   labels:
-    name: job3_2_data_adding
+    name: job3_1_growth_rate
     runtime: python3
     command: submit
 spec:
@@ -19,7 +19,7 @@ spec:
       - key: project_name
         value: 'Takeda'
       - key: model_month_right
-        value: '202012'
+        value: '0'
       - key: max_month
         value: '0'
       - key: year_missing
@@ -47,12 +47,8 @@ spec:
       - key: g_database_input
         value: 'phdatacat'
     outputs:
-      - key: g_out_adding_data
-        value: 'adding_data'
-      - key: g_out_new_hospital
-        value: 'new_hospital'
-      - key: g_out_raw_data_adding_final
-        value: 'raw_data_adding_final'
+      - key: a
+        value: 'a'
 
 
 

@@ -25,7 +25,6 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--out_path')
 @click.option('--run_id')
 @click.option('--owner')
-@click.option('--g_input_version')
 @click.option('--g_database_temp')
 @click.option('--g_database_input')
 @click.option('--g_out_raw_standard')

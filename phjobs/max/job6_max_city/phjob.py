@@ -29,7 +29,6 @@ def execute(**kwargs):
     out_path = kwargs['out_path']
     run_id = kwargs['run_id']
     owner = kwargs['owner']
-    g_input_version = kwargs['g_input_version']
     g_database_temp = kwargs['g_database_temp']
     g_database_input = kwargs['g_database_input']
     ### input args ###
@@ -38,6 +37,8 @@ def execute(**kwargs):
     g_out_max_backfill = kwargs['g_out_max_backfill']
     ### output args ###
 
+    
+    
     
     
     from pyspark.sql import SparkSession
@@ -65,6 +66,7 @@ def execute(**kwargs):
 
     # %% 
     # 输入参数设置
+    g_out_max_backfill = 'max_result_backfill'
     minimum_product_columns = minimum_product_columns.replace(" ","").split(",")
     if minimum_product_sep == "kong":
         minimum_product_sep = ""
@@ -89,41 +91,35 @@ def execute(**kwargs):
     time_left = int(time_left)
     time_right = int(time_right)
     
-    dict_input_version = json.loads(g_input_version)
-    logger.debug(dict_input_version)
+    # dict_input_version = json.loads(g_input_version)
+    # print(dict_input_version)
     
     if if_two_source == "False":
-        g_raw_data_type = "data"
+        g_raw_data_type = "df_raw_data"
     else:
-        g_raw_data_type = "data_std"
+        g_raw_data_type = "df_raw_data_std"
             
     # 输出
     p_out_max_backfill = out_path + g_out_max_backfill
+
     # %% 
     # 输入数据读取
-    df_province_city_mapping =  spark.sql("SELECT * FROM %s.province_city_mapping WHERE provider='%s' AND version='%s'" 
-                             %(g_database_input, project_name, dict_input_version['province_city_mapping']))
-    
-    df_mkt_mapping =  spark.sql("SELECT * FROM %s.mkt_mapping WHERE provider='%s' AND version='%s'" 
-                             %(g_database_input, project_name, dict_input_version['mkt_mapping']))
-    
-    df_cpa_pha_mapping =  spark.sql("SELECT * FROM %s.cpa_pha_mapping WHERE provider='%s' AND version='%s'" 
-                             %(g_database_input, project_name, dict_input_version['cpa_pha_mapping']))
-    
-    df_cpa_pha_mapping_common =  spark.sql("SELECT * FROM %s.cpa_pha_mapping WHERE provider='%s' AND version='%s'" 
-                             %(g_database_input, 'common', dict_input_version['cpa_pha_mapping_common']))
-    
-    df_id_bedsize =  spark.sql("SELECT * FROM %s.id_bedsize WHERE provider='%s' AND version='%s'" 
-                             %(g_database_input, 'common', dict_input_version['id_bedsize']))
-    
-    df_prod_mapping =  spark.sql("SELECT * FROM %s.prod_mapping WHERE provider='%s' AND version='%s'" 
-                             %(g_database_input, project_name, dict_input_version['prod_mapping']))
-    
-    df_raw_data = spark.sql("SELECT * FROM %s.raw_data WHERE provider='%s' AND filetype='%s' AND version='%s'" 
-                             %(g_database_input, project_name, g_raw_data_type, dict_input_version['raw_data'][g_raw_data_type]))
-    
-    df_max_result_raw = spark.sql("SELECT * FROM %s.max_result_raw WHERE version='%s' AND provider='%s' AND  owner='%s'" 
-                             %(g_database_temp, run_id, project_name, owner))
+    df_province_city_mapping =  kwargs["df_province_city_mapping"]
+
+    df_mkt_mapping =  kwargs["df_mkt_mapping"]
+
+    df_cpa_pha_mapping =  kwargs["df_cpa_pha_mapping"]
+
+    df_cpa_pha_mapping_common =  kwargs["cpa_pha_mapping_common"]
+
+    df_id_bedsize =  kwargs["df_id_bedsize"]
+
+    df_prod_mapping =  kwargs["df_prod_mapping"]
+
+    df_raw_data = kwargs[g_raw_data_type]
+
+    df_max_result_raw = kwargs["df_max_result_raw"]
+
     # %% 
     # =========== 数据清洗 =============
     logger.debug('数据清洗-start')
@@ -215,6 +211,7 @@ def execute(**kwargs):
     # 5、其他处理
     if df_raw_data.where(~col('Pack_Number').isNull()).count() == 0:
         df_raw_data = df_raw_data.withColumn("Pack_Number", func.lit(0))
+
     # %%
     # =========== 函数定义：输出结果 =============
     def createPartition(p_out):
@@ -243,6 +240,7 @@ def execute(**kwargs):
         df.repartition(1).write.format("parquet") \
                  .mode("append").partitionBy("version", "provider", "owner") \
                  .parquet(p_out)
+
     # %%
     # =========== 数据执行 =============
     '''
@@ -319,6 +317,7 @@ def execute(**kwargs):
             .withColumnRenamed("sum(Sales)", "Predict_Sales") \
             .withColumnRenamed("sum(Units)", "Predict_Unit") \
             .withColumnRenamed("S_Molecule", "Molecule") 
+
     # %%
     # 二. max文件处理
     # max_result 筛选 BEDSIZE > 99， 且医院不在 raw_data_PHA 中
@@ -338,6 +337,7 @@ def execute(**kwargs):
             .agg({"Predict_Sales":"sum", "Predict_Unit":"sum"}) \
             .withColumnRenamed("sum(Predict_Sales)", "Predict_Sales") \
             .withColumnRenamed("sum(Predict_Unit)", "Predict_Unit")
+
     # %%
     # 三. 合并raw_data 和 max文件处理
     if hospital_level == "True":
@@ -367,7 +367,19 @@ def execute(**kwargs):
 
     # %%
     # ==== **** 输出补数结果 **** ==== 
-    outResult(df_max_result_backfill, p_out_max_backfill)
-    logger.debug("输出 raw_data_adding_final：" + p_out_max_backfill)
-    createPartition(p_out_max_backfill)
+    # outResult(df_max_result_backfill, p_out_max_backfill)
+    # print("输出 raw_data_adding_final：" + p_out_max_backfill)
+    # createPartition(p_out_max_backfill)
+    # print('数据执行-Finish')
+    
+    # %%
+    # =========== 数据输出 =============
+    def lowerColumns(df):
+        df = df.toDF(*[i.lower() for i in df.columns])
+        return df
+    
+    df_max_result_backfill = lowerColumns(df_max_result_backfill)
+    
     logger.debug('数据执行-Finish')
+    
+    return {'out_df':df_max_result_backfill}

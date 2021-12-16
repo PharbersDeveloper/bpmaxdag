@@ -23,16 +23,17 @@ def execute(**kwargs):
     out_path = kwargs['out_path']
     run_id = kwargs['run_id']
     owner = kwargs['owner']
-    g_input_version = kwargs['g_input_version']
     g_database_temp = kwargs['g_database_temp']
     g_database_input = kwargs['g_database_input']
     ### input args ###
     
     ### output args ###
-    g_out_raw_standard = kwargs['g_out_raw_standard']
-    g_out_raw_standard_brief = kwargs['g_out_raw_standard_brief']
+    # g_out_raw_standard = kwargs['g_out_raw_standard']
+    # g_out_raw_standard_brief = kwargs['g_out_raw_standard_brief']
     ### output args ###
 
+    
+    
     
     
     
@@ -45,8 +46,10 @@ def execute(**kwargs):
     import json
     import boto3    # %% 
     # 输入参数设置
-    dict_input_version = json.loads(g_input_version)
-    logger.debug(dict_input_version)
+    g_out_raw_standard = 'raw_data_standard'
+    g_out_raw_standard_brief = 'raw_data_standard_brief'
+    # dict_input_version = json.loads(g_input_version)
+    # print(dict_input_version)
     
     if minimum_product_sep == 'kong':
         minimum_product_sep = ''
@@ -57,30 +60,21 @@ def execute(**kwargs):
     p_out_raw_standard_brief = out_path + g_out_raw_standard_brief
     # %% 
     # 输入数据读取
-    df_max_city_normalize =  spark.sql("SELECT * FROM %s.province_city_mapping WHERE provider='%s' AND version='%s'" 
-                             %(g_database_input, 'common', dict_input_version['province_city_mapping_common']))
-    
-    df_prod_mapping =  spark.sql("SELECT * FROM %s.prod_mapping WHERE provider='%s' AND version='%s'" 
-                             %(g_database_input, project_name, dict_input_version['prod_mapping']))
-    
-    df_molecule_atc_map =  spark.sql("SELECT * FROM %s.product_map_all_atc WHERE provider='%s' AND version='%s'" 
-                             %(g_database_input, 'common', dict_input_version['product_map_all_atc']))
-    
-    df_master_data_map =  spark.sql("SELECT * FROM %s.master_data_map WHERE provider='%s' AND version='%s'" 
-                             %(g_database_input, 'common', dict_input_version['master_data_map']))
-    
-    df_cpa_pha_mapping =  spark.sql("SELECT * FROM %s.cpa_pha_mapping WHERE provider='%s' AND version='%s'" 
-                             %(g_database_input, 'common', dict_input_version['cpa_pha_mapping_common']))
-    
-    df_mkt_mapping =  spark.sql("SELECT * FROM %s.mkt_mapping WHERE provider='%s' AND version='%s'" 
-                             %(g_database_input, project_name, dict_input_version['mkt_mapping']))
-    
-    df_universe =  spark.sql("SELECT * FROM %s.universe_base WHERE provider='%s' AND version='%s'" 
-                             %(g_database_input, 'common', dict_input_version['universe_base_common']))
-    
-    df_raw_data = spark.sql("SELECT * FROM %s.raw_data WHERE provider='%s' AND filetype='%s' AND version='%s'" 
-                                 %(g_database_input, project_name, 'data_delivery', dict_input_version['raw_data']['data_delivery']))
+    df_max_city_normalize =  kwargs['df_province_city_mapping_common']
 
+    df_prod_mapping =  kwargs['df_prod_mapping']
+
+    df_molecule_atc_map =  kwargs['df_product_map_all_atc']
+
+    df_master_data_map =  kwargs['df_master_data_map']
+
+    df_cpa_pha_mapping =  kwargs['df_cpa_pha_mapping_common']
+
+    df_mkt_mapping = kwargs['df_mkt_mapping']
+
+    df_universe =  kwargs['df_universe_base_common']
+
+    df_raw_data = kwargs['df_raw_data_delivery']
     # %% 
     # =========== 数据清洗 =============
     logger.debug('数据清洗-start')
@@ -376,20 +370,31 @@ def execute(**kwargs):
         df.repartition(1).write.format("parquet") \
                  .mode("overwrite").partitionBy("DATE") \
                  .parquet(p_out)
+
     # %%
     # ========== 数据输出 =========
     
-    outResult(df_raw_data_standard, p_out_raw_standard)
-    logger.debug("输出 raw_standard_out：" + p_out_raw_standard)
+    # outResult(df_raw_data_standard, p_out_raw_standard)
+    # print("输出 raw_standard_out：" + p_out_raw_standard)
     
-    outResult(df_raw_data_standard_brief, p_out_raw_standard_brief)
-    logger.debug("输出 raw_standard_brief：" + p_out_raw_standard_brief)
+    # outResult(df_raw_data_standard_brief, p_out_raw_standard_brief)
+    # print("输出 raw_standard_brief：" + p_out_raw_standard_brief)
     
-    pdf = df_raw_data_standard_brief.select('DATE').distinct().toPandas()
-    for indexs in pdf.index:
-        data = pdf.loc[indexs]
-        i_data = str(data['DATE'])    
-        createPartition(p_out_raw_standard, i_data)
-        createPartition(p_out_raw_standard_brief, i_data)
+    # pdf = df_raw_data_standard_brief.select('DATE').distinct().toPandas()
+    # for indexs in pdf.index:
+    #     data = pdf.loc[indexs]
+    #     i_data = str(data['DATE'])    
+    #     createPartition(p_out_raw_standard, i_data)
+    #     createPartition(p_out_raw_standard_brief, i_data)
+    # print('数据执行-Finish')
+    
+    # =========== 数据输出 =============
+    def lowerColumns(df):
+        df = df.toDF(*[i.lower() for i in df.columns])
+        return df
+    
+    df_raw_data_standard = lowerColumns(df_raw_data_standard)
+    
     logger.debug('数据执行-Finish')
-
+    
+    return {'out_df':df_raw_data_standard}

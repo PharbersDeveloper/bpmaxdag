@@ -27,7 +27,6 @@ def execute(**kwargs):
     out_path = kwargs['out_path']
     run_id = kwargs['run_id']
     owner = kwargs['owner']
-    g_input_version = kwargs['g_input_version']
     g_database_temp = kwargs['g_database_temp']
     g_database_input = kwargs['g_database_input']
     ### input args ###
@@ -38,8 +37,6 @@ def execute(**kwargs):
     g_out_raw_data_adding_final = kwargs['g_out_raw_data_adding_final']
     ### output args ###
 
-    
-    
     import pandas as pd
     import os
     from pyspark.sql import SparkSession
@@ -48,19 +45,12 @@ def execute(**kwargs):
     from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col        
     import json
     import boto3    
-    # %%
-    # project_name = 'Empty'
-    # model_month_right = 0
-    # max_month = 0
-    # year_missing = 0
-    # current_year = 2020
-    # first_month = 'Empty'
-    # current_month = 'Empty'
-    # if_others = 'False'
-    # monthly_update = 'Empty'
-    # if_add_data = 'True'
     # %% 
     # 输入参数设置
+    g_out_adding_data = 'adding_data'
+    g_out_new_hospital = 'new_hospital'
+    g_out_raw_data_adding_final = 'raw_data_adding_final'
+    
     logger.debug('job3_data_adding')
     if if_add_data != "False" and if_add_data != "True":
         logger.debug('wrong input: if_add_data, False or True') 
@@ -96,29 +86,20 @@ def execute(**kwargs):
 
     # %% 
     # 输入数据读取
-    df_raw_data = spark.sql("SELECT * FROM %s.product_mapping_out WHERE version='%s' AND provider='%s' AND  owner='%s'" 
-                         %(g_database_temp, run_id, project_name, owner))
+    df_raw_data = kwargs['df_raw_data_deal_poi']
     
-    df_price = spark.sql("SELECT * FROM %s.price WHERE version='%s' AND provider='%s' AND  owner='%s'" 
-                         %(g_database_temp, run_id, project_name, owner))
+    df_price = kwargs['df_price']
     
-    df_price_city = spark.sql("SELECT * FROM %s.price_city WHERE version='%s' AND provider='%s' AND  owner='%s'" 
-                         %(g_database_temp, run_id, project_name, owner))
+    df_price_city = kwargs['df_price_city']
     
-    df_growth_rate = spark.sql("SELECT * FROM %s.growth_rate WHERE version='%s' AND provider='%s' AND  owner='%s'" 
-                         %(g_database_temp, run_id, project_name, owner))
+    df_growth_rate = kwargs['df_growth_rate']
     
-    df_poi =  spark.sql("SELECT * FROM %s.poi WHERE provider='%s' AND version='%s'" 
-                             %(g_database_input, project_name, dict_input_version['poi']))
+    df_cpa_pha_mapping = kwargs['df_cpa_pha_mapping']
     
-    df_cpa_pha_mapping =  spark.sql("SELECT * FROM %s.cpa_pha_mapping WHERE provider='%s' AND version='%s'" 
-                             %(g_database_input, project_name, dict_input_version['cpa_pha_mapping']))
+    df_published =  kwargs['df_published']
     
-    df_published =  spark.sql("SELECT * FROM %s.published WHERE provider='common' AND version IN %s" 
-                                 %(g_database_input, tuple(dict_input_version['published'].replace(' ','').split(','))))
     if monthly_update == "True":       
-        df_not_arrived =  spark.sql("SELECT * FROM %s.not_arrived WHERE provider='common' AND version IN %s" 
-                                 %(g_database_input, tuple(dict_input_version['not_arrived'].replace(' ','').split(','))))
+        df_not_arrived =  kwargs['df_not_arrived']
 
     # %% 
     # =========== 数据清洗 =============
@@ -132,7 +113,7 @@ def execute(**kwargs):
         return df
     
     # 1、选择标准列
-    df_poi = df_poi.select('poi').distinct()
+    # df_poi = df_poi.select('poi').distinct()
     df_raw_data = df_raw_data.drop('version', 'provider', 'owner')
     df_cpa_pha_mapping = df_cpa_pha_mapping.select('ID', 'PHA', '推荐版本').distinct()
     df_price = df_price.select('min2', 'date', 'city_tier_2010', 'price')
@@ -232,13 +213,13 @@ def execute(**kwargs):
     logger.debug('数据执行-start')
     
     # 1、数据处理
-    products_of_interest = df_poi.toPandas()["poi"].values.tolist()
-    # raw_data 处理
-    raw_data = df_raw_data.withColumn("S_Molecule_for_gr",
-                                   func.when(col("标准商品名").isin(products_of_interest), col("标准商品名")).
-                                   otherwise(col('S_Molecule')))
+    # products_of_interest = df_poi.toPandas()["poi"].values.tolist()
+    # # raw_data 处理
+    # raw_data = df_raw_data.withColumn("S_Molecule_for_gr",
+    #                                func.when(col("标准商品名").isin(products_of_interest), col("标准商品名")).
+    #                                otherwise(col('S_Molecule')))
     
-    
+    raw_data = df_raw_data
     price = df_price.withColumnRenamed('Price', 'Price_tier')
     price_city = df_price_city.withColumnRenamed('Price', 'Price_city')
     
@@ -486,9 +467,19 @@ def execute(**kwargs):
         raw_data_adding_final = raw_data_adding.where((col('Year') == current_year) & (col('Month') >= first_month) & (col('Month') <= current_month) )
 
     # %%
-    # ==== **** 输出补数结果 **** ==== 
-    outResult(raw_data_adding_final, p_out_raw_data_adding_final)
-    logger.debug("输出 raw_data_adding_final：" + p_out_raw_data_adding_final)
-    createPartition(p_out_raw_data_adding_final)
+    # =========== 数据输出 =============
+    # outResult(raw_data_adding_final, p_out_raw_data_adding_final)
+    # print("输出 raw_data_adding_final：" + p_out_raw_data_adding_final)
+    # createPartition(p_out_raw_data_adding_final)
+    # print('数据执行-Finish')
+    
+    
+    def lowerColumns(df):
+        df = df.toDF(*[i.lower() for i in df.columns])
+        return df
+    
+    raw_data_adding_final = lowerColumns(raw_data_adding_final)
+    
     logger.debug('数据执行-Finish')
-
+    
+    return {'out_df':raw_data_adding_final}

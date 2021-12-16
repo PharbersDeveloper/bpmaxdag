@@ -46,8 +46,6 @@ spec:
         value: 'run_id_max_test'
       - key: owner
         value: 'Airflow'
-      - key: g_input_version
-        value: '{"raw_data":{"data":"202103_u0079u0079u0077", "data_std":"202103_u0079u0079u0077"}, "cpa_pha_mapping":"20210623_u0079u0079u0077", "cpa_pha_mapping_common":"20210623_u0079u0079u0077", "id_bedsize":"20210623_u0079u0079u0077", "prod_mapping":"202103_u0079u0079u0077", "mkt_mapping":"20210623_u0079u0079u0077", "province_city_mapping":"20210623_u0079u0079u0077"}'
       - key: g_database_temp
         value: 'phdatatemp'
       - key: g_database_input

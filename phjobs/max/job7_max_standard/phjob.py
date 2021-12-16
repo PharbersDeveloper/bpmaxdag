@@ -20,16 +20,17 @@ def execute(**kwargs):
     out_path = kwargs['out_path']
     run_id = kwargs['run_id']
     owner = kwargs['owner']
-    g_input_version = kwargs['g_input_version']
     g_database_temp = kwargs['g_database_temp']
     g_database_input = kwargs['g_database_input']
     ### input args ###
     
     ### output args ###
-    g_out_max_standard = kwargs['g_out_max_standard']
-    g_out_max_standard_brief = kwargs['g_out_max_standard_brief']
+    # g_out_max_standard = kwargs['g_out_max_standard']
+    # g_out_max_standard_brief = kwargs['g_out_max_standard_brief']
     ### output args ###
 
+    
+    
     
     
     from pyspark.sql import SparkSession, Window
@@ -40,8 +41,11 @@ def execute(**kwargs):
     import json
     import boto3    # %% 
     # 输入参数设置
-    dict_input_version = json.loads(g_input_version)
-    logger.debug(dict_input_version)
+    g_out_max_standard = 'max_result_standard'
+    g_out_max_standard_brief = 'max_result_standard_brief'
+    
+    # dict_input_version = json.loads(g_input_version)
+    # print(dict_input_version)
     
     # 输出
     p_out_max_standard = extract_path + g_out_max_standard + '/project=' + project_name
@@ -51,20 +55,15 @@ def execute(**kwargs):
     p_tmp_out_max_standard_brief = out_path + g_out_max_standard_brief
     # %% 
     # 输入数据读取
-    df_max_city_normalize =  spark.sql("SELECT * FROM %s.province_city_mapping WHERE provider='%s' AND version='%s'" 
-                             %(g_database_input, 'common', dict_input_version['province_city_mapping_common']))
+    df_max_city_normalize = kwargs['df_province_city_mapping_common']
     
-    df_prod_mapping =  spark.sql("SELECT * FROM %s.prod_mapping WHERE provider='%s' AND version='%s'" 
-                             %(g_database_input, project_name, dict_input_version['prod_mapping']))
+    df_prod_mapping = kwargs['df_prod_mapping']
     
-    df_molecule_atc_map =  spark.sql("SELECT * FROM %s.product_map_all_atc WHERE provider='%s' AND version='%s'" 
-                             %(g_database_input, 'common', dict_input_version['product_map_all_atc']))
+    df_molecule_atc_map = kwargs['df_product_map_all_atc'] 
     
-    df_master_data_map =  spark.sql("SELECT * FROM %s.master_data_map WHERE provider='%s' AND version='%s'" 
-                             %(g_database_input, 'common', dict_input_version['master_data_map']))
+    df_master_data_map = kwargs['df_master_data_map']  
     
-    df_max_result_backfill = spark.sql("SELECT * FROM %s.max_result_backfill WHERE version='%s' AND provider='%s' AND  owner='%s'" 
-                             %(g_database_temp, run_id, project_name, owner))
+    df_max_result_backfill = kwargs['df_max_result_backfill']  
 
     # %% 
     # =========== 数据清洗 =============
@@ -353,18 +352,28 @@ def execute(**kwargs):
 
     # %%
     # ========== 数据输出 =========    
-    outResult(df_max_standard_out, p_tmp_out_max_standard)
-    logger.debug("输出 max_standard_out：" + p_tmp_out_max_standard)
+    # outResult(df_max_standard_out, p_tmp_out_max_standard)
+    # print("输出 max_standard_out：" + p_tmp_out_max_standard)
       
-    outResult(df_max_standard_brief, p_tmp_out_max_standard_brief)
-    logger.debug("输出 max_standard_brief：" + p_tmp_out_max_standard_brief)
+    # outResult(df_max_standard_brief, p_tmp_out_max_standard_brief)
+    # print("输出 max_standard_brief：" + p_tmp_out_max_standard_brief)
     
-    pdf = df_max_standard_brief.select('DATE').distinct().toPandas()
-    for indexs in pdf.index:
-        data = pdf.loc[indexs]
-        i_data = str(data['DATE'])
-        createPartition(p_tmp_out_max_standard, i_data)
-        createPartition(p_tmp_out_max_standard_brief, i_data)
+    # pdf = df_max_standard_brief.select('DATE').distinct().toPandas()
+    # for indexs in pdf.index:
+    #     data = pdf.loc[indexs]
+    #     i_data = str(data['DATE'])
+    #     createPartition(p_tmp_out_max_standard, i_data)
+    #     createPartition(p_tmp_out_max_standard_brief, i_data)
         
+    # print('数据执行-Finish')
+    
+    # =========== 数据输出 =============
+    def lowerColumns(df):
+        df = df.toDF(*[i.lower() for i in df.columns])
+        return df
+    
+    df_max_standard_out = lowerColumns(df_max_standard_out)
+    
     logger.debug('数据执行-Finish')
-
+    
+    return {'out_df':df_max_standard_out}
