@@ -133,9 +133,9 @@ def execute(**kwargs):
     logger.debug('数据执行-start')
     # 输入数据读取
     if monthly_update == "True":   
-        df_published =  df_published
-        df_not_arrived =  df_not_arrived
-    raw_data = df_raw_data_deal_poi
+        df_published =  kwargs['df_published']
+        df_not_arrived =  kwargs['df_not_arrived']
+    raw_data = kwargs['df_raw_data_deal_poi']
 
     # %%
     # ==== 计算增长率 ====

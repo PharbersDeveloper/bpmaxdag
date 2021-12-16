@@ -110,7 +110,7 @@ def execute(**kwargs):
 
     df_cpa_pha_mapping =  kwargs["df_cpa_pha_mapping"]
 
-    df_cpa_pha_mapping_common =  kwargs["cpa_pha_mapping_common"]
+    df_cpa_pha_mapping_common =  kwargs["df_cpa_pha_mapping_common"]
 
     df_id_bedsize =  kwargs["df_id_bedsize"]
 

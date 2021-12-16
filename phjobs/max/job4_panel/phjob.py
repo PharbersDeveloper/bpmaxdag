@@ -63,18 +63,18 @@ def execute(**kwargs):
 
     # %% 
     # 输入数据读取
-    df_raw_data_adding_final = df_raw_data_adding_final
+    df_raw_data_adding_final =  kwargs['df_raw_data_adding_final']
     
-    df_mkt_mapping = df_mkt_mapping
+    df_mkt_mapping = kwargs['df_mkt_mapping']
     
-    df_universe =  df_universe_base
+    df_universe =  kwargs['df_universe_base']
     
     if monthly_update == "True":   
-        df_published =  df_published
+        df_published =  kwargs['df_published']
     
-        df_not_arrived =  df_not_arrived
+        df_not_arrived =  kwargs['df_not_arrived']
     else:
-        df_new_hospital = df_new_hospital
+        df_new_hospital = kwargs['df_new_hospital']
 
     # %% 
     # =========== 数据清洗 =============
