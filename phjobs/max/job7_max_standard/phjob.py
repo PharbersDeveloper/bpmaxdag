@@ -16,7 +16,6 @@ def execute(**kwargs):
     ### input args ###
     extract_path = kwargs['extract_path']
     project_name = kwargs['project_name']
-    g_for_extract = kwargs['g_for_extract']
     out_path = kwargs['out_path']
     run_id = kwargs['run_id']
     owner = kwargs['owner']
@@ -73,7 +72,7 @@ def execute(**kwargs):
         # 检索出正确列名
         l_true_colname = []
         for i in l_colnames:
-            if i.lower() in l_df_columns and df.where(~col(i).isNull()).count() > 0:
+            if i.lower() in l_df_columns and df.where((~col(i).isNull()) & (col(i) != 'None')).count() > 0:
                 l_true_colname.append(i)
         if len(l_true_colname) > 1:
            raise ValueError('有重复列名: %s' %(l_true_colname))

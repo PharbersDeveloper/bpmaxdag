@@ -83,7 +83,7 @@ def execute(**kwargs):
         # 检索出正确列名
         l_true_colname = []
         for i in l_colnames:
-            if i.lower() in l_df_columns and df.where(~col(i).isNull()).count() > 0:
+            if i.lower() in l_df_columns and df.where( (~col(i).isNull()) & (col(i) != 'None') ).count() > 0:
                 l_true_colname.append(i)
         if len(l_true_colname) > 1:
            raise ValueError('有重复列名: %s' %(l_true_colname))
@@ -164,7 +164,7 @@ def execute(**kwargs):
                                     .withColumn("min2", func.regexp_replace("min2", "&lt;", "<")) \
                                     .withColumn("min2", func.regexp_replace("min2", "&gt;", ">"))
     # ** raw_data ==
-    if df_raw_data.where(~col('Pack_Number').isNull()).count() == 0:
+    if df_raw_data.where( (~col('Pack_Number').isNull()) & (col('Pack_Number') != 'None') ).count() == 0:
             df_raw_data = df_raw_data.withColumn("Pack_Number", func.lit(0))
             
     # 4、ID列补位

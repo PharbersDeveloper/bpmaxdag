@@ -113,7 +113,7 @@ def execute(**kwargs):
         # 检索出正确列名
         l_true_colname = []
         for i in l_colnames:
-            if i.lower() in l_df_columns and df.where(~col(i).isNull()).count() > 0:
+            if i.lower() in l_df_columns and df.where( (~col(i).isNull()) & (col(i) != 'None') ).count() > 0:
                 l_true_colname.append(i)
         if len(l_true_colname) > 1:
            raise ValueError('有重复列名: %s' %(l_true_colname))
@@ -217,26 +217,22 @@ def execute(**kwargs):
         # universe 读取
         if market in universe_choice_dict.keys():
             filetype = universe_choice_dict[market]
-            df_universe =  spark.sql("SELECT * FROM %s.universe_other WHERE provider='%s' AND filetype='%s' AND version='%s'" 
-                                     %(g_database_input, project_name, filetype, dict_input_version['universe_other'][filetype]))    
+            df_universe =  kwargs['df_universe_other'].where(col('filetype')==filetype)  
         else:
-            df_universe =  spark.sql("SELECT * FROM %s.universe_base WHERE provider='%s' AND version='%s'" 
-                                 %(g_database_input, project_name, dict_input_version['universe_base']))
+            df_universe =  kwargs['df_universe_base']
+            
         df_universe = cleanUniverse(df_universe)
-                   
             
         # universe_outlier 读取
-        df_universe_outlier = spark.sql("SELECT * FROM %s.universe_outlier WHERE provider='%s' AND filetype='%s' AND version='%s'" 
-                                     %(g_database_input, project_name, market, dict_input_version['universe_outlier'][market]))
+        df_universe_outlier = kwargs['df_universe_outlier'].where(col('filetype')==market)
         df_universe_outlier = cleanUniverse(df_universe_outlier)
         
         # factor 读取
         if if_base:
-            df_factor = spark.sql("SELECT * FROM %s.factor WHERE provider='%s' AND filetype='%s' AND version='%s'" 
-                                     %(g_database_input, project_name, market, dict_input_version['factor']['base']))
+            df_factor = kwargs['df_factor_base']
         else:
-            df_factor = spark.sql("SELECT * FROM %s.factor WHERE provider='%s' AND filetype='%s' AND version='%s'" 
-                                     %(g_database_input, project_name, market, dict_input_version['factor'][market]))   
+            df_factor = kwargs['df_factor'].where(col('filetype')==market)
+
         df_factor = cleanFactor(df_factor)   
             
         # weight 文件
@@ -285,7 +281,7 @@ def execute(**kwargs):
         
         # 2. 非样本数据
         # 将非样本的segment和factor等信息合并起来：
-        if df_factor.where(~col('Province').isNull()).count() == 0:
+        if df_factor.where( (~col('Province').isNull()) & (col('Province') != 'None') ).count() == 0:
             df_factor = df_factor.select('City', 'factor').distinct()
             df_universe_factor_panel = df_universe.join(df_factor, on=["City"], how="left").cache().persist()
         else:

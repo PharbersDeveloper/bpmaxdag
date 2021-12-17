@@ -54,7 +54,7 @@ def execute(**kwargs):
     # p_out_path = out_path + g_out_table
     # %% 
     # 输入数据读取
-    df_raw_data = kwargs['product_mapping_out']
+    df_raw_data = kwargs['df_raw_data']
     # print(df_raw_data)
     # print(df_raw_data.count())
     
