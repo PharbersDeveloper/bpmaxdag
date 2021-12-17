@@ -34,7 +34,9 @@ def execute(**kwargs):
     import pandas as pd
     from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col    
     import json
-    import boto3        # %% 
+    import boto3        
+    
+    # %% 
     # 输入数据读取
     df_raw_data = kwargs['df_product_mapping_out']
     df_poi = kwargs['df_poi']

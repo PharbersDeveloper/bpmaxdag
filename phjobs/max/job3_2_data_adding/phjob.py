@@ -68,8 +68,8 @@ def execute(**kwargs):
     model_month_right = int(model_month_right)
     max_month = int(max_month)
     
-    dict_input_version = json.loads(g_input_version)
-    logger.debug(dict_input_version)
+    # dict_input_version = json.loads(g_input_version)
+    # logger.debug(dict_input_version)
     
     # 月更新相关参数
     if monthly_update == "True":
@@ -203,7 +203,7 @@ def execute(**kwargs):
                                         .select("ID", "PHA").distinct()
     
     original_range_raw = original_range_raw.join(df_cpa_pha_mapping, on='ID', how='left')
-    original_range_raw = original_range_raw.where(~col('PHA').isNull()) \
+    original_range_raw = original_range_raw.where(col('PHA') != 'None') \
                                             .withColumn('Year', func.substring(col('Date'), 0, 4)) \
                                             .withColumn('Month', func.substring(col('Date'), 5, 2).cast(IntegerType())) \
                                             .select('PHA', 'Year', 'Month').distinct()
@@ -318,7 +318,7 @@ def execute(**kwargs):
     def add_data(raw_data, growth_rate):
         # 1. 原始数据格式整理， 用于补数
         growth_rate = growth_rate.select(["CITYGROUP", "S_Molecule_for_gr"] + [name for name in growth_rate.columns if name.startswith("gr")]).distinct()
-        raw_data_for_add = raw_data.where(col('PHA').isNotNull()) \
+        raw_data_for_add = raw_data.where(col('PHA') != 'None') \
                                         .orderBy(col('Year').desc()) \
                                         .withColumnRenamed("City_Tier_2010", "CITYGROUP") \
                                         .join(growth_rate, on=["S_Molecule_for_gr", "CITYGROUP"], how="left")

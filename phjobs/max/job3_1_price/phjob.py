@@ -34,7 +34,9 @@ def execute(**kwargs):
     import pandas as pd
     from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col    
     import json
-    import boto3     # %%
+    import boto3     
+    
+    # %%
     # =========== 数据执行 =============
     logger.debug('数据执行-start')
     raw_data = kwargs['df_raw_data_deal_poi']

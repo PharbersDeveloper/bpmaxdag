@@ -42,7 +42,9 @@ def execute(**kwargs):
     import pandas as pd
     from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col    
     import json
-    import boto3     # %% 
+    import boto3     
+    
+    # %% 
     # 输入参数设置
     g_out_growth_rate = 'growth_rate'
     
@@ -63,9 +65,6 @@ def execute(**kwargs):
     model_month_right = int(model_month_right)
     max_month = int(max_month)
     
-    dict_input_version = json.loads(g_input_version)
-    logger.debug(dict_input_version)
-    
     # 月更新相关参数
     if monthly_update == "True":
         current_year = int(current_year)
@@ -78,6 +77,16 @@ def execute(**kwargs):
     p_out_growth_rate = out_path + g_out_growth_rate
 
     # %% 
+    # =========== 数据执行 =============
+    logger.debug('数据执行-start')
+    # 输入数据读取
+    if monthly_update == "True":   
+        df_published =  kwargs['df_published']
+        df_not_arrived =  kwargs['df_not_arrived']
+        
+    raw_data = kwargs['df_raw_data_deal_poi']
+    
+    # %%
     # =========== 数据清洗 =============
     def dealIDLength(df, colname='ID'):
         # ID不足7位的前面补0到6位
@@ -128,14 +137,7 @@ def execute(**kwargs):
                  .mode("append").partitionBy("version", "provider", "owner") \
                  .parquet(p_out)
 
-    # %%
-    # =========== 数据执行 =============
-    logger.debug('数据执行-start')
-    # 输入数据读取
-    if monthly_update == "True":   
-        df_published =  kwargs['df_published']
-        df_not_arrived =  kwargs['df_not_arrived']
-    raw_data = kwargs['df_raw_data_deal_poi']
+
 
     # %%
     # ==== 计算增长率 ====

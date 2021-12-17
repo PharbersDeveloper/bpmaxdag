@@ -55,8 +55,8 @@ def execute(**kwargs):
         current_year = int(current_year)
         current_month = int(current_month)
         
-    dict_input_version = json.loads(g_input_version)
-    logger.debug(dict_input_version)
+    # dict_input_version = json.loads(g_input_version)
+    # logger.debug(dict_input_version)
     
     # 输出
     p_out_panel_result = out_path + g_out_panel_result
@@ -85,7 +85,7 @@ def execute(**kwargs):
         # 检索出正确列名
         l_true_colname = []
         for i in l_colnames:
-            if i.lower() in l_df_columns and df.where(~col(i).isNull()).count() > 0:
+            if i.lower() in l_df_columns and df.where(col(i) != 'None').count() > 0:
                 l_true_colname.append(i)
         if len(l_true_colname) > 1:
            raise ValueError('有重复列名: %s' %(l_true_colname))
@@ -140,7 +140,7 @@ def execute(**kwargs):
         df_new_hospital = df_new_hospital.select('PHA').distinct()
     
     # 5、其他处理
-    if df_universe.where(~col('HOSP_NAME').isNull()).count() == 0:
+    if df_universe.where(col('HOSP_NAME') != 'None').count() == 0:
         df_universe = df_universe.withColumn("HOSP_NAME", func.lit("0"))
     
     df_mkt_mapping = df_mkt_mapping.withColumnRenamed("标准通用名", "通用名")
