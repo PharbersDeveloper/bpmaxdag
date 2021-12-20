@@ -25,16 +25,16 @@ def execute(**kwargs):
     monthly_update = kwargs['monthly_update']
     if_add_data = kwargs['if_add_data']
     out_path = kwargs['out_path']
-    run_id = kwargs['run_id']
+    run_id = kwargs['run_id'].replace(":","_")
     owner = kwargs['owner']
     g_database_temp = kwargs['g_database_temp']
     g_database_input = kwargs['g_database_input']
     ### input args ###
     
     ### output args ###
-    g_out_adding_data = kwargs['g_out_adding_data']
-    g_out_new_hospital = kwargs['g_out_new_hospital']
-    g_out_raw_data_adding_final = kwargs['g_out_raw_data_adding_final']
+    # g_out_adding_data = kwargs['g_out_adding_data']
+    # g_out_new_hospital = kwargs['g_out_new_hospital']
+    # g_out_raw_data_adding_final = kwargs['g_out_raw_data_adding_final']
     ### output args ###
 
     import pandas as pd
@@ -86,20 +86,31 @@ def execute(**kwargs):
 
     # %% 
     # 输入数据读取
+    def changeColToInt(df, list_cols):
+        for i in list_cols:
+            df = df.withColumn(i, col(i).cast('int'))
+        return df
+        
+    
     df_raw_data = kwargs['df_raw_data_deal_poi']
+    df_raw_data = changeColToInt(df_raw_data, ['date', 'year', 'month']) 
     
     df_price = kwargs['df_price']
+    df_price = changeColToInt(df_price, ['date']) 
     
     df_price_city = kwargs['df_price_city']
+    df_price_city = changeColToInt(df_price_city, ['date'])
     
     df_growth_rate = kwargs['df_growth_rate']
     
     df_cpa_pha_mapping = kwargs['df_cpa_pha_mapping']
     
     df_published =  kwargs['df_published']
+    df_published = changeColToInt(df_published, ['year'])
     
     if monthly_update == "True":       
         df_not_arrived =  kwargs['df_not_arrived']
+        df_not_arrived = changeColToInt(df_not_arrived, ['date'])
 
     # %% 
     # =========== 数据清洗 =============

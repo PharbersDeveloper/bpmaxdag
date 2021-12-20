@@ -25,7 +25,7 @@ def execute(**kwargs):
     monthly_update = kwargs['monthly_update']
     if_add_data = kwargs['if_add_data']
     out_path = kwargs['out_path']
-    run_id = kwargs['run_id']
+    run_id = kwargs['run_id'].replace(":","_")
     owner = kwargs['owner']
     g_database_temp = kwargs['g_database_temp']
     g_database_input = kwargs['g_database_input']
@@ -80,11 +80,20 @@ def execute(**kwargs):
     # =========== 数据执行 =============
     logger.debug('数据执行-start')
     # 输入数据读取
+    def changeColToInt(df, list_cols):
+        for i in list_cols:
+            df = df.withColumn(i, col(i).cast('int'))
+        return df
+
     if monthly_update == "True":   
         df_published =  kwargs['df_published']
+        df_published = changeColToInt(df_published, ['year'])
+        
         df_not_arrived =  kwargs['df_not_arrived']
+        df_not_arrived = changeColToInt(df_not_arrived, ['date'])
         
     raw_data = kwargs['df_raw_data_deal_poi']
+    raw_data = changeColToInt(raw_data, ['date', 'year', 'month']) 
     
     # %%
     # =========== 数据清洗 =============
