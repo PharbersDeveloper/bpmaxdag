@@ -30,7 +30,7 @@ def execute(**kwargs):
     ### input args ###
     
     ### output args ###
-    g_out_panel_result = kwargs['g_out_panel_result']
+    # g_out_panel_result = kwargs['g_out_panel_result']
     ### output args ###
 
     from pyspark.sql import SparkSession, Window
