@@ -27,7 +27,7 @@ def execute(**kwargs):
     bedsize = kwargs['bedsize']
     id_bedsize_path = kwargs['id_bedsize_path']
     out_path = kwargs['out_path']
-    run_id = kwargs['run_id']
+    run_id = kwargs['run_id'].replace(":","_")
     owner = kwargs['owner']
     g_database_temp = kwargs['g_database_temp']
     g_database_input = kwargs['g_database_input']

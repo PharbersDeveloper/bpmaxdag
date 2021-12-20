@@ -23,7 +23,7 @@ def execute(**kwargs):
     monthly_update = kwargs['monthly_update']
     add_47 = kwargs['add_47']
     out_path = kwargs['out_path']
-    run_id = kwargs['run_id']
+    run_id = kwargs['run_id'].replace(":","_")
     owner = kwargs['owner']
     g_database_temp = kwargs['g_database_temp']
     g_database_input = kwargs['g_database_input']

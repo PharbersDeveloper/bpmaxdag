@@ -21,7 +21,7 @@ def execute(**kwargs):
     minimum_product_columns = kwargs['minimum_product_columns']
     # g_for_extract = kwargs['g_for_extract']
     out_path = kwargs['out_path']
-    run_id = kwargs['run_id']
+    run_id = kwargs['run_id'].replace(":","_")
     owner = kwargs['owner']
     g_database_temp = kwargs['g_database_temp']
     g_database_input = kwargs['g_database_input']

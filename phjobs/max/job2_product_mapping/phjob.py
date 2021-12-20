@@ -20,7 +20,7 @@ def execute(**kwargs):
     minimum_product_newname = kwargs['minimum_product_newname']
     need_cleaning_cols = kwargs['need_cleaning_cols']
     out_path = kwargs['out_path']
-    run_id = kwargs['run_id']
+    run_id = kwargs['run_id'].replace(":","_")
     owner = kwargs['owner']
     # g_input_version = kwargs['g_input_version']
     g_database_temp = kwargs['g_database_temp']
