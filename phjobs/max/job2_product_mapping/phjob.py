@@ -54,8 +54,8 @@ def execute(**kwargs):
         minimum_product_sep = ""
         
     # 输出
-    p_out_path = out_path + g_out_table
-    p_out_need_clean = out_path + g_need_clean_table
+    # p_out_path = out_path + g_out_table
+    # p_out_need_clean = out_path + g_need_clean_table
     # %% 
     def changeColToInt(df, list_cols):
         for i in list_cols:
