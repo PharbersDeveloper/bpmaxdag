@@ -14,7 +14,7 @@ def execute(**kwargs):
     depends_path = kwargs["depends_path"]
     
     ### input args ###
-    extract_path = kwargs['extract_path']
+    # extract_path = kwargs['extract_path']
     project_name = kwargs['project_name']
     out_path = kwargs['out_path']
     run_id = kwargs['run_id']
@@ -47,8 +47,8 @@ def execute(**kwargs):
     # print(dict_input_version)
     
     # 输出
-    p_out_max_standard = extract_path + g_out_max_standard + '/project=' + project_name
-    p_out_max_standard_brief = extract_path + g_out_max_standard_brief + '/project=' + project_name
+    # p_out_max_standard = extract_path + g_out_max_standard + '/project=' + project_name
+    # p_out_max_standard_brief = extract_path + g_out_max_standard_brief + '/project=' + project_name
     
     p_tmp_out_max_standard = out_path + g_out_max_standard
     p_tmp_out_max_standard_brief = out_path + g_out_max_standard_brief

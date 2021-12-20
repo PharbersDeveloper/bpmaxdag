@@ -14,12 +14,12 @@ def execute(**kwargs):
     depends_path = kwargs["depends_path"]
     
     ### input args ###
-    extract_path = kwargs['extract_path']
+    # extract_path = kwargs['extract_path']
     project_name = kwargs['project_name']
     if_two_source = kwargs['if_two_source']
     minimum_product_sep = kwargs['minimum_product_sep']
     minimum_product_columns = kwargs['minimum_product_columns']
-    g_for_extract = kwargs['g_for_extract']
+    # g_for_extract = kwargs['g_for_extract']
     out_path = kwargs['out_path']
     run_id = kwargs['run_id']
     owner = kwargs['owner']
