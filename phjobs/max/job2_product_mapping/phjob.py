@@ -57,8 +57,15 @@ def execute(**kwargs):
     p_out_path = out_path + g_out_table
     p_out_need_clean = out_path + g_need_clean_table
     # %% 
+    def changeColToInt(df, list_cols):
+        for i in list_cols:
+            df = df.withColumn(i, col(i).cast('int'))
+        return df
+        
     # 输入数据读取
     df_raw_data = kwargs['df_hospital_mapping_out']
+    df_raw_data = changeColToInt(df_raw_data, ['Pack_Number']) 
+    
     # print(df_raw_data)
     # print(df_raw_data.count())
     
