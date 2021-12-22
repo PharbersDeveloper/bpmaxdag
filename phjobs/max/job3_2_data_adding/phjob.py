@@ -46,6 +46,7 @@ def execute(**kwargs):
     import json
     import boto3    
     # %% 
+    # =========== 数据执行 =========== 
     # 输入参数设置
     g_out_adding_data = 'adding_data'
     g_out_new_hospital = 'new_hospital'
@@ -85,31 +86,41 @@ def execute(**kwargs):
     p_out_raw_data_adding_final = out_path + g_out_raw_data_adding_final
 
     # %% 
-    # 输入数据读取
+    # =========== 输入数据读取 =========== 
     def changeColToInt(df, list_cols):
         for i in list_cols:
             df = df.withColumn(i, col(i).cast('int'))
         return df
         
+    def dealToNull(df):
+        df = df.replace(["None", ""], None)
+        return df
     
     df_raw_data = kwargs['df_raw_data_deal_poi']
+    df_raw_data = dealToNull(df_raw_data)
     df_raw_data = changeColToInt(df_raw_data, ['date', 'year', 'month']) 
     
     df_price = kwargs['df_price']
+    df_price = dealToNull(df_price)
     df_price = changeColToInt(df_price, ['date']) 
     
     df_price_city = kwargs['df_price_city']
+    df_price_city = dealToNull(df_price_city)
     df_price_city = changeColToInt(df_price_city, ['date'])
     
     df_growth_rate = kwargs['df_growth_rate']
+    df_growth_rate = dealToNull(df_growth_rate)
     
     df_cpa_pha_mapping = kwargs['df_cpa_pha_mapping']
+    df_cpa_pha_mapping = dealToNull(df_cpa_pha_mapping)
     
     df_published =  kwargs['df_published']
+    df_published = dealToNull(df_published)
     df_published = changeColToInt(df_published, ['year'])
     
     if monthly_update == "True":       
         df_not_arrived =  kwargs['df_not_arrived']
+        df_not_arrived = dealToNull(df_not_arrived)
         df_not_arrived = changeColToInt(df_not_arrived, ['date'])
 
     # %% 
@@ -214,7 +225,7 @@ def execute(**kwargs):
                                         .select("ID", "PHA").distinct()
     
     original_range_raw = original_range_raw.join(df_cpa_pha_mapping, on='ID', how='left')
-    original_range_raw = original_range_raw.where(col('PHA') != 'None') \
+    original_range_raw = original_range_raw.where(~col('PHA').isNull()) \
                                             .withColumn('Year', func.substring(col('Date'), 0, 4)) \
                                             .withColumn('Month', func.substring(col('Date'), 5, 2).cast(IntegerType())) \
                                             .select('PHA', 'Year', 'Month').distinct()
@@ -329,7 +340,7 @@ def execute(**kwargs):
     def add_data(raw_data, growth_rate):
         # 1. 原始数据格式整理， 用于补数
         growth_rate = growth_rate.select(["CITYGROUP", "S_Molecule_for_gr"] + [name for name in growth_rate.columns if name.startswith("gr")]).distinct()
-        raw_data_for_add = raw_data.where(col('PHA') != 'None') \
+        raw_data_for_add = raw_data.where(~col('PHA').isNull()) \
                                         .orderBy(col('Year').desc()) \
                                         .withColumnRenamed("City_Tier_2010", "CITYGROUP") \
                                         .join(growth_rate, on=["S_Molecule_for_gr", "CITYGROUP"], how="left")

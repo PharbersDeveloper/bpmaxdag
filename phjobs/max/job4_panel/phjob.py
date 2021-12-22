@@ -40,7 +40,10 @@ def execute(**kwargs):
     import pandas as pd
     from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col
     import json
-    import boto3    # %% 
+    import boto3    
+    
+    # %% 
+    # =========== 数据执行 =========== 
     # 输入参数设置
     g_out_panel_result = 'panel_result'
     logger.debug('job4_panel')
@@ -62,19 +65,34 @@ def execute(**kwargs):
     p_out_panel_result = out_path + g_out_panel_result
 
     # %% 
-    # 输入数据读取
+    # =========== 输入数据读取 =========== 
+    def changeColToInt(df, list_cols):
+        for i in list_cols:
+            df = df.withColumn(i, col(i).cast('int'))
+        return df
+        
+    def dealToNull(df):
+        df = df.replace(["None", ""], None)
+        return df
+    
     df_raw_data_adding_final =  kwargs['df_raw_data_adding_final']
+    df_raw_data_adding_final = dealToNull(df_raw_data_adding_final)
     
     df_mkt_mapping = kwargs['df_mkt_mapping']
+    df_mkt_mapping = dealToNull(df_mkt_mapping)
     
     df_universe =  kwargs['df_universe_base']
+    df_universe = dealToNull(df_universe)
     
     if monthly_update == "True":   
         df_published =  kwargs['df_published']
+        df_published = dealToNull(df_published)
     
         df_not_arrived =  kwargs['df_not_arrived']
+        df_not_arrived = dealToNull(df_not_arrived)
     else:
         df_new_hospital = kwargs['df_new_hospital']
+        df_new_hospital = dealToNull(df_new_hospital)
 
     # %% 
     # =========== 数据清洗 =============
@@ -85,7 +103,7 @@ def execute(**kwargs):
         # 检索出正确列名
         l_true_colname = []
         for i in l_colnames:
-            if i.lower() in l_df_columns and df.where(col(i) != 'None').count() > 0:
+            if i.lower() in l_df_columns and df.where(~col(i).isNull()).count() > 0:
                 l_true_colname.append(i)
         if len(l_true_colname) > 1:
            raise ValueError('有重复列名: %s' %(l_true_colname))
@@ -140,7 +158,7 @@ def execute(**kwargs):
         df_new_hospital = df_new_hospital.select('PHA').distinct()
     
     # 5、其他处理
-    if df_universe.where(col('HOSP_NAME') != 'None').count() == 0:
+    if df_universe.where(~col('HOSP_NAME').isNull()).count() == 0:
         df_universe = df_universe.withColumn("HOSP_NAME", func.lit("0"))
     
     df_mkt_mapping = df_mkt_mapping.withColumnRenamed("标准通用名", "通用名")

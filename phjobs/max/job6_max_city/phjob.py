@@ -65,6 +65,7 @@ def execute(**kwargs):
     # id_bedsize_path = 'Empty'
 
     # %% 
+    # =========== 数据执行 ===========
     # 输入参数设置
     g_out_max_backfill = 'max_result_backfill'
     minimum_product_columns = minimum_product_columns.replace(" ","").split(",")
@@ -103,22 +104,38 @@ def execute(**kwargs):
     p_out_max_backfill = out_path + g_out_max_backfill
 
     # %% 
-    # 输入数据读取
+    # =========== 输入数据读取 =========== 
+    def changeColToInt(df, list_cols):
+        for i in list_cols:
+            df = df.withColumn(i, col(i).cast('int'))
+        return df
+    def dealToNull(df):
+        df = df.replace(["None", ""], None)
+        return df
+    
     df_province_city_mapping =  kwargs["df_province_city_mapping"]
+    df_province_city_mapping = dealToNull(df_province_city_mapping)
 
     df_mkt_mapping =  kwargs["df_mkt_mapping"]
+    df_mkt_mapping = dealToNull(df_mkt_mapping)
 
     df_cpa_pha_mapping =  kwargs["df_cpa_pha_mapping"]
+    df_cpa_pha_mapping = dealToNull(df_cpa_pha_mapping)
 
     df_cpa_pha_mapping_common =  kwargs["df_cpa_pha_mapping_common"]
+    df_cpa_pha_mapping_common = dealToNull(df_cpa_pha_mapping_common)
 
     df_id_bedsize =  kwargs["df_id_bedsize"]
+    df_id_bedsize = dealToNull(df_id_bedsize)
 
     df_prod_mapping =  kwargs["df_prod_mapping"]
+    df_prod_mapping = dealToNull(df_prod_mapping)
 
     df_raw_data = kwargs[g_raw_data_type]
+    df_raw_data = dealToNull(df_raw_data)
 
     df_max_result_raw = kwargs["df_max_result_raw"]
+    df_max_result_raw = dealToNull(df_max_result_raw)
 
     # %% 
     # =========== 数据清洗 =============
@@ -128,7 +145,7 @@ def execute(**kwargs):
         # 检索出正确列名
         l_true_colname = []
         for i in l_colnames:
-            if i.lower() in l_df_columns and df.where( (~col(i).isNull()) & (col(i) != 'None') ).count() > 0:
+            if i.lower() in l_df_columns and df.where(~col(i).isNull()).count() > 0:
                 l_true_colname.append(i)
         if len(l_true_colname) > 1:
            raise ValueError('有重复列名: %s' %(l_true_colname))
@@ -209,7 +226,7 @@ def execute(**kwargs):
     df_id_bedsize = deal_ID_length(df_id_bedsize)
     
     # 5、其他处理
-    if df_raw_data.where( (~col('Pack_Number').isNull()) & (col('Pack_Number') != 'None') ).count() == 0:
+    if df_raw_data.where(~col('Pack_Number').isNull()).count() == 0:
         df_raw_data = df_raw_data.withColumn("Pack_Number", func.lit(0))
 
     # %%
@@ -257,12 +274,12 @@ def execute(**kwargs):
     df_raw_data_map = df_raw_data_map.join(df_cpa_pha_mapping, on='ID', how="left")
     
     # 1.2 匹配 产品信息
-    df_raw_data_map = df_raw_data_map.withColumn("Brand", func.when( (col('Brand') == 'None') | (col('Brand') == 'NA'), col('Molecule')). \
+    df_raw_data_map = df_raw_data_map.withColumn("Brand", func.when( (col('Brand').isNull()) | (col('Brand') == 'NA'), col('Molecule')). \
                                              otherwise(col('Brand')))
     # min1 生成
     df_raw_data_map = df_raw_data_map.withColumn('Pack_Number', col('Pack_Number').cast(StringType()))
     df_raw_data_map = df_raw_data_map.withColumn(minimum_product_newname, func.concat_ws(minimum_product_sep, 
-                                    *[func.when(col(i) == 'None', func.lit("NA")).otherwise(col(i)) for i in minimum_product_columns]))
+                                    *[func.when(col(i).isNull(), func.lit("NA")).otherwise(col(i)) for i in minimum_product_columns]))
     
     df_raw_data_map = df_raw_data_map.join(df_prod_mapping, on="min1", how="left") \
                             .withColumnRenamed("通用名", "S_Molecule")
@@ -284,7 +301,7 @@ def execute(**kwargs):
                                                         .withColumnRenamed("PHA", "PHA_common") \
                                                         .select("ID", "PHA_common").distinct()
     df_raw_data_map = df_raw_data_map.join(df_cpa_pha_mapping_common, on="ID", how="left")
-    df_raw_data_map = df_raw_data_map.withColumn("PHA", func.when(col('PHA') == 'None', col('PHA_common')).otherwise(col('PHA'))) \
+    df_raw_data_map = df_raw_data_map.withColumn("PHA", func.when(col('PHA').isNull(), col('PHA_common')).otherwise(col('PHA'))) \
                                 .drop("PHA_common")
     
     # raw_data 医院列表

@@ -43,23 +43,13 @@ def execute(**kwargs):
     from pyspark.sql import functions as func
     from pyspark.sql.functions import col     
     import json
-    import boto3    # %%
-    # project_name = 'Empty'
-    # if_base = 'False'
-    # time_left = 0
-    # time_right = 0
-    # left_models = 'Empty'
-    # left_models_time_left = 'Empty'
-    # right_models = 'Empty'
-    # right_models_time_right = 'Empty'
-    # all_models = 'Empty'
-    # universe_choice = 'Empty'
-    # if_others = 'False'
-    # use_d_weight = 'Empty'
+    import boto3
     # %% 
+    # =========== 数据执行 =========== 
     # 输入参数设置
     g_out_max = 'max_result_raw'
     logger.debug('job5_max')
+    
     if if_base == "False":
         if_base = False
     elif if_base == "True":
@@ -79,10 +69,6 @@ def execute(**kwargs):
     
     time_left = int(time_left)
     time_right = int(time_right)
-        
-        
-    # dict_input_version = json.loads(g_input_version)
-    # print(dict_input_version)
     
     # 市场的universe文件
     universe_choice_dict={}
@@ -96,13 +82,24 @@ def execute(**kwargs):
     p_out_max = out_path + g_out_max
 
     # %% 
-    # 输入数据读取
+    # =========== 输入数据读取 -部分 =========== 
+    def changeColToInt(df, list_cols):
+        for i in list_cols:
+            df = df.withColumn(i, col(i).cast('int'))
+        return df
+    def dealToNull(df):
+        df = df.replace(["None", ""], None)
+        return df
+        
     df_panel_result = kwargs['df_panel_result']
+    df_panel_result = dealToNull(df_panel_result)
     
     df_PHA_weight =  kwargs['df_weight']
+    df_PHA_weight = dealToNull(df_PHA_weight)
     
     if use_d_weight:
         df_PHA_weight_default =  kwargs['df_weight_default']
+        df_PHA_weight_default = dealToNull(df_PHA_weight_default)
 
     # %% 
     # =========== 数据清洗 =============
@@ -113,7 +110,7 @@ def execute(**kwargs):
         # 检索出正确列名
         l_true_colname = []
         for i in l_colnames:
-            if i.lower() in l_df_columns and df.where( (~col(i).isNull()) & (col(i) != 'None') ).count() > 0:
+            if i.lower() in l_df_columns and df.where(~col(i).isNull()).count() > 0:
                 l_true_colname.append(i)
         if len(l_true_colname) > 1:
            raise ValueError('有重复列名: %s' %(l_true_colname))
@@ -217,23 +214,28 @@ def execute(**kwargs):
         # universe 读取
         if market in universe_choice_dict.keys():
             filetype = universe_choice_dict[market]
-            df_universe =  kwargs['df_universe_other'].where(col('filetype')==filetype)  
+            df_universe =  kwargs['df_universe_other'].where(col('filetype')==filetype)
+            df_universe = dealToNull(df_universe) 
         else:
             df_universe =  kwargs['df_universe_base']
+            df_universe = dealToNull(df_universe) 
             
         df_universe = cleanUniverse(df_universe)
             
         # universe_outlier 读取
         df_universe_outlier = kwargs['df_universe_outlier'].where(col('filetype')==market)
-        df_universe_outlier = cleanUniverse(df_universe_outlier)
+        df_universe_outlier = dealToNull(df_universe_outlier)
+        df_universe_outlier = cleanUniverse(df_universe_outlier)    
         
         # factor 读取
         if if_base:
             df_factor = kwargs['df_factor_base']
+            df_factor = dealToNull(df_factor)
         else:
             df_factor = kwargs['df_factor'].where(col('filetype')==market)
-
-        df_factor = cleanFactor(df_factor)   
+            df_factor = dealToNull(df_factor)
+        
+        df_factor = cleanFactor(df_factor)
             
         # weight 文件
         df_PHA_weight_market = df_PHA_weight.where(col('DOI') == market)
@@ -281,7 +283,7 @@ def execute(**kwargs):
         
         # 2. 非样本数据
         # 将非样本的segment和factor等信息合并起来：
-        if df_factor.where( (~col('Province').isNull()) & (col('Province') != 'None') ).count() == 0:
+        if df_factor.where(~col('Province').isNull()).count() == 0:
             df_factor = df_factor.select('City', 'factor').distinct()
             df_universe_factor_panel = df_universe.join(df_factor, on=["City"], how="left").cache().persist()
         else:

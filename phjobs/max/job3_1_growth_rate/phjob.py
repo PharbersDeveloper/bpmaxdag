@@ -45,10 +45,11 @@ def execute(**kwargs):
     import boto3     
     
     # %% 
+    # =========== 数据执行 =========== 
+    logger.debug('数据执行-start')
     # 输入参数设置
     g_out_growth_rate = 'growth_rate'
-    
-    logger.debug('job3_data_adding')
+
     if if_add_data != "False" and if_add_data != "True":
         logger.debug('wrong input: if_add_data, False or True') 
         raise ValueError('wrong input: if_add_data, False or True')
@@ -77,23 +78,30 @@ def execute(**kwargs):
     p_out_growth_rate = out_path + g_out_growth_rate
 
     # %% 
-    # =========== 数据执行 =============
-    logger.debug('数据执行-start')
-    # 输入数据读取
+    # =========== 输入数据读取 =========== 
+
     def changeColToInt(df, list_cols):
         for i in list_cols:
             df = df.withColumn(i, col(i).cast('int'))
         return df
+    
+    def dealToNull(df):
+        df = df.replace(["None", ""], None)
+        return df
 
     if monthly_update == "True":   
         df_published =  kwargs['df_published']
-        df_published = changeColToInt(df_published, ['year'])
+        df_published = dealToNull(df_published)
+        df_published = changeColToInt(df_published, ['year']) 
         
         df_not_arrived =  kwargs['df_not_arrived']
+        df_not_arrived = dealToNull(df_not_arrived)
         df_not_arrived = changeColToInt(df_not_arrived, ['date'])
-        
+               
     raw_data = kwargs['df_raw_data_deal_poi']
+    raw_data = dealToNull(raw_data)
     raw_data = changeColToInt(raw_data, ['date', 'year', 'month']) 
+    
     
     # %%
     # =========== 数据清洗 =============

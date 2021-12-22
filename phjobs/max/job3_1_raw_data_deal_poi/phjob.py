@@ -37,9 +37,16 @@ def execute(**kwargs):
     import boto3        
     
     # %% 
-    # 输入数据读取
+    # =========== 输入数据读取 =========== 
+    def dealToNull(df):
+        df = df.replace(["None", ""], None)
+        return df
+    
     df_raw_data = kwargs['df_product_mapping_out']
+    df_raw_data = dealToNull(df_raw_data)
+    
     df_poi = kwargs['df_poi']
+    df_poi = dealToNull(df_poi)
     # %%
     # =========== 数据执行 =============
     logger.debug('数据执行-start')

@@ -44,7 +44,10 @@ def execute(**kwargs):
     import os
     from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col 
     import json
-    import boto3    # %% 
+    import boto3    
+    
+    # %%
+    # =========== 数据执行 =========== 
     # 输入参数设置
     g_out_raw_standard = 'raw_data_standard'
     g_out_raw_standard_brief = 'raw_data_standard_brief'
@@ -59,22 +62,38 @@ def execute(**kwargs):
     p_out_raw_standard = out_path + g_out_raw_standard
     p_out_raw_standard_brief = out_path + g_out_raw_standard_brief
     # %% 
-    # 输入数据读取
+    # =========== 输入数据读取 =========== 
+    def changeColToInt(df, list_cols):
+        for i in list_cols:
+            df = df.withColumn(i, col(i).cast('int'))
+        return df
+    def dealToNull(df):
+        df = df.replace(["None", ""], None)
+        return df
+    
     df_max_city_normalize =  kwargs['df_province_city_mapping_common']
+    df_max_city_normalize = dealToNull(df_max_city_normalize)
 
     df_prod_mapping =  kwargs['df_prod_mapping']
+    df_prod_mapping = dealToNull(df_prod_mapping)
 
     df_molecule_atc_map =  kwargs['df_product_map_all_atc']
+    df_molecule_atc_map = dealToNull(df_molecule_atc_map)
 
     df_master_data_map =  kwargs['df_master_data_map']
+    df_master_data_map = dealToNull(df_master_data_map)
 
     df_cpa_pha_mapping =  kwargs['df_cpa_pha_mapping_common']
+    df_cpa_pha_mapping = dealToNull(df_cpa_pha_mapping)
 
     df_mkt_mapping = kwargs['df_mkt_mapping']
+    df_mkt_mapping = dealToNull(df_mkt_mapping)
 
     df_universe =  kwargs['df_universe_base_common']
+    df_universe = dealToNull(df_universe)
 
     df_raw_data = kwargs['df_raw_data_delivery']
+    df_raw_data = dealToNull(df_raw_data)
     # %% 
     # =========== 数据清洗 =============
     logger.debug('数据清洗-start')
@@ -83,7 +102,7 @@ def execute(**kwargs):
         # 检索出正确列名
         l_true_colname = []
         for i in l_colnames:
-            if i.lower() in l_df_columns and df.where( (~col(i).isNull()) & (col(i) != 'None') ).count() > 0:
+            if i.lower() in l_df_columns and df.where(~col(i).isNull()).count() > 0:
                 l_true_colname.append(i)
         if len(l_true_colname) > 1:
            raise ValueError('有重复列名: %s' %(l_true_colname))
@@ -164,7 +183,7 @@ def execute(**kwargs):
                                     .withColumn("min2", func.regexp_replace("min2", "&lt;", "<")) \
                                     .withColumn("min2", func.regexp_replace("min2", "&gt;", ">"))
     # ** raw_data ==
-    if df_raw_data.where( (~col('Pack_Number').isNull()) & (col('Pack_Number') != 'None') ).count() == 0:
+    if df_raw_data.where(~col('Pack_Number').isNull()).count() == 0:
             df_raw_data = df_raw_data.withColumn("Pack_Number", func.lit(0))
             
     # 4、ID列补位

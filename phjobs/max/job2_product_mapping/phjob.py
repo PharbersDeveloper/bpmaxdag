@@ -40,13 +40,13 @@ def execute(**kwargs):
     import os
     from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col
     import json
-    import boto3    # %% 
+    import boto3    
+    
+    # %% 
+    # =========== 数据执行 =========== 
     # 输入参数设置
     g_out_table = 'product_mapping_out'
     logger.debug('job2_product_mapping')
-    
-    # dict_input_version = json.loads(g_input_version)
-    # logger.debug(dict_input_version)
     
     need_cleaning_cols = need_cleaning_cols.replace(" ","").split(",")
     minimum_product_columns = minimum_product_columns.replace(" ","").split(",")
@@ -57,21 +57,22 @@ def execute(**kwargs):
     # p_out_path = out_path + g_out_table
     # p_out_need_clean = out_path + g_need_clean_table
     # %% 
+    # =========== 输入数据读取 =========== 
     def changeColToInt(df, list_cols):
         for i in list_cols:
             df = df.withColumn(i, col(i).cast('int'))
         return df
+    def dealToNull(df):
+        df = df.replace(["None", ""], None)
+        return df
         
-    # 输入数据读取
     df_raw_data = kwargs['df_hospital_mapping_out']
+    df_raw_data = dealToNull(df_raw_data)
     df_raw_data = changeColToInt(df_raw_data, ['Pack_Number']) 
     
-    # print(df_raw_data)
-    # print(df_raw_data.count())
     
     df_prod_mapping =  kwargs['df_prod_mapping']
-    # print(df_prod_mapping)
-    # print(df_prod_mapping.count())
+    df_prod_mapping = dealToNull(df_prod_mapping)
 
     # %% 
     # =========== 数据清洗 =============
@@ -81,7 +82,7 @@ def execute(**kwargs):
         # 检索出正确列名
         l_true_colname = []
         for i in l_colnames:
-            if i.lower() in l_df_columns and df.where(col(i) != 'None').count() > 0:
+            if i.lower() in l_df_columns and df.where(~col(i).isNull()).count() > 0:
                 l_true_colname.append(i)
         if len(l_true_colname) > 1:
            raise ValueError('有重复列名: %s' %(l_true_colname))
@@ -137,14 +138,14 @@ def execute(**kwargs):
     # %%
     # =========== 数据执行 =============
     logger.debug('数据执行-start')
-    df_raw_data = df_raw_data.withColumn("Brand", func.when((col('Brand')=='None') | (col('Brand') == 'NA'), col('Molecule')). \
+    df_raw_data = df_raw_data.withColumn("Brand", func.when((col('Brand').isNull()) | (col('Brand') == 'NA'), col('Molecule')). \
                                              otherwise(col('Brand')))
     
     
     # min1 生成
     df_raw_data = df_raw_data.withColumn('Pack_Number', col('Pack_Number').cast(StringType()))
     df_raw_data = df_raw_data.withColumn(minimum_product_newname, func.concat_ws(minimum_product_sep, 
-                                    *[func.when(col(i)=='None', func.lit("NA")).otherwise(col(i)) for i in minimum_product_columns]))
+                                    *[func.when(col(i).isNull(), func.lit("NA")).otherwise(col(i)) for i in minimum_product_columns]))
     
     
     

@@ -37,9 +37,16 @@ def execute(**kwargs):
     import boto3        
     
     # %%
-    # =========== 数据执行 =============
+    # =========== 输入数据读取 =========== 
     logger.debug('数据执行-start')
+    
+    def dealToNull(df):
+        df = df.replace(["None", ""], None)
+        return df
+       
     raw_data = kwargs["df_raw_data_deal_poi"]
+    raw_data = dealToNull(raw_data)
+    
     # %%
     # ==== 计算价格 ====
     logger.debug('价格计算')

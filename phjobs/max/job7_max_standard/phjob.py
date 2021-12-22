@@ -38,7 +38,10 @@ def execute(**kwargs):
     import os
     from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col
     import json
-    import boto3    # %% 
+    import boto3    
+    
+    # %% 
+    # =========== 数据执行 =========== 
     # 输入参数设置
     g_out_max_standard = 'max_result_standard'
     g_out_max_standard_brief = 'max_result_standard_brief'
@@ -53,16 +56,29 @@ def execute(**kwargs):
     p_tmp_out_max_standard = out_path + g_out_max_standard
     p_tmp_out_max_standard_brief = out_path + g_out_max_standard_brief
     # %% 
-    # 输入数据读取
+    # =========== 输入数据读取 ===========
+    def changeColToInt(df, list_cols):
+        for i in list_cols:
+            df = df.withColumn(i, col(i).cast('int'))
+        return df
+    def dealToNull(df):
+        df = df.replace(["None", ""], None)
+        return df
+    
     df_max_city_normalize = kwargs['df_province_city_mapping_common']
+    df_max_city_normalize = dealToNull(df_max_city_normalize)
     
     df_prod_mapping = kwargs['df_prod_mapping']
+    df_prod_mapping = dealToNull(df_prod_mapping)
     
     df_molecule_atc_map = kwargs['df_product_map_all_atc'] 
+    df_molecule_atc_map = dealToNull(df_molecule_atc_map)
     
     df_master_data_map = kwargs['df_master_data_map']  
+    df_master_data_map = dealToNull(df_master_data_map)
     
     df_max_result_backfill = kwargs['df_max_result_backfill']  
+    df_max_result_backfill = dealToNull(df_max_result_backfill)
 
     # %% 
     # =========== 数据清洗 =============
@@ -72,7 +88,7 @@ def execute(**kwargs):
         # 检索出正确列名
         l_true_colname = []
         for i in l_colnames:
-            if i.lower() in l_df_columns and df.where((~col(i).isNull()) & (col(i) != 'None')).count() > 0:
+            if i.lower() in l_df_columns and df.where(~col(i).isNull()).count() > 0:
                 l_true_colname.append(i)
         if len(l_true_colname) > 1:
            raise ValueError('有重复列名: %s' %(l_true_colname))

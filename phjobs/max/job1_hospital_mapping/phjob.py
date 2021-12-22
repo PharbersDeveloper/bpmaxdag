@@ -35,7 +35,10 @@ def execute(**kwargs):
     import os
     import boto3
     from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col    
-    import json    # %% 
+    import json    
+    
+    # %% 
+    # =========== 数据执行 =========== 
     # 输入参数设置
     # dict_input_version = json.loads(g_input_version)
     # logger.debug(dict_input_version)
@@ -52,19 +55,21 @@ def execute(**kwargs):
     # if if_others == "True":
     #     out_dir = out_dir + "/others_box/"
     # p_out_path = out_path + g_out_table
+    
     # %% 
-    # 输入数据读取
+    # =========== 输入数据读取 =========== 
+    def dealToNull(df):
+        df = df.replace(["None", ""], None)
+        return df
+    
     df_raw_data = kwargs['df_raw_data']
-    # print(df_raw_data)
-    # print(df_raw_data.count())
+    df_raw_data = dealToNull(df_raw_data)
     
     df_universe = kwargs['df_universe_base']
-    # print(df_universe)
-    # print(df_universe.count())
+    df_universe = dealToNull(df_universe)
     
     df_cpa_pha_mapping = kwargs['df_cpa_pha_mapping']
-    # print(df_cpa_pha_mapping)
-    # print(df_cpa_pha_mapping.count())
+    df_cpa_pha_mapping = dealToNull(df_cpa_pha_mapping)
 
     # %% 
     # =========== 数据清洗 =============
@@ -74,7 +79,7 @@ def execute(**kwargs):
         # 检索出正确列名
         l_true_colname = []
         for i in l_colnames:
-            if i.lower() in l_df_columns and df.where(col(i) != 'None').count() > 0:
+            if i.lower() in l_df_columns and df.where(~col(i).isNull()).count() > 0:
                 l_true_colname.append(i)
         if len(l_true_colname) > 1:
            raise ValueError('有重复列名: %s' %(l_true_colname))
@@ -139,7 +144,7 @@ def execute(**kwargs):
     df_raw_data = dealIDLength(df_raw_data)
     
     # 5、其他处理
-    if df_raw_data.where(col('Pack_Number') != 'None').count() == 0:
+    if df_raw_data.where(~col('Pack_Number').isNull()).count() == 0:
         df_raw_data = df_raw_data.withColumn("Pack_Number", func.lit(0))
 
     # %%
