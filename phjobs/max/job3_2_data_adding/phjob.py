@@ -122,6 +122,15 @@ def execute(**kwargs):
         df_not_arrived =  kwargs['df_not_arrived']
         df_not_arrived = dealToNull(df_not_arrived)
         df_not_arrived = changeColToInt(df_not_arrived, ['date'])
+        
+    # 删除已有的s3中间文件
+    def deletePath(path_dir):
+        file_name = path_dir.replace('//', '/').split('s3:/ph-platform/')[1]
+        s3 = boto3.resource('s3')
+        bucket = s3.Bucket('ph-platform')
+        bucket.objects.filter(Prefix=file_name).delete()
+    deletePath(path_dir=f"{p_out_adding_data}/version={run_id}/provider={project_name}/owner={owner}/")
+
 
     # %% 
     # =========== 数据清洗 =============

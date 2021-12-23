@@ -100,6 +100,14 @@ def execute(**kwargs):
     if use_d_weight:
         df_PHA_weight_default =  kwargs['df_weight_default']
         df_PHA_weight_default = dealToNull(df_PHA_weight_default)
+        
+    # 删除已有的s3中间文件
+    def deletePath(path_dir):
+        file_name = path_dir.replace('//', '/').split('s3:/ph-platform/')[1]
+        s3 = boto3.resource('s3')
+        bucket = s3.Bucket('ph-platform')
+        bucket.objects.filter(Prefix=file_name).delete()
+    deletePath(path_dir=f"{p_out_max}/version={run_id}/provider={project_name}/owner={owner}/")
 
     # %% 
     # =========== 数据清洗 =============

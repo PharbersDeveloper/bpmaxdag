@@ -102,6 +102,14 @@ def execute(**kwargs):
     raw_data = dealToNull(raw_data)
     raw_data = changeColToInt(raw_data, ['date', 'year', 'month']) 
     
+    # 删除已有的s3中间文件
+    def deletePath(path_dir):
+        file_name = path_dir.replace('//', '/').split('s3:/ph-platform/')[1]
+        s3 = boto3.resource('s3')
+        bucket = s3.Bucket('ph-platform')
+        bucket.objects.filter(Prefix=file_name).delete()
+    deletePath(path_dir=f"{p_out_growth_rate}/version={run_id}/provider={project_name}/owner={owner}/")
+    
     
     # %%
     # =========== 数据清洗 =============
