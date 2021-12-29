@@ -16,22 +16,23 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--run_id')
 @click.option('--job_full_name')
 @click.option('--job_id')
-@click.option('--max_path')
 @click.option('--project_name')
 @click.option('--minimum_product_columns')
 @click.option('--minimum_product_sep')
 @click.option('--minimum_product_newname')
 @click.option('--need_cleaning_cols')
-@click.option('--if_others')
 @click.option('--out_path')
-@click.option('--out_dir')
-@click.option('--need_test')
-@click.option('--a')
-@click.option('--b')
+@click.option('--run_id')
+@click.option('--owner')
+@click.option('--g_input_version')
+@click.option('--g_database_temp')
+@click.option('--g_database_input')
+@click.option('--g_out_table')
+@click.option('--g_need_clean_table')
 def debug_execute(**kwargs):
     try:
         args = {"name": "job2_product_mapping"}
-        outputs = ["a", "b"]
+        outputs = ["g_out_table", "g_need_clean_table"]
 
         args.update(kwargs)
         result = exec_before(**args)

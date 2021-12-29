@@ -16,27 +16,25 @@ spec:
     code: phmain.py
     config: phconf.yaml
     args:
-      - key: max_path
-        value: 's3://ph-max-auto/v0.0.1-2020-06-08/'
       - key: project_name
-        value: 'Empty'
-      - key: cpa_gyc
-        value: 'True'
+        value: 'Takeda'
       - key: if_others
         value: 'False'
       - key: out_path
-        value: 's3://ph-max-auto/v0.0.1-2020-06-08/'
-      - key: out_dir
-        value: 'Empty'
-      - key: auto_max
-        value: 'True'
-      - key: need_test
-        value: '0'
+        value: 's3://ph-platform/2020-11-11/etl/temporary_files/'
+      - key: run_id
+        value: 'run_id_max_test'
+      - key: owner
+        value: 'Airflow'
+      - key: g_input_version
+        value: '{"raw_data":{"data":"202103_u0079u0079u0077"}, "universe_base":"2020_u0079u0079u0077", "cpa_pha_mapping":"20210623_u0079u0079u0077"}'
+      - key: g_database_temp
+        value: 'phdatatemp'
+      - key: g_database_input
+        value: 'phdatacat'
     outputs:
-      - key: a
-        value: 'abcde'
-      - key: b
-        value: '6789'
+      - key: g_out_table
+        value: 'hospital_mapping_out'
 
 
 

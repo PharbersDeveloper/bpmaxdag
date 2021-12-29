@@ -16,14 +16,6 @@ spec:
     code: phmain.py
     config: phconf.yaml
     args:
-      - key: max_path
-        value: 's3://ph-max-auto/v0.0.1-2020-06-08/'
-      - key: extract_path
-        value: 's3://ph-platform/2020-11-11/etl/extract/'
-      - key: out_path
-        value: 's3://ph-platform/2020-11-11/etl/extract/extract_data_out'
-      - key: extract_file
-        value: 'Empty'
       - key: time_left
         value: 'Empty'
       - key: time_right
@@ -44,6 +36,18 @@ spec:
         value: 'max'
       - key: market_define
         value: 'Empty'
+      - key: out_path
+        value: 's3://ph-platform/2020-11-11/etl/extract/extract_data_out'
+      - key: run_id
+        value: 'extract_test_0723'
+      - key: owner
+        value: 'ywyuan'
+      - key: g_input_version
+        value: '{"project_rank":"project_rank_20210721", "market_define":"market_define_20210720", "project_for_extract":"project_for_extract_20210721"}'
+      - key: g_database_input
+        value: 'phdatacat'
+      - key: g_database_result
+        value: 'phresult'
     outputs:
       - key: c
         value: 'abc'

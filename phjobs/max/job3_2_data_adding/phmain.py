@@ -16,7 +16,6 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--run_id')
 @click.option('--job_full_name')
 @click.option('--job_id')
-@click.option('--max_path')
 @click.option('--project_name')
 @click.option('--model_month_right')
 @click.option('--max_month')
@@ -26,18 +25,20 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--current_month')
 @click.option('--if_others')
 @click.option('--monthly_update')
-@click.option('--not_arrived_path')
-@click.option('--published_path')
-@click.option('--out_path')
-@click.option('--out_dir')
-@click.option('--need_test')
 @click.option('--if_add_data')
-@click.option('--c')
-@click.option('--d')
+@click.option('--out_path')
+@click.option('--run_id')
+@click.option('--owner')
+@click.option('--g_input_version')
+@click.option('--g_database_temp')
+@click.option('--g_database_input')
+@click.option('--g_out_adding_data')
+@click.option('--g_out_new_hospital')
+@click.option('--g_out_raw_data_adding_final')
 def debug_execute(**kwargs):
     try:
         args = {"name": "job3_2_data_adding"}
-        outputs = ["c", "d"]
+        outputs = ["g_out_adding_data", "g_out_new_hospital", "g_out_raw_data_adding_final"]
 
         args.update(kwargs)
         result = exec_before(**args)

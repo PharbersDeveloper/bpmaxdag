@@ -16,43 +16,37 @@ spec:
     code: phmain.py
     config: phconf.yaml
     args:
-      - key: max_path
-        value: 's3://ph-max-auto/v0.0.1-2020-06-08/'
       - key: project_name
-        value: 'Empty'
+        value: 'Takeda'
       - key: model_month_left
-        value: '0'
+        value: '202001'
       - key: model_month_right
-        value: '0'
+        value: '202012'
       - key: if_others
         value: 'False'
       - key: current_year
-        value: '2020'
+        value: '2021'
       - key: current_month
-        value: 'Empty'
-      - key: paths_foradding
-        value: 's3://ph-max-auto/v0.0.1-2020-06-08/Common_files/Not_arrived202001.csv, s3://ph-max-auto/v0.0.1-2020-06-08/Common_files/Not_arrived201912.csv, s3://ph-max-auto/v0.0.1-2020-06-08/Common_files/Unpublished2020.csv'
-      - key: not_arrived_path
-        value: 'Empty'
-      - key: published_path
-        value: 'Empty'
-      - key: panel_for_union
-        value: 'Empty'
+        value: '3'
       - key: monthly_update
-        value: 'Empty'
-      - key: out_path
-        value: 's3://ph-max-auto/v0.0.1-2020-06-08/'
-      - key: out_dir
-        value: 'Empty'
-      - key: need_test
-        value: '0'
+        value: 'True'
       - key: add_47
-        value: 'False'
+        value: 'True'
+      - key: out_path
+        value: 's3://ph-platform/2020-11-11/etl/temporary_files/'
+      - key: run_id
+        value: 'run_id_max_test_2'
+      - key: owner
+        value: 'Airflow'
+      - key: g_input_version
+        value: '{"universe_base":"2020_u0079u0079u0077", "mkt_mapping":"20210623_u0079u0079u0077", "poi":"20210623_u0079u0079u0077", "not_arrived":"202103_u0079u0079u0077, 202012_u0079u0079u0077, 201912_u0079u0079u0077, 201812_u0079u0079u0077","published":"2017_u0079u0079u0077, 2018_u0079u0079u0077, 2019_u0079u0079u0077, 2020_u0079u0079u0077, 2021_u0079u0079u0077","cpa_pha_mapping":"20210623_u0079u0079u0077"}'
+      - key: g_database_temp
+        value: 'phdatatemp'
+      - key: g_database_input
+        value: 'phdatacat'
     outputs:
-      - key: a
-        value: 'abcde'
-      - key: b
-        value: '6789'
+      - key: g_out_panel_result
+        value: 'panel_result'
 
 
 

@@ -16,43 +16,45 @@ spec:
     code: phmain.py
     config: phconf.yaml
     args:
-      - key: max_path
-        value: 's3://ph-max-auto/v0.0.1-2020-06-08/'
       - key: project_name
-        value: 'Empty'
+        value: 'Takeda'
       - key: model_month_right
-        value: '0'
+        value: '202012'
       - key: max_month
         value: '0'
       - key: year_missing
         value: '0'
       - key: current_year
-        value: '2020'
+        value: '2021'
       - key: first_month
-        value: 'Empty'
+        value: '1'
       - key: current_month
-        value: 'Empty'
+        value: '3'
       - key: if_others
         value: 'False'
       - key: monthly_update
-        value: 'Empty'
-      - key: not_arrived_path
-        value: 'Empty'
-      - key: published_path
-        value: 'Empty'
-      - key: out_path
-        value: 's3://ph-max-auto/v0.0.1-2020-06-08/'
-      - key: out_dir
-        value: 'Empty'
-      - key: need_test
-        value: '0'
+        value: 'True'
       - key: if_add_data
         value: 'True'
+      - key: out_path
+        value: 's3://ph-platform/2020-11-11/etl/temporary_files/'
+      - key: run_id
+        value: 'run_id_max_test_2'
+      - key: owner
+        value: 'Airflow'
+      - key: g_input_version
+        value: '{"poi":"20210623_u0079u0079u0077", "not_arrived":"202103_u0079u0079u0077, 202012_u0079u0079u0077, 201912_u0079u0079u0077, 201812_u0079u0079u0077","published":"2017_u0079u0079u0077, 2018_u0079u0079u0077, 2019_u0079u0079u0077, 2020_u0079u0079u0077, 2021_u0079u0079u0077","cpa_pha_mapping":"20210623_u0079u0079u0077"}'
+      - key: g_database_temp
+        value: 'phdatatemp'
+      - key: g_database_input
+        value: 'phdatacat'
     outputs:
-      - key: c
-        value: 'abc'
-      - key: d
-        value: 'def'
+      - key: g_out_adding_data
+        value: 'adding_data'
+      - key: g_out_new_hospital
+        value: 'new_hospital'
+      - key: g_out_raw_data_adding_final
+        value: 'raw_data_adding_final'
 
 
 

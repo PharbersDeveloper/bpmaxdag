@@ -14,19 +14,11 @@ def execute(**kwargs):
     depends_path = kwargs["depends_path"]
     
     ### input args ###
-    max_path = kwargs['max_path']
     project_name = kwargs['project_name']
     time_left = kwargs['time_left']
     time_right = kwargs['time_right']
-    left_models = kwargs['left_models']
-    left_models_time_left = kwargs['left_models_time_left']
-    right_models = kwargs['right_models']
-    right_models_time_right = kwargs['right_models_time_right']
     all_models = kwargs['all_models']
     if_others = kwargs['if_others']
-    out_path = kwargs['out_path']
-    out_dir = kwargs['out_dir']
-    need_test = kwargs['need_test']
     minimum_product_columns = kwargs['minimum_product_columns']
     minimum_product_sep = kwargs['minimum_product_sep']
     minimum_product_newname = kwargs['minimum_product_newname']
@@ -34,31 +26,45 @@ def execute(**kwargs):
     hospital_level = kwargs['hospital_level']
     bedsize = kwargs['bedsize']
     id_bedsize_path = kwargs['id_bedsize_path']
+    out_path = kwargs['out_path']
+    run_id = kwargs['run_id']
+    owner = kwargs['owner']
+    g_input_version = kwargs['g_input_version']
+    g_database_temp = kwargs['g_database_temp']
+    g_database_input = kwargs['g_database_input']
     ### input args ###
     
     ### output args ###
-    c = kwargs['c']
-    d = kwargs['d']
+    g_out_max_backfill = kwargs['g_out_max_backfill']
     ### output args ###
 
+    
+    
     from pyspark.sql import SparkSession
     from pyspark.sql.types import StringType, IntegerType, DoubleType
     from pyspark.sql import functions as func
     from pyspark.sql.functions import col
     import boto3
     import os   
-    import pandas as pd    # %%
-    
-    # project_name = "Gilead"
-    # time_left = "202001"
-    # time_right = "202012"
-    # all_models = "乙肝"
-    # out_dir = "202012" 
-    # if_two_source = "True"
-    
-
+    import pandas as pd   
+    import json
+    import boto3
     # %%
-    # 输入
+    # project_name = 'Empty'
+    # time_left = 'Empty'
+    # time_right = 'Empty'
+    # all_models = 'Empty'
+    # if_others = 'False'
+    # minimum_product_columns = 'Brand, Form, Specifications, Pack_Number, Manufacturer'
+    # minimum_product_sep = '|'
+    # minimum_product_newname = 'min1'
+    # if_two_source = 'False'
+    # hospital_level = 'False'
+    # bedsize = 'True'
+    # id_bedsize_path = 'Empty'
+
+    # %% 
+    # 输入参数设置
     minimum_product_columns = minimum_product_columns.replace(" ","").split(",")
     if minimum_product_sep == "kong":
         minimum_product_sep = ""
@@ -74,73 +80,84 @@ def execute(**kwargs):
         raise ValueError('bedsize: False or True')
     if hospital_level != "False" and hospital_level != "True":
         raise ValueError('hospital_level: False or True')
-    
-    if left_models != "Empty":
-        left_models = left_models.replace(", ",",").split(",")
-    else:
-        left_models = []
-    
-    if right_models != "Empty":
-        right_models = right_models.replace(", ",",").split(",")
-    else:
-        right_models = []
-    
-    if left_models_time_left == "Empty":
-        left_models_time_left = 0
-    if right_models_time_right == "Empty":
-        right_models_time_right = 0
-    
+        
     if all_models != "Empty":
-        all_models = all_models.replace(", ",",").split(",")
+        all_models = all_models.replace(" ",",").split(",")
     else:
         all_models = []
-    
+        
     time_left = int(time_left)
     time_right = int(time_right)
     
-    province_city_mapping_path = max_path + "/" + project_name + '/province_city_mapping'
-    hospital_ot_path = max_path + "/" + project_name + '/hospital_ot.csv'
-    market_mapping_path = max_path + "/" + project_name + '/mkt_mapping'
-    cpa_pha_mapping_path = max_path + "/" + project_name + "/cpa_pha_mapping"
-    if id_bedsize_path == 'Empty':
-        ID_Bedsize_path = max_path + "/Common_files/ID_Bedsize"
-    else:
-        ID_Bedsize_path = id_bedsize_path
+    dict_input_version = json.loads(g_input_version)
+    logger.debug(dict_input_version)
     
-    cpa_pha_mapping_common_path = max_path + "/Common_files/cpa_pha_mapping"
-    
-    if if_others == True:
-        out_dir = out_dir + "/others_box/"
-    
-    out_path_dir = out_path + "/" + project_name + '/' + out_dir
-    product_map_path = out_path_dir + "/prod_mapping"
     if if_two_source == "False":
-        raw_data_std_path = out_path_dir + "/product_mapping_out"
+        g_raw_data_type = "data"
     else:
-        raw_data_std_path = out_path_dir + "/raw_data_std"
-    
+        g_raw_data_type = "data_std"
+            
     # 输出
-    time_range = str(time_left) + '_' + str(time_right)
-    tmp_path = out_path_dir + "/MAX_result/tmp"
-    if hospital_level == "True" and bedsize == "False":
-        max_result_city_csv_path = out_path_dir + "/MAX_result/MAX_result_" + time_range + "_hospital_level_nobed.csv"
-        max_result_city_tmp_path = out_path_dir + "/MAX_result/tmp_hospital_nobed_"+ time_range
-    elif hospital_level == "True":
-        max_result_city_csv_path = out_path_dir + "/MAX_result/MAX_result_" + time_range + "_hospital_level.csv"
-        max_result_city_tmp_path = out_path_dir + "/MAX_result/tmp_hospital_"+ time_range
-    elif hospital_level == "False" and bedsize == "False":
-        max_result_city_csv_path = out_path_dir + "/MAX_result/MAX_result_" + time_range + "_city_level_nobed.csv"
-        max_result_city_tmp_path = out_path_dir + "/MAX_result/tmp_city_nobed_"+ time_range
-    else:
-        max_result_city_path = out_path_dir + "/MAX_result/MAX_result_" + time_range + "_city_level"
-        max_result_city_csv_path = out_path_dir + "/MAX_result/MAX_result_" + time_range + "_city_level.csv"
-        max_result_city_tmp_path = out_path_dir + "/MAX_result/tmp_city_"+ time_range
-
-    # %%
-    # =========== 数据执行 =============
-    '''
-    合并raw_data 和 max 结果
-    '''
+    p_out_max_backfill = out_path + g_out_max_backfill
+    # %% 
+    # 输入数据读取
+    df_province_city_mapping =  spark.sql("SELECT * FROM %s.province_city_mapping WHERE provider='%s' AND version='%s'" 
+                             %(g_database_input, project_name, dict_input_version['province_city_mapping']))
+    
+    df_mkt_mapping =  spark.sql("SELECT * FROM %s.mkt_mapping WHERE provider='%s' AND version='%s'" 
+                             %(g_database_input, project_name, dict_input_version['mkt_mapping']))
+    
+    df_cpa_pha_mapping =  spark.sql("SELECT * FROM %s.cpa_pha_mapping WHERE provider='%s' AND version='%s'" 
+                             %(g_database_input, project_name, dict_input_version['cpa_pha_mapping']))
+    
+    df_cpa_pha_mapping_common =  spark.sql("SELECT * FROM %s.cpa_pha_mapping WHERE provider='%s' AND version='%s'" 
+                             %(g_database_input, 'common', dict_input_version['cpa_pha_mapping_common']))
+    
+    df_id_bedsize =  spark.sql("SELECT * FROM %s.id_bedsize WHERE provider='%s' AND version='%s'" 
+                             %(g_database_input, 'common', dict_input_version['id_bedsize']))
+    
+    df_prod_mapping =  spark.sql("SELECT * FROM %s.prod_mapping WHERE provider='%s' AND version='%s'" 
+                             %(g_database_input, project_name, dict_input_version['prod_mapping']))
+    
+    df_raw_data = spark.sql("SELECT * FROM %s.raw_data WHERE provider='%s' AND filetype='%s' AND version='%s'" 
+                             %(g_database_input, project_name, g_raw_data_type, dict_input_version['raw_data'][g_raw_data_type]))
+    
+    df_max_result_raw = spark.sql("SELECT * FROM %s.max_result_raw WHERE version='%s' AND provider='%s' AND  owner='%s'" 
+                             %(g_database_temp, run_id, project_name, owner))
+    # %% 
+    # =========== 数据清洗 =============
+    logger.debug('数据清洗-start')
+    # 函数定义
+    def getTrueCol(df, l_colnames, l_df_columns):
+        # 检索出正确列名
+        l_true_colname = []
+        for i in l_colnames:
+            if i.lower() in l_df_columns and df.where(~col(i).isNull()).count() > 0:
+                l_true_colname.append(i)
+        if len(l_true_colname) > 1:
+           raise ValueError('有重复列名: %s' %(l_true_colname))
+        if len(l_true_colname) == 0:
+           raise ValueError('缺少列信息: %s' %(l_colnames)) 
+        return l_true_colname[0]  
+    
+    def getTrueColRenamed(df, dict_cols, l_df_columns):
+        # 对列名重命名
+        for i in dict_cols.keys():
+            true_colname = getTrueCol(df, dict_cols[i], l_df_columns)
+            logger.debug(true_colname)
+            if true_colname != i:
+                if i in l_df_columns:
+                    # 删除原表中已有的重复列名
+                    df = df.drop(i)
+                df = df.withColumnRenamed(true_colname, i)
+        return df
+    
+    def dealScheme(df, dict_scheme):
+        # 数据类型处理
+        for i in dict_scheme.keys():
+            df = df.withColumn(i, col(i).cast(dict_scheme[i]))
+        return df
+    
     def deal_ID_length(df):
         # ID不足7位的补足0到6位
         # 国药诚信医院编码长度是7位数字，cpa医院编码是6位数字，其他还有包含字母的ID
@@ -150,291 +167,207 @@ def execute(**kwargs):
         df = df.withColumn("ID", func.when(func.length(df.ID) < 7, func.lpad(df.ID, 6, "0")).otherwise(df.ID))
         return df
     
-    raw_data = spark.read.parquet(raw_data_std_path)
+    # 1、列名清洗
+    # 待清洗列名
+    dict_cols_prod_map = {"通用名":["通用名", "标准通用名", "通用名_标准", "药品名称_标准", "S_Molecule_Name"], 
+                          "min2":["min2", "min1_标准"],
+                          "pfc":["pfc", "packcode", "Pack_ID", "PackID", "packid"],
+                          "标准商品名":["标准商品名", "商品名_标准", "S_Product_Name"],
+                          "标准剂型":["标准剂型", "剂型_标准", "Form_std", "S_Dosage"],
+                          "标准规格":["标准规格", "规格_标准", "Specifications_std", "药品规格_标准", "S_Pack"],
+                          "标准包装数量":["标准包装数量", "包装数量2", "包装数量_标准", "Pack_Number_std", "S_PackNumber", "最小包装数量"],
+                          "标准生产企业":["标准生产企业", "标准企业", "生产企业_标准", "Manufacturer_std", "S_CORPORATION", "标准生产厂家"]
+                         }
+    #  执行
+    df_prod_mapping = getTrueColRenamed(df_prod_mapping, dict_cols_prod_map, df_prod_mapping.columns)
     
-    if if_two_source == "False":
-        raw_data = raw_data.where((raw_data.year_month >=time_left) & (raw_data.year_month <=time_right))
+    # 2、数据类型处理
+    dict_scheme_raw_data = {"Date":"int", "Sales":"double", "Units":"double", "Units_Box":"double", "Pack_Number":"int"}
+    df_raw_data = dealScheme(df_raw_data, dict_scheme_raw_data)
+    dict_scheme_prod_mapping = {"标准包装数量":"int", "pfc":"int"}
+    df_prod_mapping = dealScheme(df_prod_mapping, dict_scheme_prod_mapping)
     
-    else:
-        # job1: raw_data 处理，匹配PHA，部分job1
-        for i in raw_data.columns:
-            if i in ["数量（支/片）", "最小制剂单位数量", "total_units", "SALES_QTY"]:
-                raw_data = raw_data.withColumnRenamed(i, "Units")
-            if i in ["金额（元）", "金额", "sales_value__rmb_", "SALES_VALUE"]:
-                raw_data = raw_data.withColumnRenamed(i, "Sales")
-            if i in ["Yearmonth", "YM", "Date"]:
-                raw_data = raw_data.withColumnRenamed(i, "year_month")
-            if i in ["医院编码", "BI_Code", "HOSP_CODE"]:
-                raw_data = raw_data.withColumnRenamed(i, "ID")
+    # 3、选择标准列
+    # 标准列名
+    std_cols_raw_data = ['Date', 'ID', 'Raw_Hosp_Name', 'Brand', 'Form', 'Specifications', 'Pack_Number', 'Manufacturer', 'Molecule', 'Source', 'Corp', 
+                     'Route', 'ORG_Measure', 'Sales', 'Units', 'Units_Box', 'Path', 'Sheet']
+    #  执行
+    df_prod_mapping = df_prod_mapping.select("min1", "min2", "通用名").distinct()
+    df_raw_data = df_raw_data.select(std_cols_raw_data)
+    df_cpa_pha_mapping = df_cpa_pha_mapping.select('ID', 'PHA', '推荐版本').distinct()
+    df_cpa_pha_mapping_common = df_cpa_pha_mapping_common.select('ID', 'PHA', '推荐版本').distinct()
+    df_mkt_mapping = df_mkt_mapping.select('mkt', '标准通用名').distinct() \
+                                   .withColumnRenamed("标准通用名", "S_Molecule")
+    df_province_city_mapping = df_province_city_mapping.select('id', 'province', 'city').distinct()
+    df_id_bedsize = df_id_bedsize.select('id', 'bedsize').distinct() \
+                                .withColumn("bedsize", col('bedsize').cast('double'))
+    df_max_result_raw = df_max_result_raw.drop('version', 'provider', 'owner') \
+                                        .withColumn("panel", col('panel').cast('int'))
+                            
     
-        raw_data = raw_data.withColumn("year_month", raw_data["year_month"].cast(IntegerType()))
-        raw_data = raw_data.where((raw_data.year_month >=time_left) & (raw_data.year_month <=time_right))
+    # 4、ID列补位
+    df_raw_data = deal_ID_length(df_raw_data)
+    df_cpa_pha_mapping = deal_ID_length(df_cpa_pha_mapping)
+    df_cpa_pha_mapping_common = deal_ID_length(df_cpa_pha_mapping_common)
+    df_province_city_mapping = deal_ID_length(df_province_city_mapping)
+    df_id_bedsize = deal_ID_length(df_id_bedsize)
     
-        cpa_pha_mapping = spark.read.parquet(cpa_pha_mapping_path)
-        cpa_pha_mapping = cpa_pha_mapping.where(cpa_pha_mapping["推荐版本"] == 1) \
-            .select("ID", "PHA").distinct()
-        cpa_pha_mapping = deal_ID_length(cpa_pha_mapping)
+    # 5、其他处理
+    if df_raw_data.where(~col('Pack_Number').isNull()).count() == 0:
+        df_raw_data = df_raw_data.withColumn("Pack_Number", func.lit(0))
+    # %%
+    # =========== 函数定义：输出结果 =============
+    def createPartition(p_out):
+        # 创建分区
+        logger.debug('创建分区')
+        Location = p_out + '/version=' + run_id + '/provider=' + project_name + '/owner=' + owner
+        g_out_table = p_out.split('/')[-1]
+        
+        partition_input_list = [{
+         "Values": [run_id, project_name,  owner], 
+        "StorageDescriptor": {
+            "SerdeInfo": {
+                "SerializationLibrary": "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"
+            }, 
+            "Location": Location, 
+        } 
+            }]    
+        client = boto3.client('glue', region_name='cn-northwest-1')
+        glue_info = client.batch_create_partition(DatabaseName=g_database_temp, TableName=g_out_table, PartitionInputList=partition_input_list)
+        logger.debug(glue_info)
+        
+    def outResult(df, p_out):
+        df = df.withColumn('version', func.lit(run_id)) \
+                .withColumn('provider', func.lit(project_name)) \
+                .withColumn('owner', func.lit(owner))
+        df.repartition(1).write.format("parquet") \
+                 .mode("append").partitionBy("version", "provider", "owner") \
+                 .parquet(p_out)
+    # %%
+    # =========== 数据执行 =============
+    '''
+    合并raw_data 和 max 结果
+    '''
     
-        raw_data = deal_ID_length(raw_data)    
-        raw_data = raw_data.join(cpa_pha_mapping, on="ID", how="left")
+    # 一. raw_data 处理，用于数据回填
+    df_raw_data_map = df_raw_data.where((col('Date') >=time_left) & (col('Date') <=time_right)) \
+                            .withColumn("PANEL", func.lit(1))
     
-        # job2: raw_data 处理，生成min1，用product_map 匹配获得min2（Prod_Name），同job2
-        # if project_name != "Mylan":
-        raw_data = raw_data.withColumn("Brand", func.when((raw_data.Brand.isNull()) | (raw_data.Brand == 'NA'), raw_data.Molecule).
-                                       otherwise(raw_data.Brand))
+    # 1 信息匹配
+    # 1.1 匹配 pha
+    df_cpa_pha_mapping = df_cpa_pha_mapping.where(col("推荐版本") == 1).select("ID", "PHA").distinct()
+    df_raw_data_map = df_raw_data_map.join(df_cpa_pha_mapping, on='ID', how="left")
     
-        for colname, coltype in raw_data.dtypes:
-            if coltype == "logical":
-                raw_data = raw_data.withColumn(colname, raw_data[colname].cast(StringType()))
+    # 1.2 匹配 产品信息
+    df_raw_data_map = df_raw_data_map.withColumn("Brand", func.when((col('Brand').isNull()) | (col('Brand') == 'NA'), col('Molecule')). \
+                                             otherwise(col('Brand')))
+    # min1 生成
+    df_raw_data_map = df_raw_data_map.withColumn('Pack_Number', col('Pack_Number').cast(StringType()))
+    df_raw_data_map = df_raw_data_map.withColumn(minimum_product_newname, func.concat_ws(minimum_product_sep, 
+                                    *[func.when(col(i).isNull(), func.lit("NA")).otherwise(col(i)) for i in minimum_product_columns]))
     
-        raw_data = raw_data.withColumn("tmp", func.when(func.isnull(raw_data[minimum_product_columns[0]]), func.lit("NA")).
-                                       otherwise(raw_data[minimum_product_columns[0]]))
+    df_raw_data_map = df_raw_data_map.join(df_prod_mapping, on="min1", how="left") \
+                            .withColumnRenamed("通用名", "S_Molecule")
     
-        for col in minimum_product_columns[1:]:
-            raw_data = raw_data.withColumn(col, raw_data[col].cast(StringType()))
-            raw_data = raw_data.withColumn("tmp", func.concat(
-                raw_data["tmp"],
-                func.lit(minimum_product_sep),
-                func.when(func.isnull(raw_data[col]), func.lit("NA")).otherwise(raw_data[col])))
-    
-        # Mylan不重新生成minimum_product_newname: min1，其他项目生成min1
-        # if project_name == "Mylan":
-        #     raw_data = raw_data.drop("tmp")
-        # else:
-        if minimum_product_newname in raw_data.columns:
-            raw_data = raw_data.drop(minimum_product_newname)
-        raw_data = raw_data.withColumnRenamed("tmp", minimum_product_newname)
-    
-        # product_map
-        product_map = spark.read.parquet(product_map_path)
-        for i in product_map.columns:
-            if i in ["标准通用名", "通用名_标准", "药品名称_标准", "S_Molecule_Name"]:
-                product_map = product_map.withColumnRenamed(i, "通用名")
-            if i in ["商品名_标准", "S_Product_Name"]:
-                product_map = product_map.withColumnRenamed(i, "标准商品名")
-            if i in ["标准途径"]:
-                product_map = product_map.withColumnRenamed(i, "std_route")
-            if i in ["min1_标准"]:
-                product_map = product_map.withColumnRenamed(i, "min2")
-        if "std_route" not in product_map.columns:
-            product_map = product_map.withColumn("std_route", func.lit(''))	
-    
-        product_map_for_rawdata = product_map.select("min1", "min2", "通用名").distinct()
-    
-        raw_data = raw_data.join(product_map_for_rawdata, on="min1", how="left") \
-            .drop("S_Molecule") \
-            .withColumnRenamed("通用名", "S_Molecule")
-    
-    raw_data = deal_ID_length(raw_data)
-    
-    # 匹配市场名
-    market_mapping = spark.read.parquet(market_mapping_path)
-    market_mapping = market_mapping.withColumnRenamed("标准通用名", "通用名") \
-                .withColumnRenamed("model", "mkt") \
-                .select("mkt", "通用名").distinct()
-    raw_data = raw_data.join(market_mapping, raw_data["S_Molecule"] == market_mapping["通用名"], how="left")
+    # 1.3 匹配市场名
+    df_raw_data_map = df_raw_data_map.join(df_mkt_mapping, on='S_Molecule', how="left")
     
     
     # 列重命名
-    raw_data = raw_data.withColumnRenamed("mkt", "DOI") \
-                .withColumnRenamed("min2", "Prod_Name") \
-                .withColumnRenamed("year_month", "Date") \
-                .select("ID", "Date", "Prod_Name", "Sales", "Units", "DOI", "PHA", "S_Molecule")
+    df_raw_data_map = df_raw_data_map.withColumnRenamed("mkt", "DOI") \
+                        .withColumnRenamed("min2", "Prod_Name") \
+                        .select("ID", "Date", "Prod_Name", "Sales", "Units", "DOI", "PHA", "S_Molecule", "PANEL")
     
-    # 匹配通用cpa_city
-    province_city_mapping = spark.read.parquet(province_city_mapping_path)
-    province_city_mapping = province_city_mapping.distinct()
-    province_city_mapping = deal_ID_length(province_city_mapping)
-    
-    raw_data = raw_data.join(province_city_mapping, on="ID", how="left") \
-            .withColumn("PANEL", func.lit(1))
-    
-    # 删除医院
-    # hospital_ot = spark.read.csv(hospital_ot_path, header=True)
-    # raw_data = raw_data.join(hospital_ot, on="ID", how="left_anti")
-    
-    # raw_data PHA是空的重新匹配
-    cpa_pha_mapping_common = spark.read.parquet(cpa_pha_mapping_common_path)
-    cpa_pha_mapping_common = cpa_pha_mapping_common.where(cpa_pha_mapping_common["推荐版本"] == 1) \
-            .withColumnRenamed("PHA", "PHA_common") \
-            .select("ID", "PHA_common").distinct()
-    cpa_pha_mapping_common = deal_ID_length(cpa_pha_mapping_common)
-    
-    raw_data = raw_data.join(cpa_pha_mapping_common, on="ID", how="left")
-    raw_data = raw_data.withColumn("PHA", func.when(raw_data.PHA.isNull(), raw_data.PHA_common).otherwise(raw_data.PHA)) \
-                    .drop("PHA_common")
+    # 1.4 匹配城市信息
+    df_raw_data_map = df_raw_data_map.join(df_province_city_mapping, on="ID", how="left")
+                        
+    # 1.5 raw_data PHA是空的重新匹配
+    df_cpa_pha_mapping_common = df_cpa_pha_mapping_common.where(col("推荐版本") == 1) \
+                                                        .withColumnRenamed("PHA", "PHA_common") \
+                                                        .select("ID", "PHA_common").distinct()
+    df_raw_data_map = df_raw_data_map.join(df_cpa_pha_mapping_common, on="ID", how="left")
+    df_raw_data_map = df_raw_data_map.withColumn("PHA", func.when(col('PHA').isNull(), col('PHA_common')).otherwise(col('PHA'))) \
+                                .drop("PHA_common")
     
     # raw_data 医院列表
-    raw_data_PHA = raw_data.select("PHA", "Date").distinct()
+    df_raw_data_PHA = df_raw_data_map.select("PHA", "Date").distinct()
     
-    # ID_Bedsize 匹配
-    ID_Bedsize = spark.read.parquet(ID_Bedsize_path)
-    ID_Bedsize = deal_ID_length(ID_Bedsize)
-    
-    raw_data = raw_data.join(ID_Bedsize, on="ID", how="left")
-    
+    # 1.6 ID_Bedsize 匹配
+    df_raw_data_map = df_raw_data_map.join(df_id_bedsize, on="ID", how="left")
+
+    # %%
+    # 2. 计算
     # all_models 筛选
-    if raw_data.select("DOI").dtypes[0][1] == "double":
-        raw_data = raw_data.withColumn("DOI", raw_data["DOI"].cast(IntegerType()))
-    raw_data = raw_data.where(raw_data.DOI.isin(all_models))
+    if df_raw_data_map.select("DOI").dtypes[0][1] == "double":
+        df_raw_data_map = df_raw_data_map.withColumn("DOI", col("DOI").cast(IntegerType()))
+    df_raw_data_map = df_raw_data_map.where(col('DOI').isin(all_models))
     
-    # 计算
-    if project_name != "Janssen":
-        if bedsize == "True":
-            raw_data = raw_data.where(raw_data.Bedsize > 99)
+    if bedsize == "True":
+        df_raw_data_map = df_raw_data_map.where(col('Bedsize') > 99)
     
     if hospital_level == "True":
-        raw_data_city = raw_data \
+        df_raw_data_agg = df_raw_data_map \
             .groupBy("Province", "City", "Date", "Prod_Name", "PANEL", "DOI", "S_Molecule", "PHA") \
             .agg({"Sales":"sum", "Units":"sum"}) \
             .withColumnRenamed("sum(Sales)", "Predict_Sales") \
             .withColumnRenamed("sum(Units)", "Predict_Unit") \
             .withColumnRenamed("S_Molecule", "Molecule") 
     else:
-        raw_data_city = raw_data \
+        df_raw_data_agg = df_raw_data_map \
             .groupBy("Province", "City", "Date", "Prod_Name", "PANEL", "DOI", "S_Molecule") \
             .agg({"Sales":"sum", "Units":"sum"}) \
             .withColumnRenamed("sum(Sales)", "Predict_Sales") \
             .withColumnRenamed("sum(Units)", "Predict_Unit") \
             .withColumnRenamed("S_Molecule", "Molecule") 
-
     # %%
-    # 2. max文件处理
-    index = 0
-    for market in all_models:
-        # market 的 time_left 和 time_right 选择，默认为参数时间
-        if market in left_models:
-            time_left_1 = left_models_time_left
-        else:
-            time_left_1 = time_left
-        if market in right_models:
-            time_right_1 = right_models_time_right
-        else:
-            time_right_1 = time_right
+    # 二. max文件处理
+    # max_result 筛选 BEDSIZE > 99， 且医院不在 raw_data_PHA 中
+    if bedsize == "True":
+        df_max_result_raw = df_max_result_raw.where(col('BEDSIZE') > 99)
+    df_max_result_raw = df_max_result_raw.join(df_raw_data_PHA, on=["PHA", "Date"], how="left_anti")
     
-        time_range = str(time_left_1) + '_' + str(time_right_1)
-    
-        if if_others:
-            max_path = out_path_dir + "/MAX_result/MAX_result_" + time_range + '_'  + market + "_hosp_level_box"
-        else:
-            max_path = out_path_dir + "/MAX_result/MAX_result_" + time_range + '_' + market + "_hosp_level"
-    
-        max_result = spark.read.parquet(max_path)
-    
-        # max_result 筛选 BEDSIZE > 99， 且医院不在raw_data_PHA 中
-        if bedsize == "True":
-            max_result = max_result.where(max_result.BEDSIZE > 99)
-        max_result = max_result.join(raw_data_PHA, on=["PHA", "Date"], how="left_anti")
-    
-        if hospital_level == "True":
-            max_result = max_result \
-                .groupBy("Province", "City", "Date", "Prod_Name", "PANEL", "Molecule", "PHA") \
-                .agg({"Predict_Sales":"sum", "Predict_Unit":"sum"}) \
-                .withColumnRenamed("sum(Predict_Sales)", "Predict_Sales") \
-                .withColumnRenamed("sum(Predict_Unit)", "Predict_Unit")
-        else:
-            max_result = max_result \
-                .groupBy("Province", "City", "Date", "Prod_Name", "PANEL", "Molecule") \
-                .agg({"Predict_Sales":"sum", "Predict_Unit":"sum"}) \
-                .withColumnRenamed("sum(Predict_Sales)", "Predict_Sales") \
-                .withColumnRenamed("sum(Predict_Unit)", "Predict_Unit")
-    
-        max_result = max_result.withColumn("DOI", func.lit(market))
-    
-    
-        if index ==0:
-            # max_result_all = max_result
-            max_result = max_result.repartition(1)
-            max_result.write.format("parquet") \
-                .mode("overwrite").save(max_result_city_tmp_path)
-    
-        else:
-            # max_result_all = max_result_all.union(max_result)
-            max_result = max_result.repartition(1)
-            max_result.write.format("parquet") \
-                .mode("append").save(max_result_city_tmp_path)
-    
-        index = index + 1
-    
-    max_result_all = spark.read.parquet(max_result_city_tmp_path)
-
-    # %%
-    # 3. 合并raw_data 和 max文件处理
     if hospital_level == "True":
-        raw_data_city = raw_data_city.select("PHA", "Province", "City", "Date", "Prod_Name", "Molecule", "PANEL", "DOI", "Predict_Sales", "Predict_Unit")
-        max_result_all = max_result_all.select("PHA", "Province", "City", "Date", "Prod_Name", "Molecule", "PANEL", "DOI", "Predict_Sales", "Predict_Unit")
-    else:
-        raw_data_city = raw_data_city.select("Province", "City", "Date", "Prod_Name", "Molecule", "PANEL", "DOI", "Predict_Sales", "Predict_Unit")
-        max_result_all = max_result_all.select("Province", "City", "Date", "Prod_Name", "Molecule", "PANEL", "DOI", "Predict_Sales", "Predict_Unit")
-    
-    max_result_city = max_result_all.union(raw_data_city)
-    
-    # 4. 合并后再进行一次group
-    if hospital_level == "True":
-        max_result_city = max_result_city \
+        df_max_result_agg = df_max_result_raw \
             .groupBy("Province", "City", "Date", "Prod_Name", "PANEL", "Molecule", "PHA", "DOI") \
             .agg({"Predict_Sales":"sum", "Predict_Unit":"sum"}) \
             .withColumnRenamed("sum(Predict_Sales)", "Predict_Sales") \
             .withColumnRenamed("sum(Predict_Unit)", "Predict_Unit")
-        max_result_city = max_result_city.select("PHA", "Province", "City", "Date", "Prod_Name", "Molecule", "PANEL", "DOI", "Predict_Sales", "Predict_Unit")
     else:
-        max_result_city = max_result_city \
+        df_max_result_agg = df_max_result_raw \
             .groupBy("Province", "City", "Date", "Prod_Name", "PANEL", "Molecule", "DOI") \
             .agg({"Predict_Sales":"sum", "Predict_Unit":"sum"}) \
             .withColumnRenamed("sum(Predict_Sales)", "Predict_Sales") \
             .withColumnRenamed("sum(Predict_Unit)", "Predict_Unit")
-        max_result_city = max_result_city.select("Province", "City", "Date", "Prod_Name", "Molecule", "PANEL", "DOI", "Predict_Sales", "Predict_Unit")
-
     # %%
-    # 5.输出判断是否已有 max_result_city_path 结果
-    '''
-    如果已经存在 max_result_city_path 则用新的结果对已有结果进行DOI替换和补充
-    '''
-    if hospital_level == "False" and bedsize == "True":
-        file_name = max_result_city_path.replace('//', '/').split('s3:/ph-max-auto/')[1]
+    # 三. 合并raw_data 和 max文件处理
+    if hospital_level == "True":
+        df_raw_data_agg = df_raw_data_agg.select("PHA", "Province", "City", "Date", "Prod_Name", "Molecule", "PANEL", "DOI", "Predict_Sales", "Predict_Unit")
+        df_max_result_agg = df_max_result_agg.select("PHA", "Province", "City", "Date", "Prod_Name", "Molecule", "PANEL", "DOI", "Predict_Sales", "Predict_Unit")
     else:
-        file_name = max_result_city_csv_path.replace('//', '/').split('s3:/ph-max-auto/')[1]
+        df_raw_data_agg = df_raw_data_agg.select("Province", "City", "Date", "Prod_Name", "Molecule", "PANEL", "DOI", "Predict_Sales", "Predict_Unit")
+        df_max_result_agg = df_max_result_agg.select("Province", "City", "Date", "Prod_Name", "Molecule", "PANEL", "DOI", "Predict_Sales", "Predict_Unit")
     
-    s3 = boto3.resource('s3', region_name='cn-northwest-1',
-                            aws_access_key_id="AKIAWPBDTVEAEU44ZAGT",
-                            aws_secret_access_key="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")
-    bucket = s3.Bucket('ph-max-auto')
-    judge = 0
-    for obj in bucket.objects.filter(Prefix = file_name):
-        path, filename = os.path.split(obj.key)  
-        if path == file_name:
-            judge += 1
+    df_max_result_backfill = df_max_result_agg.union(df_raw_data_agg)
     
-    if judge > 0:
-        if hospital_level == "False" and bedsize == "True":
-            old_max_out = spark.read.parquet(max_result_city_path)
-        else:
-            old_max_out = spark.read.csv(max_result_city_csv_path, header=True)
-        # 当期数据包含的市场
-        new_markets = max_result_city.select('DOI').distinct()
-        # 去掉已有数据中重复市场
-        old_max_out_keep = old_max_out.join(new_markets, on='DOI', how='left_anti')   
-        # old_max_out_keep = old_max_out.where(~old_max_out['DOI'].isin(new_markets))    
-        max_result_city_final = max_result_city.union(old_max_out_keep.select(max_result_city.columns))
-        # 中间文件读写一下
-        max_result_city_final = max_result_city_final.repartition(2)
-        max_result_city_final.write.format("parquet") \
-                            .mode("overwrite").save(tmp_path)
-        max_result_city_final = spark.read.parquet(tmp_path)   
+    # 合并后再进行一次group
+    if hospital_level == "True":
+        df_max_result_backfill = df_max_result_backfill \
+            .groupBy("Province", "City", "Date", "Prod_Name", "PANEL", "Molecule", "PHA", "DOI") \
+            .agg({"Predict_Sales":"sum", "Predict_Unit":"sum"}) \
+            .withColumnRenamed("sum(Predict_Sales)", "Predict_Sales") \
+            .withColumnRenamed("sum(Predict_Unit)", "Predict_Unit")
+        df_max_result_backfill = df_max_result_backfill.select("PHA", "Province", "City", "Date", "Prod_Name", "Molecule", "PANEL", "DOI", "Predict_Sales", "Predict_Unit")
     else:
-        max_result_city_final = max_result_city.repartition(2)
+        df_max_result_backfill = df_max_result_backfill \
+            .groupBy("Province", "City", "Date", "Prod_Name", "PANEL", "Molecule", "DOI") \
+            .agg({"Predict_Sales":"sum", "Predict_Unit":"sum"}) \
+            .withColumnRenamed("sum(Predict_Sales)", "Predict_Sales") \
+            .withColumnRenamed("sum(Predict_Unit)", "Predict_Unit")
+        df_max_result_backfill = df_max_result_backfill.select("Province", "City", "Date", "Prod_Name", "Molecule", "PANEL", "DOI", "Predict_Sales", "Predict_Unit")
 
     # %%
-    # max_result_city_final.groupby('PANEL').agg(func.sum('Predict_Sales')).show()
-
-    # %%
-    # hospital_level 的只输出csv
-    if hospital_level == "False" and bedsize == "True":     
-        max_result_city_final = max_result_city_final.repartition(2)
-        max_result_city_final.write.format("parquet") \
-            .mode("overwrite").save(max_result_city_path)
-    
-    max_result_city_final = max_result_city_final.repartition(1)
-    max_result_city_final.write.format("csv").option("header", "true") \
-        .mode("overwrite").save(max_result_city_csv_path)
-
+    # ==== **** 输出补数结果 **** ==== 
+    outResult(df_max_result_backfill, p_out_max_backfill)
+    logger.debug("输出 raw_data_adding_final：" + p_out_max_backfill)
+    createPartition(p_out_max_backfill)
+    logger.debug('数据执行-Finish')

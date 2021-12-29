@@ -337,7 +337,11 @@ def execute(**kwargs):
     # %%
     # 与历史数据合并   
     if if_union == 'True':
+<<<<<<< HEAD
         # 输出临时文件 
+=======
+        # 输出临时文件
+>>>>>>> BPBatchDAG/PBDP-1622-max-refactor
         raw_data_dedup.repartition(4).write.format("parquet") \
                 .mode("overwrite").save(tmp_path_raw_data_dedup)   
         if if_two_source == 'True':
