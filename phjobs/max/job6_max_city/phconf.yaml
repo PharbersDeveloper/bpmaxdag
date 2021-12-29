@@ -1,0 +1,58 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: job6_max_city
+  description: "pharbers job description"
+  labels:
+    name: job6_max_city
+    runtime: python3
+    command: submit
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    command: submit
+    timeout: 720.0
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: project_name
+        value: 'Takeda'
+      - key: time_left
+        value: '202101'
+      - key: time_right
+        value: '202103'
+      - key: all_models
+        value: 'TK1'
+      - key: if_others
+        value: 'False'
+      - key: minimum_product_columns
+        value: 'Brand, Form, Specifications, Pack_Number, Manufacturer'
+      - key: minimum_product_sep
+        value: '|'
+      - key: minimum_product_newname
+        value: 'min1'
+      - key: if_two_source
+        value: 'True'
+      - key: hospital_level
+        value: 'False'
+      - key: bedsize
+        value: 'True'
+      - key: id_bedsize_path
+        value: 'Empty'
+      - key: out_path
+        value: 's3://ph-platform/2020-11-11/etl/temporary_files/'
+      - key: run_id
+        value: 'run_id_max_test'
+      - key: owner
+        value: 'Airflow'
+      - key: g_database_temp
+        value: 'phdatatemp'
+      - key: g_database_input
+        value: 'phdatacat'
+    outputs:
+      - key: g_out_max_backfill
+        value: 'max_result_backfill'
+
+
+
