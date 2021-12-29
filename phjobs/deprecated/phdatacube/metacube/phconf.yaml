@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: alfred
+  description: "pharbers job description"
+  labels:
+    name: alfred
+spec:
+  containers:
+    repository: local
+    runtime: python2
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: dimensions
+        value:
+          time:
+            - YEAR
+            - QUARTER
+            - MONTH
+          geo:
+            - COUNTRY_NAME
+            - PROVINCE_NAME
+            - CITY_NAME
+          prod:
+            - COMPANY
+            - MKT
+            - MOLE_NAME
+            - PRODUCT_NAME
+      - key: run_id
+        value: default
+      - key: job_id
+        value: default
+      - key: version
+        value: 2020-08-31
+      - key: cuboids_path
+        value: default
+      - key: lattices_path
+        value: default
+      - key: dimensions_path
+        value: default
+    outputs:
+      - key: a
+        value: abcde
+      - key: b
+        value: 6789

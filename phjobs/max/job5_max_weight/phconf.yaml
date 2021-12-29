@@ -1,0 +1,58 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: job5_max_weight
+  description: "pharbers job description"
+  labels:
+    name: job5_max_weight
+    runtime: python3
+    command: submit
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    command: submit
+    timeout: 720.0
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: max_path
+        value: 's3://ph-max-auto/v0.0.1-2020-06-08/'
+      - key: project_name
+        value: 'Empty'
+      - key: if_base
+        value: 'False'
+      - key: time_left
+        value: '0'
+      - key: time_right
+        value: '0'
+      - key: left_models
+        value: 'Empty'
+      - key: left_models_time_left
+        value: 'Empty'
+      - key: right_models
+        value: 'Empty'
+      - key: right_models_time_right
+        value: 'Empty'
+      - key: all_models
+        value: 'Empty'
+      - key: universe_choice
+        value: 'Empty'
+      - key: if_others
+        value: 'False'
+      - key: out_path
+        value: 's3://ph-max-auto/v0.0.1-2020-06-08/'
+      - key: out_dir
+        value: 'Empty'
+      - key: need_test
+        value: '0'
+      - key: use_d_weight
+        value: 'Empty'
+    outputs:
+      - key: a
+        value: 'abcde'
+      - key: b
+        value: '6789'
+
+
+

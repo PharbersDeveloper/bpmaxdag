@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: alfred
+  description: "pharbers job description"
+  labels:
+    name: alfred
+spec:
+  containers:
+    repository: local
+    runtime: python2
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: run_id
+        value: default
+      - key: job_id
+        value: default
+      - key: version
+        value: 2020-08-31
+      - key: cleancube_result_path
+        value: default
+      - key: lattices_path
+        value: default
+      - key: lattices_content_path
+        value: default
+    outputs:
+      - key: a
+        value: abcde
+      - key: b
+        value: 6789

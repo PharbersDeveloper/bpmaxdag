@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: segmentation_mole
+  description: "pharbers job description"
+  labels:
+    name: segmentation_mole
+    runtime: python3
+    command: submit
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    command: submit
+    timeout: 1200.0
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: job_name 
+        value: segmentation_mole
+      - key: path_prefix
+        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/runs
+      - key: mole_stopwords_path
+        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DATA_OF_MOLE/LEXICON_OF_MOLE/V0.01/ 
+      - key: mole_lexicon_path
+        value: s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/DATA_OF_MOLE/LEXICON_OF_MOLE/V0.01/
+      - key: depend_job_names_keys
+        value:
+          - cross_join_cutting#cross_result#input_cross_result
+      - key: g_repartition_shared
+        value: 16
+    outputs:
+      - key: segmentation_mole_result
+        value: segmentation_mole_result
+
+
+

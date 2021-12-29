@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: training_validate
+  description: "pharbers job description"
+  labels:
+    name: training_validate
+    runtime: python3
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    code: phmain.py
+    config: phconf.yaml
+    command: submit
+    timeout: 600
+    args:
+      - key: validate_path
+        value: s3a://ph-max-auto/2020-08-11/data_matching/training/validate_path
+      - key: model_path
+        value: s3a://ph-max-auto/2020-08-11/data_matching/training/model_path
+    outputs:
+      - key: validate_output_path
+        value: s3a://ph-max-auto/2020-08-11/data_matching/training_validate/validate_output_path

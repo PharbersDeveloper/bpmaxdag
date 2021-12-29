@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: market_level
+  description: "pharbers job market_level"
+  labels:
+    name: market_level
+    runtime: python3
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    code: phmain.py
+    config: phconf.yaml
+    args:
+<<<<<<< HEAD:phjobs/phmatedatas/market_level/phconf.yaml
+      - key: input_report
+        value: s3a://ph-stream/common/public/max_result/0.0.5/max_standard/all_report_a
+      - key: input_csv
+        value: s3a://ph-max-auto/2020-08-11/cube/metadata/2019_TOP50_Companys.csv
+=======
+      - key: out_path
+        value: "s3a://ph-max-auto/2020-08-11/BPBatchDAG/azsanofi_check/0.0.11"
+>>>>>>> PBDP-469:phjobs/job5_match/phconf.yaml
+    outputs:
+      - key: output
+        value: powerbi.market_level
+
+
+

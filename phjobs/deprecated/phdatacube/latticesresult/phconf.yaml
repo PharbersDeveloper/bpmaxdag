@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: alfred
+  description: "pharbers job description"
+  labels:
+    name: alfred
+spec:
+  containers:
+    repository: local
+    runtime: python2
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: run_id
+        value: default
+      - key: job_id
+        value: default
+      - key: version
+        value: 2020-08-31
+      - key: lattices_path
+        value: s3a://ph-max-auto/2020-08-11/cube/jobs/runId_b1a82fdc-77b1-4660-8133-50c5336d4937/metacube/jobId_99c3da0c-9b1d-4b1a-9e0f-f86a282b9ec0/meta/lattices
+      - key: dimensions_path
+        value: s3a://ph-max-auto/2020-08-11/cube/jobs/runId_b1a82fdc-77b1-4660-8133-50c5336d4937/metacube/jobId_99c3da0c-9b1d-4b1a-9e0f-f86a282b9ec0/meta/dimensions
+      - key: cleancube_result_path
+        value: s3a://ph-max-auto/2020-08-11/cube/jobs/runId_b1a82fdc-77b1-4660-8133-50c5336d4937/cleanextractdata/jobId_37c5bff1-5d1d-42de-b22e-1feff7ab9a9c/content
+      - key: lattices_bucket_content_path
+        value: s3a://ph-max-auto/2020-08-11/cube/jobs/runId_b1a82fdc-77b1-4660-8133-50c5336d4937/bucketlattices/jobId_353baa02-f410-40a5-a1bb-204b89d0625d/content
+      - key: lattices_result_path
+        value: default

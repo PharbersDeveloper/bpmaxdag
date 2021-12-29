@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: hospital_mapping_seg_panel
+  description: "pharbers job description"
+  labels:
+    name: hospital_mapping_seg_panel
+    runtime: python3
+    command: submit
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    command: submit
+    timeout: 60.0
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: input_dim_path
+        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/HOSPITAL_DIMENSION/"
+      - key: time
+        value: "2021-04-14"
+      - key: seg_panel_paths
+        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/MAPPING/CSV/universe_CPA_传染.csv,
+                s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/MAPPING/CSV/universe_CPA_精神.csv,
+                s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/MAPPING/CSV/universe_CPA_普通.csv,
+                s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/MAPPING/CSV/universe_CPA_肿瘤.csv,
+                s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/MAPPING/CSV/universe_CPAGY_传染.csv,
+                s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/MAPPING/CSV/universe_CPAGY_精神.csv,
+                s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/MAPPING/CSV/universe_CPAGY_普通.csv,
+                s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/MAPPING/CSV/universe_CPAGY_肿瘤.csv,
+                s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/MAPPING/CSV/universe_GYC_传染.csv,
+                s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/MAPPING/CSV/universe_GYC_精神.csv,
+                s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/MAPPING/CSV/universe_GYC_普通.csv,
+                s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/MAPPING/CSV/universe_GYC_肿瘤.csv"
+      - key: company
+        value: "贝达"
+      - key: version
+        value: "0.0.1"
+    outputs:
+      - key: output_fact_path
+        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/FACT/HOSPITAL_FACT/"
+      - key: output_mapping_path
+        value: "s3a://ph-max-auto/2020-08-11/data_matching/refactor/data/MAX/DIMENSION/MAPPING/HOSPITAL_BASE_MARKET_SEG_PANEL_MAPPING/"
+
+
+
