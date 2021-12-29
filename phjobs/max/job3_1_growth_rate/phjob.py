@@ -105,7 +105,9 @@ def execute(**kwargs):
     # 删除已有的s3中间文件
     def deletePath(path_dir):
         file_name = path_dir.replace('//', '/').split('s3:/ph-platform/')[1]
-        s3 = boto3.resource('s3')
+        s3 = boto3.resource('s3', region_name='cn-northwest-1',
+                            aws_access_key_id="AKIAWPBDTVEAEU44ZAGT",
+                            aws_secret_access_key="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")
         bucket = s3.Bucket('ph-platform')
         bucket.objects.filter(Prefix=file_name).delete()
     deletePath(path_dir=f"{p_out_growth_rate}/version={run_id}/provider={project_name}/owner={owner}/")
@@ -113,6 +115,12 @@ def execute(**kwargs):
     
     # %%
     # =========== 数据清洗 =============
+    def dealScheme(df, dict_scheme):
+        # 数据类型处理
+        for i in dict_scheme.keys():
+            df = df.withColumn(i, col(i).cast(dict_scheme[i]))
+        return df
+    
     def dealIDLength(df, colname='ID'):
         # ID不足7位的前面补0到6位
         # 国药诚信医院编码长度是7位数字，cpa医院编码是6位数字
@@ -226,6 +234,7 @@ def execute(**kwargs):
                 how="left")
             
         # ==== **** 输出 **** ====
+        growth_rate = dealScheme(growth_rate, dict_scheme={'S_Molecule_for_gr': 'string', 'CITYGROUP': 'string'})
         outResult(growth_rate, p_out_growth_rate)
             
     elif monthly_update == "True":
@@ -249,6 +258,7 @@ def execute(**kwargs):
             growth_rate_month = growth_rate_month.withColumn("month_for_monthly_add", func.lit(month))
             
             # ==== **** 输出 **** ====
+            growth_rate_month = dealScheme(growth_rate_month, dict_scheme={'S_Molecule_for_gr': 'string', 'CITYGROUP': 'string'})
             outResult(growth_rate_month, p_out_growth_rate)
     
     # 读回中间文件

@@ -104,7 +104,9 @@ def execute(**kwargs):
     # 删除已有的s3中间文件
     def deletePath(path_dir):
         file_name = path_dir.replace('//', '/').split('s3:/ph-platform/')[1]
-        s3 = boto3.resource('s3')
+        s3 = boto3.resource('s3', region_name='cn-northwest-1',
+                            aws_access_key_id="AKIAWPBDTVEAEU44ZAGT",
+                            aws_secret_access_key="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")
         bucket = s3.Bucket('ph-platform')
         bucket.objects.filter(Prefix=file_name).delete()
     deletePath(path_dir=f"{p_out_max}/version={run_id}/provider={project_name}/owner={owner}/")
@@ -170,6 +172,7 @@ def execute(**kwargs):
     df_PHA_weight = df_PHA_weight.select('province', 'city', 'doi', 'weight', 'pha').distinct()
     if use_d_weight:
         df_PHA_weight_default = df_PHA_weight_default.select('province', 'city', 'doi', 'weight', 'pha').distinct()
+        
 
     # %%
     # =========== 函数定义：输出结果 =============
@@ -329,6 +332,8 @@ def execute(**kwargs):
         df_max_result = df_max_result.union(df_panel.select(df_max_result.columns))
         # 输出结果
         df_max_result = df_max_result.withColumn("DOI", func.lit(market))
+        
+        df_max_result = dealScheme(df_max_result, {"PHA":"string", "Province":"string", "City":"string", "Date":"double", "Molecule":"string", "Prod_Name":"string", "BEDSIZE":"string", "PANEL":"string", "Seg":"string", "Predict_Sales":"double", "Predict_Unit":"double", "DOI":"string"})
         
         outResult(df_max_result, p_out_max)
         logger.debug("输出 max_result：" + market)

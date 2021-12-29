@@ -126,7 +126,9 @@ def execute(**kwargs):
     # 删除已有的s3中间文件
     def deletePath(path_dir):
         file_name = path_dir.replace('//', '/').split('s3:/ph-platform/')[1]
-        s3 = boto3.resource('s3')
+        s3 = boto3.resource('s3', region_name='cn-northwest-1',
+                            aws_access_key_id="AKIAWPBDTVEAEU44ZAGT",
+                            aws_secret_access_key="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")
         bucket = s3.Bucket('ph-platform')
         bucket.objects.filter(Prefix=file_name).delete()
     deletePath(path_dir=f"{p_out_adding_data}/version={run_id}/provider={project_name}/owner={owner}/")
@@ -134,6 +136,11 @@ def execute(**kwargs):
 
     # %% 
     # =========== 数据清洗 =============
+    def dealScheme(df, dict_scheme):
+        # 数据类型处理
+        for i in dict_scheme.keys():
+            df = df.withColumn(i, col(i).cast(dict_scheme[i]))
+        return df
     def deal_ID_length(df):
         # ID不足7位的补足0到6位
         # 国药诚信医院编码长度是7位数字，cpa医院编码是6位数字，其他还有包含字母的ID
@@ -404,7 +411,8 @@ def execute(**kwargs):
                                                      otherwise(col('Sales') / col('Price'))) \
                                                         .na.fill({'Units': 0})    
                                                                     
-        # ==== **** 输出 **** ====                                                     
+        # ==== **** 输出 **** ====  
+        df_current_adding_data = dealScheme(df_current_adding_data, dict_scheme={'min2': 'string', 'Date': 'double', 'city': 'string', 'province': 'string', 'City_Tier_2010': 'string', 'month': 'int', 'pha': 'string', 'Year': 'int', 'S_Molecule_for_gr': 'string', 'min1': 'string', 'id': 'string', 'raw_hosp_name': 'string', 'brand': 'string', 'form': 'string', 'specifications': 'string', 'pack_number': 'string', 'manufacturer': 'string', 'molecule': 'string', 'source': 'string', 'corp': 'string', 'route': 'string', 'org_measure': 'string', 'Sales': 'double', 'Units': 'double', 'units_box': 'double', 'path': 'string', 'sheet': 'string', 's_molecule': 'string', '标准商品名': 'string'})
         outResult(df_current_adding_data, p_out_adding_data)
     
         return original_range
