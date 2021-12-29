@@ -20,16 +20,16 @@ def execute(**kwargs):
     minimum_product_newname = kwargs['minimum_product_newname']
     need_cleaning_cols = kwargs['need_cleaning_cols']
     out_path = kwargs['out_path']
-    run_id = kwargs['run_id']
+    run_id = kwargs['run_id'].replace(":","_")
     owner = kwargs['owner']
-    g_input_version = kwargs['g_input_version']
+    # g_input_version = kwargs['g_input_version']
     g_database_temp = kwargs['g_database_temp']
     g_database_input = kwargs['g_database_input']
     ### input args ###
     
     ### output args ###
-    g_out_table = kwargs['g_out_table']
-    g_need_clean_table = kwargs['g_need_clean_table']
+    #g_out_table = kwargs['g_out_table']
+    #g_need_clean_table = kwargs['g_need_clean_table']
     ### output args ###
 
     
@@ -40,12 +40,13 @@ def execute(**kwargs):
     import os
     from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col
     import json
-    import boto3    # %% 
-    # 输入参数设置
-    logger.debug('job2_product_mapping')
+    import boto3    
     
-    dict_input_version = json.loads(g_input_version)
-    logger.debug(dict_input_version)
+    # %% 
+    # =========== 数据执行 =========== 
+    # 输入参数设置
+    g_out_table = 'product_mapping_out'
+    logger.debug('job2_product_mapping')
     
     need_cleaning_cols = need_cleaning_cols.replace(" ","").split(",")
     minimum_product_columns = minimum_product_columns.replace(" ","").split(",")
@@ -53,19 +54,25 @@ def execute(**kwargs):
         minimum_product_sep = ""
         
     # 输出
-    p_out_path = out_path + g_out_table
-    p_out_need_clean = out_path + g_need_clean_table
+    # p_out_path = out_path + g_out_table
+    # p_out_need_clean = out_path + g_need_clean_table
     # %% 
-    # 输入数据读取
-    df_raw_data = spark.sql("SELECT * FROM %s.hospital_mapping_out WHERE version='%s' AND provider='%s' AND  owner='%s'" 
-                         %(g_database_temp, run_id, project_name, owner))
-    # print(df_raw_data)
-    # print(df_raw_data.count())
+    # =========== 输入数据读取 =========== 
+    def changeColToInt(df, list_cols):
+        for i in list_cols:
+            df = df.withColumn(i, col(i).cast('int'))
+        return df
+    def dealToNull(df):
+        df = df.replace(["None", ""], None)
+        return df
+        
+    df_raw_data = kwargs['df_hospital_mapping_out']
+    df_raw_data = dealToNull(df_raw_data)
+    df_raw_data = changeColToInt(df_raw_data, ['Pack_Number']) 
     
-    df_prod_mapping =  spark.sql("SELECT * FROM %s.prod_mapping WHERE provider='%s' AND version='%s'" 
-                             %(g_database_input, project_name, dict_input_version['prod_mapping']))
-    # print(df_prod_mapping)
-    # print(df_prod_mapping.count())
+    
+    df_prod_mapping =  kwargs['df_prod_mapping']
+    df_prod_mapping = dealToNull(df_prod_mapping)
 
     # %% 
     # =========== 数据清洗 =============
@@ -157,44 +164,21 @@ def execute(**kwargs):
 
     # %%
     # =========== 数据输出 =============
-    def createPartition(p_out):
-        # 创建分区
-        logger.debug('创建分区')
-        Location = p_out + '/version=' + run_id + '/provider=' + project_name + '/owner=' + owner
-        g_out_table = p_out.split('/')[-1]
-        
-        partition_input_list = [{
-         "Values": [run_id, project_name,  owner], 
-        "StorageDescriptor": {
-            "SerdeInfo": {
-                "SerializationLibrary": "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"
-            }, 
-            "Location": Location, 
-        } 
-            }]    
-        client = boto3.client('glue', region_name='cn-northwest-1')
-        glue_info = client.batch_create_partition(DatabaseName=g_database_temp, TableName=g_out_table, PartitionInputList=partition_input_list)
-        logger.debug(glue_info)
-        
-    def outResult(df, p_out):
-        df = df.withColumn('version', func.lit(run_id)) \
-                .withColumn('provider', func.lit(project_name)) \
-                .withColumn('owner', func.lit(owner))
-        df.repartition(1).write.format("parquet") \
-                 .mode("append").partitionBy("version", "provider", "owner") \
-                 .parquet(p_out)
-        
-    
     # 1、待清洗
-    if df_need_cleaning.count() > 0:
-        outResult(df_need_cleaning, p_out_need_clean)        
-        logger.debug("已输出待清洗文件至:  " + p_out_need_clean)
-        createPartition(p_out_need_clean)
-            
-    # 2、product_mapping_out
-    outResult(df_raw_data, p_out_path)      
-    logger.debug("输出 product_mapping_out 结果：" + p_out_path)
-    createPartition(p_out_path)
+    # if df_need_cleaning.count() > 0:
+    #     outResult(df_need_cleaning, p_out_need_clean)        
+    #     logger.debug("已输出待清洗文件至:  " + p_out_need_clean)
+    #     createPartition(p_out_need_clean)
+    
+    def lowerColumns(df):
+        df = df.toDF(*[i.lower() for i in df.columns])
+        return df
+
+    df_raw_data = lowerColumns(df_raw_data)
+
+    return {'out_df':df_raw_data}   
+    
+
     
     
 

@@ -16,20 +16,18 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--run_id')
 @click.option('--job_full_name')
 @click.option('--job_id')
-@click.option('--extract_path')
 @click.option('--project_name')
-@click.option('--g_for_extract')
 @click.option('--out_path')
 @click.option('--run_id')
 @click.option('--owner')
+@click.option('--g_input_version')
 @click.option('--g_database_temp')
 @click.option('--g_database_input')
-@click.option('--g_out_max_standard')
-@click.option('--g_out_max_standard_brief')
+@click.option('--g_out_raw_data_deal_poi')
 def debug_execute(**kwargs):
     try:
-        args = {"name": "job7_max_standard"}
-        outputs = ["g_out_max_standard", "g_out_max_standard_brief"]
+        args = {"name": "job3_1_raw_data_deal_poi"}
+        outputs = ["g_out_raw_data_deal_poi"]
 
         args.update(kwargs)
         result = exec_before(**args)
@@ -56,8 +54,8 @@ def debug_execute(**kwargs):
 @click.option('--job_args_name')
 def online_debug_execute(**kwargs):
     try:
-        args = {"name": "job7_max_standard"}
-        outputs = ["g_out_max_standard", "g_out_max_standard_brief"]
+        args = {"name": "job3_1_raw_data_deal_poi"}
+        outputs = ["g_out_raw_data_deal_poi"]
         
         args.update(kwargs)
         result = exec_before(**args)

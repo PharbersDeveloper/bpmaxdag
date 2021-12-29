@@ -23,17 +23,18 @@ def execute(**kwargs):
     use_d_weight = kwargs['use_d_weight']
     if_others = kwargs['if_others']
     out_path = kwargs['out_path']
-    run_id = kwargs['run_id']
+    run_id = kwargs['run_id'].replace(":","_")
     owner = kwargs['owner']
-    g_input_version = kwargs['g_input_version']
     g_database_temp = kwargs['g_database_temp']
     g_database_input = kwargs['g_database_input']
     ### input args ###
     
     ### output args ###
-    g_out_max = kwargs['g_out_max']
+    # g_out_max = kwargs['g_out_max']
     ### output args ###
 
+    
+    
     
     
     import os
@@ -42,22 +43,13 @@ def execute(**kwargs):
     from pyspark.sql import functions as func
     from pyspark.sql.functions import col     
     import json
-    import boto3    # %%
-    # project_name = 'Empty'
-    # if_base = 'False'
-    # time_left = 0
-    # time_right = 0
-    # left_models = 'Empty'
-    # left_models_time_left = 'Empty'
-    # right_models = 'Empty'
-    # right_models_time_right = 'Empty'
-    # all_models = 'Empty'
-    # universe_choice = 'Empty'
-    # if_others = 'False'
-    # use_d_weight = 'Empty'
+    import boto3
     # %% 
+    # =========== 数据执行 =========== 
     # 输入参数设置
+    g_out_max = 'max_result_raw'
     logger.debug('job5_max')
+    
     if if_base == "False":
         if_base = False
     elif if_base == "True":
@@ -77,10 +69,6 @@ def execute(**kwargs):
     
     time_left = int(time_left)
     time_right = int(time_right)
-        
-        
-    dict_input_version = json.loads(g_input_version)
-    logger.debug(dict_input_version)
     
     # 市场的universe文件
     universe_choice_dict={}
@@ -94,17 +82,34 @@ def execute(**kwargs):
     p_out_max = out_path + g_out_max
 
     # %% 
-    # 输入数据读取
-    df_panel_result = spark.sql("SELECT * FROM %s.panel_result WHERE version='%s' AND provider='%s' AND  owner='%s' AND date >=%s AND date <=%s" 
-                                     %(g_database_temp, run_id, project_name, owner, time_left, time_right))
+    # =========== 输入数据读取 -部分 =========== 
+    def changeColToInt(df, list_cols):
+        for i in list_cols:
+            df = df.withColumn(i, col(i).cast('int'))
+        return df
+    def dealToNull(df):
+        df = df.replace(["None", ""], None)
+        return df
+        
+    df_panel_result = kwargs['df_panel_result']
+    df_panel_result = dealToNull(df_panel_result)
     
-    
-    df_PHA_weight =  spark.sql("SELECT * FROM %s.weight WHERE provider='%s' AND filetype='%s' AND version='%s'" 
-                                     %(g_database_input, project_name, 'weight', dict_input_version['weight']['weight']))
+    df_PHA_weight =  kwargs['df_weight']
+    df_PHA_weight = dealToNull(df_PHA_weight)
     
     if use_d_weight:
-        df_PHA_weight_default =  spark.sql("SELECT * FROM %s.weight WHERE provider='%s' AND filetype='%s' AND version='%s'" 
-                                         %(g_database_input, project_name, 'weight_default', dict_input_version['weight']['weight_default']))
+        df_PHA_weight_default =  kwargs['df_weight_default']
+        df_PHA_weight_default = dealToNull(df_PHA_weight_default)
+        
+    # 删除已有的s3中间文件
+    def deletePath(path_dir):
+        file_name = path_dir.replace('//', '/').split('s3:/ph-platform/')[1]
+        s3 = boto3.resource('s3', region_name='cn-northwest-1',
+                            aws_access_key_id="AKIAWPBDTVEAEU44ZAGT",
+                            aws_secret_access_key="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")
+        bucket = s3.Bucket('ph-platform')
+        bucket.objects.filter(Prefix=file_name).delete()
+    deletePath(path_dir=f"{p_out_max}/version={run_id}/provider={project_name}/owner={owner}/")
 
     # %% 
     # =========== 数据清洗 =============
@@ -167,6 +172,7 @@ def execute(**kwargs):
     df_PHA_weight = df_PHA_weight.select('province', 'city', 'doi', 'weight', 'pha').distinct()
     if use_d_weight:
         df_PHA_weight_default = df_PHA_weight_default.select('province', 'city', 'doi', 'weight', 'pha').distinct()
+        
 
     # %%
     # =========== 函数定义：输出结果 =============
@@ -219,27 +225,28 @@ def execute(**kwargs):
         # universe 读取
         if market in universe_choice_dict.keys():
             filetype = universe_choice_dict[market]
-            df_universe =  spark.sql("SELECT * FROM %s.universe_other WHERE provider='%s' AND filetype='%s' AND version='%s'" 
-                                     %(g_database_input, project_name, filetype, dict_input_version['universe_other'][filetype]))    
+            df_universe =  kwargs['df_universe_other'].where(col('filetype')==filetype)
+            df_universe = dealToNull(df_universe) 
         else:
-            df_universe =  spark.sql("SELECT * FROM %s.universe_base WHERE provider='%s' AND version='%s'" 
-                                 %(g_database_input, project_name, dict_input_version['universe_base']))
+            df_universe =  kwargs['df_universe_base']
+            df_universe = dealToNull(df_universe) 
+            
         df_universe = cleanUniverse(df_universe)
-                   
             
         # universe_outlier 读取
-        df_universe_outlier = spark.sql("SELECT * FROM %s.universe_outlier WHERE provider='%s' AND filetype='%s' AND version='%s'" 
-                                     %(g_database_input, project_name, market, dict_input_version['universe_outlier'][market]))
-        df_universe_outlier = cleanUniverse(df_universe_outlier)
+        df_universe_outlier = kwargs['df_universe_outlier'].where(col('filetype')==market)
+        df_universe_outlier = dealToNull(df_universe_outlier)
+        df_universe_outlier = cleanUniverse(df_universe_outlier)    
         
         # factor 读取
         if if_base:
-            df_factor = spark.sql("SELECT * FROM %s.factor WHERE provider='%s' AND filetype='%s' AND version='%s'" 
-                                     %(g_database_input, project_name, market, dict_input_version['factor']['base']))
+            df_factor = kwargs['df_factor_base']
+            df_factor = dealToNull(df_factor)
         else:
-            df_factor = spark.sql("SELECT * FROM %s.factor WHERE provider='%s' AND filetype='%s' AND version='%s'" 
-                                     %(g_database_input, project_name, market, dict_input_version['factor'][market]))   
-        df_factor = cleanFactor(df_factor)   
+            df_factor = kwargs['df_factor'].where(col('filetype')==market)
+            df_factor = dealToNull(df_factor)
+        
+        df_factor = cleanFactor(df_factor)
             
         # weight 文件
         df_PHA_weight_market = df_PHA_weight.where(col('DOI') == market)
@@ -326,6 +333,8 @@ def execute(**kwargs):
         # 输出结果
         df_max_result = df_max_result.withColumn("DOI", func.lit(market))
         
+        df_max_result = dealScheme(df_max_result, {"PHA":"string", "Province":"string", "City":"string", "Date":"double", "Molecule":"string", "Prod_Name":"string", "BEDSIZE":"string", "PANEL":"string", "Seg":"string", "Predict_Sales":"double", "Predict_Unit":"double", "DOI":"string"})
+        
         outResult(df_max_result, p_out_max)
         logger.debug("输出 max_result：" + market)
 
@@ -339,5 +348,19 @@ def execute(**kwargs):
             calculate_max(i, if_base=if_base, if_box=True)
             
     createPartition(p_out_max)
+    
+    # 读回
+    df_max_result_raw = spark.sql("SELECT * FROM %s.max_result_raw WHERE version='%s' AND provider='%s' AND  owner='%s'" 
+                                 %(g_database_temp, run_id, project_name, owner))
+    
+    
+    # =========== 数据输出 =============
+    def lowerColumns(df):
+        df = df.toDF(*[i.lower() for i in df.columns])
+        return df
+    
+    df_max_result_raw = lowerColumns(df_max_result_raw)
+    
     logger.debug('数据执行-Finish')
-
+    
+    return {'out_df':df_max_result_raw}

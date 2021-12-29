@@ -38,8 +38,6 @@ spec:
         value: 'run_id_max_test'
       - key: owner
         value: 'Airflow'
-      - key: g_input_version
-        value: '{"weight":{"weight":"20210624_u0079u0079u0077", "weight_default":"20210624_u0079u0079u0077"}, "universe_base":"2020_u0079u0079u0077", "factor":{"TK1":"20210623_u0079u0079u0077"}, "universe_outlier":{"TK1":"20210623_u0079u0079u0077"}}'
       - key: g_database_temp
         value: 'phdatatemp'
       - key: g_database_input

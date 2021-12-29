@@ -14,25 +14,20 @@ def execute(**kwargs):
     depends_path = kwargs["depends_path"]
     
     ### input args ###
-    project_name = kwargs['project_name']
-    if_others = kwargs['if_others']
-    out_path = kwargs['out_path']
-    run_id = kwargs['run_id']
-    owner = kwargs['owner']
-    g_input_version = kwargs['g_input_version']
-    g_database_temp = kwargs['g_database_temp']
-    g_database_input = kwargs['g_database_input']
+    # g_input_version = kwargs['g_input_version']
+    # project_name = kwargs['project_name']
+    # if_others = kwargs['if_others']
+    # out_path = kwargs['out_path']
+    # run_id = kwargs['run_id']
+    # owner = kwargs['owner']
+    
+    # g_database_temp = kwargs['g_database_temp']
+    # g_database_input = kwargs['g_database_input']
     ### input args ###
     
     ### output args ###
-    g_out_table = kwargs['g_out_table']
+    # g_out_table = kwargs['g_out_table']
     ### output args ###
-
-    
-    
-    
-    
-    
     
     from pyspark.sql import SparkSession, Window
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
@@ -40,39 +35,41 @@ def execute(**kwargs):
     import os
     import boto3
     from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col    
-    import json    # %% 
+    import json    
+    
+    # %% 
+    # =========== 数据执行 =========== 
     # 输入参数设置
-    dict_input_version = json.loads(g_input_version)
-    logger.debug(dict_input_version)
-    if if_others != "False" and if_others != "True":
-        logger.error('wrong input: if_others, False or True') 
-        raise ValueError('wrong input: if_others, False or True')
+    # dict_input_version = json.loads(g_input_version)
+    # logger.debug(dict_input_version)
+    # if if_others != "False" and if_others != "True":
+    #     logger.error('wrong input: if_others, False or True') 
+    #     raise ValueError('wrong input: if_others, False or True')
         
-    if if_others == "True":
-        g_raw_data_type = "data_box"
-    else:
-        g_raw_data_type = "data"
+    # if if_others == "True":
+    #     g_raw_data_type = "data_box"
+    # else:
+    #     g_raw_data_type = "data"
     
     # 输出
     # if if_others == "True":
     #     out_dir = out_dir + "/others_box/"
-    p_out_path = out_path + g_out_table
+    # p_out_path = out_path + g_out_table
+    
     # %% 
-    # 输入数据读取
-    df_raw_data = spark.sql("SELECT * FROM %s.raw_data WHERE provider='%s' AND filetype='%s' AND version='%s'" 
-                         %(g_database_input, project_name, g_raw_data_type, dict_input_version['raw_data'][g_raw_data_type]))
-    # print(df_raw_data)
-    # print(df_raw_data.count())
+    # =========== 输入数据读取 =========== 
+    def dealToNull(df):
+        df = df.replace(["None", ""], None)
+        return df
     
-    df_universe =  spark.sql("SELECT * FROM %s.universe_base WHERE provider='%s' AND version='%s'" 
-                             %(g_database_input, project_name, dict_input_version['universe_base']))
-    # print(df_universe)
-    # print(df_universe.count())
+    df_raw_data = kwargs['df_raw_data']
+    df_raw_data = dealToNull(df_raw_data)
     
-    df_cpa_pha_mapping =  spark.sql("SELECT * FROM %s.cpa_pha_mapping WHERE provider='%s' AND version='%s'" 
-                             %(g_database_input, project_name, dict_input_version['cpa_pha_mapping']))
-    # print(df_cpa_pha_mapping)
-    # print(df_cpa_pha_mapping.count())
+    df_universe = kwargs['df_universe_base']
+    df_universe = dealToNull(df_universe)
+    
+    df_cpa_pha_mapping = kwargs['df_cpa_pha_mapping']
+    df_cpa_pha_mapping = dealToNull(df_cpa_pha_mapping)
 
     # %% 
     # =========== 数据清洗 =============
@@ -164,45 +161,17 @@ def execute(**kwargs):
     
     df_raw_data = df_raw_data.withColumn("Month", (col('Date') % 100).cast(IntegerType())) \
                             .withColumn("Year", ((col('Date') - col('Month')) / 100).cast(IntegerType()))
+    
 
     # %%
-    # =========== 数据输出 =============    
-    def createPartition(p_out):
-        # 创建分区
-        logger.debug('创建分区')
-        Location = p_out + '/version=' + run_id + '/provider=' + project_name + '/owner=' + owner
-        g_out_table = p_out.split('/')[-1]
-        
-        partition_input_list = [{
-         "Values": [run_id, project_name,  owner], 
-        "StorageDescriptor": {
-            "SerdeInfo": {
-                "SerializationLibrary": "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"
-            }, 
-            "Location": Location, 
-        } 
-            }]    
-        client = boto3.client('glue', region_name='cn-northwest-1')
-        glue_info = client.batch_create_partition(DatabaseName=g_database_temp, TableName=g_out_table, PartitionInputList=partition_input_list)
-        logger.debug(glue_info)
-        
-    def outResult(df, p_out):
-        df = df.withColumn('version', func.lit(run_id)) \
-                .withColumn('provider', func.lit(project_name)) \
-                .withColumn('owner', func.lit(owner))
-        # df = df.colToUpper(df)
-        df.repartition(1).write.format("parquet") \
-                 .mode("append").partitionBy("version", "provider", "owner") \
-                 .parquet(p_out)
-        
-    def colToUpper(df):
-        return df.toDF(*[i.upper() for i in df.columns])
-        
-        
-    # 1、hospital_mapping_out
-    outResult(df_raw_data, p_out_path)
-    logger.debug("输出 hospital_mapping 结果：" + p_out_path)
-    createPartition(p_out_path)
-    
+    # =========== 数据输出 =============
+    def lowerColumns(df):
+        df = df.toDF(*[i.lower() for i in df.columns])
+        return df
+
+    df_raw_data = lowerColumns(df_raw_data)
+
     logger.debug('数据执行-Finish')
+    
+    return {'out_df':df_raw_data}
 

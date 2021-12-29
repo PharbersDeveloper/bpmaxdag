@@ -16,20 +16,26 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--run_id')
 @click.option('--job_full_name')
 @click.option('--job_id')
-@click.option('--extract_path')
 @click.option('--project_name')
-@click.option('--g_for_extract')
+@click.option('--model_month_right')
+@click.option('--max_month')
+@click.option('--year_missing')
+@click.option('--current_year')
+@click.option('--first_month')
+@click.option('--current_month')
+@click.option('--if_others')
+@click.option('--monthly_update')
+@click.option('--if_add_data')
 @click.option('--out_path')
 @click.option('--run_id')
 @click.option('--owner')
 @click.option('--g_database_temp')
 @click.option('--g_database_input')
-@click.option('--g_out_max_standard')
-@click.option('--g_out_max_standard_brief')
+@click.option('--a')
 def debug_execute(**kwargs):
     try:
-        args = {"name": "job7_max_standard"}
-        outputs = ["g_out_max_standard", "g_out_max_standard_brief"]
+        args = {"name": "job3_1_growth_rate"}
+        outputs = ["a"]
 
         args.update(kwargs)
         result = exec_before(**args)
@@ -56,8 +62,8 @@ def debug_execute(**kwargs):
 @click.option('--job_args_name')
 def online_debug_execute(**kwargs):
     try:
-        args = {"name": "job7_max_standard"}
-        outputs = ["g_out_max_standard", "g_out_max_standard_brief"]
+        args = {"name": "job3_1_growth_rate"}
+        outputs = ["a"]
         
         args.update(kwargs)
         result = exec_before(**args)
