@@ -14,23 +14,15 @@ def execute(**kwargs):
     depends_path = kwargs["depends_path"]
     
     ### input args ###
-    project_name = kwargs['project_name']
     time_left = kwargs['time_left']
     time_right = kwargs['time_right']
     all_models = kwargs['all_models']
-    if_others = kwargs['if_others']
     minimum_product_columns = kwargs['minimum_product_columns']
     minimum_product_sep = kwargs['minimum_product_sep']
     minimum_product_newname = kwargs['minimum_product_newname']
     if_two_source = kwargs['if_two_source']
     hospital_level = kwargs['hospital_level']
     bedsize = kwargs['bedsize']
-    id_bedsize_path = kwargs['id_bedsize_path']
-    out_path = kwargs['out_path']
-    run_id = kwargs['run_id'].replace(":","_")
-    owner = kwargs['owner']
-    g_database_temp = kwargs['g_database_temp']
-    g_database_input = kwargs['g_database_input']
     ### input args ###
     
     ### output args ###
@@ -50,19 +42,6 @@ def execute(**kwargs):
     import pandas as pd   
     import json
     import boto3
-    # %%
-    # project_name = 'Empty'
-    # time_left = 'Empty'
-    # time_right = 'Empty'
-    # all_models = 'Empty'
-    # if_others = 'False'
-    # minimum_product_columns = 'Brand, Form, Specifications, Pack_Number, Manufacturer'
-    # minimum_product_sep = '|'
-    # minimum_product_newname = 'min1'
-    # if_two_source = 'False'
-    # hospital_level = 'False'
-    # bedsize = 'True'
-    # id_bedsize_path = 'Empty'
 
     # %% 
     # =========== 数据执行 ===========
@@ -71,13 +50,6 @@ def execute(**kwargs):
     minimum_product_columns = minimum_product_columns.replace(" ","").split(",")
     if minimum_product_sep == "kong":
         minimum_product_sep = ""
-    
-    if if_others == "False":
-        if_others = False
-    elif if_others == "True":
-        if_others = True
-    else:
-        raise ValueError('if_others: False or True')
     
     if bedsize != "False" and bedsize != "True":
         raise ValueError('bedsize: False or True')
@@ -92,16 +64,10 @@ def execute(**kwargs):
     time_left = int(time_left)
     time_right = int(time_right)
     
-    # dict_input_version = json.loads(g_input_version)
-    # print(dict_input_version)
-    
     if if_two_source == "False":
         g_raw_data_type = "df_raw_data"
     else:
         g_raw_data_type = "df_raw_data_std"
-            
-    # 输出
-    p_out_max_backfill = out_path + g_out_max_backfill
 
     # %% 
     # =========== 输入数据读取 =========== 
@@ -230,35 +196,6 @@ def execute(**kwargs):
         df_raw_data = df_raw_data.withColumn("Pack_Number", func.lit(0))
 
     # %%
-    # =========== 函数定义：输出结果 =============
-    def createPartition(p_out):
-        # 创建分区
-        logger.debug('创建分区')
-        Location = p_out + '/version=' + run_id + '/provider=' + project_name + '/owner=' + owner
-        g_out_table = p_out.split('/')[-1]
-        
-        partition_input_list = [{
-         "Values": [run_id, project_name,  owner], 
-        "StorageDescriptor": {
-            "SerdeInfo": {
-                "SerializationLibrary": "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"
-            }, 
-            "Location": Location, 
-        } 
-            }]    
-        client = boto3.client('glue', region_name='cn-northwest-1')
-        glue_info = client.batch_create_partition(DatabaseName=g_database_temp, TableName=g_out_table, PartitionInputList=partition_input_list)
-        logger.debug(glue_info)
-        
-    def outResult(df, p_out):
-        df = df.withColumn('version', func.lit(run_id)) \
-                .withColumn('provider', func.lit(project_name)) \
-                .withColumn('owner', func.lit(owner))
-        df.repartition(1).write.format("parquet") \
-                 .mode("append").partitionBy("version", "provider", "owner") \
-                 .parquet(p_out)
-
-    # %%
     # =========== 数据执行 =============
     '''
     合并raw_data 和 max 结果
@@ -381,13 +318,6 @@ def execute(**kwargs):
             .withColumnRenamed("sum(Predict_Sales)", "Predict_Sales") \
             .withColumnRenamed("sum(Predict_Unit)", "Predict_Unit")
         df_max_result_backfill = df_max_result_backfill.select("Province", "City", "Date", "Prod_Name", "Molecule", "PANEL", "DOI", "Predict_Sales", "Predict_Unit")
-
-    # %%
-    # ==== **** 输出补数结果 **** ==== 
-    # outResult(df_max_result_backfill, p_out_max_backfill)
-    # print("输出 raw_data_adding_final：" + p_out_max_backfill)
-    # createPartition(p_out_max_backfill)
-    # print('数据执行-Finish')
     
     # %%
     # =========== 数据输出 =============

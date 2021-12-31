@@ -21,12 +21,10 @@ def execute(**kwargs):
     all_models = kwargs['all_models']
     universe_choice = kwargs['universe_choice']
     use_d_weight = kwargs['use_d_weight']
-    if_others = kwargs['if_others']
     out_path = kwargs['out_path']
     run_id = kwargs['run_id'].replace(":","_")
     owner = kwargs['owner']
     g_database_temp = kwargs['g_database_temp']
-    g_database_input = kwargs['g_database_input']
     ### input args ###
     
     ### output args ###
@@ -219,7 +217,7 @@ def execute(**kwargs):
 
     # %%
     # =========== 计算 max 函数 =============
-    def calculate_max(market, if_base=False, if_box=False):
+    def calculate_max(market, if_base=False):
         logger.debug('market:' + market)
         # =========== 输入 =============
         # universe 读取
@@ -260,6 +258,7 @@ def execute(**kwargs):
         
         # panel 文件 
         df_original_panel = df_panel_result.where(col('DOI') == market)
+        df_original_panel = df_original_panel.where((col('DOI') == market) & (col('Date') >= time_left) & (col('Date') <= time_right))
         
         # 获得 panel, panel_seg：
         # 1. 样本数据
@@ -340,13 +339,9 @@ def execute(**kwargs):
 
     # %%
     # 执行函数
-    if if_others == "False":
-        for i in all_models:
-            calculate_max(i, if_base=if_base, if_box=False)
-    elif if_others == "True":
-        for i in all_models:
-            calculate_max(i, if_base=if_base, if_box=True)
-            
+    for i in all_models:
+        calculate_max(i, if_base=if_base)
+
     createPartition(p_out_max)
     
     # 读回

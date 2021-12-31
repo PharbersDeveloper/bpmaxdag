@@ -14,17 +14,10 @@ def execute(**kwargs):
     depends_path = kwargs["depends_path"]
     
     ### input args ###
-    project_name = kwargs['project_name']
     minimum_product_columns = kwargs['minimum_product_columns']
     minimum_product_sep = kwargs['minimum_product_sep']
     minimum_product_newname = kwargs['minimum_product_newname']
     need_cleaning_cols = kwargs['need_cleaning_cols']
-    out_path = kwargs['out_path']
-    run_id = kwargs['run_id'].replace(":","_")
-    owner = kwargs['owner']
-    # g_input_version = kwargs['g_input_version']
-    g_database_temp = kwargs['g_database_temp']
-    g_database_input = kwargs['g_database_input']
     ### input args ###
     
     ### output args ###
@@ -53,9 +46,7 @@ def execute(**kwargs):
     if minimum_product_sep == "kong":
         minimum_product_sep = ""
         
-    # 输出
-    # p_out_path = out_path + g_out_table
-    # p_out_need_clean = out_path + g_need_clean_table
+
     # %% 
     # =========== 输入数据读取 =========== 
     def changeColToInt(df, list_cols):
