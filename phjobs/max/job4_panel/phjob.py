@@ -17,16 +17,13 @@ def execute(**kwargs):
     project_name = kwargs['project_name']
     model_month_left = kwargs['model_month_left']
     model_month_right = kwargs['model_month_right']
-    if_others = kwargs['if_others']
     current_year = kwargs['current_year']
-    current_month = kwargs['current_month']
     monthly_update = kwargs['monthly_update']
     add_47 = kwargs['add_47']
     out_path = kwargs['out_path']
     run_id = kwargs['run_id'].replace(":","_")
     owner = kwargs['owner']
     g_database_temp = kwargs['g_database_temp']
-    g_database_input = kwargs['g_database_input']
     ### input args ###
     
     ### output args ###
@@ -56,13 +53,6 @@ def execute(**kwargs):
     
     if monthly_update == "True":
         current_year = int(current_year)
-        current_month = int(current_month)
-        
-    # dict_input_version = json.loads(g_input_version)
-    # logger.debug(dict_input_version)
-    
-    # 输出
-    p_out_panel_result = out_path + g_out_panel_result
 
     # %% 
     # =========== 输入数据读取 =========== 
@@ -91,8 +81,10 @@ def execute(**kwargs):
         df_not_arrived =  kwargs['df_not_arrived']
         df_not_arrived = dealToNull(df_not_arrived)
     else:
-        df_new_hospital = kwargs['df_new_hospital']
-        df_new_hospital = dealToNull(df_new_hospital)
+        # df_new_hospital = kwargs['df_new_hospital']
+        # df_new_hospital = dealToNull(df_new_hospital)
+        df_new_hospital = spark.sql("SELECT * FROM %s.new_hospital WHERE version='%s' AND provider='%s' AND  owner='%s'" 
+                                             %(g_database_temp, run_id, project_name, owner))
 
     # %% 
     # =========== 数据清洗 =============
@@ -234,42 +226,9 @@ def execute(**kwargs):
                                             .select(panel_raw_data.columns)
         panel_filtered = panel_raw_data.union(panel_add_data_future)    
 
-    # %%
-    # =========== 函数定义：输出结果 =============
-    def createPartition(p_out):
-        # 创建分区
-        logger.debug('创建分区')
-        Location = p_out + '/version=' + run_id + '/provider=' + project_name + '/owner=' + owner
-        g_out_table = p_out.split('/')[-1]
-        
-        partition_input_list = [{
-         "Values": [run_id, project_name,  owner], 
-        "StorageDescriptor": {
-            "SerdeInfo": {
-                "SerializationLibrary": "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"
-            }, 
-            "Location": Location, 
-        } 
-            }]    
-        client = boto3.client('glue', region_name='cn-northwest-1')
-        glue_info = client.batch_create_partition(DatabaseName=g_database_temp, TableName=g_out_table, PartitionInputList=partition_input_list)
-        logger.debug(glue_info)
-        
-    def outResult(df, p_out):
-        df = df.withColumn('version', func.lit(run_id)) \
-                .withColumn('provider', func.lit(project_name)) \
-                .withColumn('owner', func.lit(owner))
-        df.repartition(1).write.format("parquet") \
-                 .mode("append").partitionBy("version", "provider", "owner") \
-                 .parquet(p_out)
 
     # %%
-    # ==== **** 输出补数结果 **** ==== 
-    # outResult(panel_filtered, p_out_panel_result)
-    # print("输出 p_out_panel_result：" + p_out_panel_result)
-    # createPartition(p_out_panel_result)
-    # print('数据执行-Finish')
-    
+    # ==== **** 输出补数结果 **** ====    
     def lowerColumns(df):
         df = df.toDF(*[i.lower() for i in df.columns])
         return df

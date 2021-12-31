@@ -16,25 +16,18 @@ def execute(**kwargs):
     ### input args ###
     project_name = kwargs['project_name']
     model_month_right = kwargs['model_month_right']
-    max_month = kwargs['max_month']
-    year_missing = kwargs['year_missing']
     current_year = kwargs['current_year']
     first_month = kwargs['first_month']
     current_month = kwargs['current_month']
-    if_others = kwargs['if_others']
     monthly_update = kwargs['monthly_update']
     if_add_data = kwargs['if_add_data']
     out_path = kwargs['out_path']
     run_id = kwargs['run_id'].replace(":","_")
     owner = kwargs['owner']
     g_database_temp = kwargs['g_database_temp']
-    g_database_input = kwargs['g_database_input']
     ### input args ###
     
     ### output args ###
-    # g_out_adding_data = kwargs['g_out_adding_data']
-    # g_out_new_hospital = kwargs['g_out_new_hospital']
-    # g_out_raw_data_adding_final = kwargs['g_out_raw_data_adding_final']
     ### output args ###
 
     import pandas as pd
@@ -61,13 +54,7 @@ def execute(**kwargs):
         logger.debug('wrong input: monthly_update, False or True') 
         raise ValueError('wrong input: monthly_update, False or True')
     
-    if year_missing:
-        year_missing = year_missing.replace(" ","").split(",")
-    else:
-        year_missing = []    
-    year_missing = [int(i) for i in year_missing]
     model_month_right = int(model_month_right)
-    max_month = int(max_month)
     
     # dict_input_version = json.loads(g_input_version)
     # logger.debug(dict_input_version)
