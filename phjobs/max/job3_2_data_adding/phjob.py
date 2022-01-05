@@ -42,8 +42,8 @@ def execute(**kwargs):
     # =========== 数据执行 =========== 
     # 输入参数设置
     g_out_adding_data = 'adding_data'
-    g_out_new_hospital = 'new_hospital'
-    g_out_raw_data_adding_final = 'raw_data_adding_final'
+    # g_out_new_hospital = 'new_hospital'
+    # g_out_raw_data_adding_final = 'raw_data_adding_final'
     
     logger.debug('job3_data_adding')
     if if_add_data != "False" and if_add_data != "True":
@@ -53,11 +53,8 @@ def execute(**kwargs):
     if monthly_update != "False" and monthly_update != "True":
         logger.debug('wrong input: monthly_update, False or True') 
         raise ValueError('wrong input: monthly_update, False or True')
-    
+      
     model_month_right = int(model_month_right)
-    
-    # dict_input_version = json.loads(g_input_version)
-    # logger.debug(dict_input_version)
     
     # 月更新相关参数
     if monthly_update == "True":
@@ -69,8 +66,6 @@ def execute(**kwargs):
         
     # 输出
     p_out_adding_data = out_path + g_out_adding_data
-    p_out_new_hospital = out_path + g_out_new_hospital
-    p_out_raw_data_adding_final = out_path + g_out_raw_data_adding_final
 
     # %% 
     # =========== 输入数据读取 =========== 
@@ -98,17 +93,15 @@ def execute(**kwargs):
     df_growth_rate = kwargs['df_growth_rate']
     df_growth_rate = dealToNull(df_growth_rate)
     
-    df_cpa_pha_mapping = kwargs['df_cpa_pha_mapping']
-    df_cpa_pha_mapping = dealToNull(df_cpa_pha_mapping)
-    
-    df_published =  kwargs['df_published']
-    df_published = dealToNull(df_published)
-    df_published = changeColToInt(df_published, ['year'])
-    
-    if monthly_update == "True":       
-        df_not_arrived =  kwargs['df_not_arrived']
-        df_not_arrived = dealToNull(df_not_arrived)
-        df_not_arrived = changeColToInt(df_not_arrived, ['date'])
+    df_original_range_raw = kwargs['df_original_range_raw']
+    df_original_range_raw = dealToNull(df_original_range_raw)
+    # df_original_range_raw = changeColToInt(df_original_range_raw, ['year', 'month'])
+        
+    if monthly_update == "False":
+        # 只在最新一年出现的医院
+        df_new_hospital =  kwargs['df_new_hospital']
+        df_new_hospital = dealToNull(df_new_hospital)
+     
         
     # 删除已有的s3中间文件
     def deletePath(path_dir):
@@ -119,7 +112,6 @@ def execute(**kwargs):
         bucket = s3.Bucket('ph-platform')
         bucket.objects.filter(Prefix=file_name).delete()
     deletePath(path_dir=f"{p_out_adding_data}/version={run_id}/provider={project_name}/owner={owner}/")
-
 
     # %% 
     # =========== 数据清洗 =============
@@ -140,19 +132,10 @@ def execute(**kwargs):
     # 1、选择标准列
     # df_poi = df_poi.select('poi').distinct()
     df_raw_data = df_raw_data.drop('version', 'provider', 'owner')
-    df_cpa_pha_mapping = df_cpa_pha_mapping.select('ID', 'PHA', '推荐版本').distinct()
     df_price = df_price.select('min2', 'date', 'city_tier_2010', 'price')
     df_price_city = df_price_city.select('min2', 'date', 'city', 'province', 'price')
     growth_rate = df_growth_rate.drop('version', 'provider', 'owner')
-    df_published = df_published.select('id', 'source', 'year').distinct()
-    if monthly_update == "True":        
-        df_not_arrived = df_not_arrived.select('id', 'date').distinct()
-    
-    # 2、ID列补位
-    df_cpa_pha_mapping = deal_ID_length(df_cpa_pha_mapping)
-    df_published = deal_ID_length(df_published)
-    if monthly_update == "True":        
-        df_not_arrived = deal_ID_length(df_not_arrived)
+
     
 
     # %%
@@ -183,55 +166,6 @@ def execute(**kwargs):
         df.repartition(1).write.format("parquet") \
                  .mode("append").partitionBy("version", "provider", "owner") \
                  .parquet(p_out)
-
-    # %%
-    # =========== 数据准备 =============
-    def unpivot(df, keys):
-        # 功能：数据宽变长
-        # 参数说明 df:dataframe,  keys 待转换表中需要保留的主键key，以list[]类型传入
-        # 转换是为了避免字段类不匹配，统一将数据转换为string类型，如果保证数据类型完全一致，可以省略该句
-        df = df.select(*[col(_).astype("string") for _ in df.columns])
-        cols = [_ for _ in df.columns if _ not in keys]
-        stack_str = ','.join(map(lambda x: "'%s', `%s`" % (x, x), cols))
-        # feature, value 转换后的列名，可自定义
-        df = df.selectExpr(*keys, "stack(%s, %s) as (feature, value)" % (len(cols), stack_str))
-        return df
-    
-    
-    # 一.生成 original_range_raw（样本中已到的Year、Month、PHA的搭配）
-    
-    # 2017到当前年的全量出版医院 CPA
-    d = list(map(lambda x: func.lit(col('Year')*100 + (x + 1)), range(12)))
-    published_all = df_published.where(col("Year") <= current_year) \
-                            .where(col('Source') == 'CPA') \
-                            .withColumn("Dates", func.array(d)) \
-                            .withColumn("Date", func.explode(col("Dates")))
-    published_all = published_all.select('ID', 'Date')
-    
-    if monthly_update == 'True':
-        # 模型之后的未到名单( > model_year )
-        model_year = model_month_right//100    
-        not_arrived_all = df_not_arrived.where(((col("Date")/100).cast('int') > model_year) & ((col("Date")/100).cast('int') <= current_year)  )
-        not_arrived_all = not_arrived_all.select(["ID", "Date"])
-        # 出版医院 减去 未到名单
-        original_range_raw = published_all.join(not_arrived_all, on=['ID', 'Date'], how='left_anti')    
-    else:
-        # 跑模型年的时候，不去除未到名单
-        original_range_raw = published_all
-    
-    # 与 非CPA医院 合并    
-    original_range_raw_noncpa = df_raw_data.where(col('Source') != 'CPA').select('ID', 'Date').distinct()    
-    original_range_raw = original_range_raw.union(original_range_raw_noncpa.select(original_range_raw.columns))
-    
-    # 匹配 PHA
-    df_cpa_pha_mapping = df_cpa_pha_mapping.where(col("推荐版本") == 1) \
-                                        .select("ID", "PHA").distinct()
-    
-    original_range_raw = original_range_raw.join(df_cpa_pha_mapping, on='ID', how='left')
-    original_range_raw = original_range_raw.where(~col('PHA').isNull()) \
-                                            .withColumn('Year', func.substring(col('Date'), 0, 4)) \
-                                            .withColumn('Month', func.substring(col('Date'), 5, 2).cast(IntegerType())) \
-                                            .select('PHA', 'Year', 'Month').distinct()
 
     # %%
     # =========== 数据执行 =============
@@ -354,7 +288,7 @@ def execute(**kwargs):
                     .toPandas()["Year"].values.tolist()
         
         # 2. 所有发表医院信息
-        original_range = original_range_raw.where(col('Year').isin(years))
+        original_range = df_original_range_raw.where(col('Year').isin(years))
         # print(years)
     
         growth_rate_index = [index for index, name in enumerate(raw_data_for_add.columns) if name.startswith("gr")]
@@ -405,11 +339,11 @@ def execute(**kwargs):
         return original_range
 
     # %%
+    # =========== 数据执行 =========== 
     # raw_data_month = raw_data.where(col('Month') == 1)
     # growth_rate_month = growth_rate.where(col('month_for_monthly_add') == 1)
     # add_data(raw_data_month, growth_rate_month)
-
-    # %%
+  
     # 2、执行补数
     if monthly_update == "False" and if_add_data == "True":
         logger.debug('4 补数')
@@ -424,9 +358,7 @@ def execute(**kwargs):
             # 补数：
             add_data(raw_data_month, growth_rate_month)
             logger.debug("输出 adding_data, month：" + str(month))
-            
 
-    # %%
     # ==== **** 读回 **** ====             
     createPartition(p_out_adding_data)
     adding_data = spark.sql("SELECT * FROM %s.adding_data WHERE version='%s' AND provider='%s' AND  owner='%s'" 
@@ -444,62 +376,50 @@ def execute(**kwargs):
 
     # %%
     # 4、其他处理
+    def getModelFinalAddDate(original_range, raw_data_adding, df_new_hospital):
+        # 进一步为最后一年独有的医院补最后一年的缺失月（可能也要考虑第一年）
+        years = original_range.select("Year").distinct() \
+            .orderBy(col('Year')) \
+            .toPandas()["Year"].values.tolist()
+
+        # 最新一年没有的月份
+        missing_months = (original_range.where(col('Year') != max(years)).select("Month").distinct()) \
+            .subtract(original_range.where(col('Year') == max(years)).select("Month").distinct())
+
+        # 如果最新一年有缺失月份，需要处理
+        if missing_months.count() == 0:
+            logger.debug("missing_months=0")
+            raw_data_adding_final = raw_data_adding
+        else:
+            number_of_existing_months = 12 - missing_months.count()
+            # 用于groupBy的列名：raw_data_adding列名去除list中的列名
+            group_columns = set(raw_data_adding.columns) \
+                .difference(set(['Month', 'Sales', 'Units', '季度', "sales_value__rmb_", "total_units", "counting_units", "date"]))
+            # 补数重新计算
+            adding_data_new = raw_data_adding \
+                .where(col('add_flag') == 1) \
+                .where(col('PHA').isin(df_new_hospital["PHA"].tolist())) \
+                .groupBy(list(group_columns)).agg({"Sales": "sum", "Units": "sum"})
+            adding_data_new = adding_data_new \
+                .withColumn("Sales", col("sum(Sales)") / number_of_existing_months) \
+                .withColumn("Units", col("sum(Units)") / number_of_existing_months) \
+                .crossJoin(missing_months)
+            # 生成最终补数结果
+            same_names = list(set(raw_data_adding.columns).intersection(set(adding_data_new.columns)))
+            raw_data_adding_final = raw_data_adding.select(same_names) \
+                                            .union(adding_data_new.select(same_names)) 
+        return raw_data_adding_final
+        
     if monthly_update == "False":
         if if_add_data == "False":
             raw_data_adding_final = raw_data_adding
         elif if_add_data == "True":
-            # 1.9 进一步为最后一年独有的医院补最后一年的缺失月（可能也要考虑第一年）:add_data_new_hosp
-            years = original_range.select("Year").distinct() \
-                .orderBy(col('Year')) \
-                .toPandas()["Year"].values.tolist()
-    
-            # 只在最新一年出现的医院
-            new_hospital = (original_range.where(col('Year') == max(years)).select("PHA").distinct()) \
-                        .subtract(original_range.where(col('Year') != max(years)).select("PHA").distinct())
-            
-            # ==== **** 输出 **** ====        
-            outResult(new_hospital, p_out_new_hospital)
-            logger.debug("输出 new_hospital：" + p_out_new_hospital)
-            createPartition(p_out_new_hospital)
-    
-    
-            # 最新一年没有的月份
-            missing_months = (original_range.where(col('Year') != max(years)).select("Month").distinct()) \
-                .subtract(original_range.where(col('Year') == max(years)).select("Month").distinct())
-    
-            # 如果最新一年有缺失月份，需要处理
-            if missing_months.count() == 0:
-                logger.debug("missing_months=0")
-                raw_data_adding_final = raw_data_adding
-            else:
-                number_of_existing_months = 12 - missing_months.count()
-                # 用于groupBy的列名：raw_data_adding列名去除list中的列名
-                group_columns = set(raw_data_adding.columns) \
-                    .difference(set(['Month', 'Sales', 'Units', '季度', "sales_value__rmb_", "total_units", "counting_units", "date"]))
-                # 补数重新计算
-                adding_data_new = raw_data_adding \
-                    .where(col('add_flag') == 1) \
-                    .where(col('PHA').isin(new_hospital["PHA"].tolist())) \
-                    .groupBy(list(group_columns)).agg({"Sales": "sum", "Units": "sum"})
-                adding_data_new = adding_data_new \
-                    .withColumn("Sales", col("sum(Sales)") / number_of_existing_months) \
-                    .withColumn("Units", col("sum(Units)") / number_of_existing_months) \
-                    .crossJoin(missing_months)
-                # 生成最终补数结果
-                same_names = list(set(raw_data_adding.columns).intersection(set(adding_data_new.columns)))
-                raw_data_adding_final = raw_data_adding.select(same_names) \
-                                                .union(adding_data_new.select(same_names))        
+            raw_data_adding_final = getModelFinalAddDate(original_range, raw_data_adding, df_new_hospital)   
     elif monthly_update == "True":
         raw_data_adding_final = raw_data_adding.where((col('Year') == current_year) & (col('Month') >= first_month) & (col('Month') <= current_month) )
 
     # %%
-    # =========== 数据输出 =============
-    # outResult(raw_data_adding_final, p_out_raw_data_adding_final)
-    # print("输出 raw_data_adding_final：" + p_out_raw_data_adding_final)
-    # createPartition(p_out_raw_data_adding_final)
-    # print('数据执行-Finish')
-    
-    
+    # =========== 数据输出 =============  
     def lowerColumns(df):
         df = df.toDF(*[i.lower() for i in df.columns])
         return df
@@ -509,3 +429,4 @@ def execute(**kwargs):
     logger.debug('数据执行-Finish')
     
     return {'out_df':raw_data_adding_final}
+

@@ -20,10 +20,6 @@ def execute(**kwargs):
     current_year = kwargs['current_year']
     monthly_update = kwargs['monthly_update']
     add_47 = kwargs['add_47']
-    out_path = kwargs['out_path']
-    run_id = kwargs['run_id'].replace(":","_")
-    owner = kwargs['owner']
-    g_database_temp = kwargs['g_database_temp']
     ### input args ###
     
     ### output args ###
@@ -81,10 +77,8 @@ def execute(**kwargs):
         df_not_arrived =  kwargs['df_not_arrived']
         df_not_arrived = dealToNull(df_not_arrived)
     else:
-        # df_new_hospital = kwargs['df_new_hospital']
-        # df_new_hospital = dealToNull(df_new_hospital)
-        df_new_hospital = spark.sql("SELECT * FROM %s.new_hospital WHERE version='%s' AND provider='%s' AND  owner='%s'" 
-                                             %(g_database_temp, run_id, project_name, owner))
+        df_new_hospital = kwargs['df_new_hospital']
+        df_new_hospital = dealToNull(df_new_hospital)
 
     # %% 
     # =========== 数据清洗 =============
