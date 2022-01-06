@@ -20,13 +20,13 @@ def execute(**kwargs):
     time_right = kwargs['time_right']
     all_models = kwargs['all_models']
     universe_choice = kwargs['universe_choice']
+    factor_choice = kwargs['factor_choice']
+    universe_outlier_choice = kwargs['universe_outlier_choice']
     use_d_weight = kwargs['use_d_weight']
-    if_others = kwargs['if_others']
     out_path = kwargs['out_path']
     run_id = kwargs['run_id'].replace(":","_")
     owner = kwargs['owner']
     g_database_temp = kwargs['g_database_temp']
-    g_database_input = kwargs['g_database_input']
     ### input args ###
     
     ### output args ###
@@ -71,12 +71,18 @@ def execute(**kwargs):
     time_right = int(time_right)
     
     # 市场的universe文件
-    universe_choice_dict={}
-    if universe_choice != "Empty":
-        for each in universe_choice.replace(", ",",").split(","):
-            market_name = each.split(":")[0]
-            universe_name = each.split(":")[1]
-            universe_choice_dict[market_name]=universe_name
+    def getVersionDict(str_choice):
+        dict_choice = {}
+        if str_choice != "Empty":
+            for each in str_choice.replace(", ",",").split(","):
+                market_name = each.split(":")[0]
+                version_name = each.split(":")[1]
+                dict_choice[market_name]=version_name
+        return dict_choice
+    
+    dict_universe_choice = getVersionDict(universe_choice)
+    dict_factor = getVersionDict(factor_choice)
+    dict_universe_outlier = getVersionDict(universe_outlier_choice)
             
     # 输出
     p_out_max = out_path + g_out_max
@@ -219,13 +225,12 @@ def execute(**kwargs):
 
     # %%
     # =========== 计算 max 函数 =============
-    def calculate_max(market, if_base=False, if_box=False):
+    def calculate_max(market, if_base=False):
         logger.debug('market:' + market)
         # =========== 输入 =============
         # universe 读取
-        if market in universe_choice_dict.keys():
-            filetype = universe_choice_dict[market]
-            df_universe =  kwargs['df_universe_other'].where(col('filetype')==filetype)
+        if market in dict_universe_choice.keys():
+            df_universe =  kwargs['df_universe_other'].where(col('version')==dict_universe_choice[market])
             df_universe = dealToNull(df_universe) 
         else:
             df_universe =  kwargs['df_universe_base']
@@ -234,7 +239,7 @@ def execute(**kwargs):
         df_universe = cleanUniverse(df_universe)
             
         # universe_outlier 读取
-        df_universe_outlier = kwargs['df_universe_outlier'].where(col('filetype')==market)
+        df_universe_outlier = kwargs['df_universe_outlier'].where(col('version')==dict_universe_outlier[market])
         df_universe_outlier = dealToNull(df_universe_outlier)
         df_universe_outlier = cleanUniverse(df_universe_outlier)    
         
@@ -243,7 +248,7 @@ def execute(**kwargs):
             df_factor = kwargs['df_factor_base']
             df_factor = dealToNull(df_factor)
         else:
-            df_factor = kwargs['df_factor'].where(col('filetype')==market)
+            df_factor = kwargs['df_factor'].where(col('version')==dict_factor[market])
             df_factor = dealToNull(df_factor)
         
         df_factor = cleanFactor(df_factor)
@@ -260,6 +265,7 @@ def execute(**kwargs):
         
         # panel 文件 
         df_original_panel = df_panel_result.where(col('DOI') == market)
+        df_original_panel = df_original_panel.where((col('DOI') == market) & (col('Date') >= time_left) & (col('Date') <= time_right))
         
         # 获得 panel, panel_seg：
         # 1. 样本数据
@@ -340,13 +346,9 @@ def execute(**kwargs):
 
     # %%
     # 执行函数
-    if if_others == "False":
-        for i in all_models:
-            calculate_max(i, if_base=if_base, if_box=False)
-    elif if_others == "True":
-        for i in all_models:
-            calculate_max(i, if_base=if_base, if_box=True)
-            
+    for i in all_models:
+        calculate_max(i, if_base=if_base)
+
     createPartition(p_out_max)
     
     # 读回

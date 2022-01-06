@@ -21,14 +21,12 @@ def execute(**kwargs):
     current_year = kwargs['current_year']
     first_month = kwargs['first_month']
     current_month = kwargs['current_month']
-    if_others = kwargs['if_others']
     monthly_update = kwargs['monthly_update']
     if_add_data = kwargs['if_add_data']
     out_path = kwargs['out_path']
     run_id = kwargs['run_id'].replace(":","_")
     owner = kwargs['owner']
     g_database_temp = kwargs['g_database_temp']
-    g_database_input = kwargs['g_database_input']
     ### input args ###
     
     ### output args ###
@@ -57,14 +55,18 @@ def execute(**kwargs):
     if monthly_update != "False" and monthly_update != "True":
         logger.debug('wrong input: monthly_update, False or True') 
         raise ValueError('wrong input: monthly_update, False or True')
-    
-    if year_missing:
+
+    if year_missing != "Empty":
         year_missing = year_missing.replace(" ","").split(",")
     else:
-        year_missing = []    
+        year_missing = []   
+        
+    if max_month != "Empty":
+        max_month = int(max_month)
+        
     year_missing = [int(i) for i in year_missing]
     model_month_right = int(model_month_right)
-    max_month = int(max_month)
+    
     
     # 月更新相关参数
     if monthly_update == "True":

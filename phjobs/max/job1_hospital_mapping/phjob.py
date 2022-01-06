@@ -14,19 +14,9 @@ def execute(**kwargs):
     depends_path = kwargs["depends_path"]
     
     ### input args ###
-    # g_input_version = kwargs['g_input_version']
-    # project_name = kwargs['project_name']
-    # if_others = kwargs['if_others']
-    # out_path = kwargs['out_path']
-    # run_id = kwargs['run_id']
-    # owner = kwargs['owner']
-    
-    # g_database_temp = kwargs['g_database_temp']
-    # g_database_input = kwargs['g_database_input']
     ### input args ###
     
     ### output args ###
-    # g_out_table = kwargs['g_out_table']
     ### output args ###
     
     from pyspark.sql import SparkSession, Window

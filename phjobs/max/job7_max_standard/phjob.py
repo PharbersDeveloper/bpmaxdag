@@ -14,23 +14,11 @@ def execute(**kwargs):
     depends_path = kwargs["depends_path"]
     
     ### input args ###
-    # extract_path = kwargs['extract_path']
     project_name = kwargs['project_name']
-    out_path = kwargs['out_path']
-    run_id = kwargs['run_id'].replace(":","_")
-    owner = kwargs['owner']
-    g_database_temp = kwargs['g_database_temp']
-    g_database_input = kwargs['g_database_input']
     ### input args ###
     
     ### output args ###
-    # g_out_max_standard = kwargs['g_out_max_standard']
-    # g_out_max_standard_brief = kwargs['g_out_max_standard_brief']
     ### output args ###
-
-    
-    
-    
     
     from pyspark.sql import SparkSession, Window
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
@@ -43,18 +31,9 @@ def execute(**kwargs):
     # %% 
     # =========== 数据执行 =========== 
     # 输入参数设置
-    g_out_max_standard = 'max_result_standard'
-    g_out_max_standard_brief = 'max_result_standard_brief'
-    
-    # dict_input_version = json.loads(g_input_version)
-    # print(dict_input_version)
-    
-    # 输出
-    # p_out_max_standard = extract_path + g_out_max_standard + '/project=' + project_name
-    # p_out_max_standard_brief = extract_path + g_out_max_standard_brief + '/project=' + project_name
-    
-    p_tmp_out_max_standard = out_path + g_out_max_standard
-    p_tmp_out_max_standard_brief = out_path + g_out_max_standard_brief
+    # g_out_max_standard = 'max_result_standard'
+    # g_out_max_standard_brief = 'max_result_standard_brief'
+
     # %% 
     # =========== 输入数据读取 ===========
     def changeColToInt(df, list_cols):
@@ -304,84 +283,6 @@ def execute(**kwargs):
     df_max_standard_brief = df_max_standard_brief.toDF(*[i.upper() for i in df_max_standard_brief.columns])
 
     # %%
-    # =========== 函数定义：输出结果 =============
-    def createPartition(p_out, date):
-        # 创建分区
-        logger.debug('创建分区')
-        Location = p_out + '/version=' + run_id + '/provider=' + project_name + '/owner=' + owner + '/DATE=' + date
-        g_out_table = p_out.split('/')[-1]
-        
-        partition_input_list = [{
-         "Values": [run_id, project_name,  owner,  date], 
-        "StorageDescriptor": {
-            "SerdeInfo": {
-                "SerializationLibrary": "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"
-            }, 
-            "Location": Location, 
-        } 
-            }]    
-        client = boto3.client('glue', region_name='cn-northwest-1')
-        glue_info = client.batch_create_partition(DatabaseName=g_database_temp, TableName=g_out_table, PartitionInputList=partition_input_list)
-        logger.debug(glue_info)
-        
-    def outResult(df, p_out):
-        df = df.withColumn('version', func.lit(run_id)) \
-                .withColumn('provider', func.lit(project_name)) \
-                .withColumn('owner', func.lit(owner))
-        df.repartition(1).write.format("parquet") \
-                 .mode("append").partitionBy("version", "provider", "owner", "DATE") \
-                 .parquet(p_out)
-    
-    def outResultForExtract(df, p_out, p_tmp_out, table):
-        df = df.withColumn('version', func.lit(run_id)) \
-                .withColumn('provider', func.lit(project_name)) \
-                .withColumn('owner', func.lit(owner))
-        
-        # 当期数据包含的时间
-        anti_data = df.select('DATE').distinct()
-        # 去掉已有数据中重复时间
-        try:
-            df_old = spark.read.parquet(p_out)
-        except:
-            df_old = df
-               
-        df_old_keep = df_old.join(anti_data, on='DATE', how='left_anti') 
-        
-        # 合并
-        df_new = df_old_keep.union(df.select(df_old_keep.columns))
-        # 输出临时位置
-        df_new.repartition(1).write.format("parquet") \
-                 .mode("append").partitionBy("version", "provider", "owner") \
-                 .parquet(p_tmp_out)
-        
-        createPartition(p_tmp_out)
-        
-        # 重新写出
-        df_new = spark.sql("SELECT * FROM %s.%s WHERE version='%s' AND provider='%s' AND  owner='%s'" 
-                             %(g_database_temp, table, run_id, project_name, owner))
-        df_new = df_new.toDF(*[i.upper() for i in df_new.columns])
-        
-        df_new.repartition(1).write.format("parquet") \
-                 .mode("overwrite").partitionBy("DATE") \
-                 .parquet(p_out)
-
-    # %%
-    # ========== 数据输出 =========    
-    # outResult(df_max_standard_out, p_tmp_out_max_standard)
-    # print("输出 max_standard_out：" + p_tmp_out_max_standard)
-      
-    # outResult(df_max_standard_brief, p_tmp_out_max_standard_brief)
-    # print("输出 max_standard_brief：" + p_tmp_out_max_standard_brief)
-    
-    # pdf = df_max_standard_brief.select('DATE').distinct().toPandas()
-    # for indexs in pdf.index:
-    #     data = pdf.loc[indexs]
-    #     i_data = str(data['DATE'])
-    #     createPartition(p_tmp_out_max_standard, i_data)
-    #     createPartition(p_tmp_out_max_standard_brief, i_data)
-        
-    # print('数据执行-Finish')
-    
     # =========== 数据输出 =============
     def lowerColumns(df):
         df = df.toDF(*[i.lower() for i in df.columns])

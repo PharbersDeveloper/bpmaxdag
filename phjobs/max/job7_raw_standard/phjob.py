@@ -16,27 +16,12 @@ def execute(**kwargs):
     ### input args ###
     # extract_path = kwargs['extract_path']
     project_name = kwargs['project_name']
-    if_two_source = kwargs['if_two_source']
     minimum_product_sep = kwargs['minimum_product_sep']
     minimum_product_columns = kwargs['minimum_product_columns']
-    # g_for_extract = kwargs['g_for_extract']
-    out_path = kwargs['out_path']
-    run_id = kwargs['run_id'].replace(":","_")
-    owner = kwargs['owner']
-    g_database_temp = kwargs['g_database_temp']
-    g_database_input = kwargs['g_database_input']
     ### input args ###
     
     ### output args ###
-    # g_out_raw_standard = kwargs['g_out_raw_standard']
-    # g_out_raw_standard_brief = kwargs['g_out_raw_standard_brief']
     ### output args ###
-
-    
-    
-    
-    
-    
     
     from pyspark.sql import SparkSession, Window
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
@@ -51,16 +36,12 @@ def execute(**kwargs):
     # 输入参数设置
     g_out_raw_standard = 'raw_data_standard'
     g_out_raw_standard_brief = 'raw_data_standard_brief'
-    # dict_input_version = json.loads(g_input_version)
-    # print(dict_input_version)
     
     if minimum_product_sep == 'kong':
         minimum_product_sep = ''
     minimum_product_columns = minimum_product_columns.replace(' ', '').split(',')
     
-    # 输出
-    p_out_raw_standard = out_path + g_out_raw_standard
-    p_out_raw_standard_brief = out_path + g_out_raw_standard_brief
+
     # %% 
     # =========== 输入数据读取 =========== 
     def changeColToInt(df, list_cols):
@@ -354,60 +335,7 @@ def execute(**kwargs):
     df_raw_data_standard_brief = df_raw_data_standard_brief.toDF(*[i.upper() for i in df_raw_data_standard_brief.columns])
 
     # %%
-    # =========== 函数定义：输出结果 =============
-    def createPartition(p_out, date):
-        # 创建分区
-        logger.debug('创建分区')
-        Location = p_out + '/version=' + run_id + '/provider=' + project_name + '/owner=' + owner + '/DATE=' + date
-        g_out_table = p_out.split('/')[-1]
-        
-        partition_input_list = [{
-         "Values": [run_id, project_name,  owner,  date], 
-        "StorageDescriptor": {
-            "SerdeInfo": {
-                "SerializationLibrary": "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"
-            }, 
-            "Location": Location, 
-        } 
-            }]    
-        client = boto3.client('glue', region_name='cn-northwest-1')
-        glue_info = client.batch_create_partition(DatabaseName=g_database_temp, TableName=g_out_table, PartitionInputList=partition_input_list)
-        logger.debug(glue_info)
-        
-    def outResult(df, p_out):
-        df = df.withColumn('version', func.lit(run_id)) \
-                .withColumn('provider', func.lit(project_name)) \
-                .withColumn('owner', func.lit(owner))
-        df.repartition(1).write.format("parquet") \
-                 .mode("append").partitionBy("version", "provider", "owner", "DATE") \
-                 .parquet(p_out)
-    
-    def outResultForExtractRaw(df, p_out):
-        df = df.withColumn('version', func.lit(run_id)) \
-                .withColumn('provider', func.lit(project_name)) \
-                .withColumn('owner', func.lit(owner))
-        df.repartition(1).write.format("parquet") \
-                 .mode("overwrite").partitionBy("DATE") \
-                 .parquet(p_out)
-
-    # %%
     # ========== 数据输出 =========
-    
-    # outResult(df_raw_data_standard, p_out_raw_standard)
-    # print("输出 raw_standard_out：" + p_out_raw_standard)
-    
-    # outResult(df_raw_data_standard_brief, p_out_raw_standard_brief)
-    # print("输出 raw_standard_brief：" + p_out_raw_standard_brief)
-    
-    # pdf = df_raw_data_standard_brief.select('DATE').distinct().toPandas()
-    # for indexs in pdf.index:
-    #     data = pdf.loc[indexs]
-    #     i_data = str(data['DATE'])    
-    #     createPartition(p_out_raw_standard, i_data)
-    #     createPartition(p_out_raw_standard_brief, i_data)
-    # print('数据执行-Finish')
-    
-    # =========== 数据输出 =============
     def lowerColumns(df):
         df = df.toDF(*[i.lower() for i in df.columns])
         return df
