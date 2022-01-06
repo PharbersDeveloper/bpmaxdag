@@ -96,7 +96,7 @@ def execute(**kwargs):
     # %%
     # =========== 数据执行 =============
     if monthly_update == "False" and if_add_data == "True":
-        df_new_hospital = (df_original_range_raw, df_raw_data, model_month_right)
+        df_new_hospital = getNewHospital(df_original_range_raw, df_raw_data, model_month_right)
         df_new_hospital = lowerColumns(df_new_hospital)
         logger.debug('数据执行-Finish')   
     else:
