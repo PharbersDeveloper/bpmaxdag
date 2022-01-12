@@ -18,7 +18,7 @@ def execute(**kwargs):
     
     p_out = kwargs['p_out']
     out_mode = kwargs['out_mode']
-    run_id = kwargs['run_id']
+    run_id = kwargs['run_id'].replace(":","_")
     owner = kwargs['owner']
     project_name = kwargs['project_name']
     g_database_temp = kwargs['g_database_temp']
@@ -63,11 +63,6 @@ def execute(**kwargs):
     
     cpa_pha_mapping = kwargs['df_cpa_pha_mapping']
     cpa_pha_mapping = dealToNull(cpa_pha_mapping)
-
-    if if_two_source == 'True':  
-        cpa_pha_mapping_common = kwargs['df_cpa_pha_mapping_common']
-        cpa_pha_mapping_common = dealToNull(cpa_pha_mapping_common)
-            
     
     # %%
     # =============  数据执行 ==============
@@ -143,8 +138,7 @@ def execute(**kwargs):
     if if_two_source == 'True':
         cpa_pha_mapping = cpa_pha_mapping.where(cpa_pha_mapping["推荐版本"] == 1).select('ID', 'PHA')
         cpa_pha_mapping = dealIDLength(cpa_pha_mapping)
-        cpa_pha_mapping_common = cpa_pha_mapping_common.where(cpa_pha_mapping_common["推荐版本"] == 1).select('ID', 'PHA')
-        cpa_pha_mapping_common = dealIDLength(cpa_pha_mapping_common)
+
         raw_data = dealIDLength(raw_data)                 
         raw_data_dedup = drop_dup_hospital(raw_data, cpa_pha_mapping)
         raw_data_dedup = lowerColumns(raw_data_dedup) 

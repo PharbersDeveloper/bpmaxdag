@@ -16,7 +16,7 @@ def execute(**kwargs):
     ### input args ###    
     p_out = kwargs['p_out']
     out_mode = kwargs['out_mode']
-    run_id = kwargs['run_id']
+    run_id = kwargs['run_id'].replace(":","_")
     owner = kwargs['owner']
     project_name = kwargs['project_name']
     g_database_temp = kwargs['g_database_temp']

@@ -60,9 +60,6 @@ def execute(**kwargs):
     # 上传的 raw_data
     raw_data = kwargs['df_dropdup_cross_sheet']
     raw_data = dealToNull(raw_data)
-    
-    cpa_pha_mapping = kwargs['df_cpa_pha_mapping']
-    cpa_pha_mapping = dealToNull(cpa_pha_mapping)
 
     if if_two_source == 'True':  
         cpa_pha_mapping_common = kwargs['df_cpa_pha_mapping_common']
@@ -140,8 +137,6 @@ def execute(**kwargs):
         return df
     
     if if_two_source == 'True':
-        cpa_pha_mapping = cpa_pha_mapping.where(cpa_pha_mapping["推荐版本"] == 1).select('ID', 'PHA')
-        cpa_pha_mapping = dealIDLength(cpa_pha_mapping)
         cpa_pha_mapping_common = cpa_pha_mapping_common.where(cpa_pha_mapping_common["推荐版本"] == 1).select('ID', 'PHA')
         cpa_pha_mapping_common = dealIDLength(cpa_pha_mapping_common)
         raw_data = dealIDLength(raw_data)
