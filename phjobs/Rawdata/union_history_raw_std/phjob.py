@@ -63,7 +63,7 @@ def execute(**kwargs):
     cpa_pha_map = dealToNull(cpa_pha_map)
     
     if if_two_source == 'True':
-        history_raw_data_std = kwargs['df_raw_data_std']
+        history_raw_data_std = kwargs['df_history_raw_data_std']
         history_raw_data_std = dealToNull(history_raw_data_std)
 
             

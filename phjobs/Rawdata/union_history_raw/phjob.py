@@ -59,7 +59,7 @@ def execute(**kwargs):
     raw_data_dedup = dealToNull(raw_data_dedup)
        
     # 历史数据 raw_data
-    history_raw_data = kwargs['df_raw_data']
+    history_raw_data = kwargs['df_history_raw_data']
     history_raw_data = dealToNull(history_raw_data)
             
     cpa_pha_map = kwargs['df_cpa_pha_mapping']

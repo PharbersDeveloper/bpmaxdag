@@ -56,13 +56,13 @@ def execute(**kwargs):
         return df
     
     if if_two_source == 'True':
-        raw_data_dedup_delivery = kwargs['df_dropdup_corssSource_raw_std']
+        raw_data_dedup_delivery = kwargs['df_dropdup_cross_source_raw_std']
         raw_data_dedup_delivery = dealToNull(raw_data_dedup_delivery)
         
         cpa_pha_map = kwargs['df_cpa_pha_mapping_common']
         cpa_pha_map = dealToNull(cpa_pha_map)
     else:
-        raw_data_dedup_delivery = kwargs['df_dropdup_corssSource_raw']
+        raw_data_dedup_delivery = kwargs['df_dropdup_cross_source_raw']
         raw_data_dedup_delivery = dealToNull(raw_data_dedup_delivery)
         
         cpa_pha_map = kwargs['df_cpa_pha_mapping']
@@ -70,7 +70,7 @@ def execute(**kwargs):
         
     
     # 历史数据 raw_data_std
-    history_raw_data_delivery = kwargs['df_raw_data_delivery']
+    history_raw_data_delivery = kwargs['df_history_raw_data_delivery']
     history_raw_data_delivery = dealToNull(history_raw_data_delivery)
             
     
