@@ -20,7 +20,6 @@ def execute(**kwargs):
     current_month = kwargs['current_month']
     three = kwargs['three']
     twelve = kwargs['twelve']
-    test = kwargs['test']
     g_id_molecule = kwargs['g_id_molecule']
     ### input args ###
     
@@ -73,7 +72,7 @@ def execute(**kwargs):
     
     Raw_data = kwargs['df_check_pretreat']
     Raw_data = dealToNull(Raw_data)
-    Raw_data = dealScheme(Raw_data, {"Pack_Number":"int"})
+    Raw_data = dealScheme(Raw_data, {"pack_number":"int", "date":"int"})
     Raw_data_1 = Raw_data.groupby('ID', 'Date', 'min2', '通用名','商品名','Pack_ID') \
                             .agg(func.sum('Sales').alias('Sales'), func.sum('Units').alias('Units')) \
                             .withColumnRenamed('min2', 'Prod_Name')
@@ -142,7 +141,7 @@ def execute(**kwargs):
         分月统计
         降序排列累加求和，占总数的比值乘10，取整   
         '''
-        month = pdf['Date'][0]
+        month = pdf['date'][0]
         pdf = pdf.groupby(grouplist)[sumcol].agg('sum').reset_index()
         pdf = pdf.sort_values(sumcol, ascending=False)
         pdf['cumsum'] = pdf[sumcol].cumsum()
@@ -183,20 +182,20 @@ def execute(**kwargs):
     
     def CheckTopChange(check_have, Raw_data, grouplist):
         # 1级头部医院变化倍率检查
-        check_top = Raw_data.join(check_have.where(col('row_min') == 1).select('ID').distinct(), on='ID', how='inner') \
-                                .groupby(grouplist + ['Date']).agg(func.sum('Sales').alias('Sales'))
+        check_top = Raw_data.join(check_have.where(col('row_min') == 1).select('id').distinct(), on='id', how='inner') \
+                                .groupby(grouplist + ['date']).agg(func.sum('sales').alias('sales'))
     
         check_top_tmp = check_top.groupby(grouplist) \
-                    .agg(func.max('Sales').alias('max_Sales'), 
-                         func.min('Sales').alias('min_Sales'), 
-                         func.sum('Sales').alias('sum_Sales'),
-                         func.count('Sales').alias('count'))
+                    .agg(func.max('sales').alias('max_sales'), 
+                         func.min('sales').alias('min_sales'), 
+                         func.sum('sales').alias('sum_sales'),
+                         func.count('sales').alias('count'))
     
         check_top = check_top.join(check_top_tmp, on=grouplist, how='left') \
-                                .withColumn('Mean_Sales', func.when(col('count') > 2, (col('sum_Sales') - col('max_Sales') - col('min_Sales'))/(col('count') -2) ) \
-                                                        .otherwise(col('sum_Sales')/col('count') )) \
-                                .withColumn('Mean_times', func.round(col('Sales')/col('Mean_Sales'),1 )) \
-                                .groupBy(grouplist).pivot('Date').agg(func.sum('Mean_times'))
+                                .withColumn('mean_sales', func.when(col('count') > 2, (col('sum_sales') - col('max_sales') - col('min_sales'))/(col('count') -2) ) \
+                                                        .otherwise(col('sum_sales')/col('count') )) \
+                                .withColumn('mean_times', func.round(col('sales')/col('mean_sales'),1 )) \
+                                .groupBy(grouplist).pivot('date').agg(func.sum('mean_times'))
     
         check_top = check_top.withColumn("max", func.greatest(*list(set(check_top.columns) - set(grouplist))))
         
@@ -204,18 +203,18 @@ def execute(**kwargs):
     #========== check_12 金额==========
     if g_id_molecule == 'True':
         schema = StructType([
-                StructField("ID", StringType(), True),
-                StructField("Molecule", StringType(), True),
+                StructField("id", StringType(), True),
+                StructField("molecule", StringType(), True),
                 StructField("level", IntegerType(), True),
                 StructField("month", StringType(), True)
                 ])
         @pandas_udf(schema, PandasUDFType.GROUPED_MAP)
         def pudf_cumsum_level_12(pdf):
-            return func_pandas_cumsum_level(pdf, grouplist=['ID', "Molecule"], sumcol='Sales')
+            return func_pandas_cumsum_level(pdf, grouplist=['id', "molecule"], sumcol='sales')
     
-        check_12 = Raw_data.groupby(["Date"]).apply(pudf_cumsum_level_12)
-        check_12 = check_12.groupby('ID', "Molecule").pivot('month').agg(func.sum('level')).persist()
-        check_12 = colculate_diff(check_12, grouplist=['ID', 'Molecule'])
+        check_12 = Raw_data.groupby(["date"]).apply(pudf_cumsum_level_12)
+        check_12 = check_12.groupby('id', "molecule").pivot('month').agg(func.sum('level')).persist()
+        check_12 = colculate_diff(check_12, grouplist=['id', 'molecule'])
     else:
          return {}
     

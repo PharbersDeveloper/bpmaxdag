@@ -20,7 +20,6 @@ def execute(**kwargs):
     current_month = kwargs['current_month']
     three = kwargs['three']
     twelve = kwargs['twelve']
-    test = kwargs['test']
     g_id_molecule = kwargs['g_id_molecule']
     ### input args ###
     
@@ -92,8 +91,8 @@ def execute(**kwargs):
     #========== check_3 ==========
      
     ### 判断历史医院个数是否超过1%                
-    MTH_hospital_num = check_3.where(check_3.Date == MTH).toPandas()['医院个数'][0]
-    PREMTH_hospital_num = check_3.where(check_3.Date == PREMTH).toPandas()['医院个数'][0]
+    MTH_hospital_num = check_3.where(col('Date') == MTH).toPandas()['医院个数'][0]
+    PREMTH_hospital_num = check_3.where(col('Date') == PREMTH).toPandas()['医院个数'][0]
     check_result_3 = (MTH_hospital_num/PREMTH_hospital_num -1 < 0.01)
     
     def getResultDf(result, colname):

@@ -20,7 +20,6 @@ def execute(**kwargs):
     current_month = kwargs['current_month']
     three = kwargs['three']
     twelve = kwargs['twelve']
-    test = kwargs['test']
     g_id_molecule = kwargs['g_id_molecule']
     ### input args ###
     
