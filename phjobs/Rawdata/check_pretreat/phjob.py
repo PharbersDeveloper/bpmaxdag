@@ -20,7 +20,6 @@ def execute(**kwargs):
     current_month = kwargs['current_month']
     three = kwargs['three']
     twelve = kwargs['twelve']
-    test = kwargs['test']
     g_id_molecule = kwargs['g_id_molecule']
     ### input args ###
     
@@ -63,7 +62,7 @@ def execute(**kwargs):
        
     df_raw_data = kwargs['df_union_raw_data']
     df_raw_data = dealToNull(df_raw_data)
-    df_raw_data = dealScheme(df_raw_data, {"Pack_Number":"int"})
+    df_raw_data = dealScheme(df_raw_data, {"Pack_Number":"int", "Date":"int"})
     
     df_cpa_pha_mapping = kwargs['df_cpa_pha_mapping']
     df_cpa_pha_mapping = dealToNull(df_cpa_pha_mapping)
