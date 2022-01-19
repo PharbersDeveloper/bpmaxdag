@@ -62,7 +62,7 @@ def execute(**kwargs):
     
     Raw_data = kwargs['df_check_pretreat']
     Raw_data = dealToNull(Raw_data)
-    Raw_data = dealScheme(Raw_data, {"Pack_Number":"int"})
+    Raw_data = dealScheme(Raw_data, {"Pack_Number":"int", "Date":"int"})
     Raw_data_1 = Raw_data.groupby('ID', 'Date', 'min2', '通用名','商品名','Pack_ID') \
                             .agg(func.sum('Sales').alias('Sales'), func.sum('Units').alias('Units')) \
                             .withColumnRenamed('min2', 'Prod_Name')
@@ -107,20 +107,13 @@ def execute(**kwargs):
         MTH_hospital_Sales = 0
     check_result_5 = (MTH_hospital_Sales/PREMTH_hospital_Sales < 0.01)
     
-    # 每家医院的月销金额在最近12期的误差范围内（mean+-1.96std），范围内的医院数量占比大于95%；
-    check_5_2 = Raw_data.where((Raw_data.Date > (current_year-1)*100+current_month-1 ) & (Raw_data.Date < current_year*100+current_month)) \
-                        .groupBy('ID', 'Date').agg(func.sum('Sales').alias('Sales')) \
-                        .groupBy('ID').agg(func.mean('Sales').alias('Mean_Sales'), func.stddev('Sales').alias('Sd_Sales')).persist()
+    def getResultDf(result, colname):
+        dict = {colname:[str(result)]}
+        df = pd.DataFrame(dict)
+        df_out = spark.createDataFrame(df) 
+        return df_out
     
-    check_5_2 = check_5_2.join(Raw_data.where(Raw_data.Date == current_year*100+current_month).groupBy('ID').agg(func.sum('Sales').alias('Sales_newmonth')), 
-                                            on='ID', how='left').persist()
-    check_5_2 = check_5_2.withColumn('Check', func.when(check_5_2.Sales_newmonth < check_5_2.Mean_Sales-1.96*check_5_2.Sd_Sales, func.lit('F')) \
-                                                .otherwise(func.when(check_5_2.Sales_newmonth > check_5_2.Mean_Sales+1.96*check_5_2.Sd_Sales, func.lit('F')) \
-                                                                .otherwise(func.lit('T'))))
-    check_5_2 = check_5_2.withColumn('Check', func.when(func.isnan(check_5_2.Mean_Sales) | func.isnan(check_5_2.Sd_Sales) | check_5_2.Sales_newmonth.isNull(), func.lit(None)) \
-                                                    .otherwise(check_5_2.Check))                            
-    
-    check_5 = check_5_1.join(check_5_2, on='ID', how='left').orderBy('ID').persist()
+    df_check_result_5 = getResultDf(check_result_5, colname = '缺失医院销售额占比不超过0.01')    
 
     # %%
     # =========== 数据输出 =============
@@ -128,8 +121,8 @@ def execute(**kwargs):
         df = df.toDF(*[i.lower() for i in df.columns])
         return df
     
-    check_5 = lowerColumns(check_5)
+    df_check_result_5 = lowerColumns(df_check_result_5)
     
     logger.debug('数据执行-Finish')
     
-    return {'out_df':check_5}
+    return {'out_df':df_check_result_5}

@@ -93,22 +93,32 @@ def execute(**kwargs):
 
  
     #========== check_8 ==========
+    # 最近三个月全部医院的产品总数
+    check_8_1 = Raw_data_1.where(col('Date').isin(RQMTH)) \
+                        .select('Date', 'ID', 'Prod_Name').distinct() \
+                        .count()/3
+    # 当月月产品个数                  
+    check_8_2 = Raw_data_1.where(col('Date').isin(MTH)) \
+                        .select('Date', 'ID', 'Prod_Name').distinct() \
+                        .count()
     
-    # 每个月产品个数
-    check_8 = Raw_data_1.select('Date', 'ID', 'Prod_Name').distinct() \
-                        .groupBy('Date').count() \
-                        .withColumnRenamed('count', '每月产品个数_min1') \
-                        .orderBy('Date').persist()
+    check_result_8 = (check_8_2/check_8_1 < 0.03)
     
-
+    def getResultDf(result, colname):
+        dict = {colname:[str(result)]}
+        df = pd.DataFrame(dict)
+        df_out = spark.createDataFrame(df) 
+        return df_out
+    
+    df_check_result_8 = getResultDf(check_result_8, colname = '全部医院的全部产品总个数与最近三个月的均值相差不超过0.03')  
     # %%
     # =========== 数据输出 =============
     def lowerColumns(df):
         df = df.toDF(*[i.lower() for i in df.columns])
         return df
     
-    check_8 = lowerColumns(check_8)
+    df_check_result_8 = lowerColumns(df_check_result_8)
     
     logger.debug('数据执行-Finish')
     
-    return {'out_df':check_8}
+    return {'out_df':df_check_result_8}
