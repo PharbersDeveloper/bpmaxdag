@@ -25,8 +25,6 @@ def execute(**kwargs):
     ### input args ###
     
     ### output args ###
-    c = kwargs['c']
-    d = kwargs['d']
     ### output args ###
 
     from pyspark.sql import SparkSession, Window
