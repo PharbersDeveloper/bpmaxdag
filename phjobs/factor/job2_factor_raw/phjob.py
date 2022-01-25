@@ -14,19 +14,18 @@ def execute(**kwargs):
     depends_path = kwargs["depends_path"]
     
     ### input args ###
-    max_path = kwargs['max_path']
-    project_name = kwargs['project_name']
-    outdir = kwargs['outdir']
     model_month_right = kwargs['model_month_right']
     model_month_left = kwargs['model_month_left']
     all_models = kwargs['all_models']
-    max_file = kwargs['max_file']
-    factor_optimize = kwargs['factor_optimize']
     ### input args ###
     
     ### output args ###
-    c = kwargs['c']
-    d = kwargs['d']
+    p_out = kwargs['p_out']
+    out_mode = kwargs['out_mode']
+    run_id = kwargs['run_id'].replace(":","_")
+    owner = kwargs['owner']
+    project_name = kwargs['project_name']
+    g_database_temp = kwargs['g_database_temp']
     ### output args ###
 
     
@@ -37,100 +36,115 @@ def execute(**kwargs):
     import os
     from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col
     import time
-    import re        # %%
-    
-    # project_name = 'Sanofi'
-    # outdir = '202012'
-    # model_month_right = '202012'
-    # model_month_left = '202001'
-    # all_models = 'SNY15,SNY16,SNY17'
-    # max_file = 'MAX_result_201801_202012_city_level'
-    
+    import re        
+    from phcli.ph_tools.addTable.addTableToGlue import AddTableToGlue
 
     # %%
-    # 输出
+    # =========== 参数处理 =========== 
     model_month_right = int(model_month_right)
     model_month_left = int(model_month_left)
     all_models = all_models.replace(' ','').split(',')
     
-    mkt_mapping_path = max_path + '/' + project_name + '/mkt_mapping'
-    universe_path = max_path + '/' + project_name + '/universe_base'
-    max_result_path = max_path + '/' + project_name + '/' + outdir + '/MAX_result/' + max_file
-    #panel_result_path = max_path + '/' + project_name + '/' + outdir + '/panel_result'
-
+    g_table_result = 'factor_raw'
+    
+    # %% 
+    # =========== 输入数据读取 =========== 
+    def dealToNull(df):
+        df = df.replace(["None", ""], None)
+        return df
+    def dealScheme(df, dict_scheme):
+        # 数据类型处理
+        for i in dict_scheme.keys():
+            df = df.withColumn(i, col(i).cast(dict_scheme[i]))
+        return df
+    def lowCol(df):
+        df = df.toDF(*[c.lower() for c in df.columns])
+        return df
+    
+    df_universe = kwargs['df_universe_base']
+    df_universe = dealToNull(df_universe)
+    df_universe = lowCol(df_universe)
+    # 样本ID
+    ID_list = df_universe.where(col('panel') == 1).select('panel_id').distinct().toPandas()['panel_id'].values.tolist()
+    
+    df_max_result = kwargs['df_max_result']
+    df_max_result = dealToNull(df_max_result)
+    df_max_result = lowCol(df_max_result)
+    df_max_result = df_max_result.where((col('date') >= model_month_left) & (col('date') <= model_month_right))
+    
+    df_rf_out_all = kwargs['df_randomforest_result']
+    df_rf_out_all = dealToNull(df_rf_out_all)    
+    df_rf_out_all = lowCol(df_rf_out_all)
+    
+    # ============== 删除已有的s3中间文件 =============
+    import boto3
+    def deletePath(path_dir):
+        file_name = path_dir.replace('//', '/').split('s3:/ph-platform/')[1]
+        s3 = boto3.resource('s3', region_name='cn-northwest-1',
+                            aws_access_key_id="AKIAWPBDTVEAEU44ZAGT",
+                            aws_secret_access_key="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")
+        bucket = s3.Bucket('ph-platform')
+        bucket.objects.filter(Prefix=file_name).delete()
+    deletePath(path_dir=f"{p_out + g_table_result}/version={run_id}/provider={project_name}/owner={owner}/")
+    
     # %%
     # =========== 数据执行 ============
     logger.debug("job2_factor_raw")
-    mkt_mapping = spark.read.parquet(mkt_mapping_path)
-    universe = spark.read.parquet(universe_path)
-    
-    max_result = spark.read.parquet(max_result_path)
-    max_result = max_result.where((col('Date') >= model_month_left) & (col('Date') <= model_month_right))
-    
-    #panel_result = spark.read.parquet(panel_result_path)
-    #panel_result = panel_result.where((col('Date') >= model_month_left) & (col('Date') <= model_month_right))
-    
     # 每个市场算 factor
+   
     for market in all_models:
         logger.debug("当前market为:" + str(market))
-        #market = '固力康'
-        # 输入
-        rf_out_path = max_path + '/' + project_name + '/forest/' + market + '_rf_result'
-        # 输出
-        if factor_optimize == 'True':
-            factor1_path = max_path + '/' + project_name + '/forest/' + market + '_factor_1'
-        else:
-            factor_out_path = max_path + '/' + project_name + '/factor/factor_' + market
-    
-        # 样本ID
-        ID_list = universe.where(col('PANEL') == 1).select('Panel_ID').distinct().toPandas()['Panel_ID'].values.tolist()
-    
-        # panel 样本
-        '''
-        panel = panel_result.where(col('DOI') == market)
-        panel1 = panel.where(col('HOSP_ID').isin(ID_list)) \
-                    .drop('Province', 'City') \
-                    .join(universe.select('Panel_ID', 'Province', 'City'), panel.HOSP_ID == universe.Panel_ID, how='inner')
-        panel1 = panel1.groupBy('City').agg(func.sum('Sales').alias('panel_sales'))
-        '''
-    
+        
         # rf 非样本
-        rf_out = spark.read.parquet(rf_out_path)
-        rf_out = rf_out.select('PHA_ID', 'final_sales') \
-                        .join(universe.select('Panel_ID', 'Province', 'City').distinct(), 
-                                rf_out.PHA_ID == universe.Panel_ID, how='left') \
-                        .where(~col('PHA_ID').isin(ID_list))
-        rf_out = rf_out.groupBy('City', 'Province').agg(func.sum('final_sales').alias('Sales_rf'))
+        df_rf_out = df_rf_out_all.where(col('doi') == market)
+        df_rf_out = df_rf_out.select('pha_id', 'final_sales') \
+                        .join(df_universe.select('panel_id', 'province', 'city').distinct(), 
+                                df_rf_out['pha_id'] == df_universe['panel_id'], how='left') \
+                        .where(~col('pha_id').isin(ID_list))
+        df_rf_out = df_rf_out.groupBy('city', 'province').agg(func.sum('final_sales').alias('sales_rf'))
     
         # max 非样本
-        spotfire_out = max_result.where(col('DOI') == market)
-        spotfire_out = spotfire_out.where(col('PANEL') != 1) \
-                                .groupBy('City', 'Province').agg(func.sum('Predict_Sales').alias('Sales'))
+        df_spotfire_out = df_max_result.where(col('doi') == market)
+        df_spotfire_out = df_spotfire_out.where(col('panel') != 1) \
+                                .groupBy('city', 'province').agg(func.sum('predict_sales').alias('Sales'))
     
         # 计算factor 城市层面 ： rf 非样本的Sales 除以  max 非样本 的Sales                
-        factor_city = spotfire_out.join(rf_out, on=['City', 'Province'], how='left')
-        factor_city = factor_city.withColumn('factor', col('Sales_rf')/col('Sales'))
+        df_factor_city = df_spotfire_out.join(df_rf_out, on=['city', 'province'], how='left')
+        df_factor_city = df_factor_city.withColumn('factor', col('sales_rf')/col('sales'))
     
-        # universe join left factor_city 没有的城市factor为1
-        factor_city1 = universe.select('City', 'Province').distinct() \
-                                .join(factor_city, on=['City', 'Province'], how='left')
-        factor_city1 = factor_city1.withColumn('factor', func.when(((col('factor').isNull()) | (col('factor') <=0)), func.lit(1)) \
+        # df_universe join left factor_city 没有的城市factor为1
+        df_factor_city1 = df_universe.select('city', 'province').distinct() \
+                                .join(df_factor_city, on=['city', 'province'], how='left')
+        df_factor_city1 = df_factor_city1.withColumn('factor', func.when(((col('factor').isNull()) | (col('factor') <=0)), func.lit(1)) \
                                                             .otherwise(col('factor')))
-        factor_city1 = factor_city1.withColumn('factor', func.when(col('factor') >4, func.lit(4)) \
+        df_factor_city1 = df_factor_city1.withColumn('factor', func.when(col('factor') >4, func.lit(4)) \
                                                             .otherwise(col('factor')))
     
-        factor_out = factor_city1.select('City', 'Province', 'factor')
-    
-    
-        if factor_optimize == 'True':
-            factor_out = factor_out.repartition(1)
-            factor_out.write.format("parquet") \
-                .mode("overwrite").save(factor1_path)
-        else:
-            factor_out = factor_out.repartition(1)
-            factor_out.write.format("parquet") \
-                .mode("overwrite").save(factor_out_path)        
-    
+        df_factor_out = df_factor_city1.select('city', 'province', 'factor')
+        
+        df_factor_out = df_factor_out.withColumn('doi', func.lit(market))
+
+        
+        def lowerColumns(df):
+            df = df.toDF(*[i.lower() for i in df.columns])
+            return df
+        df_factor_out = lowerColumns(df_factor_out)
+        
+        AddTableToGlue(df=df_factor_out, database_name_of_output=g_database_temp, table_name_of_output=g_table_result, 
+                           path_of_output_file=p_out, mode=out_mode) \
+                    .add_info_of_partitionby({"version":run_id,"provider":project_name,"owner":owner})
         
         logger.debug("finish:" + str(market))
+    
+    # %%
+    # =========== 数据输出 =============
+    # 读回
+    df_result = spark.sql("SELECT * FROM %s.%s WHERE version='%s' AND provider='%s' AND  owner='%s'" 
+                                 %(g_database_temp, g_table_result, run_id, project_name, owner))
+    
+    df_result = df_result.drop('version', 'provider', 'owner')
+    return {"out_df":df_result}       
+    
+        
+        
 

@@ -14,24 +14,19 @@ def execute(**kwargs):
     depends_path = kwargs["depends_path"]
     
     ### input args ###
-    max_path = kwargs['max_path']
-    project_name = kwargs['project_name']
-    outdir = kwargs['outdir']
     model_month_right = kwargs['model_month_right']
     model_month_left = kwargs['model_month_left']
     all_models = kwargs['all_models']
-    max_file = kwargs['max_file']
-    test = kwargs['test']
-    ims_info_auto = kwargs['ims_info_auto']
-    ims_version = kwargs['ims_version']
-    add_imsinfo_path = kwargs['add_imsinfo_path']
-    geo_map_path = kwargs['geo_map_path']
     factor_optimize = kwargs['factor_optimize']
     ### input args ###
     
     ### output args ###
-    c = kwargs['c']
-    d = kwargs['d']
+    p_out = kwargs['p_out']
+    out_mode = kwargs['out_mode']
+    run_id = kwargs['run_id'].replace(":","_")
+    owner = kwargs['owner']
+    project_name = kwargs['project_name']
+    g_database_temp = kwargs['g_database_temp']
     ### output args ###
 
     
@@ -43,211 +38,136 @@ def execute(**kwargs):
     import os
     import time
     import re
-    from copy import deepcopy    
-    # %%
-    '''
-    project_name = 'Takeda'
-    outdir = '202012'
-    model_month_right = '202012'
-    model_month_left = '202001'
-    all_models = 'TK1'
-    max_file = 'MAX_result_201801_202012_city_level'
-    test = 'True'
-    ims_version = '202012'
-    add_imsinfo_path = 's3a://ph-max-auto/v0.0.1-2020-06-08/Takeda/add_ims_info.csv'
-    geo_map_path = 's3a://ph-max-auto/v0.0.1-2020-06-08/Takeda/geo_map.csv'
+    from copy import deepcopy 
+    from phcli.ph_tools.addTable.addTableToGlue import AddTableToGlue
     
-    project_name = '神州'
-    outdir = '201912'
-    model_month_right = '201912'
-    model_month_left = '201901'
-    all_models = 'SZ1'
-    max_file = 'MAX_result_201801_201912_city_level'
-    test = 'True'
-    ims_version = '202010'
-    '''
+
     # %%
-    # 输入
-    if factor_optimize != "True":
-         raise ValueError('不进行优化')
-            
-    if test != "False" and test != "True":
-        logger.debug('wrong input: test, False or True') 
-        raise ValueError('wrong input: test, False or True')
-    if ims_info_auto != "False" and ims_info_auto != "True":
-        logger.debug('wrong input: test, False or True') 
-        raise ValueError('wrong input: test, False or True')
-    
+    # =========== 参数处理 =========== 
     model_month_right = int(model_month_right)
     model_month_left = int(model_month_left)
     all_models = all_models.replace(' ','').split(',')
     
-    max_result_path = max_path + '/' + project_name + '/' + outdir + '/MAX_result/' + max_file
-    product_map_path = max_path + '/' + project_name + '/' + outdir + '/prod_mapping'
-    mkt_map_path = max_path + '/' + project_name + '/mkt_mapping'
+    g_table_ims_v1_otherall = 'factor_top3_product'
+    g_table_ims_panel_max_out = 'factor_gap'
+    g_table_factor3 = 'factor'
     
-    if ims_info_auto == 'True':
-        ims_mapping_path = max_path + '/' + '/Common_files/IMS_flat_files/' + ims_version + '/ims_mapping_' + ims_version + '.csv'
-        ims_sales_path = max_path + '/Common_files/IMS_flat_files/' + ims_version + '/cn_IMS_Sales_Fdata_' + ims_version + '_1.csv'
-        if geo_map_path == 'Empty':
-            geo_map_path = max_path + '/' + '/Common_files/IMS_flat_files/' + ims_version + '/cn_geog_dimn_' + ims_version + '_1.csv'
-        # 输出检查文件
-        check_path = max_path + '/' + project_name + '/ims_info/ims_info_check'
-        ims_sales_all_path = max_path + '/' + project_name + '/ims_info/ims_info_all'
-            
-    # 输出在每个循环下
-
+    # %% 
+    # =========== 输入数据读取 =========== 
+    def dealToNull(df):
+        df = df.replace(["None", ""], None)
+        return df
+    def dealScheme(df, dict_scheme):
+        # 数据类型处理
+        for i in dict_scheme.keys():
+            df = df.withColumn(i, col(i).cast(dict_scheme[i]))
+        return df
+    def lowCol(df):
+        df = df.toDF(*[c.lower() for c in df.columns])
+        return df
+    
+    df_max_result = kwargs['df_max_result']
+    df_max_result = dealToNull(df_max_result)
+    df_max_result = df_max_result.where((col('date') >= model_month_left) & (col('date') <= model_month_right))
+    df_max_result = lowCol(df_max_result)
+        
+    df_prod_mapping = kwargs['df_prod_mapping']
+    df_prod_mapping = dealToNull(df_prod_mapping)
+    df_prod_mapping = lowCol(df_prod_mapping)
+           
+    df_ims_sales_all = kwargs['df_ims_info']
+    df_ims_sales_all = dealToNull(df_ims_sales_all)
+    df_ims_sales_all = lowCol(df_ims_sales_all)
+    
+    df_factor_all = kwargs['df_factor_raw']
+    df_factor_all = dealToNull(df_factor_all)
+    df_factor_all = lowCol(df_factor_all)
+    
+    if factor_optimize != "True":
+         return {"out_df": df_factor_all}
+              
+    # ============== 删除已有的s3中间文件 =============
+    import boto3
+    def deletePath(path_dir):
+        file_name = path_dir.replace('//', '/').split('s3:/ph-platform/')[1]
+        s3 = boto3.resource('s3', region_name='cn-northwest-1',
+                            aws_access_key_id="AKIAWPBDTVEAEU44ZAGT",
+                            aws_secret_access_key="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")
+        bucket = s3.Bucket('ph-platform')
+        bucket.objects.filter(Prefix=file_name).delete()
+    deletePath(path_dir=f"{p_out + g_table_ims_v1_otherall}/version={run_id}/provider={project_name}/owner={owner}/")
+    deletePath(path_dir=f"{p_out + g_table_ims_panel_max_out}/version={run_id}/provider={project_name}/owner={owner}/")
+    deletePath(path_dir=f"{p_out + g_table_factor3}/version={run_id}/provider={project_name}/owner={owner}/")
+    
+    # %% 
+    # =========== 数据清洗 =============
+    logger.debug('数据清洗-start')
+    # 函数定义
+    def getTrueCol(df, l_colnames, l_df_columns):
+        # 检索出正确列名
+        l_true_colname = []
+        for i in l_colnames:
+            if i.lower() in l_df_columns and df.where(~col(i).isNull()).count() > 0:
+                l_true_colname.append(i)
+        if len(l_true_colname) > 1:
+           raise ValueError('有重复列名: %s' %(l_true_colname))
+        if len(l_true_colname) == 0:
+           raise ValueError('缺少列信息: %s' %(l_colnames)) 
+        return l_true_colname[0]  
+    
+    def getTrueColRenamed(df, dict_cols, l_df_columns):
+        # 对列名重命名
+        for i in dict_cols.keys():
+            true_colname = getTrueCol(df, dict_cols[i], l_df_columns)
+            logger.debug(true_colname)
+            if true_colname != i:
+                if i in l_df_columns:
+                    # 删除原表中已有的重复列名
+                    df = df.drop(i)
+                df = df.withColumnRenamed(true_colname, i)
+        return df
+    
+    def dealScheme(df, dict_scheme):
+        # 数据类型处理
+        for i in dict_scheme.keys():
+            df = df.withColumn(i, col(i).cast(dict_scheme[i]))
+        return df
+    
+    # 1、prod_mapping 清洗
+    dict_cols_prod_map = {"通用名":["通用名", "标准通用名", "通用名_标准", "药品名称_标准", "s_molecule_name"], 
+                          "min2":["min2", "min1_标准"],
+                          "pfc":['pfc', 'packcode', 'pack_id', 'packid', 'packid'],
+                          "标准商品名":["标准商品名", "商品名_标准", "s_molecule_name"],
+                          "标准剂型":["标准剂型", "剂型_标准", 'form_std', 's_dosage'],
+                          "标准规格":["标准规格", "规格_标准", 'specifications_std', '药品规格_标准', 's_pack'],
+                          "标准包装数量":["标准包装数量", "包装数量2", "包装数量_标准", 'pack_number_std', 's_packnumber', "最小包装数量"],
+                          "标准生产企业":["标准生产企业", "标准企业", "生产企业_标准", 'manufacturer_std', 's_corporation', "标准生产厂家"]
+                         }
+    
+    df_prod_mapping = getTrueColRenamed(df_prod_mapping, dict_cols_prod_map, df_prod_mapping.columns)
+    df_prod_mapping = dealScheme(df_prod_mapping, {"标准包装数量":"int", "pfc":"int"})
+    
+    df_prod_mapping = df_prod_mapping.withColumn("min2", func.regexp_replace("min2", "&amp;", "&")) \
+                                    .withColumn("min2", func.regexp_replace("min2", "&lt;", "<")) \
+                                    .withColumn("min2", func.regexp_replace("min2", "&gt;", ">"))
+    df_prod_mapping = df_prod_mapping.select('通用名', '标准商品名', '标准剂型', '标准规格', '标准包装数量',
+                                             
+                                        '标准生产企业', 'min2', 'pfc') \
+                                    .distinct() \
+                                    .withColumnRenamed('通用名', 'molecule') \
+                                    .withColumnRenamed('标准商品名', 'brand') \
+                                    .withColumnRenamed('标准剂型', 'form') \
+                                    .withColumnRenamed('标准规格', 'specifications') \
+                                    .withColumnRenamed('标准包装数量', 'pack_number') \
+                                    .withColumnRenamed('标准生产企业', 'manufacturer') \
+                                    .withColumnRenamed('pfc', 'pack_id')
+        
+    
     # %%
     # =========== 数据执行 ============
     logger.debug("job3_factor_optimize")
-    # 1. max 文件处理
-    max_result = spark.read.parquet(max_result_path)
-    max_result = max_result.where((col('Date') >= model_month_left) & (col('Date') <= model_month_right))
-    
-    # 2. product_map 文件处理
-    product_map = spark.read.parquet(product_map_path)
-    #if project_name == "Sanofi" or project_name == "AZ":
-    #    if "pfc" not in product_map.columns:
-    #        product_map = product_map.withColumnRenamed([i for i in product_map.columns if 'pfc' in i][0], "pfc")
-    #if project_name == "Eisai":
-    #    if "pfc" not in product_map.columns:
-    #        product_map = product_map.withColumnRenamed([i for i in product_map.columns if 'pfc' in i][0], "pfc")
-    for i in product_map.columns:
-        if i in ["标准通用名", "通用名_标准", "药品名称_标准", "S_Molecule_Name"]:
-            product_map = product_map.withColumnRenamed(i, "通用名")
-        if i in ["min1_标准"]:
-            product_map = product_map.withColumnRenamed(i, "min2")
-        if i in ["packcode", "Pack_ID", "Pack_Id", "PackID", "packid"]:
-            product_map = product_map.withColumnRenamed(i, "pfc")
-        if i in ["商品名_标准", "S_Product_Name"]:
-            product_map = product_map.withColumnRenamed(i, "标准商品名")
-        if i in ["剂型_标准", "Form_std", "S_Dosage"]:
-            product_map = product_map.withColumnRenamed(i, "标准剂型")
-        if i in ["规格_标准", "Specifications_std", "药品规格_标准", "S_Pack"]:
-            product_map = product_map.withColumnRenamed(i, "标准规格")
-        if i in ["包装数量2", "包装数量_标准", "Pack_Number_std", "S_PackNumber", "最小包装数量"]:
-            product_map = product_map.withColumnRenamed(i, "标准包装数量")
-        if i in ["标准企业", "生产企业_标准", "Manufacturer_std", "S_CORPORATION", "标准生产厂家"]:
-            product_map = product_map.withColumnRenamed(i, "标准生产企业")
-    if project_name == "Janssen" or project_name == "NHWA":
-        if "标准剂型" not in product_map.columns:
-            product_map = product_map.withColumnRenamed("剂型", "标准剂型")
-        if "标准规格" not in product_map.columns:
-            product_map = product_map.withColumnRenamed("规格", "标准规格")
-        if "标准生产企业" not in product_map.columns:
-            product_map = product_map.withColumnRenamed("生产企业", "标准生产企业")
-        if "标准包装数量" not in product_map.columns:
-            product_map = product_map.withColumnRenamed("包装数量", "标准包装数量")
-    product_map = product_map.withColumn("min2", func.regexp_replace("min2", "&amp;", "&")) \
-                            .withColumn("min2", func.regexp_replace("min2", "&lt;", "<")) \
-                            .withColumn("min2", func.regexp_replace("min2", "&gt;", ">"))
-    
-    product_map = product_map.select('通用名', '标准商品名', '标准剂型', '标准规格', '标准包装数量', 
-                                        '标准生产企业', 'min2', 'pfc') \
-                            .distinct() \
-                            .withColumnRenamed('通用名', 'Molecule') \
-                            .withColumnRenamed('标准商品名', 'Brand') \
-                            .withColumnRenamed('标准剂型', 'Form') \
-                            .withColumnRenamed('标准规格', 'Specifications') \
-                            .withColumnRenamed('标准包装数量', 'Pack_Number') \
-                            .withColumnRenamed('标准生产企业', 'Manufacturer') \
-                            .withColumn('pfc', product_map.pfc.cast(IntegerType())) \
-                            .withColumnRenamed('pfc', 'Pack_ID')
-
-    # %%
-    # 3. mkt_map_path
-    mkt_map = spark.read.parquet(mkt_map_path)
-    mkt_map = mkt_map.withColumnRenamed("标准通用名", "通用名") \
-        .withColumnRenamed("model", "mkt") \
-        .select("mkt", "通用名").distinct()
-    model_pfc = product_map.where(~col('Pack_ID').isNull()).select('Molecule', 'Pack_ID').distinct() \
-                        .join(mkt_map, product_map['Molecule']==mkt_map['通用名'], how='left')
-    model_pfc = model_pfc.select('Pack_ID', 'mkt').distinct()
-
-    # %%
-    # 4. ims文件
-    if ims_info_auto == 'True':
-        @udf(StringType())
-        def city_change(name):
-            # 城市名定义
-            if name in ["苏锡城市群"]:
-                newname = "苏锡市"
-            elif name in ["全国"]:
-                newname = "CHPA"
-            else:
-                newname = name + '市'
-            return newname
-    
-        # geo_map_path 匹配城市中文名
-        geo_map = spark.read.csv(geo_map_path, header=True)
-        geo_map = geo_map.select('GEO_CD', 'GEO_DESC_CN').distinct() \
-                        .withColumnRenamed('GEO_CD', 'Geography_id')
-        # ims_mapping 匹配产品英文信息
-        ims_mapping = spark.read.csv(ims_mapping_path, header=True)
-        ims_mapping = ims_mapping.select('Molecule_Composition', 'Prd_desc', 'Pack_Id0').distinct() \
-                                .withColumnRenamed('Pack_Id0', 'PACK_ID')
-        # ims 销量数据
-        ims_sales = spark.read.csv(ims_sales_path, header=True)
-        ims_sales = ims_sales.select('Geography_id', 'Pack_ID', 'Period_Code', 'LC')
-    
-        # 是否补充ims 销量数据
-        if add_imsinfo_path != 'Empty':
-            add_imsinfo_file = spark.read.csv(add_imsinfo_path, header=True)
-            add_imsinfo_file = add_imsinfo_file.select('Geography_id', 'Pack_ID', 'Period_Code', 'LC')
-            # 去掉add_imsinfo_file中有的
-            ims_sales_keep = ims_sales.join(add_imsinfo_file, on=["Pack_ID", "Geography_id"], how='left_anti')
-            ims_sales = ims_sales_keep.union(add_imsinfo_file.select(ims_sales_keep.columns))
-    
-        # 信息匹配
-        ims_sales = ims_sales.join(ims_mapping, on='Pack_ID', how='left') \
-                            .join(model_pfc, on='Pack_ID', how='left') \
-                            .join(geo_map, on='Geography_id', how='left')
-    
-        ims_sales = ims_sales.withColumn('Date', func.regexp_replace('Period_Code', 'M', '')) \
-                            .withColumn('City', city_change(col('GEO_DESC_CN'))) \
-                            .where(col('Date').between(model_month_left, model_month_right))
-    
-        # 检查文件同一个分子是否有没匹配上的packid
-        check = ims_sales.where(col('City') == 'CHPA') \
-                        .groupby('Molecule_Composition', 'mkt').agg(func.sum('LC').alias('Sales'))
-        check_mol = check.groupby('Molecule_Composition').agg(func.sum('Sales').alias('Sales_mol'))
-        check = check.join(check_mol, on='Molecule_Composition', how='left')
-        check = check.withColumn('share', col('Sales')/col('Sales_mol'))
-        molecules_in_model = check.where(~col('mkt').isNull()).select('Molecule_Composition').distinct()
-        check = check.join(molecules_in_model, on='Molecule_Composition', how='inner')
-    
-        # 根据分子名重新匹配市场名，补充上缺失的数据
-        ims_sales_all = ims_sales.drop('mkt') \
-                                .join(check.where(~col('mkt').isNull()).select("Molecule_Composition","mkt").distinct(), 
-                                      on='Molecule_Composition', how='left')
-        # 计算share
-        ims_sales_all = ims_sales_all.groupby('City', 'Pack_ID', 'Prd_desc', 'Molecule_Composition', 'mkt') \
-                                    .agg(func.sum('LC').alias('ims_poi_vol'))
-        ims_sales_tmp = ims_sales_all.groupby('City', 'mkt') \
-                                    .agg(func.sum('ims_poi_vol').alias('ims_poi_vol_all'))
-        ims_sales_all = ims_sales_all.join(ims_sales_tmp, on=['City', 'mkt'], how='left') \
-                                    .withColumn('ims_share', col('ims_poi_vol')/col('ims_poi_vol_all'))
-        # 整理
-        ims_sales_all = ims_sales_all.drop("ims_poi_vol_all") \
-                                    .withColumnRenamed("mkt", "model") \
-                                    .where(~col('model').isNull())
-    
-        # 输出检查文件
-        check = check.repartition(1)
-        check.write.format("parquet") \
-                .mode("overwrite").save(check_path)
-        
-        # 输出 ims_sales_all
-        ims_sales_all = ims_sales_all.repartition(2)
-        ims_sales_all.write.format("parquet") \
-                .mode("overwrite").save(ims_sales_all_path)
-        
-        ims_sales_all = spark.read.parquet(ims_sales_all_path)
-
-    # %%
-    # 3. 对每个市场优化factor
     @udf(StringType())
-    def city_change(name):
+    def cityChange(name):
         # 城市名定义
         if name in ["福州市", "厦门市", "泉州市"]:
             newname = "福厦泉市"
@@ -272,125 +192,135 @@ def execute(**kwargs):
         df = df.selectExpr(*keys, "stack(%s, %s) as (feature, value)" % (len(cols), stack_str))
         return df
     
-    # market = '固力康'
-    for market in all_models:
-        logger.debug("当前market为:" + str(market))
-        # 输入
-        if ims_info_auto != 'True':     
-            ims_info_path = max_path + '/' + project_name + '/ims_info/' +  market + '_ims_info'
-        factor_path = max_path + '/' + project_name + '/forest/' + market + '_factor_1'
-        # 输出
-        ims_v1_otherall_path = max_path + '/' + project_name + '/forest/' + market + '_top3_product.csv'
-        ims_panel_max_out_path = max_path + '/' + project_name + '/forest/' + market + '_factor_gap.csv'
-        if test == 'True':
-            factor_out_path = max_path + '/' + project_name + '/forest/factor/factor_' + market
-        else:
-            factor_out_path = max_path + '/' + project_name + '/factor/factor_' + market
+    def lowerColumns(df):
+        df = df.toDF(*[i.lower() for i in df.columns])
+        return df
     
-        # 数据执行
-        if ims_info_auto != 'True':
-            ims_info = spark.read.parquet(ims_info_path)
-            ims_info = ims_info.withColumnRenamed('city', 'City')
-        else:
-            ims_info = ims_sales_all.where(col('model') == market)
-    
-        factor = spark.read.parquet(factor_path)
-    
+    def processMaxResult(df_max_result, df_factor, df_prod_mapping, market):
         # 3.1 max 数据
-        max_df = max_result.where(col('DOI') == market)
-        max_df = max_df.join(factor, on='City', how='left')
-        max_df = max_df.withColumn('Predict_Sales', func.when(col('PANEL') == 0, col('factor')*col('Predict_Sales')) \
-                                                        .otherwise(col('Predict_Sales'))) \
-                        .withColumn('Citynew', col('City'))
+        df_max = df_max_result.where(col('doi') == market)
+        df_max = df_max.join(df_factor, on='city', how='left')
+        df_max = df_max.withColumn('predict_sales', func.when(col('panel') == 0, col('factor')*col('predict_sales')) \
+                                                        .otherwise(col('predict_sales'))) \
+                        .withColumn('citynew', col('city'))
     
-        max_df = max_df.withColumn('Citynew', city_change(col('City')))
-        max_df = max_df.withColumn('Citynew', func.when(~col('Citynew').isin(ims_info.select('City').distinct().toPandas()['City'].values.tolist()), 
-                                                        func.lit('other')).otherwise(col('Citynew')))
+        df_max = df_max.withColumn('citynew', cityChange(col('city')))
+        df_max = df_max.withColumn('citynew', func.when(~col('citynew').isin(df_ims_info.select('city').distinct().toPandas()['city'].values.tolist()), 
+                                                        func.lit('other')).otherwise(col('citynew')))
     
-        max_df = max_df.join(product_map.dropDuplicates(['min2']), max_df.Prod_Name==product_map.min2, how='left')
+        df_max = df_max.join(df_prod_mapping.dropDuplicates(['min2']), df_max['prod_name']==df_prod_mapping['min2'], how='left')
+        return df_max
     
-        # 城市产品层面
-        max2 = max_df.groupBy('Brand', 'Citynew').agg(func.sum('Predict_Sales').alias('max_Prod')) \
-                    .withColumn('mkt', func.lit(market)) \
-                    .withColumnRenamed('Citynew', 'City')
-        # 全国的市场
-        max3 = max_df.groupBy('Citynew').agg(func.sum('Predict_Sales').alias('max_mkt')) \
-                    .withColumn('Market', func.lit(market)) \
-                    .withColumnRenamed('Citynew', 'City')
-    
+    def processPanel(df_max, market):
         # 3.2 panel数据
-        bll1 = max_df.where(max_df.PANEL == 1)
+        df_bll1 = df_max.where(col('panel') == 1)
         # 城市产品层面
-        bll2 = bll1.groupBy('Brand', 'Citynew').agg(func.sum('Predict_Sales').alias('panel_Sales')) \
+        df_bll2 = df_bll1.groupBy('brand', 'citynew').agg(func.sum('predict_sales').alias('panel_Sales')) \
                     .withColumn('mkt', func.lit(market)) \
-                    .withColumnRenamed('Citynew', 'City')
+                    .withColumnRenamed('citynew', 'city')
         # 全国的市场
-        bll3 = bll1.groupBy('Citynew').agg(func.sum('Predict_Sales').alias('panel_mkt')) \
-                    .withColumn('Market', func.lit(market)) \
-                    .withColumnRenamed('Citynew', 'City')
-    
+        df_bll3 = df_bll1.groupBy('citynew').agg(func.sum('predict_sales').alias('panel_mkt')) \
+                    .withColumn('market', func.lit(market)) \
+                    .withColumnRenamed('citynew', 'city')
+        return [df_bll2, df_bll3]
+
+    def getImsTop3(ims_df, df_prod_mapping, df_max2, df_max3, df_bll2, df_bll3):
         # 3.3 确定IMS三个最大的产品
-        ims_df = ims_info.withColumn('Market', func.lit(market))
-    
-        ims_df = ims_df.withColumn('Brand_en', col('Prd_desc')) \
-                            .join(product_map.select('Pack_ID', 'Brand').dropDuplicates(['Pack_ID']), on='Pack_ID', how='left')
-    
-        ims_df = ims_df.groupBy('Market', 'Brand', 'City').agg(func.sum('ims_poi_vol').alias('Prod')) \
-                        .withColumn('Brand', func.when(col('Brand').isNull(), func.lit('none')).otherwise(col('Brand')))
-    
+        ims_df = ims_df.withColumn('brand_en', col('prd_desc')) \
+                            .join(df_prod_mapping.select('pack_id', 'brand').dropDuplicates(['pack_id']), on='pack_id', how='left')
+
+        ims_df = ims_df.groupBy('market', 'brand', 'city').agg(func.sum('ims_poi_vol').alias('prod')) \
+                        .withColumn('brand', func.when(col('brand').isNull(), func.lit('none')).otherwise(col('brand')))
+
         # 全国的商品销量
-        ims_part1 = ims_df.where(col('City') == 'CHPA')
-        ims_part1_v1 = ims_part1.groupBy('Market', 'Brand').agg(func.sum('Prod').alias('Prod_CHPA'))
+        ims_part1 = ims_df.where(col('city') == 'CHPA')
+        ims_part1_v1 = ims_part1.groupBy('market', 'brand').agg(func.sum('prod').alias('prod_chpa'))
         # 非other 省份的商品销量
-        ims_part2 = ims_df.where(col('City') != 'CHPA')
-        ims_part2_v1 = ims_part2.groupBy('Market', 'Brand').agg(func.sum('Prod').alias('Prod_nonCHPA'))
+        ims_part2 = ims_df.where(col('city') != 'CHPA')
+        ims_part2_v1 = ims_part2.groupBy('market', 'brand').agg(func.sum('prod').alias('prod_nonchpa'))
         # other 省份的商品销量
-        ims_v1_left = ims_part1_v1.join(ims_part2_v1, on=['Market','Brand'], how='left')
-        ims_v1_left = ims_v1_left.fillna(0, 'Prod_nonCHPA') \
-                                .withColumn('Prod_other', col('Prod_CHPA')-col('Prod_nonCHPA')) \
-                                .withColumn('City', func.lit('other'))
-        ims_v1_left = ims_v1_left.withColumnRenamed('Prod_CHPA', 'CHPA') \
-                                .withColumnRenamed('Prod_nonCHPA', 'IMS_City') \
-                                .withColumnRenamed('Prod_other', 'Prod') \
-                                .select('Market','Brand','City','Prod')
+        ims_v1_left = ims_part1_v1.join(ims_part2_v1, on=['market','brand'], how='left')
+        ims_v1_left = ims_v1_left.fillna(0, 'prod_nonchpa') \
+                                .withColumn('prod_other', col('prod_chpa')-col('prod_nonchpa')) \
+                                .withColumn('city', func.lit('other'))
+        ims_v1_left = ims_v1_left.withColumnRenamed('prod_chpa', 'chpa') \
+                                .withColumnRenamed('prod_nonchpa', 'ims_city') \
+                                .withColumnRenamed('prod_other', 'prod') \
+                                .select('market','brand','city','prod')
         # other + 非other省份 每个城市的销量前三名产品
         ims_v1_otherall = ims_part2.union(ims_v1_left)
         ims_v1_otherall = ims_v1_otherall.withColumn('n',
-                                func.row_number().over(Window.partitionBy('Market', 'City').orderBy(col('Prod').desc())))
+                                func.row_number().over(Window.partitionBy('market', 'city').orderBy(col('prod').desc())))
         ims_v1_otherall = ims_v1_otherall.where(col('n') < 4) \
-                                        .orderBy(col('Market'), col('City'), col('Prod').desc()) \
-                                        .withColumnRenamed('Prod', 'ims_Prod').persist()
-    
+                                        .orderBy(col('market'), col('city'), col('prod').desc()) \
+                                        .withColumnRenamed('prod', 'ims_prod').persist()
+
         ims_v1_mkt =  ims_part2.union(ims_v1_left) \
-                                .groupBy('Market','City').agg(func.sum('Prod').alias('ims_mkt'))
-    
-        ims_panel_max = ims_v1_otherall.join(max2.withColumnRenamed('mkt', 'Market'), 
-                                            on=['Market', 'Brand', 'City'], how='left') \
-                                        .join(bll2.withColumnRenamed('mkt', 'Market'),
-                                            on=['Market', 'Brand', 'City'], how='left')
-        ims_panel_max = unpivot(ims_panel_max, ['Market', 'Brand', 'City', 'n'])
+                                .groupBy('market','city').agg(func.sum('prod').alias('ims_mkt'))
+
+        ims_panel_max = ims_v1_otherall.join(df_max2.withColumnRenamed('mkt', 'market'), 
+                                            on=['market', 'brand', 'city'], how='left') \
+                                        .join(df_bll2.withColumnRenamed('mkt', 'market'),
+                                            on=['market', 'brand', 'city'], how='left')
+        ims_panel_max = unpivot(ims_panel_max, ['market', 'brand', 'city', 'n'])
         ims_panel_max = ims_panel_max.withColumn('value', col('value').cast(DoubleType())) \
                                     .withColumn('new', func.concat(col('feature'), func.lit('_'), col('n'))) \
-                                    .drop('Brand', 'feature', 'n')
-        ims_panel_max = ims_panel_max.groupBy('Market', 'City').pivot('new').agg(func.sum('value')).fillna(0).persist()
-        ims_panel_max = ims_panel_max.join(ims_v1_mkt, on=['Market','City'], how='left') \
-                                    .join(max3, on=['Market','City'], how='left') \
-                                    .join(bll3, on=['Market','City'], how='left')
+                                    .drop('brand', 'feature', 'n')
+        ims_panel_max = ims_panel_max.groupBy('market', 'city').pivot('new').agg(func.sum('value')).fillna(0).persist()
+        ims_panel_max = ims_panel_max.join(ims_v1_mkt, on=['market','city'], how='left') \
+                                    .join(df_max3, on=['market','city'], how='left') \
+                                    .join(df_bll3, on=['market','city'], how='left')
         ims_panel_max = ims_panel_max.fillna(0, ims_panel_max.columns[2:])
+        return [ims_v1_otherall, ims_panel_max]
+        
+    # 1. max 文件处理
+    df_max_result = df_max_result.where((col('date') >= model_month_left) & (col('date') <= model_month_right))    
+    # 2. 对每个市场优化factor
+    for market in all_models:
+        logger.debug("当前market为:" + str(market))
+        # 数据执行
+        df_ims_info = df_ims_sales_all.where(col('model') == market)
+        df_factor = df_factor_all.where(col('doi') == market)
+        ims_df = df_ims_info.withColumn('market', func.lit(market))
     
-        if 'ims_Prod_2' not in ims_panel_max.columns:
-            ims_panel_max = ims_panel_max.withColumn('ims_Prod_2', func.lit(0))
-        if 'max_Prod_2' not in ims_panel_max.columns:
-            ims_panel_max = ims_panel_max.withColumn('max_Prod_2', func.lit(0))
-        if 'panel_Sales_2' not in ims_panel_max.columns:
-            ims_panel_max = ims_panel_max.withColumn('panel_Sales_2', func.lit(0))
-        if 'ims_Prod_3' not in ims_panel_max.columns:
-            ims_panel_max = ims_panel_max.withColumn('ims_Prod_3', func.lit(0))
-        if 'max_Prod_3' not in ims_panel_max.columns:
-            ims_panel_max = ims_panel_max.withColumn('max_Prod_3', func.lit(0))
-        if 'panel_Sales_3' not in ims_panel_max.columns:
-            ims_panel_max = ims_panel_max.withColumn('panel_Sales_3', func.lit(0))
+        # 3.1 max 数据
+        df_max = processMaxResult(df_max_result, df_factor, df_prod_mapping, market)
     
+        # 城市产品层面
+        df_max2 = df_max.groupBy('brand', 'citynew').agg(func.sum('predict_sales').alias('max_prod')) \
+                    .withColumn('mkt', func.lit(market)) \
+                    .withColumnRenamed('citynew', 'city')
+        # 全国的市场
+        df_max3 = df_max.groupBy('citynew').agg(func.sum('predict_sales').alias('max_mkt')) \
+                    .withColumn('market', func.lit(market)) \
+                    .withColumnRenamed('citynew', 'city')
+    
+        # 3.2 panel数据
+        l_panel = processPanel(df_max, market)
+        # 城市产品层面
+        df_bll2 = l_panel[0]
+        # 全国的市场
+        df_bll3 = l_panel[1]
+    
+        # 3.3 确定IMS三个最大的产品
+        l_ims_result = getImsTop3(ims_df, df_prod_mapping, df_max2, df_max3, df_bll2, df_bll3)
+        # top3产品信息
+        ims_v1_otherall = l_ims_result[0]
+        # ims_panel_max
+        ims_panel_max = l_ims_result[1]
+        
+        l_need_cols = ['ims_prod_2', 'max_prod_2', 'panel_Sales_2', 'ims_prod_3', 'max_prod_3', 'panel_Sales_3']
+        for i in l_need_cols:
+            if i not in ims_panel_max.columns:
+                ims_panel_max = ims_panel_max.withColumn(i, func.lit(0))
+                
+        # ==== 输出 ====
+        ims_v1_otherall = ims_v1_otherall.withColumn('doi', func.lit(market))
+        ims_v1_otherall = lowerColumns(ims_v1_otherall)
+        AddTableToGlue(df=ims_v1_otherall, database_name_of_output=g_database_temp, table_name_of_output=g_table_ims_v1_otherall, 
+                           path_of_output_file=p_out, mode=out_mode) \
+                    .add_info_of_partitionby({"version":run_id,"provider":project_name,"owner":owner})
+        
         # 3.4 优化 
         logger.debug("cvxpy优化")
         schema = deepcopy(ims_panel_max.schema)
@@ -401,15 +331,15 @@ def execute(**kwargs):
             import cvxpy as cp
     
             f = cp.Variable()
-            prob = cp.Problem(cp.Minimize(cp.maximum(cp.abs((f*(pdf['max_Prod_1'][0]-
+            prob = cp.Problem(cp.Minimize(cp.maximum(cp.abs((f*(pdf['max_prod_1'][0]-
                                               pdf['panel_Sales_1'][0])+
-                                           pdf['panel_Sales_1'][0])/pdf['ims_Prod_1'][0]-1),
-                                    cp.abs((f*(pdf['max_Prod_2'][0]-
+                                           pdf['panel_Sales_1'][0])/pdf['ims_prod_1'][0]-1),
+                                    cp.abs((f*(pdf['max_prod_2'][0]-
                                               pdf['panel_Sales_2'][0])+
-                                           pdf['panel_Sales_2'][0])/pdf['ims_Prod_2'][0]-1),
-                                    cp.abs((f*(pdf['max_Prod_3'][0]-
+                                           pdf['panel_Sales_2'][0])/pdf['ims_prod_2'][0]-1),
+                                    cp.abs((f*(pdf['max_prod_3'][0]-
                                               pdf['panel_Sales_3'][0])+
-                                           pdf['panel_Sales_3'][0])/pdf['ims_Prod_3'][0]-1),
+                                           pdf['panel_Sales_3'][0])/pdf['ims_prod_3'][0]-1),
                                     cp.abs((f*(pdf['max_mkt'][0]-
                                               pdf['panel_mkt'][0])+
                                            pdf['panel_mkt'][0])/pdf['ims_mkt'][0]-1))),
@@ -419,67 +349,66 @@ def execute(**kwargs):
     
             return pdf.assign(factor = f.value)
     
-        ims_panel_max_out = ims_panel_max.groupby('Market','City').apply(cvxpy_func)
+        ims_panel_max_out = ims_panel_max.groupby('market','city').apply(cvxpy_func)
         ims_panel_max_out = ims_panel_max_out.withColumn('factor', 
                                                 func.when((col('factor').isNull()) | (col('factor') < 0 ), func.lit(0)) \
                                                     .otherwise(col('factor')))
     
         ims_panel_max_out = ims_panel_max_out.withColumn('gap1', 
-                (col('factor')*(col('max_Prod_1') - col('panel_Sales_1')) + col('panel_Sales_1')) / col('ims_Prod_1') -1)
+                (col('factor')*(col('max_prod_1') - col('panel_Sales_1')) + col('panel_Sales_1')) / col('ims_prod_1') -1)
         ims_panel_max_out = ims_panel_max_out.withColumn('gap2', 
-                (col('factor')*(col('max_Prod_2') - col('panel_Sales_2')) + col('panel_Sales_2')) / col('ims_Prod_2') -1)
+                (col('factor')*(col('max_prod_2') - col('panel_Sales_2')) + col('panel_Sales_2')) / col('ims_prod_2') -1)
         ims_panel_max_out = ims_panel_max_out.withColumn('gap3', 
-                (col('factor')*(col('max_Prod_3') - col('panel_Sales_3')) + col('panel_Sales_3')) / col('ims_Prod_3') -1)
+                (col('factor')*(col('max_prod_3') - col('panel_Sales_3')) + col('panel_Sales_3')) / col('ims_prod_3') -1)
         ims_panel_max_out = ims_panel_max_out.withColumn('gap_mkt', 
                 (col('factor')*(col('max_mkt') - col('panel_mkt')) + col('panel_mkt')) / col('ims_mkt') -1)
     
-        # 输出
+        # ==== 输出 ====
+        ims_panel_max_out = ims_panel_max_out.withColumn('doi', func.lit(market))
+        ims_panel_max_out = lowerColumns(ims_panel_max_out)
+        AddTableToGlue(df=ims_v1_otherall, database_name_of_output=g_database_temp, table_name_of_output=g_table_ims_panel_max_out, 
+                           path_of_output_file=p_out, mode=out_mode) \
+                    .add_info_of_partitionby({"version":run_id,"provider":project_name,"owner":owner})
         
-        ims_v1_otherall = ims_v1_otherall.repartition(1)
-        ims_v1_otherall.write.format("csv").option("header", "true") \
-                .mode("overwrite").save(ims_v1_otherall_path)
-    
-        ims_panel_max_out = ims_panel_max_out.repartition(1)
-        ims_panel_max_out.write.format("csv").option("header", "true") \
-                .mode("overwrite").save(ims_panel_max_out_path)
         
-        factor1 = spark.read.parquet(factor_path)
-        factor1 = factor1.withColumnRenamed('factor', 'factor1')
-        factor2 = ims_panel_max_out.select('City','factor').withColumnRenamed('factor', 'factor2')
-        factor3 = factor1.join(factor2, on='City', how='left')
+        df_factor1 = df_factor
+        df_factor1 = df_factor1.withColumnRenamed('factor', 'factor1')
+        df_factor2 = ims_panel_max_out.select('city','factor').withColumnRenamed('factor', 'factor2')
+        df_factor3 = df_factor1.join(df_factor2, on='city', how='left')
     
-        factor2_city = factor2.select('City').distinct().toPandas()['City'].values.tolist()
+        l_factor2_city = df_factor2.select('city').distinct().toPandas()['city'].values.tolist()
+        
+        def processCityFactor(l_factor2_city, df_factor2, df_factor3):
+            dict_city_map = {"福厦泉市":["福州市","厦门市","泉州市"], "珠三角市":["珠海市","东莞市","中山市","佛山市"], "浙江市":["绍兴市","嘉兴市","台州市","金华市"], "苏锡市":["苏州市","无锡市"]}
+            for i_city, l_map_city in dict_city_map.items():
+                if i_city in l_factor2_city:
+                    value = df_factor2.where(col('city')==i_city).select('factor2').toPandas()['factor2'][0]
+                    df_factor3 = df_factor3.withColumn('factor2', func.when(col('city').isin(l_map_city), func.lit(value)) \
+                                                            .otherwise(col('factor2')))
+            return df_factor3
+            
+        df_factor3 = processCityFactor(l_factor2_city, df_factor2, df_factor3)
     
-        if "福厦泉市" in factor2_city:
-            value = factor2.where(col('City')=='福厦泉市').select('factor2').toPandas()['factor2'][0]
-            factor3 = factor3.withColumn('factor2', func.when(col('City').isin("福州市","厦门市","泉州市"), func.lit(value)) \
-                                                        .otherwise(col('factor2')))
-    
-        if "珠三角市" in factor2_city:
-            value2 = factor2.where(col('City')=='珠三角市').select('factor2').toPandas()['factor2'][0]
-            factor3 = factor3.withColumn('factor2', func.when(col('City').isin("珠海市","东莞市","中山市","佛山市"), 
-                                                        func.lit(value2)).otherwise(col('factor2')))
-    
-        if "浙江市" in factor2_city:
-            value3 = factor2.where(col('City')=='浙江市').select('factor2').toPandas()['factor2'][0]
-            factor3 = factor3.withColumn('factor2', func.when(col('City').isin("绍兴市","嘉兴市","台州市","金华市"), 
-                                                        func.lit(value3)).otherwise(col('factor2')))
-    
-        if "苏锡市" in factor2_city:
-            value4 = factor2.where(col('City')=='苏锡市').select('factor2').toPandas()['factor2'][0]
-            factor3 = factor3.withColumn('factor2', func.when(col('City').isin("苏州市","无锡市"), 
-                                                        func.lit(value4)).otherwise(col('factor2')))
-    
-        value_other = factor2.where(col('City')=='other').select('factor2').toPandas()['factor2'][0]    
-        factor3 = factor3.withColumn('factor2', func.when(col('factor2').isNull(), func.lit(value_other)) \
+        value_other = df_factor2.where(col('city')=='other').select('factor2').toPandas()['factor2'][0]    
+        df_factor3 = df_factor3.withColumn('factor2', func.when(col('factor2').isNull(), func.lit(value_other)) \
                                                     .otherwise(col('factor2')))
     
-        factor3 = factor3.withColumn('factor', col('factor1') * col('factor2'))
-        factor3 = factor3.withColumn('factor', func.when(col('factor') > 4, func.lit(4)).otherwise(col('factor')))
+        df_factor3 = df_factor3.withColumn('factor', col('factor1') * col('factor2'))
+        df_factor3 = df_factor3.withColumn('factor', func.when(col('factor') > 4, func.lit(4)).otherwise(col('factor')))
         
-        factor3 = factor3.repartition(1)
-        factor3.write.format("parquet") \
-                .mode("overwrite").save(factor_out_path)
-        
-        logger.debug("finish:" + str(market))
+        # ==== 输出 ====
+        df_factor3 = df_factor3.withColumn('doi', func.lit(market))
+        df_factor3 = lowerColumns(df_factor3)
+        AddTableToGlue(df=df_factor3, database_name_of_output=g_database_temp, table_name_of_output=g_table_factor3, 
+                           path_of_output_file=p_out, mode=out_mode) \
+                    .add_info_of_partitionby({"version":run_id,"provider":project_name,"owner":owner})
+
+
+    # %%
+    # =========== 数据输出 =============   
+    df_result = spark.sql("SELECT * FROM %s.%s WHERE version='%s' AND provider='%s' AND  owner='%s'" 
+                                 %(g_database_temp, g_table_factor3, run_id, project_name, owner))
+    df_result = lowerColumns(df_result)
+    df_result = df_result.drop('version', 'provider', 'owner')
+    return {"out_df":df_result} 
 
