@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: job3_factor_optimize
+  description: "pharbers job description"
+  labels:
+    name: job3_factor_optimize
+    runtime: python3
+    command: submit
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    command: submit
+    timeout: 720.0
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: max_path
+        value: 's3://ph-max-auto/v0.0.1-2020-06-08/'
+      - key: project_name
+        value: 'Empty'
+      - key: outdir
+        value: 'Empty'
+      - key: model_month_right
+        value: 'Empty'
+      - key: model_month_left
+        value: 'Empty'
+      - key: all_models
+        value: 'Empty'
+      - key: max_file
+        value: 'Empty'
+      - key: test
+        value: 'False'
+      - key: ims_info_auto
+        value: 'True'
+      - key: ims_version
+        value: 'Empty'
+      - key: add_imsinfo_path
+        value: 'Empty'
+      - key: geo_map_path
+        value: 'Empty'
+      - key: factor_optimize
+        value: 'True'
+    outputs:
+      - key: c
+        value: 'abc'
+      - key: d
+        value: 'def'
+
+
+
