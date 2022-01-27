@@ -14,18 +14,19 @@ def execute(**kwargs):
     depends_path = kwargs["depends_path"]
     
     ### input args ###
-    max_path = kwargs['max_path']
-    project_name = kwargs['project_name']
     universe_choice = kwargs['universe_choice']
     all_models = kwargs['all_models']
     weight_upper = kwargs['weight_upper']
     job_choice = kwargs['job_choice']
-    test = kwargs['test']
     ### input args ###
     
     ### output args ###
-    c = kwargs['c']
-    d = kwargs['d']
+    p_out = kwargs['p_out']
+    out_mode = kwargs['out_mode']
+    run_id = kwargs['run_id'].replace(":","_")
+    owner = kwargs['owner']
+    project_name = kwargs['project_name']
+    g_database_temp = kwargs['g_database_temp']
     ### output args ###
 
     
@@ -40,6 +41,8 @@ def execute(**kwargs):
     from scipy.stats import ranksums, mannwhitneyu
     import pandas as pd
     import numpy as np    
+    from phcli.ph_tools.addTable.addTableToGlue import AddTableToGlue
+    
     # %%
     # project_name = "Gilead"
     # universe_choice = "乙肝:universe_传染,乙肝_2:universe_传染,乙肝_3:universe_传染,安必素:universe_传染"
@@ -49,57 +52,79 @@ def execute(**kwargs):
     # test = "True"
 
     # %%
-    # 是否运行此job
-    if test != "False" and test != "True":
-        logger.info('wrong input: test, False or True') 
-        raise ValueError('wrong input: test, False or True')
-    
+    # =========== 参数处理 =========== 
+    # 是否运行此job    
     if job_choice != "weight_default":
-         raise ValueError('不运行weight_default')
-    
-    # 输入
-    universe_choice_dict={}
-    if universe_choice != "Empty":
-        for each in universe_choice.replace(" ","").split(","):
-            market_name = each.split(":")[0]
-            universe_name = each.split(":")[1]
-            universe_choice_dict[market_name]=universe_name
-    
+        raise ValueError('不运行weight_default')
     all_models = all_models.replace(", ",",").split(",")
     weight_upper = float(weight_upper)
+       
+    # 市场的universe文件
+    def getVersionDict(str_choice):
+        dict_choice = {}
+        if str_choice != "Empty":
+            for each in str_choice.replace(", ",",").split(","):
+                market_name = each.split(":")[0]
+                version_name = each.split(":")[1]
+                dict_choice[market_name]=version_name
+        return dict_choice
+    dict_universe_choice = getVersionDict(universe_choice)
     
-    # 输出
-    project_path = project_path = max_path + "/" + project_name
-    if test == "True":
-        weight_default_path = max_path + "/" + project_name + '/test/PHA_weight_default'
-    else:
-        weight_default_path = max_path + "/" + project_name + '/PHA_weight_default'
+    g_table_result = 'PHA_weight_default'
     
-
+    # ============== 删除已有的s3中间文件 =============
+    import boto3
+    def deletePath(path_dir):
+        file_name = path_dir.replace('//', '/').split('s3:/ph-platform/')[1]
+        s3 = boto3.resource('s3', region_name='cn-northwest-1',
+                            aws_access_key_id="AKIAWPBDTVEAEU44ZAGT",
+                            aws_secret_access_key="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")
+        bucket = s3.Bucket('ph-platform')
+        bucket.objects.filter(Prefix=file_name).delete()
+    deletePath(path_dir=f"{p_out + g_table_result}/version={run_id}/provider={project_name}/owner={owner}/")
+    
+    # %% 
+    # =========== 输入数据读取 =========== 
+    def dealToNull(df):
+        df = df.replace(["None", ""], None)
+        return df
+    def dealScheme(df, dict_scheme):
+        # 数据类型处理
+        for i in dict_scheme.keys():
+            df = df.withColumn(i, col(i).cast(dict_scheme[i]))
+        return df
+    def lowCol(df):
+        df = df.toDF(*[c.lower() for c in df.columns])
+        return df
+    
+    def getUniverse(market, dict_universe_choice):
+        if market in dict_universe_choice.keys():
+            df_universe =  kwargs['df_universe_other'].where(col('version')==dict_universe_choice[market])
+            df_universe = dealToNull(df_universe) 
+        else:
+            df_universe =  kwargs['df_universe_base']
+            df_universe = dealToNull(df_universe)
+        return df_universe
+    
     # %%
-    # ====  数据分析  ====
+    # ========  数据分析  ========
     
     for index, market in enumerate(all_models):
-        if market in universe_choice_dict.keys():
-            universe_path = project_path + '/' + universe_choice_dict[market]
-        else:
-            universe_path = project_path + '/universe_base'
-    
-        universe = spark.read.parquet(universe_path)
-        universe = universe.fillna(0, 'Est_DrugIncome_RMB') \
+        df_universe = getUniverse(market, dict_universe_choice)
+        df_universe = df_universe.fillna(0, 'Est_DrugIncome_RMB') \
                             .withColumn('Est_DrugIncome_RMB', func.when(func.isnan('Est_DrugIncome_RMB'), 0).otherwise(col('Est_DrugIncome_RMB')))
         
         # 数据处理
-        universe_panel = universe.where(col('PANEL') == 1).select('Panel_ID', 'Est_DrugIncome_RMB', 'Seg')
-        universe_non_panel = universe.where(col('PANEL') == 0).select('Est_DrugIncome_RMB', 'Seg', 'City', 'Province')
+        df_universe_panel = df_universe.where(col('PANEL') == 1).select('Panel_ID', 'Est_DrugIncome_RMB', 'Seg')
+        df_universe_non_panel = df_universe.where(col('PANEL') == 0).select('Est_DrugIncome_RMB', 'Seg', 'City', 'Province')
         
-        seg_multi_cities = universe.select('Seg', 'City', 'Province').distinct() \
+        seg_multi_cities = df_universe.select('Seg', 'City', 'Province').distinct() \
                                 .groupby('Seg').count()
         seg_multi_cities = seg_multi_cities.where(col('count') > 1).select('Seg').toPandas()['Seg'].tolist()
     
-        universe_m = universe_panel.where(col('Seg').isin(seg_multi_cities)) \
+        df_universe_m = df_universe_panel.where(col('Seg').isin(seg_multi_cities)) \
                                     .withColumnRenamed('Est_DrugIncome_RMB', 'Est_DrugIncome_RMB_x') \
-                                    .join(universe_non_panel, on='Seg', how='inner')
+                                    .join(df_universe_non_panel, on='Seg', how='inner')
         
         # 秩和检验获得p值
         schema = StructType([
@@ -120,31 +145,39 @@ def execute(**kwargs):
             pvalue = round(mannwhitneyu(a, b, alternative="two-sided")[1],6) # 等同于R中的wilcox.test()
             return pd.DataFrame([[Panel_ID] + [City] + [Province] + [pvalue]], columns=["Panel_ID", "City", "Province", "pvalue"])
     
-        universe_m_wilcox = universe_m.groupby('Panel_ID', 'City', 'Province') \
+        df_universe_m_wilcox = df_universe_m.groupby('Panel_ID', 'City', 'Province') \
                                     .apply(wilcoxtest)
         
-        universe_m_maxmin = universe_m_wilcox.groupby('Panel_ID') \
+        df_universe_m_maxmin = df_universe_m_wilcox.groupby('Panel_ID') \
                                             .agg(func.min('pvalue').alias('min'), func.max('pvalue').alias('max'))
         
         # 计算weight
-        universe_m_weight = universe_m_wilcox.join(universe_m_maxmin, on='Panel_ID', how='left') \
+        df_universe_m_weight = df_universe_m_wilcox.join(df_universe_m_maxmin, on='Panel_ID', how='left') \
                                             .withColumn('Weight', 
                         (col('pvalue') - col('min'))/(col('max') - col('min'))*(weight_upper-1/weight_upper) + 1/weight_upper)
     
-        universe_m_weight = universe_m_weight.fillna(1, 'Weight')
+        df_universe_m_weight = df_universe_m_weight.fillna(1, 'Weight')
         
-        weight_out = universe_m_weight.withColumn('DOI', func.lit(market)) \
+        df_weight_out = df_universe_m_weight.withColumn('DOI', func.lit(market)) \
                                     .withColumnRenamed('Panel_ID', 'PHA') \
                                     .select('Province', 'City', 'DOI', 'Weight', 'PHA')
         
         # 结果输出
-        if index ==0:
-            weight_out = weight_out.repartition(1)
-            weight_out.write.format("parquet") \
-                .mode("overwrite").save(weight_default_path)
-        else:
-            weight_out = weight_out.repartition(1)
-            weight_out.write.format("parquet") \
-                .mode("append").save(weight_default_path)
+        def lowerColumns(df):
+            df = df.toDF(*[i.lower() for i in df.columns])
+            return df
+        df_weight_out = lowerColumns(df_weight_out)
+        
+        AddTableToGlue(df=df_weight_out, database_name_of_output=g_database_temp, table_name_of_output=g_table_result, 
+                           path_of_output_file=p_out, mode=out_mode) \
+                    .add_info_of_partitionby({"version":run_id,"provider":project_name,"owner":owner})
             
 
+    # %%
+    # =========== 数据输出 =============
+    # 读回
+    df_out = spark.sql("SELECT * FROM %s.%s WHERE version='%s' AND provider='%s' AND  owner='%s'" 
+                                 %(g_database_temp, g_table_result, run_id, project_name, owner))
+    df_out = df_out.drop('version', 'provider', 'owner')
+    
+    return {"out_df":df_out}

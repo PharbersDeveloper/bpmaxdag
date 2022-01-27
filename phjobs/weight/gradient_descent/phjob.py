@@ -1,3 +1,4 @@
+
 # -*- coding: utf-8 -*-
 """alfredyang@pharbers.com.
 
@@ -14,20 +15,21 @@ def execute(**kwargs):
     depends_path = kwargs["depends_path"]
     
     ### input args ###
-    max_path = kwargs['max_path']
-    project_name = kwargs['project_name']
     market_city_brand = kwargs['market_city_brand']
     lmda = kwargs['lmda']
     learning_rate = kwargs['learning_rate']
     max_iteration = kwargs['max_iteration']
     gradient_type = kwargs['gradient_type']
-    test = kwargs['test']
     year_list = kwargs['year_list']
     ### input args ###
     
     ### output args ###
-    c = kwargs['c']
-    d = kwargs['d']
+    p_out = kwargs['p_out']
+    out_mode = kwargs['out_mode']
+    run_id = kwargs['run_id'].replace(":","_")
+    owner = kwargs['owner']
+    project_name = kwargs['project_name']
+    g_database_temp = kwargs['g_database_temp']
     ### output args ###
 
     from pyspark.sql import SparkSession, Window
@@ -42,7 +44,10 @@ def execute(**kwargs):
     import json
     from copy import deepcopy
     import math
-    import boto3    # %%
+    import boto3    
+    from phcli.ph_tools.addTable.addTableToGlue import AddTableToGlue
+    
+    # %%
     
     # year_list = '2019,2020'
     # project_name = "Takeda"
@@ -50,13 +55,9 @@ def execute(**kwargs):
     # market_city_brand = "TK1:上海市_3"
     # # 2019_邦得清
     # #精神:天津市_3|福厦泉_3|宁波市_3|济南市_3|温州市_2|常州市_3
-
+  
     # %%
     # 输入
-    if test != "False" and test != "True":
-        logger.info('wrong input: test, False or True') 
-        raise ValueError('wrong input: test, False or True')
-    
     year_list = year_list.replace(" ","").split(",")
     year_min = year_list[0]
     year_max = year_list[1]
@@ -78,23 +79,58 @@ def execute(**kwargs):
             brand = each.split("_")[1]
             market_city_brand_dict[market_name][city]=brand
     logger.debug(market_city_brand_dict)
+      
+    # ============== 删除已有的s3中间文件 =============
+    g_table_weight = 'PHA_weight'
+    g_table_weight_tmp = 'PHA_weight_tmp'
+    g_table_share_gr = 'share_gr_out'
+    g_table_weight_raw = 'weight_raw_out'
+        
+    import boto3
+    def deletePath(path_dir):
+        file_name = path_dir.replace('//', '/').split('s3:/ph-platform/')[1]
+        s3 = boto3.resource('s3', region_name='cn-northwest-1',
+                            aws_access_key_id="AKIAWPBDTVEAEU44ZAGT",
+                            aws_secret_access_key="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")
+        bucket = s3.Bucket('ph-platform')
+        bucket.objects.filter(Prefix=file_name).delete()
+    deletePath(path_dir=f"{p_out + g_table_weight}/version={run_id}/provider={project_name}/owner={owner}/")
+    deletePath(path_dir=f"{p_out + g_table_weight_tmp}/version={run_id}/provider={project_name}/owner={owner}/")
+    deletePath(path_dir=f"{p_out + g_table_share_gr}/version={run_id}/provider={project_name}/owner={owner}/")
+    deletePath(path_dir=f"{p_out + g_table_weight_raw}/version={run_id}/provider={project_name}/owner={owner}/")
     
-    # 输出
-    weight_tmp_path = max_path + '/' + project_name + '/weight/PHA_weight_tmp'
-    tmp_path = max_path + '/' + project_name + '/weight/tmp'
-    if test == "False":
-        weight_path = max_path + '/' + project_name + '/PHA_weight'
-    else:
-        weight_path = max_path + '/' + project_name + '/weight/PHA_weight'
-
+    # %% 
+    # =========== 输入数据读取 =========== 
+    def dealToNull(df):
+        df = df.replace(["None", ""], None)
+        return df
+    def dealScheme(df, dict_scheme):
+        # 数据类型处理
+        for i in dict_scheme.keys():
+            df = df.withColumn(i, col(i).cast(dict_scheme[i]))
+        return df
+    def lowCol(df):
+        df = df.toDF(*[c.lower() for c in df.columns])
+        return df
+       
+    df_ims_sales_gr_all = kwargs['df_ims_growth_rate']
+    df_ims_sales_gr_all = dealToNull(df_ims_sales_gr_all)    
+    df_ims_sales_gr_all = lowCol(df_ims_sales_gr_all)
+    
+    df_data_target_all = kwargs['df_weight_data_target']
+    df_data_target_all = dealToNull(df_data_target_all)    
+    df_data_target_all = lowCol(df_data_target_all)
+    
+    df_universe = kwargs['df_universe_base']
+    df_universe = dealToNull(df_universe)    
+    df_universe = lowCol(df_universe)
+    
     # %%
     # ==========  数据执行  ============
     
     # ====  一. 数据准备  ==== 
     # 1. universe 文件                  
-    universe = spark.read.parquet(universe_path)
-    universe = universe.select("Province", "City") \
-                        .distinct()
+    df_universe = df_universe.select("Province", "City").distinct()
     
     
     # ====  二. 函数定义  ====
@@ -257,23 +293,14 @@ def execute(**kwargs):
     market_list = list(market_city_brand_dict.keys())
     index_file = 0
     for market in market_list:
-        # 输入文件
-        # market = '固力康'
-        data_target_path = max_path + '/' + project_name + '/weight/' + market + '_data_target'
-        ims_gr_path = max_path + '/' + project_name + '/weight/' + market + '_ims_gr'
-    
-        # 输出
-        df_sum_path = max_path + '/' + project_name + '/weight/' + market + '_share_gr_out'
-        df_weight_path = max_path + '/' + project_name + '/weight/' + market + '_weight_raw_out'
-    
         # 1. 该市场所需要的分析的城市
         city_brand_dict = market_city_brand_dict[market]
         city_list = list(city_brand_dict.keys())
     
         # 2. 利用ims_sales_gr，生成每个城市 top 产品的 'gr','share','share_ly' 字典
-        ims_sales_gr = spark.read.parquet(ims_gr_path)
-        ims_sales_gr_city = ims_sales_gr.where(col('City').isin(city_list))
-        target_share = ims_sales_gr_city.groupBy('City').apply(udf_target_brand)
+        df_ims_sales_gr = df_ims_sales_gr_all.where(col('doi') == market)
+        df_ims_sales_gr_city = df_ims_sales_gr.where(col('City').isin(city_list))
+        target_share = df_ims_sales_gr_city.groupBy('City').apply(udf_target_brand)
     
         # 转化为字典格式
         df_target_share = target_share.agg(func.collect_list('dict').alias('dict_all')).select("dict_all").toPandas()
@@ -293,7 +320,7 @@ def execute(**kwargs):
         dict_target_share  = json.loads(str_target_share)
     
         # 3. 对 data_target 进行weight分析
-        data_target = spark.read.parquet(data_target_path).where(col('City').isin(city_list))
+        data_target = df_data_target_all.where(col('doi') == market).where(col('City').isin(city_list))
         df_weight_out = data_target.groupBy('City').apply(udf_target_weight).persist()
         df_weight_out = df_weight_out.withColumn('weight', col('weight').cast(DoubleType())) \
                            .withColumn('weight_factor', col('weight_factor').cast(DoubleType())) \
@@ -303,10 +330,12 @@ def execute(**kwargs):
     
         # 4. 输出结果整理
         # 4.1 原始的weight结果
-        df_weight_out = df_weight_out.repartition(1)
-        df_weight_out.write.format("parquet") \
-            .mode("overwrite").save(df_weight_path)
-    
+        # ==== 输出 ====
+        df_weight_out = lowCol(df_weight_out)
+        AddTableToGlue(df=df_weight_out, database_name_of_output=g_database_temp, table_name_of_output=g_table_weight_raw, 
+                           path_of_output_file=p_out, mode=out_mode) \
+                    .add_info_of_partitionby({"version":run_id,"provider":project_name,"owner":owner})
+          
         # 4.2 用于生产的weight结果
         df_weight_final = df_weight_out.withColumn('weight_factor', func.when(col('Bedsize>99')==0, col('weight_factor1')) \
                                                                         .otherwise((col('W')-1)/(col('weight')-1)))
@@ -314,7 +343,7 @@ def execute(**kwargs):
         df_weight_final = df_weight_final.fillna(0, 'weight_factor') \
                                         .withColumn('DOI', func.lit(market)) \
                                         .select('PHA', 'weight_factor', 'DOI', 'City') \
-                                        .join(universe, on='City', how='left') \
+                                        .join(df_universe, on='City', how='left') \
                                         .withColumnRenamed('weight_factor', 'weight')
     
         df_weight_final = df_weight_final.withColumn('Province', func.when(col('City')=='福厦泉', func.lit('福建省')) \
@@ -325,15 +354,11 @@ def execute(**kwargs):
                                                                     .otherwise(col('Province'))) \
                                         .withColumn('Province', func.when(col('City')=='苏锡市', func.lit('江苏省')) \
                                                                     .otherwise(col('Province'))) 
-    
-        if index_file == 0:
-            df_weight_final = df_weight_final.repartition(1)
-            df_weight_final.write.format("parquet") \
-                .mode("overwrite").save(weight_tmp_path)
-        else:
-            df_weight_final = df_weight_final.repartition(1)
-            df_weight_final.write.format("parquet") \
-                .mode("append").save(weight_tmp_path)
+        # ==== 输出 ====
+        df_weight_final = lowCol(df_weight_final)        
+        AddTableToGlue(df=df_weight_final, database_name_of_output=g_database_temp, table_name_of_output=g_table_weight_tmp, 
+                           path_of_output_file=p_out, mode=out_mode) \
+                    .add_info_of_partitionby({"version":run_id,"provider":project_name,"owner":owner})
     
     
         # 4.3 share 和 gr 结果
@@ -352,25 +377,28 @@ def execute(**kwargs):
                        .withColumn('Share_'+year_max, func.bround(col(year_max)/col('str_sum_'+year_max), 3)) \
                        .withColumn('GR', func.bround(col(year_max)/col(year_min)-1, 3)) \
                         .drop('str_sum_'+year_min, 'str_sum_'+year_max)
-    
-        df_sum = df_sum.repartition(1)
-        df_sum.write.format("parquet") \
-            .mode("overwrite").save(df_sum_path)
-    
-        index_file += 1
+        
+        # ==== 输出 ====
+        df_sum = lowCol(df_sum)        
+        AddTableToGlue(df=df_sum, database_name_of_output=g_database_temp, table_name_of_output=g_table_share_gr, 
+                           path_of_output_file=p_out, mode=out_mode) \
+                    .add_info_of_partitionby({"version":run_id,"provider":project_name,"owner":owner})
         
     # %%
     # ====  四. 数据处理  ====
+    # 读回
+    df_weight_out = spark.sql("SELECT * FROM %s.%s WHERE version='%s' AND provider='%s' AND  owner='%s'" 
+                                 %(g_database_temp, g_table_weight_tmp, run_id, project_name, owner))
+    df_weight_out = df_out.drop('version', 'provider', 'owner')
     
-    # 1、福夏泉，珠三角 城市展开
-    df_weight_final = spark.read.parquet(weight_tmp_path)
-    citys = df_weight_final.select('City').distinct().toPandas()['City'].tolist()
+    # 1、福夏泉，珠三角 城市展开  
+    citys = df_weight_out.select('City').distinct().toPandas()['City'].tolist()
     
     if '福厦泉' or '珠三角' or "浙江市" or "苏锡市" in citys:
-        df_keep = df_weight_final.where(~col('City').isin('福厦泉', '珠三角', "浙江市", "苏锡市"))
+        df_keep = df_weight_out.where(~col('City').isin('福厦泉', '珠三角', "浙江市", "苏锡市"))
         
         if '福厦泉' in citys:
-            df1 = df_weight_final.where(col('City') == '福厦泉')
+            df1 = df_weight_out.where(col('City') == '福厦泉')
             df1_1 = df1.withColumn('City', func.lit('福州市'))
             df1_2 = df1.withColumn('City', func.lit('厦门市'))
             df1_3 = df1.withColumn('City', func.lit('泉州市'))
@@ -379,7 +407,7 @@ def execute(**kwargs):
             df_keep = df_keep.union(df1_new)
     
         if '珠三角' in citys:
-            df2 = df_weight_final.where(col('City') == '珠三角')
+            df2 = df_weight_out.where(col('City') == '珠三角')
             df2_1 = df2.withColumn('City', func.lit('珠海市'))
             df2_2 = df2.withColumn('City', func.lit('东莞市'))
             df2_3 = df2.withColumn('City', func.lit('中山市'))
@@ -389,7 +417,7 @@ def execute(**kwargs):
             df_keep = df_keep.union(df2_new)
             
         if '浙江市' in citys:
-            df3 = df_weight_final.where(col('City') == '浙江市')
+            df3 = df_weight_out.where(col('City') == '浙江市')
             df3_1 = df3.withColumn('City', func.lit('绍兴市'))
             df3_2 = df3.withColumn('City', func.lit('嘉兴市'))
             df3_3 = df3.withColumn('City', func.lit('台州市'))
@@ -399,15 +427,20 @@ def execute(**kwargs):
             df_keep = df_keep.union(df3_new)
     
         if '苏锡市' in citys:
-            df4 = df_weight_final.where(col('City') == '苏锡市')
+            df4 = df_weight_out.where(col('City') == '苏锡市')
             df4_1 = df4.withColumn('City', func.lit('苏州市'))
             df4_2 = df4.withColumn('City', func.lit('无锡市'))
             df4_new = df4_1.union(df4_2)
             # 合并
             df_keep = df_keep.union(df4_new)
     
-        df_weight_final = df_keep     
+        df_weight_out = df_keep     
     
+    # %%
+    # =========== 数据输出 =============
+    # 读回
+    df_weight_out = lowCol(df_weight_out)
+    return {"out_df":df_weight_out}
 
     # %%
     # 2、输出判断是否已有 weight_path 结果，对已有 weight_path 结果替换或者补充
@@ -428,16 +461,16 @@ def execute(**kwargs):
             judge += 1
     if judge > 0:
         old_out = spark.read.parquet(weight_path)   
-        new_info = df_weight_final.select('Province', 'City', 'DOI').distinct()
+        new_info = df_weight_out.select('Province', 'City', 'DOI').distinct()
         old_out_keep = old_out.join(new_info, on=['Province', 'City', 'DOI'], how='left_anti')
-        df_weight_final = df_weight_final.union(old_out_keep.select(df_weight_final.columns))           
+        df_weight_out = df_weight_out.union(old_out_keep.select(df_weight_out.columns))           
         # 中间文件读写一下
-        df_weight_final = df_weight_final.repartition(2)
-        df_weight_final.write.format("parquet") \
+        df_weight_out = df_weight_out.repartition(2)
+        df_weight_out.write.format("parquet") \
                             .mode("overwrite").save(tmp_path)
-        df_weight_final = spark.read.parquet(tmp_path)   
+        df_weight_out = spark.read.parquet(tmp_path)   
     
     # 3、输出到 weight_path
-    df_weight_final = df_weight_final.repartition(2)
-    df_weight_final.write.format("parquet") \
+    df_weight_out = df_weight_out.repartition(2)
+    df_weight_out.write.format("parquet") \
         .mode("overwrite").save(weight_path)

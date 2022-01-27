@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: PhJob
+metadata:
+  name: get_weight_gr
+  description: "pharbers job description"
+  labels:
+    name: get_weight_gr
+    runtime: python3
+    command: submit
+spec:
+  containers:
+    repository: local
+    runtime: python3
+    command: submit
+    timeout: 720.0
+    code: phmain.py
+    config: phconf.yaml
+    args:
+      - key: max_path
+        value: 's3://ph-max-auto/v0.0.1-2020-06-08/'
+      - key: project_name
+        value: 'Empty'
+      - key: outdir
+        value: 'Empty'
+      - key: minimum_product_sep
+        value: '|'
+      - key: minimum_product_columns
+        value: 'Brand, Form, Specifications, Pack_Number, Manufacturer'
+      - key: market_city_brand
+        value: 'Empty'
+      - key: universe_choice
+        value: 'Empty'
+      - key: job_choice
+        value: 'Empty'
+      - key: year_list
+        value: 'Empty'
+      - key: add_imsinfo_path
+        value: 'Empty'
+    outputs:
+      - key: c
+        value: 'abc'
+      - key: d
+        value: 'def'
+
+
+
