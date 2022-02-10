@@ -17,7 +17,6 @@ def execute(**kwargs):
     minimum_product_sep = kwargs['minimum_product_sep']
     minimum_product_columns = kwargs['minimum_product_columns']
     market_city_brand = kwargs['market_city_brand']
-    universe_choice = kwargs['universe_choice']
     job_choice = kwargs['job_choice']
     year_list = kwargs['year_list']
     add_imsinfo_version = kwargs['add_imsinfo_version']
@@ -59,6 +58,7 @@ def execute(**kwargs):
         minimum_product_sep = ""
     
     def getMarketCityBrandDict(market_city_brand):
+        market_city_brand_dict = {}
         for each in market_city_brand.replace(" ","").split(","):
             market_name = each.split(":")[0]
             if market_name not in market_city_brand_dict.keys():
@@ -68,7 +68,8 @@ def execute(**kwargs):
                 city = each.split("_")[0]
                 brand = each.split("_")[1]
                 market_city_brand_dict[market_name][city]=brand
-        return market_city_brand_dict     
+        return market_city_brand_dict   
+    
     market_city_brand_dict = getMarketCityBrandDict(market_city_brand)
     logger.debug(market_city_brand_dict)
     
@@ -104,8 +105,8 @@ def execute(**kwargs):
     df_ims_sales_all = dealToNull(df_ims_sales_all)    
     df_ims_sales_all = lowCol(df_ims_sales_all)
     if add_imsinfo_version != 'Empty':
-        df_ims_sales = df_ims_sales.where(col('version') != add_imsinfo_version)
-        df_add_imsinfo_file = df_ims_sales.where(col('version') == add_imsinfo_version)
+        df_ims_sales = df_ims_sales_all.where(col('version') != add_imsinfo_version)
+        df_add_imsinfo_file = df_ims_sales_all.where(col('version') == add_imsinfo_version)
     else: 
         df_ims_sales = df_ims_sales_all
   
@@ -205,7 +206,7 @@ def execute(**kwargs):
     df_raw_data = df_raw_data.withColumn("Brand", func.when((col('Brand').isNull()) | (col('Brand') == 'NA'), col('Molecule')). \
                                              otherwise(col('Brand')))
     df_raw_data = df_raw_data.withColumn('Pack_Number', col('Pack_Number').cast(StringType()))
-    df_raw_data = df_raw_data.withColumn(minimum_product_newname, func.concat_ws(minimum_product_sep, 
+    df_raw_data = df_raw_data.withColumn('min1', func.concat_ws(minimum_product_sep, 
                                     *[func.when(col(i).isNull(), func.lit("NA")).otherwise(col(i)) for i in minimum_product_columns]))
     
     # b.字段类型修改
@@ -265,7 +266,7 @@ def execute(**kwargs):
     '''
 
     # ims 数据
-    df_ims_sales_mkt = df_ims_sales.where(col('mkt').isin(market_list)))
+    df_ims_sales_mkt = df_ims_sales.where(col('mkt').isin(market_list))
     df_ims_sales_brand = df_ims_sales_mkt.groupBy('mkt', 'City', '标准商品名', 'Year').agg(func.sum('LC').alias('Sales'))
     df_ims_sales_city = df_ims_sales_mkt.groupBy('mkt', 'City', 'Year').agg(func.sum('LC').alias('Sales_city'))
 

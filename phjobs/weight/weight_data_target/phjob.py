@@ -19,6 +19,9 @@ def execute(**kwargs):
     market_city_brand = kwargs['market_city_brand']
     universe_choice = kwargs['universe_choice']
     job_choice = kwargs['job_choice']
+    factor_choice = kwargs['factor_choice']
+    universe_outlier_choice = kwargs['universe_outlier_choice']
+
     year_list = kwargs['year_list']
     add_imsinfo_version = kwargs['add_imsinfo_version']
     ### input args ###
@@ -48,17 +51,6 @@ def execute(**kwargs):
     from phcli.ph_tools.addTable.addTableToGlue import AddTableToGlue
     
     # %%
-    '''
-    # 测试
-    year_list = '2019,2020'
-    project_name = "灵北"
-    outdir = "202012"
-    market_city_brand = "精神:常州市_3"
-    job_choice = "weight"
-    minimum_product_sep = "|"
-    #add_imsinfo_path = 's3a://ph-max-auto/v0.0.1-2020-06-08/Takeda/add_ims_info.csv'
-    '''
-    # %%
     # =========== 参数处理 =========== 
     
     # 是否运行此job
@@ -67,7 +59,6 @@ def execute(**kwargs):
     
     logger.debug(market_city_brand)
     
-    # year_list=['2018', '2019']
     year_list = year_list.replace(" ","").split(",")
     year_min = year_list[0]
     year_max = year_list[1]
@@ -89,6 +80,7 @@ def execute(**kwargs):
         minimum_product_sep = ""
     
     def getMarketCityBrandDict(market_city_brand):
+        market_city_brand_dict = {}
         for each in market_city_brand.replace(" ","").split(","):
             market_name = each.split(":")[0]
             if market_name not in market_city_brand_dict.keys():
@@ -103,6 +95,7 @@ def execute(**kwargs):
     logger.debug(market_city_brand_dict)
     
     # ============== 删除已有的s3中间文件 =============
+    
     g_table_result = 'weight_data_target'
         
     import boto3
@@ -139,7 +132,7 @@ def execute(**kwargs):
             df_universe = dealToNull(df_universe)
         return df_universe
     
-    df_id_bedsize = kwargs['df_id_bedsize']
+    df_id_bedsize = kwargs['df_ID_Bedsize']
     df_id_bedsize = dealToNull(df_id_bedsize)
     df_id_bedsize = lowCol(df_id_bedsize)
 
@@ -166,6 +159,10 @@ def execute(**kwargs):
     df_universe_outlier_all = kwargs['df_universe_outlier']
     df_universe_outlier_all = dealToNull(df_universe_outlier_all)
     df_universe_outlier_all = lowCol(df_universe_outlier_all)
+    
+    df_universe = kwargs['df_universe_base']
+    df_universe = dealToNull(df_universe)    
+    df_universe = lowCol(df_universe)
     
     df_factor_all = kwargs['df_factor']
     df_factor_all = dealToNull(df_factor_all)
@@ -224,13 +221,10 @@ def execute(**kwargs):
     df_prod_mapping = df_prod_mapping.withColumn("pfc", func.when(col('pfc') == 0, None).otherwise(col('pfc')))
     df_prod_mapping = df_prod_mapping.select("min1", "pfc", "通用名", "标准商品名") \
                                     .distinct() \
-                                    .withColumnRenamed("pfc", "pack_id")
-    
+                                    .withColumnRenamed("pfc", "pack_id") 
     # 2、universe
     dict_cols_universe = {"City_Tier_2010":["City_Tier", "CITYGROUP", "City_Tier_2010"], "PHA":["Panel_ID", "PHA"]}
-    df_universe = getTrueColRenamed(df_universe, dict_cols_universe, df_universe.columns)    
-
-   
+    df_universe = getTrueColRenamed(df_universe, dict_cols_universe, df_universe.columns) 
     
     # %%
     # ==========  数据执行  ============
@@ -262,13 +256,11 @@ def execute(**kwargs):
         df = df.withColumn(colname, func.when(func.length(col(colname)) < 7, func.lpad(col(colname), 6, "0")).otherwise(col(colname)))
         return df
     
-    # ====  二. 数据准备  ====      
+    # ====  二. 数据准备  ==== 
     # 2. universe 文件                  
-    df_universe = df_universe.select("Panel_ID", "Province", "City", "PANEL") \
-                        .withColumnRenamed("Panel_ID", "PHA") \
+    df_universe = df_universe.select("PHA", "Province", "City", "PANEL") \
                         .withColumn("PANEL", col("PANEL").cast(DoubleType())) \
                         .distinct()
-    
     
     # 3. mkt_mapping 文件
     df_mkt_mapping = df_mkt_mapping.select('mkt', '标准通用名').distinct() \
@@ -299,7 +291,7 @@ def execute(**kwargs):
     df_raw_data = df_raw_data.withColumn("Brand", func.when((col('Brand').isNull()) | (col('Brand') == 'NA'), col('Molecule')). \
                                              otherwise(col('Brand')))
     df_raw_data = df_raw_data.withColumn('Pack_Number', col('Pack_Number').cast(StringType()))
-    df_raw_data = df_raw_data.withColumn(minimum_product_newname, func.concat_ws(minimum_product_sep, 
+    df_raw_data = df_raw_data.withColumn('min1', func.concat_ws(minimum_product_sep, 
                                     *[func.when(col(i).isNull(), func.lit("NA")).otherwise(col(i)) for i in minimum_product_columns]))
     
     # b.字段类型修改

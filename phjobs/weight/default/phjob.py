@@ -44,14 +44,6 @@ def execute(**kwargs):
     from phcli.ph_tools.addTable.addTableToGlue import AddTableToGlue
     
     # %%
-    # project_name = "Gilead"
-    # universe_choice = "乙肝:universe_传染,乙肝_2:universe_传染,乙肝_3:universe_传染,安必素:universe_传染"
-    # all_models = "乙肝,乙肝_2,乙肝_3,安必素"
-    # weight_upper = "1.25"
-    # job_choice = "weight_default"
-    # test = "True"
-
-    # %%
     # =========== 参数处理 =========== 
     # 是否运行此job    
     if job_choice != "weight_default":
