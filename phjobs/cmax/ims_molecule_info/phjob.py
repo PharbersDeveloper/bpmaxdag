@@ -119,8 +119,9 @@ def execute(**kwargs):
     df_ims_mol = df_ims_mol2.join(df_ims_mol1, on='pack_id', how='left_anti')
     df_ims_mol = dealIDLength(df_ims_mol, colname='corp_id', id_length=4)
     df_ims_mol = reduce(lambda df, i: df.withColumn(i, func.lit(None).cast('string')) if i not in df.columns else df, df_ims_mol1.columns, df_ims_mol)
-    
     df_ims_mol = df_ims_mol.union(df_ims_mol1.select(df_ims_mol.columns))
+    df_ims_mol = df_ims_mol.withColumnRenamed('pack_id', 'packid')
+    
     # %%
     # =========== 数据输出 =============
     # 读回
