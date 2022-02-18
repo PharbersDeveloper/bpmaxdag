@@ -108,7 +108,7 @@ def execute(**kwargs):
     
     df_ims_mol2 = df_ims_mol_lkp_ref.select('pack_id', 'molecule_id') \
                                     .join(df_ims_mol_ref, on=['molecule_id'], how='left') \
-                                    .orderBy('pack_id', 'molecule_id') \
+                                    .orderBy('pack_id', 'molecule_desc') \
                                     .groupby('pack_id').agg(func.collect_list('molecule_desc').alias('molecule_desc_list')) \
                                     .withColumn('molecule_desc', func.array_join('molecule_desc_list', '+')) \
                                     .select('pack_id', 'molecule_desc') \
