@@ -160,6 +160,10 @@ def execute(**kwargs):
     
     df_raw_data_clean = dealRawData(df_raw_data, df_ims_molecule_info, df_market_molecule)
     df_raw_data_all = getAllData(df_raw_data_clean, df_rawdata_tianjin, df_rawdata_shanghai)
+    
+    # 样本里有错误，需删除这些列
+    df_raw_data_all = df_raw_data_all.where( ~ (( col('province')=='江苏' ) & ( col('city')=='北京' )) )
+    
     # %%
     # =========== 数据输出 =============
     # 读回
