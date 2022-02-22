@@ -144,15 +144,18 @@ def execute(**kwargs):
         return df_raw_data2
     
     def getAllData(df_raw_data, df_rawdata_tianjin, df_rawdata_shanghai):
-        df_all = df_raw_data.union(df_rawdata_tianjin.select(df_raw_data.columns)) \
-                                .withColumn('province', func.first('province').over(Window.partitionBy("pchc").orderBy())) \
-                                .withColumn('city', func.first('city').over(Window.partitionBy("pchc").orderBy())) \
-                                .withColumn('district', func.first('district').over(Window.partitionBy("pchc").orderBy())) \
+        df_all = df_raw_data.union(df_rawdata_tianjin.select(df_raw_data.columns))
+        df_pchc_map_city = df_all.select('province', 'city', 'district', 'pchc').distinct() \
+                                .withColumn('row_number', func.row_number().over(Window.partitionBy("pchc").orderBy('province', 'city', 'district', 'pchc'))) \
+                                .where(col('row_number') == 1)
+        df_all_final = df_all.drop('province', 'city', 'district') \
+                                .join(df_pchc_map_city, on='pchc', how='left') \
                                 .groupby("year", "date", "quarter", "province", "city", "district", "pchc", "market", "packid") \
                                 .agg(func.sum('units').alias('units'), func.sum('sales').alias('sales')) \
                                 .where(col('quarter') <= '2021Q3') \
                             .union(df_rawdata_shanghai.select(df_raw_data.columns))
-        return df_all
+        return df_all_final
+    
     # %%
     # =========== 数据执行 =============
     # 分子信息
