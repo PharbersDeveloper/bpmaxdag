@@ -83,31 +83,44 @@ def execute(**kwargs):
     
     
     def getHospitalUniverse(df_pchc_universe, df_imp_total, df_flag_sample_map):
+        def getFirst(df):
+            df_pchc_map_city = df.select('province', 'city', 'district', 'pchc').distinct() \
+                                .withColumn('row_number', func.row_number().over(Window.partitionBy("pchc") \
+                                                        .orderBy(col('province').desc(), col('city').desc(), col('district').desc(), col('pchc').desc()))) \
+                                .where(col('row_number') == 1) 
+
+            df_first_out = df.drop('province', 'city', 'district') \
+                            .join(df_pchc_map_city, on='pchc', how='left')
+            return df_first_out
+
+
+        # pchc_universe 处理
         df_pchc_mapping = reName(df_pchc_universe, 
                                  dict_rename={'省':'province', '地级市':'city', '区[县_县级市]':'district', '新版PCHC_Code':'pchc', '其中：西药药品收入_千元_':'est'})
-    
+
         df_pchc_mapping_m = df_pchc_mapping.where( col('est') > 0.0 ) \
                                         .withColumn('province', func.regexp_replace("province", "省|市", "")) \
                                         .withColumn('city', func.regexp_replace("city", "市", "")) \
-                                         .withColumn('province', func.first('province').over(Window.partitionBy('pchc').orderBy())) \
-                                        .withColumn('city', func.first('city').over(Window.partitionBy('pchc').orderBy())) \
-                                        .withColumn('district', func.first('district').over(Window.partitionBy('pchc').orderBy())) \
-                                        .groupby('pchc', 'province', 'city', 'district').agg(func.sum('est').alias('est'))
-        
+                                        .select('pchc', 'province', 'city', 'district', 'est').distinct()
+        df_pchc_mapping_m = getFirst(df_pchc_mapping_m)
+        df_pchc_mapping_m = df_pchc_mapping_m.groupby('pchc', 'province', 'city', 'district').agg(func.sum('est').alias('est'))
+
+        # imp_total 处理：只保留 df_pchc_mapping_m 中 有的pchc
         df_imp_total = df_imp_total.withColumn('est', func.lit(0)) \
                                     .select(df_pchc_mapping_m.columns) \
                                     .join(df_pchc_mapping_m.select('pchc').distinct(), on='pchc', how='inner')
-       
-        df_hospital_universe = df_pchc_mapping_m.union(df_imp_total) \
-                                        .withColumn('province', func.first('province').over(Window.partitionBy('pchc').orderBy())) \
-                                        .withColumn('city', func.first('city').over(Window.partitionBy('pchc').orderBy())) \
-                                        .withColumn('district', func.first('district').over(Window.partitionBy('pchc').orderBy())) \
-                                        .groupby('pchc', 'province', 'city', 'district').agg(func.sum('est').alias('est'))
-    
+
+        # pchc_universe 和 imp_total 合并 
+        df_hospital_universe = df_pchc_mapping_m.union(df_imp_total)
+
+        # 地理信息处理，以pchc分组取第一行
+        df_hospital_universe = getFirst(df_hospital_universe)
+        df_hospital_universe = df_hospital_universe.groupby('pchc', 'province', 'city', 'district').agg(func.sum('est').alias('est'))
+
         df_hospital_universe = df_hospital_universe.where( ~col('province').isNull() ).where( ~col('city').isNull() ).where( ~col('district').isNull() ) \
                                                 .join(df_flag_sample_map, on='pchc', how='left') \
                                                 .fillna(0, 'flag_sample')   
-        
+
         return df_hospital_universe
     
     def getFlagSampleMap(df_imp_total):
