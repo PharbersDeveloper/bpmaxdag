@@ -75,6 +75,7 @@ def execute(**kwargs):
     # %%
     # =========== 数据执行 =============
     def getImpTotal(df_raw_data):
+        df_raw_data = df_raw_data.where( ~ (( col('province')=='江苏' ) & ( col('city')=='北京' )) )
         df_imp_total = df_raw_data.where( ( col('quarter') <= '2021Q3' ) & ( col('quarter') >= '2019Q1' ) ) \
                             .withColumn('flag', func.lit(0))
         return df_imp_total
