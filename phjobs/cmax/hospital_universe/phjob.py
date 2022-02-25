@@ -92,18 +92,22 @@ def execute(**kwargs):
             df_first_out = df.drop('province', 'city', 'district') \
                             .join(df_pchc_map_city, on='pchc', how='left')
             return df_first_out
+        
+        def getPchcMappingM(df_pchc_universe):
+            # pchc_universe 处理
+            df_pchc_mapping = reName(df_pchc_universe, 
+                                     dict_rename={'省':'province', '地级市':'city', '区[县_县级市]':'district', '新版PCHC_Code':'pchc', '其中：西药药品收入_千元_':'est'})
 
-
+            df_pchc_mapping_m = df_pchc_mapping.where( col('est') > 0.0 ) \
+                                            .withColumn('province', func.regexp_replace("province", "省|市", "")) \
+                                            .withColumn('city', func.regexp_replace("city", "市", "")) \
+                                            .select('pchc', 'province', 'city', 'district', 'est').distinct()
+            df_pchc_mapping_m = getFirst(df_pchc_mapping_m)
+            df_pchc_mapping_m = df_pchc_mapping_m.groupby('pchc', 'province', 'city', 'district').agg(func.sum('est').alias('est'))
+            return df_pchc_mapping_m
+        
         # pchc_universe 处理
-        df_pchc_mapping = reName(df_pchc_universe, 
-                                 dict_rename={'省':'province', '地级市':'city', '区[县_县级市]':'district', '新版PCHC_Code':'pchc', '其中：西药药品收入_千元_':'est'})
-
-        df_pchc_mapping_m = df_pchc_mapping.where( col('est') > 0.0 ) \
-                                        .withColumn('province', func.regexp_replace("province", "省|市", "")) \
-                                        .withColumn('city', func.regexp_replace("city", "市", "")) \
-                                        .select('pchc', 'province', 'city', 'district', 'est').distinct()
-        df_pchc_mapping_m = getFirst(df_pchc_mapping_m)
-        df_pchc_mapping_m = df_pchc_mapping_m.groupby('pchc', 'province', 'city', 'district').agg(func.sum('est').alias('est'))
+        df_pchc_mapping_m = getPchcMappingM(df_pchc_universe)
 
         # imp_total 处理：只保留 df_pchc_mapping_m 中 有的pchc
         df_imp_total = df_imp_total.withColumn('est', func.lit(0)) \
