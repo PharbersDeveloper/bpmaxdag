@@ -88,7 +88,8 @@ def execute(**kwargs):
 
 
     def getImpHz(df_raw_data_hz):
-        df_imp_hz_1 = df_raw_data_hz.where(col('quarter') <= '2021Q3').where(col('quarter') >= '2019Q1')
+        df_imp_hz_1 = df_raw_data_hz.where(col('quarter') <= '2021Q3').where(col('quarter') >= '2019Q1') \
+                                    .withColumn('flag', func.lit(0))
 
         df_sample1_list = df_imp_hz_1.distinct().where(col('quarter') <= '2021Q2') \
                                 .groupby('pchc', 'quarter', 'city') \
@@ -103,6 +104,7 @@ def execute(**kwargs):
                                       .agg( func.sum('value').alias('value'), func.count('pchc').alias('count')) \
                                 .where(col('value') == col('count')) \
                                 .select('pchc').distinct()
+        
         df_imp_hz = df_imp_hz_1.join(df_sample1_list, on='pchc', how='inner')
         return df_imp_hz
     # %%
