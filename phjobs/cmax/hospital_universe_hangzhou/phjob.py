@@ -149,7 +149,9 @@ def execute(**kwargs):
                                                     .join(df_flag_sample_map, on='pchc', how='left') \
                                                     .fillna(0, 'flag_sample')
         return df_hospital_universe
+    
     # %%
+    # =========== 数据执行 =============
     # pchc_universe 处理
     df_pchc_mapping_m = getPchcMappingM(df_pchc_universe)
     df_flag_sample_map = getFlagSampleMap(df_imp_hz)
