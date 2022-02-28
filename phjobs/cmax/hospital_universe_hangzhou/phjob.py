@@ -14,13 +14,9 @@ def execute(**kwargs):
     depends_path = kwargs["depends_path"]
     
     ### input args ###
-    a = kwargs['a']
-    b = kwargs['b']
     ### input args ###
     
     ### output args ###
-    c = kwargs['c']
-    d = kwargs['d']
     ### output args ###
 
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
@@ -75,11 +71,11 @@ def execute(**kwargs):
 
     # %% 
     # =========== 输入数据读取 =========== 
-    df_imp_hz = readClickhouse('default', 'ftZnwL38MzTJPr1s_imp_hz', '袁毓蔚_Auto_cMax_enlarge_Auto_cMax_enlarge_developer_2022-02-25T06:30:25+00:00')
-    df_pchc_universe = readClickhouse('default', 'ftZnwL38MzTJPr1s_pchc_universe', '2021_PCHC_Universe更新维护')
+    # df_imp_hz = readClickhouse('default', 'ftZnwL38MzTJPr1s_imp_hz', '袁毓蔚_Auto_cMax_enlarge_Auto_cMax_enlarge_developer_2022-02-25T06:30:25+00:00')
+    # df_pchc_universe = readClickhouse('default', 'ftZnwL38MzTJPr1s_pchc_universe', '2021_PCHC_Universe更新维护')
     
-    df_imp_hz = readInFile(df_imp_hz)
-    df_pchc_universe = readInFile(df_pchc_universe)
+    df_imp_hz = readInFile(kwargs["df_imp_hz"])
+    df_pchc_universe = readInFile(kwargs["df_pchc_universe"])
     # %%
     # =========== 函数定义 =============
     def reName(df, dict_rename={}):
@@ -145,17 +141,22 @@ def execute(**kwargs):
     def getHospitalUniverseHZ(df_pchc_mapping_m, df_imp_hz, df_flag_sample_map):
         # pchc_universe 和 imp_total 合并 
         df_imp_hz_2 = df_imp_hz.join(df_pchc_mapping_m.select('pchc').distinct(), on='pchc', how='inner') 
-        df_hospital_universe1 = unionDf(df_pchc_mapping_m, df_imp_hz_2, utype='all')
-        df_hospital_universe2 = getFirst(df_hospital_universe1, first_col=['province', 'city', 'district', 'est'], on_col=['pchc']) \
+        df_hospital_universe = unionDf(df_pchc_mapping_m, df_imp_hz_2, utype='all')
+        df_hospital_universe = getFirst(df_hospital_universe, first_col=['province', 'city', 'district', 'est'], on_col=['pchc']) \
                                         .select('province', 'city', 'district', 'est', 'pchc').distinct()
-        df_hospital_universe = df_hospital_universe2.where( ~col('province').isNull() ).where( ~col('city').isNull() ).where( ~col('district').isNull() ) \
+        df_hospital_universe = df_hospital_universe.where( ~col('province').isNull() ).where( ~col('city').isNull() ).where( ~col('district').isNull() ) \
                                                         .where( ~col('est').isNull() ) \
                                                     .join(df_flag_sample_map, on='pchc', how='left') \
                                                     .fillna(0, 'flag_sample')
-        return df_hospital_universe2
+        return df_hospital_universe
     # %%
     # pchc_universe 处理
     df_pchc_mapping_m = getPchcMappingM(df_pchc_universe)
     df_flag_sample_map = getFlagSampleMap(df_imp_hz)
     df_hospital_universe = getHospitalUniverseHZ(df_pchc_mapping_m, df_imp_hz, df_flag_sample_map)
 
+    # %%
+    # =========== 数据输出 =============
+    # 读回
+    df_out = lowCol(df_hospital_universe)
+    return {"out_df":df_out}
