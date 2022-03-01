@@ -73,10 +73,10 @@ def execute(**kwargs):
     # df_imp_total = readClickhouse('default', 'ftZnwL38MzTJPr1s_imp_total', '袁毓蔚_Auto_cMax_enlarge_Auto_cMax_enlarge_developer_2022-02-23T03:37:29+00:00')
     # df_hospital_universe = readClickhouse('default', 'ftZnwL38MzTJPr1s_hospital_universe', '袁毓蔚_Auto_cMax_enlarge_Auto_cMax_enlarge_developer_2022-02-23T03:37:29+00:00')
     
-    df_imp_hz = readInFile( kwargs["df_imp_hz"])
-    df_hospital_universe_hz = readInFile( kwargs["df_hospital_universe_hangzhou"])
-    df_out_sample_hz = readInFile( kwargs["df_out_sample_hz"])
-    df_imp_others_hz = readInFile( kwargs["df_imp_others_hz"])
+    df_imp_total = readInFile( kwargs["df_imp_hz"])
+    df_hospital_universe = readInFile( kwargs["df_hospital_universe_hangzhou"])
+    df_out_sample = readInFile( kwargs["df_out_sample_hz"])
+    df_imp_others = readInFile( kwargs["df_imp_others_hz"])
     
     
     # %%
@@ -180,7 +180,7 @@ def execute(**kwargs):
 
         return df_proj_sample_final
     
-    df_proj_sample_final = projSamplePip(df_imp_hz, df_hospital_universe_hz, df_imp_others_hz, df_out_sample_hz)
+    df_proj_sample_final = projSamplePip(df_imp_total, df_hospital_universe, df_imp_others, df_out_sample)
     # %%
     # =========== 数据输出 =============
     # 读回
