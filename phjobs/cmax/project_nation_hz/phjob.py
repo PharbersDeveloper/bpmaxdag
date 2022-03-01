@@ -109,7 +109,7 @@ def execute(**kwargs):
                                             .agg(func.sum('est').alias('est'))
         return df_universe_city
     
-    def getNationSample(df_project_sample, df_universe_city):
+    def getNationSample(df_project_sample, df_universe_city, df_city_tier):
         df_nation_sample = df_project_sample.where(~col('province').isin(['北京', '上海'])) \
                                         .join(df_city_tier, on='city', how='left') \
                                         .withColumn('tier', func.when(col('tier').isNull(), 1).otherwise(col('tier'))) \
@@ -165,7 +165,7 @@ def execute(**kwargs):
         df_universe_city = getUniverseCity(df_hospital_universe, df_city_tier)
 
         ## nation sample
-        df_nation_sample = getNationSample(df_project_sample, df_universe_city)
+        df_nation_sample = getNationSample(df_project_sample, df_universe_city, df_city_tier)
 
         ##---- Projection ----
         df_project_nation = getProjectNation(df_universe_city, df_nation_sample, df_project_sample)
