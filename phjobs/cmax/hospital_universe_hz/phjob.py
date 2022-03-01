@@ -85,14 +85,12 @@ def execute(**kwargs):
         if utype=='same':
             all_cols =  list(set(df1.columns).intersection(set(df2.columns)) - set(['version']))
         elif utype=='all':
-            all_cols =  list(set(set(df1.columns + df2.columns) - set(['version'])))
-            
-        for i in all_cols:
-            if i not in df1.columns:
-                df1 = df1.withColumn(i, func.lit(None))
-            if i not in df2.columns:
-                df2 = df2.withColumn(i, func.lit(None))
-            
+            all_cols =  list(set(set(df1.columns + df2.columns) - set(['version'])))     
+            for i in all_cols:
+                if i not in df1.columns:
+                    df1 = df1.withColumn(i, func.lit(None))
+                if i not in df2.columns:
+                    df2 = df2.withColumn(i, func.lit(None))            
         df_all = df1.select(all_cols).union(df2.select(all_cols)) 
         return df_all
     
