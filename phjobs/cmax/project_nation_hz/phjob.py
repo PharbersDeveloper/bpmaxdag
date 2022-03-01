@@ -76,7 +76,7 @@ def execute(**kwargs):
     
     df_pchc_city_tier = readInFile(kwargs["df_pchc_city_tier"])
     df_project_sample = readInFile(kwargs["df_project_sample_hz"])
-    df_hospital_universe = readInFile(kwargs["df_hospital_universe_hangzhou"])
+    df_hospital_universe = readInFile(kwargs["df_hospital_universe_hz"])
     # %% 
     # =========== 函数定义 =============
     def reName(df, dict_rename={}):

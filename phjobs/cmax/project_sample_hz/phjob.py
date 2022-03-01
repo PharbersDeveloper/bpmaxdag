@@ -74,7 +74,7 @@ def execute(**kwargs):
     # df_hospital_universe = readClickhouse('default', 'ftZnwL38MzTJPr1s_hospital_universe', '袁毓蔚_Auto_cMax_enlarge_Auto_cMax_enlarge_developer_2022-02-23T03:37:29+00:00')
     
     df_imp_total = readInFile( kwargs["df_imp_hz"])
-    df_hospital_universe = readInFile( kwargs["df_hospital_universe_hangzhou"])
+    df_hospital_universe = readInFile( kwargs["df_hospital_universe_hz"])
     df_out_sample = readInFile( kwargs["df_out_sample_hz"])
     df_imp_others = readInFile( kwargs["df_imp_others_hz"])
     
