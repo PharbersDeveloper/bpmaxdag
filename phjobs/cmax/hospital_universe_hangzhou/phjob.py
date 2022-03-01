@@ -68,29 +68,17 @@ def execute(**kwargs):
             version = version.replace(" ","").split(',')
             df = df.where(df['version'].isin(version))
         return df
-
     # %% 
     # =========== 输入数据读取 =========== 
     # df_imp_hz = readClickhouse('default', 'ftZnwL38MzTJPr1s_imp_hz', '袁毓蔚_Auto_cMax_enlarge_Auto_cMax_enlarge_developer_2022-02-25T06:30:25+00:00')
     # df_pchc_universe = readClickhouse('default', 'ftZnwL38MzTJPr1s_pchc_universe', '2021_PCHC_Universe更新维护')
     
-    df_imp_hz = readInFile(kwargs["df_imp_hz"])
+    df_imp_total = readInFile(kwargs["df_imp_hz"])
     df_pchc_universe = readInFile(kwargs["df_pchc_universe"])
     # %%
     # =========== 函数定义 =============
     def reName(df, dict_rename={}):
         df = reduce(lambda df, i_dict:df.withColumnRenamed(i_dict[0], i_dict[1]), zip(dict_rename.keys(), dict_rename.values()), df)
-        return df
-    
-    def unpivot(df, keys):
-        # 功能：数据宽变长
-        # 参数说明 df:dataframe,  keys 待转换表中需要保留的主键key，以list[]类型传入
-        # 转换是为了避免字段类不匹配，统一将数据转换为string类型，如果保证数据类型完全一致，可以省略该句
-        df = df.select(*[col(_).astype("string") for _ in df.columns])
-        cols = [_ for _ in df.columns if _ not in keys]
-        stack_str = ','.join(map(lambda x: "'%s', `%s`" % (x, x), cols))
-        # feature, value 转换后的列名，可自定义
-        df = df.selectExpr(*keys, "stack(%s, %s) as (feature, value)" % (len(cols), stack_str))
         return df
     
     def unionDf(df1, df2, utype='same'):
@@ -108,6 +96,17 @@ def execute(**kwargs):
         df_all = df1.select(all_cols).union(df2.select(all_cols)) 
         return df_all
     
+    def getFirst(df, first_col=['province', 'city', 'district'], on_col=['pchc']):
+        logger.debug(first_col)
+        df_pchc_map_city = df.select(first_col + on_col).distinct() \
+                            .withColumn('row_number', func.row_number().over(Window.partitionBy(*on_col) \
+                                                    .orderBy(*[col(i).asc_nulls_last() for i in first_col]))) \
+                            .where(col('row_number') == 1) 
+    
+        df_first_out = df.drop(*first_col) \
+                                .join(df_pchc_map_city, on='pchc', how='left')
+        return df_first_out
+    
     def getPchcMappingM(df_pchc_universe):
         # pchc_universe 处理
         df_pchc_mapping = reName(df_pchc_universe, 
@@ -121,27 +120,17 @@ def execute(**kwargs):
         df_pchc_mapping_m = df_pchc_mapping_m.groupby('pchc', 'province', 'city', 'district').agg(func.sum('est').alias('est'))
         return df_pchc_mapping_m
     
-    # 地理信息处理，以pchc分组取第一行
     def getFlagSampleMap(df):
         df_flag_sample_map = df.select('pchc').distinct() \
                                         .withColumn('flag_sample', func.lit(1))
         return df_flag_sample_map
-    
-    def getFirst(df, first_col=['province', 'city', 'district'], on_col=['pchc']):
-        logger.debug(first_col)
-        df_pchc_map_city = df.select(first_col + on_col).distinct() \
-                            .withColumn('row_number', func.row_number().over(Window.partitionBy(*on_col) \
-                                                    .orderBy(*[col(i).asc_nulls_last() for i in first_col]))) \
-                            .where(col('row_number') == 1) 
-    
-        df_first_out = df.drop(*first_col) \
-                                .join(df_pchc_map_city, on='pchc', how='left')
-        return df_first_out
-    
-    def getHospitalUniverseHZ(df_pchc_mapping_m, df_imp_hz, df_flag_sample_map):
+       
+    def getHospitalUniverse(df_pchc_mapping_m, df_imp_total, df_flag_sample_map):
+        # imp_total 处理：只保留 df_pchc_mapping_m 中 有的pchc
+        df_imp_total_2 = df_imp_total.join(df_pchc_mapping_m.select('pchc').distinct(), on='pchc', how='inner') 
         # pchc_universe 和 imp_total 合并 
-        df_imp_hz_2 = df_imp_hz.join(df_pchc_mapping_m.select('pchc').distinct(), on='pchc', how='inner') 
-        df_hospital_universe = unionDf(df_pchc_mapping_m, df_imp_hz_2, utype='all')
+        df_hospital_universe = unionDf(df_pchc_mapping_m, df_imp_total_2, utype='all')
+        # 地理信息处理，以pchc分组取第一行
         df_hospital_universe = getFirst(df_hospital_universe, first_col=['province', 'city', 'district', 'est'], on_col=['pchc']) \
                                         .select('province', 'city', 'district', 'est', 'pchc').distinct()
         df_hospital_universe = df_hospital_universe.where( ~col('province').isNull() ).where( ~col('city').isNull() ).where( ~col('district').isNull() ) \
@@ -152,13 +141,11 @@ def execute(**kwargs):
     
     # %%
     # =========== 数据执行 =============
-    # pchc_universe 处理
     df_pchc_mapping_m = getPchcMappingM(df_pchc_universe)
-    df_flag_sample_map = getFlagSampleMap(df_imp_hz)
-    df_hospital_universe = getHospitalUniverseHZ(df_pchc_mapping_m, df_imp_hz, df_flag_sample_map)
+    df_flag_sample_map = getFlagSampleMap(df_imp_total)
+    df_hospital_universe = getHospitalUniverse(df_pchc_mapping_m, df_imp_total, df_flag_sample_map)
 
     # %%
     # =========== 数据输出 =============
-    # 读回
     df_out = lowCol(df_hospital_universe)
     return {"out_df":df_out}
