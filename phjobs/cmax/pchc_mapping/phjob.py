@@ -80,11 +80,11 @@ def execute(**kwargs):
                              dict_rename={'省':'province', '地级市':'city', '区[县_县级市]':'district', '新版PCHC_Code':'pchc'})
     
     df_pchc_mapping1 = df_pchc_mapping.where( (~col('pchc_name').isNull()) & (~col('pchc').isNull()) ) \
-                                    .groupby('province', 'city', 'district', 'PCHC_Name').agg(func.first('pchc').alias('pchc')) \
+                                    .groupby('province', 'city', 'district', 'PCHC_Name').agg(func.first('pchc', ignorenulls=True).alias('pchc')) \
                                     .withColumnRenamed('PCHC_Name', 'hospital')
     
     df_pchc_mapping2 = df_pchc_mapping.where( (~col('招标样本名称').isNull()) & (~col('pchc').isNull()) ) \
-                                    .groupby('province', 'city', 'district', '招标样本名称').agg(func.first('pchc').alias('pchc')) \
+                                    .groupby('province', 'city', 'district', '招标样本名称').agg(func.first('pchc', ignorenulls=True).alias('pchc')) \
                                     .withColumnRenamed('招标样本名称', 'hospital')
     
     df_pchc_mapping3 = df_pchc_mapping1.union(df_pchc_mapping2).distinct() \
