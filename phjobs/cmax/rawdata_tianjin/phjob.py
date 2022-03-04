@@ -15,6 +15,8 @@ def execute(**kwargs):
     
     ### input args ###
     g_tj_method = kwargs['g_tj_method']
+    g_current_quarter = '2021Q3'
+    g_min_quarter = '2018Q1'
     ### input args ###
     
     ### output args ###
@@ -137,11 +139,8 @@ def execute(**kwargs):
                                         .withColumn('date', func.concat(col('year'), col('mth'))) \
                                         .withColumn('units', col('units')/3 ) \
                                         .withColumn('sales', col('sales')/3 ) \
-                                        .where(col('units') >0.0 ).where(col('sales') >0.0  )
-        df_tianjin_raw4 = df_tianjin_raw3.where(col('quarter') >=  '2018Q1') \
-                                        .select("year", "date", "quarter", "province", "city", "district", "pchc", "atc4", "nfc", "molecule", "product", "corp", "packid", "units", "sales", "market")
-                                        
-        return df_tianjin_raw4
+                                        .where(col('units') >0.0 ).where(col('sales') >0.0  )                                  
+        return df_tianjin_raw3
     
     def methodTwo(df_tianjin_raw1):
         # 方法2：根据先来后到的原则将天津数据分配给该季度下对应的月份。即如果该 季度 省份 城市 区县 市场 packcode  pchc code 下有四条纪录，那么将第一条分给该季度下第一个月份，第二条分给该季度下第二个月份，最后两条分给该季度下最后一个月份
@@ -160,8 +159,8 @@ def execute(**kwargs):
                     .withColumn('rowid', func.when(col('rowid') > 3, func.lit(3)).otherwise(col('rowid'))) \
                     .withColumn('date', col('year')*100 + col('rowid') + (col('Q')-1)*3 ) 
     
-        df_raw_tj_f =  df_raw_tj_clear.union(df_raw_tj_y.select(df_raw_tj_clear.columns)) \
-                                    .select("year", "date", "quarter", "province", "city", "district", "pchc", "atc4", "nfc", "molecule", "product", "corp", "packid", "units", "sales", "market")
+        df_raw_tj_f =  df_raw_tj_clear.union(df_raw_tj_y.select(df_raw_tj_clear.columns))
+                                    
         return df_raw_tj_f
     
     # %%
@@ -185,6 +184,10 @@ def execute(**kwargs):
         df_tianjin_raw_out = methodOne(df_tianjin_raw1, df_qtr_month_map)
     elif g_tj_method == "method2":
         df_tianjin_raw_out = methodTwo(df_tianjin_raw1)
+        
+    # 时间
+    df_tianjin_raw_out = df_tianjin_raw_out.where(col('quarter') >= g_min_quarter).where(col('quarter') <= g_current_quarter) \
+                                        .select("year", "date", "quarter", "province", "city", "district", "pchc", "atc4", "nfc", "molecule", "product", "corp", "packid", "units", "sales", "market")
         
     # %%
     # =========== 数据输出 =============
