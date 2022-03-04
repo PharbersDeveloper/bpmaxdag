@@ -15,6 +15,9 @@ def execute(**kwargs):
     
     ### input args ###
     g_sh_method = kwargs['g_sh_method']
+    g_current_quarter = '2021Q3'
+    g_last_quarter = '2021Q2'
+    g_min_quarter = '2018Q1'
     ### input args ###
     
     ### output args ###
@@ -115,7 +118,7 @@ def execute(**kwargs):
                 .withColumn('packid', func.when(func.substring('packid', 1, 5)=='06470', func.concat(func.lit('64895'), func.substring('packid', 6, 2))).otherwise(col('packid')))
         return df
     
-    def dealRawCommon(df):
+    def dealRawCommon(df, g_min_quarter, g_current_quarter):
         # rawdata清洗，join信息
         df1 = reName(df, dict_rename={'month':'date', 'hospital_name':'hospital', 'value':'sales', 'hosp_code':'pchc', 'packcode':'packid', 'county':'district'})
         df1 = dealIDLength(df1, colname='packid', id_length=7)
@@ -125,14 +128,12 @@ def execute(**kwargs):
                 .withColumn('city', func.lit('上海')) \
                 .withColumn('units', func.when(col('volume').isNull(), col('sales')/col('price')).otherwise(col('volume'))) \
                 .withColumn('date', func.regexp_replace('date', '\\/', '')) \
-                .where( (col('quarter') >=  '2018Q1') & (col('quarter') <=  '2021Q3') )    
+                .where( (col('quarter') >= g_min_quarter) & (col('quarter') <= g_current_quarter) )    
         return df1 
     
     
-    def methodFull(df_shanghai_raw,df_ims_molecule_info, df_market_molecule):
-        df_raw = dealRawCommon(df_shanghai_raw)
-        
-        df_raw2 = df_raw.where( (~col('packid').isNull()) & (~col('pchc').isNull()) ) \
+    def methodFull(df_raw1, df_ims_molecule_info, df_market_molecule):
+        df_raw2 = df_raw1.where( (~col('packid').isNull()) & (~col('pchc').isNull()) ) \
                         .select('project', 'year', 'quarter', 'date', 'province', 'city', "district", 'hospital',
                                  'packid', 'units', 'sales', 'pchc').distinct()
     
@@ -153,52 +154,50 @@ def execute(**kwargs):
                         
         
         return df_raw4
+    
+    def calLastQGrowthRate(df_raw_sh_Q2):
+        # 计算上个季度，后两个月的增长率
+        # 上个季度3个月均有数的packid
+        df_pckshlist = df_raw_sh_Q2.groupby('packid').count() \
+                                    .where(col('count') ==3 ) \
+                                    .select('packid').distinct()  
+        # 获得4-5月,4-6月增长率
+        df_c_Res = df_raw_sh_Q2.join(df_pckshlist, on='packid', how='inner') \
+                                .withColumn('sales_last',func.lag(col('sales')).over(Window.partitionBy('packid').orderBy('packid','date'))) \
+                                .withColumn("diff", col('sales') - col('sales_last')) \
+                                .withColumn('lc',func.first(col('sales'), ignorenulls=True).over(Window.partitionBy('packid').orderBy('packid','date'))) \
+                                .withColumn("ratio", col('diff')/col('lc')) \
+                                .where(~col('ratio').isNull()) \
+                                .select('packid', 'date', 'ratio')
+        return df_c_Res
+
+    def calCurrentQLackData(df_raw_sh_Q3, df_c_Res):    
+        # 当前季度
+        # 两个增长率分别乘到 7月的数据上，得到上海8月和9月的数据
+        df_raw_sh_Q3_aug = df_raw_sh_Q3.drop('date').join(df_c_Res, on='packid', how='inner') \
+                                        .withColumn("units", col('units')*(col('ratio')+1 )) \
+                                        .withColumn("sales", col('sales')*(col('ratio')+1 )) \
+                                        .withColumn("date", func.when(col('date') == '202105', func.lit('202108')).otherwise(func.lit('202109')))
+
+        df_raw_sh_Q3_aug_rest = df_raw_sh_Q3.join(df_c_Res.select('packid').distinct(), on='packid', how='left_anti') \
+                                            .withColumn("units", col('units')*1.5 ) \
+                                            .withColumn("sales", col('sales')*1.5 ) \
+                                            .withColumn("date", func.lit('202108') )
+
+        df_raw_sh = unionDf(df_raw_sh_Q3, df_raw_sh_Q3_aug, utype='same')
+        df_raw_sh = unionDf(df_raw_sh, df_raw_sh_Q3_aug_rest, utype='same')
+        return df_raw_sh
                     
-    def methodNotFull(df_shanghai_raw,df_ims_molecule_info, df_market_molecule):
+    def methodNotFull(df_raw1, df_ims_molecule_info, df_market_molecule, g_current_quarter, g_last_quarter):
         # 上海的数据有时候会到不齐，需要补全。 如果上海只有7月的数据，那么
         # 1. 根据历史数据计算上海每一个packcode PCHC code, 省份城市区县, 市场 4-5月的增长率，和 4-6月的增长率
         # 2. 将两个增长率分别乘到 7月的数据上，得到上海8月和9月的数据
-        
-        def calLastQGrowthRate(df_raw_sh_Q2):
-            # 计算上个季度，后两个月的增长率
-            # 上个季度3个月均有数的packid
-            df_pckshlist = df_raw_sh_Q2.groupby('packid').count() \
-                                        .where(col('count') ==3 ) \
-                                        .select('packid').distinct()  
-            # 获得4-5月,4-6月增长率
-            df_c_Res = df_raw_sh_Q2.join(df_pckshlist, on='packid', how='inner') \
-                                    .withColumn('sales_last',func.lag(col('sales')).over(Window.partitionBy('packid').orderBy('packid','date'))) \
-                                    .withColumn("diff", col('sales') - col('sales_last')) \
-                                    .withColumn('lc',func.first(col('sales'), ignorenulls=True).over(Window.partitionBy('packid').orderBy('packid','date'))) \
-                                    .withColumn("ratio", col('diff')/col('lc')) \
-                                    .where(~col('ratio').isNull()) \
-                                    .select('packid', 'date', 'ratio')
-            return df_c_Res
-        
-        def calCurrentQLackData(df_raw_sh_Q3, df_c_Res):    
-            # 当前季度
-            # 两个增长率分别乘到 7月的数据上，得到上海8月和9月的数据
-            df_raw_sh_Q3_aug = df_raw_sh_Q3.drop('date').join(df_c_Res, on='packid', how='inner') \
-                                            .withColumn("units", col('units')*(col('ratio')+1 )) \
-                                            .withColumn("sales", col('sales')*(col('ratio')+1 )) \
-                                            .withColumn("date", func.when(col('date') == '202105', func.lit('202108')).otherwise(func.lit('202109')))
-    
-            df_raw_sh_Q3_aug_rest = df_raw_sh_Q3.join(df_c_Res.select('packid').distinct(), on='packid', how='left_anti') \
-                                                .withColumn("units", col('units')*1.5 ) \
-                                                .withColumn("sales", col('sales')*1.5 ) \
-                                                .withColumn("date", func.lit('202108') )
-            
-            df_raw_sh = unionDf(df_raw_sh_Q3, df_raw_sh_Q3_aug, utype='same')
-            df_raw_sh = unionDf(df_raw_sh, df_raw_sh_Q3_aug_rest, utype='same')
-            return df_raw_sh
-        
         # ======== 数据分析 ==========
-        df_raw1 = dealRawCommon(df_shanghai_raw) \
-                            .select('year', 'quarter', 'date', 'province', 'city', 'district', 'price', 'packid', 'units', 'sales', 'pchc').distinct()
+        df_raw1 = df_raw1.select('year', 'quarter', 'date', 'province', 'city', 'district', 'price', 'packid', 'units', 'sales', 'pchc').distinct()
     
-        df_raw_sh_Q3 = df_raw1.where(~col('packid').isNull()).where(col('quarter') == '2021Q3')
-        df_raw_sh_restx = df_raw1.where(col('quarter') != '2021Q3')
-        df_raw_sh_Q2 = df_raw1.where(~col('packid').isNull()).where(col('quarter') == '2021Q2') \
+        df_raw_sh_Q3 = df_raw1.where(~col('packid').isNull()).where(col('quarter') == g_current_quarter)
+        df_raw_sh_restx = df_raw1.where(col('quarter') != g_current_quarter)
+        df_raw_sh_Q2 = df_raw1.where(~col('packid').isNull()).where(col('quarter') == g_last_quarter) \
                                     .groupby('date', 'packid').agg(func.sum('sales').alias('sales'))
                  
         # 计算上季度增长率
@@ -218,17 +217,18 @@ def execute(**kwargs):
                               
 
     # %%
-    # ======== 数据执行 ==========
+    # ======== 数据执行 ========== 
     # 分子信息
     df_ims_molecule_info = reName(df_ims_molecule_info, dict_rename={'ATC4_Code':'atc4', 'NFC123_Code':'nfc', 'Molecule_Desc':'molecule', 'Prd_desc':'product', 'Corp_Desc':'corp'})
     
     # 市场包含的分子
     df_market_molecule = df_market_molecule.drop('version')
     
+    df_raw1 = dealRawCommon(df_shanghai_raw, g_min_quarter, g_current_quarter)
     if g_sh_method == "full":
-        df_shanghai_raw_out = methodFull(df_shanghai_raw,df_ims_molecule_info, df_market_molecule)
+        df_shanghai_raw_out = methodFull(df_raw1, df_ims_molecule_info, df_market_molecule)
     elif g_sh_method == "not_full":
-        df_shanghai_raw_out = methodNotFull(df_shanghai_raw,df_ims_molecule_info, df_market_molecule)
+        df_shanghai_raw_out = methodNotFull(df_raw1, df_ims_molecule_info, df_market_molecule, g_current_quarter, g_last_quarter)
 
     # %%
     # =========== 数据输出 =============
