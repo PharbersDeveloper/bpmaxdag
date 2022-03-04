@@ -14,6 +14,8 @@ def execute(**kwargs):
     depends_path = kwargs["depends_path"]
     
     ### input args ###
+    g_current_quarter = '2021Q3'
+    g_min_quarter = '2018Q1'
     ### input args ###
     
     ### output args ###
@@ -137,10 +139,9 @@ def execute(**kwargs):
     
         df_raw_data2 = df_raw_data2.join(df_ims_molecule_info, on='packid', how='left') \
                                     .join(df_market_molecule, on='molecule', how='inner') \
-                                    .where(col('quarter') >=  '2018Q1') \
                                     .withColumn('market', col('molecule')) \
                                     .withColumn('date', func.regexp_replace('date', '\\/', '')) \
-                                    .select("year", "date", "quarter", "province", "city", "district", "pchc", "packid", "market", "units", "sales", )
+                                    .select("year", "date", "quarter", "province", "city", "district", "pchc", "packid", "market", "units", "sales")
         return df_raw_data2
     
     def getAllData(df_raw_data, df_rawdata_tianjin, df_rawdata_shanghai):
@@ -152,7 +153,6 @@ def execute(**kwargs):
                                 .join(df_pchc_map_city, on='pchc', how='left') \
                                 .groupby("year", "date", "quarter", "province", "city", "district", "pchc", "market", "packid") \
                                 .agg(func.sum('units').alias('units'), func.sum('sales').alias('sales')) \
-                                .where(col('quarter') <= '2021Q3') \
                             .union(df_rawdata_shanghai.select(df_raw_data.columns))
         return df_all_final
     
@@ -165,7 +165,8 @@ def execute(**kwargs):
     df_raw_data_all = getAllData(df_raw_data_clean, df_rawdata_tianjin, df_rawdata_shanghai)
     
     # 样本里有错误，需删除这些列
-    df_raw_data_all = df_raw_data_all.where( ~ (( col('province')=='江苏' ) & ( col('city')=='北京' )) )
+    df_raw_data_all = df_raw_data_all.where( ~ (( col('province')=='江苏' ) & ( col('city')=='北京' )) ) \
+                                    .where( (col('quarter') >= g_min_quarter) & (col('quarter') <= g_current_quarter) )    
     
     # %%
     # =========== 数据输出 =============
