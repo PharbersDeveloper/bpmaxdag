@@ -15,6 +15,7 @@ def execute(**kwargs):
     
     ### input args ###
     g_sh_method = kwargs['g_sh_method']
+    g_lack_month=['202108', '202109']
     g_current_quarter = '2021Q3'
     g_last_quarter = '2021Q2'
     g_min_quarter = '2018Q1'
@@ -171,19 +172,31 @@ def execute(**kwargs):
                                 .select('packid', 'date', 'ratio')
         return df_c_Res
 
-    def calCurrentQLackData(df_raw_sh_Q3, df_c_Res):    
+    def getAddMonth(lack_month, g_last_quarter):
+        lack_month = int(lack_month)
+        if lack_month%100 - 3 <= 0:
+            add_month = int(g_last_quarter[0:4])*100 + 12 - abs(lack_month%100 - 3)
+        else:
+            add_month = int(lack_month - 3)
+        return str(add_month)
+
+    def calCurrentQLackData(df_raw_sh_Q3, df_c_Res):
         # 当前季度
-        # 两个增长率分别乘到 7月的数据上，得到上海8月和9月的数据
+        # 两个增长率分别乘到 7月的数据上，得到上海8月和9月的数据 
         df_raw_sh_Q3_aug = df_raw_sh_Q3.drop('date').join(df_c_Res, on='packid', how='inner') \
                                         .withColumn("units", col('units')*(col('ratio')+1 )) \
-                                        .withColumn("sales", col('sales')*(col('ratio')+1 )) \
-                                        .withColumn("date", func.when(col('date') == '202105', func.lit('202108')).otherwise(func.lit('202109')))
+                                        .withColumn("sales", col('sales')*(col('ratio')+1 ))
+
+        for i_lack_month in g_lack_month:
+            i_add_month = getAddMonth(i_lack_month, g_last_quarter)
+            df_raw_sh_Q3_aug = df_raw_sh_Q3_aug.withColumn("date", func.when(col('date') == i_add_month, func.lit(i_lack_month)).otherwise(col('date')))
+
+        df_raw_sh_Q3_aug = df_raw_sh_Q3_aug.where(col('date').isin(g_lack_month))
 
         df_raw_sh_Q3_aug_rest = df_raw_sh_Q3.join(df_c_Res.select('packid').distinct(), on='packid', how='left_anti') \
                                             .withColumn("units", col('units')*1.5 ) \
                                             .withColumn("sales", col('sales')*1.5 ) \
-                                            .withColumn("date", func.lit('202108') )
-
+                                            .withColumn("date", func.lit(min(g_lack_month)))
         df_raw_sh = unionDf(df_raw_sh_Q3, df_raw_sh_Q3_aug, utype='same')
         df_raw_sh = unionDf(df_raw_sh, df_raw_sh_Q3_aug_rest, utype='same')
         return df_raw_sh
