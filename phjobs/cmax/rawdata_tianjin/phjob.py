@@ -15,8 +15,10 @@ def execute(**kwargs):
     
     ### input args ###
     g_tj_method = kwargs['g_tj_method']
-    g_current_quarter = '2021Q3'
-    g_min_quarter = '2018Q1'
+    g_current_quarter = kwargs['g_current_quarter']
+    g_min_quarter = kwargs['g_min_quarter']
+    #g_current_quarter = '2021Q3'
+    #g_min_quarter = '2018Q1'
     ### input args ###
     
     ### output args ###

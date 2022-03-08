@@ -14,8 +14,12 @@ def execute(**kwargs):
     depends_path = kwargs["depends_path"]
     
     ### input args ###
-    g_current_quarter = '2021Q3'
-    g_min_quarter = '2018Q1'
+    # g_current_quarter = '2021Q3'
+    # g_min_quarter = '2018Q1'
+    
+    g_current_quarter = kwargs['g_current_quarter']
+    g_min_quarter = kwargs['g_min_quarter']
+    
     ### input args ###
     
     ### output args ###

@@ -14,11 +14,18 @@ def execute(**kwargs):
     depends_path = kwargs["depends_path"]
     
     ### input args ###
+    # g_lack_month=['202108', '202109']
+    # g_current_quarter = '2021Q3'
+    # g_last_quarter = '2021Q2'
+    # g_min_quarter = '2018Q1'
+    
     g_sh_method = kwargs['g_sh_method']
-    g_lack_month=['202108', '202109']
-    g_current_quarter = '2021Q3'
-    g_last_quarter = '2021Q2'
-    g_min_quarter = '2018Q1'
+    g_current_quarter = kwargs['g_current_quarter']
+    g_min_quarter = kwargs['g_min_quarter']
+    g_last_quarter = kwargs['g_last_quarter']
+    g_lack_month = kwargs['g_lack_month']
+    
+    
     ### input args ###
     
     ### output args ###
@@ -191,7 +198,7 @@ def execute(**kwargs):
             i_add_month = getAddMonth(i_lack_month, g_last_quarter)
             df_raw_sh_Q3_aug = df_raw_sh_Q3_aug.withColumn("date", func.when(col('date') == i_add_month, func.lit(i_lack_month)).otherwise(col('date')))
 
-        df_raw_sh_Q3_aug = df_raw_sh_Q3_aug.where(col('date').isin(g_lack_month))
+        df_raw_sh_Q3_aug = df_raw_sh_Q3_aug.where(col('date').isin(g_lack_month.replace(' ','').split(',')))
 
         df_raw_sh_Q3_aug_rest = df_raw_sh_Q3.join(df_c_Res.select('packid').distinct(), on='packid', how='left_anti') \
                                             .withColumn("units", col('units')*1.5 ) \
@@ -240,7 +247,7 @@ def execute(**kwargs):
     df_raw1 = dealRawCommon(df_shanghai_raw, g_min_quarter, g_current_quarter)
     if g_sh_method == "full":
         df_shanghai_raw_out = methodFull(df_raw1, df_ims_molecule_info, df_market_molecule)
-    elif g_sh_method == "not_full":
+    elif g_sh_method == "notfull":
         df_shanghai_raw_out = methodNotFull(df_raw1, df_ims_molecule_info, df_market_molecule, g_current_quarter, g_last_quarter)
 
     # %%
