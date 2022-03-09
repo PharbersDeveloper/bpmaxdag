@@ -14,6 +14,11 @@ def execute(**kwargs):
     depends_path = kwargs["depends_path"]
     
     ### input args ###
+    # g_current_quarter = '2021Q3'
+    # g_min_quarter = '2019Q1'
+    
+    g_current_quarter = kwargs["g_current_quarter"]
+    g_min_quarter = kwargs["g_min_quarter"]
     ### input args ###
     
     ### output args ###
@@ -76,7 +81,7 @@ def execute(**kwargs):
     # =========== 数据执行 =============
     def getImpTotal(df_raw_data):
         df_raw_data = df_raw_data.where( ~ (( col('province')=='江苏' ) & ( col('city')=='北京' )) )
-        df_imp_total = df_raw_data.where( ( col('quarter') <= '2021Q3' ) & ( col('quarter') >= '2019Q1' ) ) \
+        df_imp_total = df_raw_data.where( ( col('quarter') <= g_current_quarter ) & ( col('quarter') >= g_min_quarter ) ) \
                             .withColumn('flag', func.lit(0))
         return df_imp_total
         
