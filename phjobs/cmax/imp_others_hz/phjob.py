@@ -80,8 +80,7 @@ def execute(**kwargs):
     # %% 
     # =========== 函数定义 =============
     def getImpOthers(df_raw_data_hz, df_out_sample_hz):
-        df_imp_others = df_raw_data_hz.where(col('quarter') <= '2021Q2').where(col('quarter') >= '2019Q1') \
-                                    .withColumn('flag_sample', func.lit(1)) \
+        df_imp_others = df_raw_data_hz.withColumn('flag_sample', func.lit(1)) \
                                 .join(df_out_sample_hz, on='pchc', how='inner') \
                                 .orderBy('province', 'city', 'district', 'pchc', 'market', 'packid', 'date') \
                                 .groupby('date', 'province', 'city', 'district', 'market', 'packid', 'flag_sample') \

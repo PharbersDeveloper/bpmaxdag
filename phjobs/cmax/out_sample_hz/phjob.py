@@ -86,10 +86,9 @@ def execute(**kwargs):
     
     
     def getOutSample(df_raw_data_hz):
-        df_imp_hz_1 = df_raw_data_hz.where(col('quarter') <= '2021Q3').where(col('quarter') >= '2019Q1') \
-                                    .withColumn('flag', func.lit(0))
+        df_imp_hz_1 = df_raw_data_hz.withColumn('flag', func.lit(0))
     
-        df_sample1_list = df_imp_hz_1.distinct().where(col('quarter') <= '2021Q2') \
+        df_sample1_list = df_imp_hz_1.distinct() \
                                 .groupby('pchc', 'quarter', 'city') \
                                     .agg( func.size(func.collect_set('packid')).alias('n') ) \
                                 .groupBy('pchc', 'city') \
