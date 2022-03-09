@@ -14,6 +14,10 @@ def execute(**kwargs):
     depends_path = kwargs["depends_path"]
     
     ### input args ###
+    # g_hz_city = "宁波,杭州,温州,金华,绍兴"
+    g_hz_city = kwargs["g_hz_city"]
+    g_current_quarter = kwargs["g_current_quarter"]
+    g_min_quarter = kwargs["g_min_quarter"]
     ### input args ###
     
     ### output args ###
@@ -74,8 +78,9 @@ def execute(**kwargs):
     df_raw_data = readInFile(kwargs["df_rawdata_all"])
     # %%
     # =========== 数据执行 =============
-    cityinhz = ['宁波','杭州','温州', '金华','绍兴']
-    df_raw_data_hz = df_raw_data.where(col('city').isin(cityinhz))
+    df_raw_data_hz = df_raw_data.where(col('city').isin(g_hz_city.replace(' ','').split(','))) \
+                            .where(col('quarter') <= g_current_quarter).where(col('quarter') >= g_min_quarter) \
+                            .withColumn('flag', func.lit(0))
     # %%
     # =========== 数据输出 =============
     # 读回
