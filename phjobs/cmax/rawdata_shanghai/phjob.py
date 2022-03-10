@@ -187,14 +187,14 @@ def execute(**kwargs):
             add_month = int(lack_month - 3)
         return str(add_month)
 
-    def calCurrentQLackData(df_raw_sh_Q3, df_c_Res):
+    def calCurrentQLackData(df_raw_sh_Q3, df_c_Res, g_lack_month):
         # 当前季度
         # 两个增长率分别乘到 7月的数据上，得到上海8月和9月的数据 
         df_raw_sh_Q3_aug = df_raw_sh_Q3.drop('date').join(df_c_Res, on='packid', how='inner') \
                                         .withColumn("units", col('units')*(col('ratio')+1 )) \
                                         .withColumn("sales", col('sales')*(col('ratio')+1 ))
 
-        for i_lack_month in g_lack_month:
+        for i_lack_month in g_lack_month.replace(' ','').split(','):
             i_add_month = getAddMonth(i_lack_month, g_last_quarter)
             df_raw_sh_Q3_aug = df_raw_sh_Q3_aug.withColumn("date", func.when(col('date') == i_add_month, func.lit(i_lack_month)).otherwise(col('date')))
 
@@ -208,7 +208,7 @@ def execute(**kwargs):
         df_raw_sh = unionDf(df_raw_sh, df_raw_sh_Q3_aug_rest, utype='same')
         return df_raw_sh
                     
-    def methodNotFull(df_raw1, df_ims_molecule_info, df_market_molecule, g_current_quarter, g_last_quarter):
+    def methodNotFull(df_raw1, df_ims_molecule_info, df_market_molecule, g_current_quarter, g_last_quarter, g_lack_month):
         # 上海的数据有时候会到不齐，需要补全。 如果上海只有7月的数据，那么
         # 1. 根据历史数据计算上海每一个packcode PCHC code, 省份城市区县, 市场 4-5月的增长率，和 4-6月的增长率
         # 2. 将两个增长率分别乘到 7月的数据上，得到上海8月和9月的数据
@@ -223,7 +223,7 @@ def execute(**kwargs):
         # 计算上季度增长率
         df_c_Res = calLastQGrowthRate(df_raw_sh_Q2)
         # 对当前季度补数
-        df_raw_sh = calCurrentQLackData(df_raw_sh_Q3, df_c_Res)
+        df_raw_sh = calCurrentQLackData(df_raw_sh_Q3, df_c_Res, g_lack_month)
         # 数据合并
         df_raw_sh_all = unionDf(df_raw_sh, df_raw_sh_restx, utype='same')
     
@@ -232,7 +232,8 @@ def execute(**kwargs):
                                 .join(df_market_molecule, on='molecule', how='inner') \
                                 .withColumn('market', col('molecule')) \
                                 .where(col('units') > 0.0).where(col('sales') > 0.0).where(~col('market').isNull()) \
-                                .select("year", "date", "quarter", "province", "city", "district", "pchc", "atc4", "nfc", "molecule", "product", "corp", "packid", "units", "sales", "market")
+                                .select('year', 'date', 'quarter', 'province', 'city', 'district', 'pchc', 'market', 'packid', "units", "sales")
+                                #.select("year", "date", "quarter", "province", "city", "district", "pchc", "atc4", "nfc", "molecule", "product", "corp", "packid", "units", "sales", "market")
         return df_raw_sh_f
                               
 
@@ -248,7 +249,7 @@ def execute(**kwargs):
     if g_sh_method == "full":
         df_shanghai_raw_out = methodFull(df_raw1, df_ims_molecule_info, df_market_molecule)
     elif g_sh_method == "notfull":
-        df_shanghai_raw_out = methodNotFull(df_raw1, df_ims_molecule_info, df_market_molecule, g_current_quarter, g_last_quarter)
+        df_shanghai_raw_out = methodNotFull(df_raw1, df_ims_molecule_info, df_market_molecule, g_current_quarter, g_last_quarter, g_lack_month)
 
     # %%
     # =========== 数据输出 =============
