@@ -28,7 +28,9 @@ def execute(**kwargs):
     import pandas as pd
     import numpy as np
     import json
-    from functools import reduce    # %%
+    from functools import reduce
+    from pyspark.sql import Window
+    # %%
     # =========== 输入数据读取 ===========
     def dealToNull(df):
         df = df.replace(["None", ""], None)
@@ -53,7 +55,6 @@ def execute(**kwargs):
     
     
     def readClickhouse(database, dbtable, version):
-        version = version.replace(" ","").split(',')
         df = spark.read.format("jdbc") \
                 .option("url", "jdbc:clickhouse://192.168.16.117:8123/" + database) \
                 .option("dbtable", dbtable) \
@@ -63,36 +64,34 @@ def execute(**kwargs):
                 .option("batchsize", 1000) \
                 .option("socket_timeout", 300000) \
                 .option("rewrtieBatchedStatements", True).load()
-        df = df.where(df['version'].isin(version))
+        if version != 'all':
+            version = version.replace(" ","").split(',')
+            df = df.where(df['version'].isin(version))
         return df
+
     # %% 
     # =========== 输入数据读取 =========== 
-    df_pchc_universe = kwargs['df_pchc_universe']
-    df_pchc_universe = readInFile(df_pchc_universe)
+    # df_raw_data_hz = readClickhouse('default', 'ftZnwL38MzTJPr1s_rawdata_hangzhou', '袁毓蔚_Auto_cMax_enlarge_Auto_cMax_enlarge_developer_2022-02-28T02:26:02+00:00')
+    # df_out_sample_hz = readClickhouse('default', 'ftZnwL38MzTJPr1s_out_sample_hz', '袁毓蔚_Auto_cMax_enlarge_Auto_cMax_enlarge_developer_2022-02-28T02:26:02+00:00')
+    
+    df_raw_data_hz = readInFile(kwargs["df_rawdata_hangzhou"])
+    df_out_sample_hz = readInFile(kwargs["df_out_sample_hz"])
+    
+    # %% 
+    # =========== 函数定义 =============
+    def getImpOthers(df_raw_data_hz, df_out_sample_hz):
+        df_imp_others = df_raw_data_hz.withColumn('flag_sample', func.lit(1)) \
+                                .join(df_out_sample_hz, on='pchc', how='inner') \
+                                .orderBy('province', 'city', 'district', 'pchc', 'market', 'packid', 'date') \
+                                .groupby('date', 'province', 'city', 'district', 'market', 'packid', 'flag_sample') \
+                                    .agg(func.sum('sales').alias('sales'), func.sum('units').alias('units')) \
+                                .where(col('units') > 0.0).where(col('sales') > 0.0)
+        return df_imp_others
+                
     # %%
-    # ==========  数据执行  ============
-    def reName(df, dict_rename={}):
-        df = reduce(lambda df, i_dict:df.withColumnRenamed(i_dict[0], i_dict[1]), zip(dict_rename.keys(), dict_rename.values()), df)
-        return df
-        
-            
-    df_pchc_mapping = reName(df_pchc_universe, 
-                             dict_rename={'省':'province', '地级市':'city', '区[县_县级市]':'district', '新版PCHC_Code':'pchc'})
-    
-    df_pchc_mapping1 = df_pchc_mapping.where( (~col('pchc_name').isNull()) & (~col('pchc').isNull()) ) \
-                                    .groupby('province', 'city', 'district', 'PCHC_Name').agg(func.first('pchc', ignorenulls=True).alias('pchc')) \
-                                    .withColumnRenamed('PCHC_Name', 'hospital')
-    
-    df_pchc_mapping2 = df_pchc_mapping.where( (~col('招标样本名称').isNull()) & (~col('pchc').isNull()) ) \
-                                    .groupby('province', 'city', 'district', '招标样本名称').agg(func.first('pchc', ignorenulls=True).alias('pchc')) \
-                                    .withColumnRenamed('招标样本名称', 'hospital')
-    
-    df_pchc_mapping3 = df_pchc_mapping1.union(df_pchc_mapping2).distinct() \
-                                        .withColumn('province', func.regexp_replace("province", "省|市", "")) \
-                                        .withColumn('city', func.regexp_replace("city", "市", ""))
-
+    # =========== 数据执行 =============
+    df_imp_others_hz = getImpOthers(df_raw_data_hz, df_out_sample_hz)
     # %%
     # =========== 数据输出 =============
-    # 读回
-    df_out = lowCol(df_pchc_mapping3)
+    df_out = lowCol(df_imp_others_hz)
     return {"out_df":df_out}

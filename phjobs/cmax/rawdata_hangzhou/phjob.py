@@ -14,6 +14,10 @@ def execute(**kwargs):
     depends_path = kwargs["depends_path"]
     
     ### input args ###
+    # g_hz_city = "宁波,杭州,温州,金华,绍兴"
+    g_hz_city = kwargs["g_hz_city"]
+    g_current_quarter = kwargs["g_current_quarter"]
+    g_min_quarter = kwargs["g_min_quarter"]
     ### input args ###
     
     ### output args ###
@@ -28,7 +32,9 @@ def execute(**kwargs):
     import pandas as pd
     import numpy as np
     import json
-    from functools import reduce    # %%
+    from functools import reduce
+    from pyspark.sql import Window
+    # %%
     # =========== 输入数据读取 ===========
     def dealToNull(df):
         df = df.replace(["None", ""], None)
@@ -53,7 +59,6 @@ def execute(**kwargs):
     
     
     def readClickhouse(database, dbtable, version):
-        version = version.replace(" ","").split(',')
         df = spark.read.format("jdbc") \
                 .option("url", "jdbc:clickhouse://192.168.16.117:8123/" + database) \
                 .option("dbtable", dbtable) \
@@ -63,36 +68,21 @@ def execute(**kwargs):
                 .option("batchsize", 1000) \
                 .option("socket_timeout", 300000) \
                 .option("rewrtieBatchedStatements", True).load()
-        df = df.where(df['version'].isin(version))
+        if version != 'all':
+            version = version.replace(" ","").split(',')
+            df = df.where(df['version'].isin(version))
         return df
     # %% 
     # =========== 输入数据读取 =========== 
-    df_pchc_universe = kwargs['df_pchc_universe']
-    df_pchc_universe = readInFile(df_pchc_universe)
+    # df_raw_data = readClickhouse('default', 'F9YGH7iTKuoygfrd_rawdata_all', '袁毓蔚_Auto_cMax_Auto_cMax_developer_2022-02-18T07:50:08+00:00')
+    df_raw_data = readInFile(kwargs["df_rawdata_all"])
     # %%
-    # ==========  数据执行  ============
-    def reName(df, dict_rename={}):
-        df = reduce(lambda df, i_dict:df.withColumnRenamed(i_dict[0], i_dict[1]), zip(dict_rename.keys(), dict_rename.values()), df)
-        return df
-        
-            
-    df_pchc_mapping = reName(df_pchc_universe, 
-                             dict_rename={'省':'province', '地级市':'city', '区[县_县级市]':'district', '新版PCHC_Code':'pchc'})
-    
-    df_pchc_mapping1 = df_pchc_mapping.where( (~col('pchc_name').isNull()) & (~col('pchc').isNull()) ) \
-                                    .groupby('province', 'city', 'district', 'PCHC_Name').agg(func.first('pchc', ignorenulls=True).alias('pchc')) \
-                                    .withColumnRenamed('PCHC_Name', 'hospital')
-    
-    df_pchc_mapping2 = df_pchc_mapping.where( (~col('招标样本名称').isNull()) & (~col('pchc').isNull()) ) \
-                                    .groupby('province', 'city', 'district', '招标样本名称').agg(func.first('pchc', ignorenulls=True).alias('pchc')) \
-                                    .withColumnRenamed('招标样本名称', 'hospital')
-    
-    df_pchc_mapping3 = df_pchc_mapping1.union(df_pchc_mapping2).distinct() \
-                                        .withColumn('province', func.regexp_replace("province", "省|市", "")) \
-                                        .withColumn('city', func.regexp_replace("city", "市", ""))
-
+    # =========== 数据执行 =============
+    df_raw_data_hz = df_raw_data.where(col('city').isin(g_hz_city.replace(' ','').split(','))) \
+                            .where(col('quarter') <= g_current_quarter).where(col('quarter') >= g_min_quarter) \
+                            .withColumn('flag', func.lit(0))
     # %%
     # =========== 数据输出 =============
     # 读回
-    df_out = lowCol(df_pchc_mapping3)
+    df_out = lowCol(df_raw_data_hz)
     return {"out_df":df_out}

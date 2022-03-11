@@ -15,6 +15,10 @@ def execute(**kwargs):
     
     ### input args ###
     g_tj_method = kwargs['g_tj_method']
+    g_current_quarter = kwargs['g_current_quarter']
+    g_min_quarter = kwargs['g_min_quarter']
+    #g_current_quarter = '2021Q3'
+    #g_min_quarter = '2018Q1'
     ### input args ###
     
     ### output args ###
@@ -97,6 +101,7 @@ def execute(**kwargs):
         return df
     
     def qtrMonthMap():
+        # 生成 季度 月份 mapping表
         pdf = pd.DataFrame({'qtr':['Q1']*3 + ['Q2']*3 + ['Q3']*3+ ['Q4']*3, 'mth':['01', '02', '03', '04', '05', '06', 
                                   '07', '08', '09', '10', '11', '12']})
         df = spark.createDataFrame(pdf)
@@ -104,62 +109,47 @@ def execute(**kwargs):
     
     
     def dealPackid(df):
+        # 错误packid 处理
         df = df.withColumn('packid', func.when(func.substring('packid', 1, 5)=='47775', func.concat(func.lit('58906'), func.substring('packid', 6, 2))).otherwise(col('packid'))) \
                 .withColumn('packid', func.when(func.substring('packid', 1, 5)=='06470', func.concat(func.lit('64895'), func.substring('packid', 6, 2))).otherwise(col('packid')))
         return df
+    
+    def dealRawCommon(df, df_tj_district, df_ims_molecule_info, df_market_molecule):
+        # rawdata清洗，join信息
+        df1 = reName(df, dict_rename={'month':'date', 'hospital_name':'hospital', 'value':'sales', 'hosp_code':'pchc', 'packcode':'packid'})
+        df1 = dealIDLength(df1, colname='packid', id_length=7)
+        df1 = dealPackid(df1)
+        df1 = df1.where(col('hospital_flag') == 'CHC') \
+                .where( (~col('packid').isNull()) & (~col('pchc').isNull()) ) \
+                .withColumn('province', func.lit('天津')) \
+                .withColumn('city', func.lit('天津')) \
+                .withColumn('units', func.when(col('volume').isNull(), col('sales')/col('price')).otherwise(col('volume'))) \
+                .select('project', 'year', 'quarter', 'date', 'province', 'city', 'hospital', 'packid', 'units', 'sales', 'pchc').distinct()
+        
+        df1 = df1.join(df_tj_district, on='pchc', how='left') \
+                    .join(df_ims_molecule_info, on='packid', how='left') \
+                    .join(df_market_molecule, on='molecule', how='inner') \
+                    .withColumn('market', col('molecule')) \
+                    .select("year", "date", "quarter", "province", "city", "district", "pchc", "atc4", "nfc", "molecule", "product", "corp", "packid", "units", "sales", "market")
+        return df1                       
         
     
-    def methodOne(df_tianjin_raw, df_tj_district, df_ims_molecule_info, df_qtr_month_map, df_market_molecule):
-        df_tianjin_raw1 = reName(df_tianjin_raw, dict_rename={'month':'date', 'hospital_name':'hospital', 'value':'sales', 'hosp_code':'pchc', 'packcode':'packid'})
-        df_tianjin_raw1 = dealIDLength(df_tianjin_raw1, colname='packid', id_length=7)
-        df_tianjin_raw2 = df_tianjin_raw1.where(col('hospital_flag') == 'CHC') \
-                                        .where( (~col('packid').isNull()) & (~col('pchc').isNull()) ) \
-                                        .withColumn('province', func.lit('天津')) \
-                                        .withColumn('city', func.lit('天津')) \
-                                        .withColumn('qtr', func.substring('quarter', 5, 2)) \
-                                        .withColumn('units', func.when(col('volume').isNull(), col('sales')/col('price')).otherwise(col('volume'))) \
-                                        .select('project', 'year', 'quarter', 'qtr', 'date', 'province', 'city', 'hospital',
-                                                 'packid', 'units', 'sales', 'pchc').distinct()
-    
-        df_tianjin_raw3 = df_tianjin_raw2.join(df_tj_district, on='pchc', how='left') \
-                                        .join(df_qtr_month_map, on='qtr', how='left') \
+    def methodOne(df_tianjin_raw1, df_qtr_month_map):
+        # 方法1：每个季度平分成三条记录，分别对应该季度下每个月份的数据
+        df_tianjin_raw2 = df_tianjin_raw1.withColumn('qtr', func.substring('quarter', 5, 2)).distinct()
+        df_tianjin_raw3 = df_tianjin_raw2.join(df_qtr_month_map, on='qtr', how='left') \
                                         .withColumn('date', func.concat(col('year'), col('mth'))) \
                                         .withColumn('units', col('units')/3 ) \
                                         .withColumn('sales', col('sales')/3 ) \
-                                        .where(col('units') >0.0 ).where(col('sales') >0.0  )
-        
-        df_tianjin_raw3 = dealPackid(df_tianjin_raw3)
+                                        .where(col('units') >0.0 ).where(col('sales') >0.0  )                                  
+        return df_tianjin_raw3
     
-        df_tianjin_raw4 = df_tianjin_raw3.join(df_ims_molecule_info, on='packid', how='left') \
-                                        .join(df_market_molecule, on='molecule', how='inner') \
-                                        .where(col('quarter') >=  '2018Q1') \
-                                        .withColumn('market', col('molecule')) \
-                                        .select("year", "date", "quarter", "province", "city", "district", "pchc", "atc4", "nfc", "molecule", "product", "corp", "packid", "units", "sales", "market")
-        return df_tianjin_raw4
-    
-    def methodTwo(df_tianjin_raw, df_tj_district, df_ims_molecule_info, df_market_molecule):
-        df_tianjin_raw1 = reName(df_tianjin_raw, dict_rename={'month':'date', 'hospital_name':'hospital', 'value':'sales', 'hosp_code':'pchc', 'packcode':'packid'})
-        df_tianjin_raw1 = dealIDLength(df_tianjin_raw1, colname='packid', id_length=7)
-        df_tianjin_raw2 = df_tianjin_raw1.where(col('hospital_flag') == 'CHC') \
-                                        .where( (~col('packid').isNull()) & (~col('pchc').isNull()) ) \
-                                        .withColumn('province', func.regexp_replace('province', '省|市', '')) \
-                                        .withColumn('city', func.when(col('city')=='市辖区', func.lit('北京')).otherwise( func.regexp_replace('city', '市', '') )) \
-                                        .withColumn('units', func.when(col('volume').isNull(), col('sales')/col('price')).otherwise(col('volume'))) \
-                                        .select('project', 'year', 'quarter', 'date', 'province', 'city', 'hospital',
-                                                 'packid', 'units', 'sales', 'pchc').distinct()
-    
-        df_tianjin_raw3 = df_tianjin_raw2.join(df_tj_district, on='pchc', how='left')
-    
-        df_tianjin_raw3 = dealPackid(df_tianjin_raw3)
-    
-        df_tianjin_raw4 = df_tianjin_raw3.join(df_ims_molecule_info, on='packid', how='left') \
-                                        .select('year', 'date', 'quarter', 'province', 'city', 'district', 'pchc', 'packid', 'units', 'sales', 'atc4', 'nfc', 'molecule', 'product', 'corp') \
-                                        .join(df_market_molecule, on='molecule', how='inner')
-    
-        df_tj_ref = df_tianjin_raw4.groupby('quarter','pchc','packid').count() \
+    def methodTwo(df_tianjin_raw1):
+        # 方法2：根据先来后到的原则将天津数据分配给该季度下对应的月份。即如果该 季度 省份 城市 区县 市场 packcode  pchc code 下有四条纪录，那么将第一条分给该季度下第一个月份，第二条分给该季度下第二个月份，最后两条分给该季度下最后一个月份
+        df_tj_ref = df_tianjin_raw1.groupby('quarter','pchc','packid').count() \
                                     .withColumn('groupx', func.row_number().over(Window().orderBy('quarter','pchc','packid')))
     
-        df_raw_tj_x = df_tianjin_raw4.join(df_tj_ref, on=['quarter','pchc','packid'], how='left') \
+        df_raw_tj_x = df_tianjin_raw1.join(df_tj_ref, on=['quarter','pchc','packid'], how='left') \
                                         .withColumn('Q', func.substring('quarter', 6, 1))
     
         df_raw_tj_clear = df_raw_tj_x.where(col('count') == 1) \
@@ -171,16 +161,15 @@ def execute(**kwargs):
                     .withColumn('rowid', func.when(col('rowid') > 3, func.lit(3)).otherwise(col('rowid'))) \
                     .withColumn('date', col('year')*100 + col('rowid') + (col('Q')-1)*3 ) 
     
-        df_raw_tj_f =  df_raw_tj_clear.union(df_raw_tj_y.select(df_raw_tj_clear.columns)) \
-                                        .withColumn('market', col('molecule')) \
-                                        .select("year", "date", "quarter", "province", "city", "district", "pchc", "atc4", "nfc", "molecule", "product", "corp", "packid", "units", "sales", "market")
+        df_raw_tj_f =  df_raw_tj_clear.union(df_raw_tj_y.select(df_raw_tj_clear.columns))
+                                    
         return df_raw_tj_f
     
     # %%
     # ==========  数据执行  ============
     # 地理信息
     df_tj_district = df_pchc_mapping.where(col('province') == '天津') \
-                                    .groupby('pchc').agg(func.first('district').alias('district'))
+                                    .groupby('pchc').agg(func.first('district', ignorenulls=True).alias('district'))
     
     # 季度月份
     df_qtr_month_map = qtrMonthMap()
@@ -191,12 +180,18 @@ def execute(**kwargs):
     # 市场包含的分子
     df_market_molecule = df_market_molecule.drop('version')
     
+    # 处理
+    df_tianjin_raw1 = dealRawCommon(df_tianjin_raw, df_tj_district, df_ims_molecule_info, df_market_molecule)
     if g_tj_method == "method1":
-        df_tianjin_raw_out = methodOne(df_tianjin_raw, df_tj_district, df_ims_molecule_info, df_qtr_month_map, df_market_molecule)
+        df_tianjin_raw_out = methodOne(df_tianjin_raw1, df_qtr_month_map)
     elif g_tj_method == "method2":
-        df_tianjin_raw_out = methodTwo(df_tianjin_raw, df_tj_district, df_ims_molecule_info, df_market_molecule)
+        df_tianjin_raw_out = methodTwo(df_tianjin_raw1)
+        
+    # 时间
+    df_tianjin_raw_out = df_tianjin_raw_out.where(col('quarter') >= g_min_quarter).where(col('quarter') <= g_current_quarter) \
+                                        .select("year", "date", "quarter", "province", "city", "district", "pchc", "atc4", "nfc", "molecule", "product", "corp", "packid", "units", "sales", "market")
+        
     # %%
     # =========== 数据输出 =============
-    # 读回
     df_out = lowCol(df_tianjin_raw_out)
     return {"out_df":df_out}

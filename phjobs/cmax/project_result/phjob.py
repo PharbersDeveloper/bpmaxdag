@@ -14,6 +14,8 @@ def execute(**kwargs):
     depends_path = kwargs["depends_path"]
     
     ### input args ###
+    # g_hz_city = "宁波,杭州,温州,金华,绍兴"
+    g_hz_city = kwargs["g_hz_city"]
     ### input args ###
     
     ### output args ###
@@ -28,7 +30,8 @@ def execute(**kwargs):
     import pandas as pd
     import numpy as np
     import json
-    from functools import reduce    # %%
+    from functools import reduce
+    from pyspark.sql import Window    # %%
     # =========== 输入数据读取 ===========
     def dealToNull(df):
         df = df.replace(["None", ""], None)
@@ -53,7 +56,6 @@ def execute(**kwargs):
     
     
     def readClickhouse(database, dbtable, version):
-        version = version.replace(" ","").split(',')
         df = spark.read.format("jdbc") \
                 .option("url", "jdbc:clickhouse://192.168.16.117:8123/" + database) \
                 .option("dbtable", dbtable) \
@@ -63,36 +65,39 @@ def execute(**kwargs):
                 .option("batchsize", 1000) \
                 .option("socket_timeout", 300000) \
                 .option("rewrtieBatchedStatements", True).load()
-        df = df.where(df['version'].isin(version))
+        if version != 'all':
+            version = version.replace(" ","").split(',')
+            df = df.where(df['version'].isin(version))
         return df
+
     # %% 
     # =========== 输入数据读取 =========== 
-    df_pchc_universe = kwargs['df_pchc_universe']
-    df_pchc_universe = readInFile(df_pchc_universe)
-    # %%
-    # ==========  数据执行  ============
-    def reName(df, dict_rename={}):
-        df = reduce(lambda df, i_dict:df.withColumnRenamed(i_dict[0], i_dict[1]), zip(dict_rename.keys(), dict_rename.values()), df)
-        return df
-        
-            
-    df_pchc_mapping = reName(df_pchc_universe, 
-                             dict_rename={'省':'province', '地级市':'city', '区[县_县级市]':'district', '新版PCHC_Code':'pchc'})
+    # df_project_price = readClickhouse('default', 'ftZnwL38MzTJPr1s_project_price', '袁毓蔚_Auto_cMax_enlarge_Auto_cMax_enlarge_developer_2022-03-02T04:29:04.515849+00:00')
+    # df_project_price_hz = readClickhouse('default', 'ftZnwL38MzTJPr1s_project_price_hz', '袁毓蔚_Auto_cMax_enlarge_Auto_cMax_enlarge_developer_2022-03-02T04:29:04.515849+00:00')
     
-    df_pchc_mapping1 = df_pchc_mapping.where( (~col('pchc_name').isNull()) & (~col('pchc').isNull()) ) \
-                                    .groupby('province', 'city', 'district', 'PCHC_Name').agg(func.first('pchc', ignorenulls=True).alias('pchc')) \
-                                    .withColumnRenamed('PCHC_Name', 'hospital')
-    
-    df_pchc_mapping2 = df_pchc_mapping.where( (~col('招标样本名称').isNull()) & (~col('pchc').isNull()) ) \
-                                    .groupby('province', 'city', 'district', '招标样本名称').agg(func.first('pchc', ignorenulls=True).alias('pchc')) \
-                                    .withColumnRenamed('招标样本名称', 'hospital')
-    
-    df_pchc_mapping3 = df_pchc_mapping1.union(df_pchc_mapping2).distinct() \
-                                        .withColumn('province', func.regexp_replace("province", "省|市", "")) \
-                                        .withColumn('city', func.regexp_replace("city", "市", ""))
+    df_project_price = readInFile(kwargs["df_project_price"])
+    df_project_price_hz = readInFile(kwargs["df_project_price_hz"])
 
     # %%
+    # =========== 数据执行 =============
+    def unionDf(df1, df2, utype='same'):
+        if utype=='same':
+            all_cols =  list(set(df1.columns).intersection(set(df2.columns)) - set(['version']))
+        elif utype=='all':
+            all_cols =  list(set(set(df1.columns + df2.columns) - set(['version'])))     
+            for i in all_cols:
+                if i not in df1.columns:
+                    df1 = df1.withColumn(i, func.lit(None))
+                if i not in df2.columns:
+                    df2 = df2.withColumn(i, func.lit(None))            
+        df_all = df1.select(all_cols).union(df2.select(all_cols)) 
+        return df_all
+    
+    df_project_result = df_project_price.where(~col('city').isin(g_hz_city.replace(' ','').split(',')))
+    df_project_result_hz = df_project_price_hz.where(col('city').isin(g_hz_city.replace(' ','').split(',')))
+    
+    df_project_result_all = unionDf(df_project_result, df_project_result_hz, utype='same')
+    # %%
     # =========== 数据输出 =============
-    # 读回
-    df_out = lowCol(df_pchc_mapping3)
+    df_out = lowCol(df_project_result_all)
     return {"out_df":df_out}
