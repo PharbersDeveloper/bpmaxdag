@@ -73,7 +73,7 @@ def execute(**kwargs):
     # df_imp_total = readClickhouse('default', 'ftZnwL38MzTJPr1s_imp_total', '袁毓蔚_Auto_cMax_enlarge_Auto_cMax_enlarge_developer_2022-02-24T08:41:53+00:00')
     # df_project_nation = readClickhouse('default', 'ftZnwL38MzTJPr1s_project_nation', '袁毓蔚_Auto_cMax_enlarge_Auto_cMax_enlarge_developer_2022-02-24T08:41:53+00:00')
     
-    df_imp_total = readInFile(kwargs["df_imp_full_hz"])
+    df_imp_total = readInFile(kwargs["df_rawdata_hangzhou"])
     df_project_nation = readInFile(kwargs["df_project_nation_hz"])
     # %%
     # =========== 函数定义 =============
