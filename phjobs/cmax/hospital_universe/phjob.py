@@ -73,7 +73,7 @@ def execute(**kwargs):
     # df_imp_total = readClickhouse('default', 'F9YGH7iTKuoygfrd_rawdata_all', '袁毓蔚_Auto_cMax_Auto_cMax_developer_2022-02-18T07:50:08+00:00')
     # df_pchc_universe = readClickhouse('default', 'F9YGH7iTKuoygfrd_pchc_universe', '2021_PCHC_Universe更新维护')
     
-    df_imp_total = readInFile(kwargs["df_imp_total"])
+    df_imp_total = readInFile(kwargs["df_rawdata_all"])
     df_pchc_universe = readInFile(kwargs["df_pchc_universe"])
     # %%
     # =========== 函数定义 =============

@@ -170,8 +170,8 @@ def execute(**kwargs):
     
     # 样本里有错误，需删除这些列
     df_raw_data_all = df_raw_data_all.where( ~ (( col('province')=='江苏' ) & ( col('city')=='北京' )) ) \
-                                    .where( (col('quarter') >= g_min_quarter) & (col('quarter') <= g_current_quarter) )    
-    
+                                    .where( (col('quarter') >= g_min_quarter) & (col('quarter') <= g_current_quarter) )  \
+                                    .withColumn('flag', func.lit(0))
     # %%
     # =========== 数据输出 =============
     # 读回
