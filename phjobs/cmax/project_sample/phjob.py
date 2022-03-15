@@ -73,7 +73,7 @@ def execute(**kwargs):
     # df_imp_total = readClickhouse('default', 'ftZnwL38MzTJPr1s_imp_total', '袁毓蔚_Auto_cMax_enlarge_Auto_cMax_enlarge_developer_2022-02-23T03:37:29+00:00')
     # df_hospital_universe = readClickhouse('default', 'ftZnwL38MzTJPr1s_hospital_universe', '袁毓蔚_Auto_cMax_enlarge_Auto_cMax_enlarge_developer_2022-02-23T03:37:29+00:00')
     
-    df_imp_total = readInFile( kwargs["df_imp_total"])
+    df_imp_total = readInFile( kwargs["df_rawdata_all"])
     df_hospital_universe = readInFile( kwargs["df_hospital_universe"])
     df_out_sample = 'NA'
     df_imp_others = 'NA'
