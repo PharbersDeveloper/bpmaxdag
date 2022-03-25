@@ -25,6 +25,7 @@ def execute(**kwargs):
     run_id = kwargs['run_id'].replace(":","_")
     owner = kwargs['owner']
     g_database_temp = kwargs['g_database_temp']
+    g_input_version = kwargs['g_input_version']
     ### input args ###
     
     ### output args ###
@@ -69,32 +70,41 @@ def execute(**kwargs):
 
     # %% 
     # =========== 输入数据读取 =========== 
-    def changeColToInt(df, list_cols):
-        for i in list_cols:
-            df = df.withColumn(i, col(i).cast('int'))
-        return df
-        
     def dealToNull(df):
         df = df.replace(["None", ""], None)
         return df
     
-    df_raw_data = kwargs['df_raw_data_deal_poi']
-    df_raw_data = dealToNull(df_raw_data)
-    df_raw_data = changeColToInt(df_raw_data, ['date', 'year', 'month']) 
+    def dealScheme(df, dict_scheme):
+        # 数据类型处理
+        if dict_scheme != {}:
+            for i in dict_scheme.keys():
+                df = df.withColumn(i, col(i).cast(dict_scheme[i]))
+        return df
     
-    df_price = kwargs['df_price']
-    df_price = dealToNull(df_price)
-    df_price = changeColToInt(df_price, ['date']) 
+    def getInputVersion(df, table_name):
+        # 如果 table在g_input_version中指定了version，则读取df后筛选version，否则使用传入的df
+        version = g_input_version.get(table_name, '')
+        if version != '':
+            version_list =  version.replace(' ','').split(',')
+            df = df.where(col('version').isin(version_list))
+        return df
     
-    df_price_city = kwargs['df_price_city']
-    df_price_city = dealToNull(df_price_city)
-    df_price_city = changeColToInt(df_price_city, ['date'])
+    def readInFile(table_name, dict_scheme={}):
+        df = kwargs[table_name]
+        df = dealToNull(df)
+        df = dealScheme(df, dict_scheme)
+        df = getInputVersion(df, table_name.replace('df_', ''))
+        return df
     
-    df_growth_rate = kwargs['df_growth_rate']
-    df_growth_rate = dealToNull(df_growth_rate)
+    df_raw_data = readInFile('df_raw_data_deal_poi', dict_scheme={'date':'int', 'year':'int', 'month':'int'}) 
     
-    df_original_range_raw = kwargs['df_original_range_raw']
-    df_original_range_raw = dealToNull(df_original_range_raw)
+    df_price = readInFile('df_price', dict_scheme={'date':'int'})
+    
+    df_price_city = readInFile('df_price_city', dict_scheme={'date':'int'})
+    
+    df_growth_rate = readInFile('df_growth_rate')
+    
+    df_original_range_raw = readInFile('df_original_range_raw')
     # df_original_range_raw = changeColToInt(df_original_range_raw, ['year', 'month'])
         
     if monthly_update == "False":
