@@ -27,6 +27,7 @@ def execute(**kwargs):
     run_id = kwargs['run_id'].replace(":","_")
     owner = kwargs['owner']
     g_database_temp = kwargs['g_database_temp']
+    g_input_version = kwargs['g_input_version']
     ### input args ###
     
     ### output args ###
@@ -89,23 +90,48 @@ def execute(**kwargs):
 
     # %% 
     # =========== 输入数据读取 -部分 =========== 
-    def changeColToInt(df, list_cols):
-        for i in list_cols:
-            df = df.withColumn(i, col(i).cast('int'))
-        return df
     def dealToNull(df):
         df = df.replace(["None", ""], None)
+        return df
+    
+    def dealScheme(df, dict_scheme):
+        # 数据类型处理
+        if dict_scheme != {}:
+            for i in dict_scheme.keys():
+                df = df.withColumn(i, col(i).cast(dict_scheme[i]))
+        return df
+    
+    def getInputVersion(df, table_name):
+        # 如果 table在g_input_version中指定了version，则读取df后筛选version，否则使用传入的df
+        version = g_input_version.get(table_name, '')
+        if version != '':
+            version_list =  version.replace(' ','').split(',')
+            df = df.where(col('version').isin(version_list))
+        return df
+    
+    def readInFile(table_name, dict_scheme={}):
+        df = kwargs[table_name]
+        df = dealToNull(df)
+        df = dealScheme(df, dict_scheme)
+        df = getInputVersion(df, table_name.replace('df_', ''))
         return df
         
     df_panel_result = kwargs['df_panel_result']
     df_panel_result = dealToNull(df_panel_result)
     
-    df_PHA_weight =  kwargs['df_weight']
-    df_PHA_weight = dealToNull(df_PHA_weight)
-    
+    df_PHA_weight = readInFile('df_weight')
     if use_d_weight:
-        df_PHA_weight_default =  kwargs['df_weight_default']
-        df_PHA_weight_default = dealToNull(df_PHA_weight_default)
+        df_PHA_weight_default = readInFile('df_weight_default')
+            
+    df_universe_outlier_all = readInFile('df_universe_outlier')
+    df_universe_base = readInFile('df_universe_base')
+    if universe_choice != "Empty":
+        df_universe_other = readInFile('df_universe_other')
+        
+    if if_base:
+        df_factor_base = readInFile('df_factor_base')
+    else:
+        df_factor_all = readInFile('df_factor')
         
     # 删除已有的s3中间文件
     def deletePath(path_dir):
@@ -230,26 +256,21 @@ def execute(**kwargs):
         # =========== 输入 =============
         # universe 读取
         if market in dict_universe_choice.keys():
-            df_universe =  kwargs['df_universe_other'].where(col('version')==dict_universe_choice[market])
-            df_universe = dealToNull(df_universe) 
+            df_universe = df_universe_other.where(col('version')==dict_universe_choice[market])
         else:
-            df_universe =  kwargs['df_universe_base']
-            df_universe = dealToNull(df_universe) 
-            
+            df_universe = df_universe_base
         df_universe = cleanUniverse(df_universe)
             
         # universe_outlier 读取
-        df_universe_outlier = kwargs['df_universe_outlier'].where(col('version')==dict_universe_outlier[market])
+        df_universe_outlier = df_universe_outlier_all.where(col('version')==dict_universe_outlier[market])
         df_universe_outlier = dealToNull(df_universe_outlier)
         df_universe_outlier = cleanUniverse(df_universe_outlier)    
         
         # factor 读取
         if if_base:
-            df_factor = kwargs['df_factor_base']
-            df_factor = dealToNull(df_factor)
+            df_factor = df_factor_base
         else:
-            df_factor = kwargs['df_factor'].where(col('version')==dict_factor[market])
-            df_factor = dealToNull(df_factor)
+            df_factor = df_factor_all.where(col('version')==dict_factor[market])
         
         df_factor = cleanFactor(df_factor)
             

@@ -23,6 +23,7 @@ def execute(**kwargs):
     if_two_source = kwargs['if_two_source']
     hospital_level = kwargs['hospital_level']
     bedsize = kwargs['bedsize']
+    g_input_version = kwargs['g_input_version']
     ### input args ###
     
     ### output args ###
@@ -65,43 +66,53 @@ def execute(**kwargs):
     time_right = int(time_right)
     
     if if_two_source == "False":
-        g_raw_data_type = "df_raw_data"
+        g_raw_data_type = "df_max_raw_data"
     else:
-        g_raw_data_type = "df_raw_data_std"
+        g_raw_data_type = "df_max_raw_data_std"
 
     # %% 
     # =========== 输入数据读取 =========== 
-    def changeColToInt(df, list_cols):
-        for i in list_cols:
-            df = df.withColumn(i, col(i).cast('int'))
-        return df
     def dealToNull(df):
         df = df.replace(["None", ""], None)
         return df
     
-    df_province_city_mapping =  kwargs["df_province_city_mapping"]
-    df_province_city_mapping = dealToNull(df_province_city_mapping)
+    def dealScheme(df, dict_scheme):
+        # 数据类型处理
+        if dict_scheme != {}:
+            for i in dict_scheme.keys():
+                df = df.withColumn(i, col(i).cast(dict_scheme[i]))
+        return df
+    
+    def getInputVersion(df, table_name):
+        # 如果 table在g_input_version中指定了version，则读取df后筛选version，否则使用传入的df
+        version = g_input_version.get(table_name, '')
+        if version != '':
+            version_list =  version.replace(' ','').split(',')
+            df = df.where(col('version').isin(version_list))
+        return df
+    
+    def readInFile(table_name, dict_scheme={}):
+        df = kwargs[table_name]
+        df = dealToNull(df)
+        df = dealScheme(df, dict_scheme)
+        df = getInputVersion(df, table_name.replace('df_', ''))
+        return df
+    
+    df_province_city_mapping = readInFile('df_province_city_mapping')
 
-    df_mkt_mapping =  kwargs["df_mkt_mapping"]
-    df_mkt_mapping = dealToNull(df_mkt_mapping)
+    df_mkt_mapping = readInFile('df_mkt_mapping')
 
-    df_cpa_pha_mapping =  kwargs["df_cpa_pha_mapping"]
-    df_cpa_pha_mapping = dealToNull(df_cpa_pha_mapping)
+    df_cpa_pha_mapping = readInFile('df_cpa_pha_mapping')
 
-    df_cpa_pha_mapping_common =  kwargs["df_cpa_pha_mapping_common"]
-    df_cpa_pha_mapping_common = dealToNull(df_cpa_pha_mapping_common)
+    df_cpa_pha_mapping_common = readInFile('df_cpa_pha_mapping_common')
 
-    df_id_bedsize =  kwargs["df_id_bedsize"]
-    df_id_bedsize = dealToNull(df_id_bedsize)
+    df_id_bedsize = readInFile('df_id_bedsize')
 
-    df_prod_mapping =  kwargs["df_prod_mapping"]
-    df_prod_mapping = dealToNull(df_prod_mapping)
+    df_prod_mapping = readInFile('df_prod_mapping')
 
-    df_raw_data = kwargs[g_raw_data_type]
-    df_raw_data = dealToNull(df_raw_data)
+    df_raw_data = readInFile(g_raw_data_type)
 
-    df_max_result_raw = kwargs["df_max_result_raw"]
-    df_max_result_raw = dealToNull(df_max_result_raw)
+    df_max_result_raw = readInFile("df_max_result_raw")
 
     # %% 
     # =========== 数据清洗 =============

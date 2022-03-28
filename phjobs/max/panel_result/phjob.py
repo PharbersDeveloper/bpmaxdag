@@ -20,6 +20,7 @@ def execute(**kwargs):
     current_year = kwargs['current_year']
     monthly_update = kwargs['monthly_update']
     add_47 = kwargs['add_47']
+    g_input_version = kwargs['g_input_version']
     ### input args ###
     
     ### output args ###
@@ -52,33 +53,44 @@ def execute(**kwargs):
 
     # %% 
     # =========== 输入数据读取 =========== 
-    def changeColToInt(df, list_cols):
-        for i in list_cols:
-            df = df.withColumn(i, col(i).cast('int'))
-        return df
-        
     def dealToNull(df):
         df = df.replace(["None", ""], None)
         return df
     
-    df_raw_data_adding_final =  kwargs['df_raw_data_adding_final']
-    df_raw_data_adding_final = dealToNull(df_raw_data_adding_final)
+    def dealScheme(df, dict_scheme):
+        # 数据类型处理
+        if dict_scheme != {}:
+            for i in dict_scheme.keys():
+                df = df.withColumn(i, col(i).cast(dict_scheme[i]))
+        return df
     
-    df_mkt_mapping = kwargs['df_mkt_mapping']
-    df_mkt_mapping = dealToNull(df_mkt_mapping)
+    def getInputVersion(df, table_name):
+        # 如果 table在g_input_version中指定了version，则读取df后筛选version，否则使用传入的df
+        version = g_input_version.get(table_name, '')
+        if version != '':
+            version_list =  version.replace(' ','').split(',')
+            df = df.where(col('version').isin(version_list))
+        return df
     
-    df_universe =  kwargs['df_universe_base']
-    df_universe = dealToNull(df_universe)
+    def readInFile(table_name, dict_scheme={}):
+        df = kwargs[table_name]
+        df = dealToNull(df)
+        df = dealScheme(df, dict_scheme)
+        df = getInputVersion(df, table_name.replace('df_', ''))
+        return df
+    
+    df_raw_data_adding_final = readInFile('df_raw_data_adding_final')
+    
+    df_mkt_mapping = readInFile('df_mkt_mapping') 
+    
+    df_universe = readInFile('df_universe_base')
     
     if monthly_update == "True":   
-        df_published =  kwargs['df_published']
-        df_published = dealToNull(df_published)
+        df_published = readInFile('df_published')
     
-        df_not_arrived =  kwargs['df_not_arrived']
-        df_not_arrived = dealToNull(df_not_arrived)
+        df_not_arrived = readInFile('df_not_arrived')
     else:
-        df_new_hospital = kwargs['df_new_hospital']
-        df_new_hospital = dealToNull(df_new_hospital)
+        df_new_hospital = readInFile('df_new_hospital')
 
     # %% 
     # =========== 数据清洗 =============

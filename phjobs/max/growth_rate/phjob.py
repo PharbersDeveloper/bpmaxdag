@@ -27,6 +27,7 @@ def execute(**kwargs):
     run_id = kwargs['run_id'].replace(":","_")
     owner = kwargs['owner']
     g_database_temp = kwargs['g_database_temp']
+    g_input_version = kwargs['g_input_version']
     ### input args ###
     
     ### output args ###
@@ -81,28 +82,38 @@ def execute(**kwargs):
 
     # %% 
     # =========== 输入数据读取 =========== 
-
-    def changeColToInt(df, list_cols):
-        for i in list_cols:
-            df = df.withColumn(i, col(i).cast('int'))
-        return df
-    
     def dealToNull(df):
         df = df.replace(["None", ""], None)
         return df
+    
+    def dealScheme(df, dict_scheme):
+        # 数据类型处理
+        if dict_scheme != {}:
+            for i in dict_scheme.keys():
+                df = df.withColumn(i, col(i).cast(dict_scheme[i]))
+        return df
+    
+    def getInputVersion(df, table_name):
+        # 如果 table在g_input_version中指定了version，则读取df后筛选version，否则使用传入的df
+        version = g_input_version.get(table_name, '')
+        if version != '':
+            version_list =  version.replace(' ','').split(',')
+            df = df.where(col('version').isin(version_list))
+        return df
+    
+    def readInFile(table_name, dict_scheme={}):
+        df = kwargs[table_name]
+        df = dealToNull(df)
+        df = dealScheme(df, dict_scheme)
+        df = getInputVersion(df, table_name.replace('df_', ''))
+        return df
 
     if monthly_update == "True":   
-        df_published =  kwargs['df_published']
-        df_published = dealToNull(df_published)
-        df_published = changeColToInt(df_published, ['year']) 
-        
-        df_not_arrived =  kwargs['df_not_arrived']
-        df_not_arrived = dealToNull(df_not_arrived)
-        df_not_arrived = changeColToInt(df_not_arrived, ['date'])
+        df_published = readInFile('df_published', dict_scheme={'year':'int'})
+        df_not_arrived = readInFile('df_not_arrived', dict_scheme={'date':'int'})
                
-    raw_data = kwargs['df_raw_data_deal_poi']
-    raw_data = dealToNull(raw_data)
-    raw_data = changeColToInt(raw_data, ['date', 'year', 'month']) 
+    raw_data = readInFile('df_raw_data_deal_poi', dict_scheme={'date':'int','year':'int','month':'int'}) 
+    
     
     # 删除已有的s3中间文件
     def deletePath(path_dir):
@@ -113,8 +124,7 @@ def execute(**kwargs):
         bucket = s3.Bucket('ph-platform')
         bucket.objects.filter(Prefix=file_name).delete()
     deletePath(path_dir=f"{p_out_growth_rate}/version={run_id}/provider={project_name}/owner={owner}/")
-    
-    
+        
     # %%
     # =========== 数据清洗 =============
     def dealScheme(df, dict_scheme):

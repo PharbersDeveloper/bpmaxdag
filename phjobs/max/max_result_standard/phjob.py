@@ -14,10 +14,8 @@ def execute(**kwargs):
     depends_path = kwargs["depends_path"]
     
     ### input args ###
-    # extract_path = kwargs['extract_path']
     project_name = kwargs['project_name']
-    minimum_product_sep = kwargs['minimum_product_sep']
-    minimum_product_columns = kwargs['minimum_product_columns']
+    g_input_version = kwargs['g_input_version']
     ### input args ###
     
     ### output args ###
@@ -27,54 +25,54 @@ def execute(**kwargs):
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
     from pyspark.sql import functions as func
     import os
-    from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col 
+    from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col
     import json
     import boto3    
     
-    # %%
+    # %% 
     # =========== 数据执行 =========== 
     # 输入参数设置
-    g_out_raw_standard = 'raw_data_standard'
-    g_out_raw_standard_brief = 'raw_data_standard_brief'
-    
-    if minimum_product_sep == 'kong':
-        minimum_product_sep = ''
-    minimum_product_columns = minimum_product_columns.replace(' ', '').split(',')
-    
+    # g_out_max_standard = 'max_result_standard'
+    # g_out_max_standard_brief = 'max_result_standard_brief'
 
     # %% 
-    # =========== 输入数据读取 =========== 
-    def changeColToInt(df, list_cols):
-        for i in list_cols:
-            df = df.withColumn(i, col(i).cast('int'))
-        return df
+    # =========== 输入数据读取 ===========
     def dealToNull(df):
         df = df.replace(["None", ""], None)
         return df
     
-    df_max_city_normalize =  kwargs['df_province_city_mapping_common']
-    df_max_city_normalize = dealToNull(df_max_city_normalize)
+    def dealScheme(df, dict_scheme):
+        # 数据类型处理
+        if dict_scheme != {}:
+            for i in dict_scheme.keys():
+                df = df.withColumn(i, col(i).cast(dict_scheme[i]))
+        return df
+    
+    def getInputVersion(df, table_name):
+        # 如果 table在g_input_version中指定了version，则读取df后筛选version，否则使用传入的df
+        version = g_input_version.get(table_name, '')
+        if version != '':
+            version_list =  version.replace(' ','').split(',')
+            df = df.where(col('version').isin(version_list))
+        return df
+    
+    def readInFile(table_name, dict_scheme={}):
+        df = kwargs[table_name]
+        df = dealToNull(df)
+        df = dealScheme(df, dict_scheme)
+        df = getInputVersion(df, table_name.replace('df_', ''))
+        return df
+    
+    df_max_city_normalize = readInFile('df_province_city_mapping_common')
+    
+    df_prod_mapping = readInFile('df_prod_mapping')
+    
+    df_molecule_atc_map = readInFile('df_product_map_all_atc')
+    
+    df_master_data_map = readInFile('df_master_data_map')
 
-    df_prod_mapping =  kwargs['df_prod_mapping']
-    df_prod_mapping = dealToNull(df_prod_mapping)
+    df_max_result_backfill = readInFile('df_max_result_backfill')
 
-    df_molecule_atc_map =  kwargs['df_product_map_all_atc']
-    df_molecule_atc_map = dealToNull(df_molecule_atc_map)
-
-    df_master_data_map =  kwargs['df_master_data_map']
-    df_master_data_map = dealToNull(df_master_data_map)
-
-    df_cpa_pha_mapping =  kwargs['df_cpa_pha_mapping_common']
-    df_cpa_pha_mapping = dealToNull(df_cpa_pha_mapping)
-
-    df_mkt_mapping = kwargs['df_mkt_mapping']
-    df_mkt_mapping = dealToNull(df_mkt_mapping)
-
-    df_universe =  kwargs['df_universe_base_common']
-    df_universe = dealToNull(df_universe)
-
-    df_raw_data = kwargs['df_raw_data_delivery']
-    df_raw_data = dealToNull(df_raw_data)
     # %% 
     # =========== 数据清洗 =============
     logger.debug('数据清洗-start')
@@ -133,29 +131,21 @@ def execute(**kwargs):
     #  执行
     df_prod_mapping = getTrueColRenamed(df_prod_mapping, dict_cols_prod_map, df_prod_mapping.columns)
     
-    
-    
     # 2、数据类型处理
     df_prod_mapping = dealScheme(df_prod_mapping, {"标准包装数量":"int", "pfc":"int"})
     df_master_data_map = dealScheme(df_master_data_map, {"PACK_ID":"int"})
-    df_molecule_atc_map = dealScheme(df_molecule_atc_map, {"PackID":"int"}) 
-    df_raw_data = dealScheme(df_raw_data, {"Date":"int", "Sales":"double", "Units":"double", "Units_Box":"double", "Pack_Number":"int"})
-        
+    df_molecule_atc_map = dealScheme(df_molecule_atc_map, {"PackID":"int"})
+    df_max_result_backfill = dealScheme(df_max_result_backfill, {"Date":"int"})
+    
     # 3、选择列
-    df_prod_mapping = df_prod_mapping.select("min1", "min2", "pfc", "通用名", "标准商品名", "标准剂型", "标准规格", "标准包装数量", "标准生产企业").distinct()
+    df_prod_mapping = df_prod_mapping.select("min2", "pfc", "通用名", "标准商品名", "标准剂型", "标准规格", "标准包装数量", "标准生产企业").distinct()
     df_max_city_normalize = df_max_city_normalize.select('Province', 'City', '标准省份名称', '标准城市名称').distinct()
     df_master_data_map = df_master_data_map.select("PACK_ID", "MOLE_NAME_CH", "PROD_NAME_CH", "CORP_NAME_CH", "DOSAGE", "SPEC", "PACK", "ATC4_CODE").distinct()
     df_molecule_atc_map = df_molecule_atc_map.select("project", "通用名", "MOLE_NAME_CH", "ATC4_CODE", "ATC3_CODE", "ATC2_CODE", "min2", "PackID").distinct()
-    df_cpa_pha_mapping = df_cpa_pha_mapping.select('ID', 'PHA', '推荐版本').distinct()
-    df_universe = df_universe.select('新版ID', '新版名称', 'Province', 'City').distinct()
-    df_mkt_mapping = df_mkt_mapping.select('mkt', '标准通用名').distinct()
-    
-    std_cols_raw_data = ['Date', 'ID', 'Raw_Hosp_Name', 'Brand', 'Form', 'Specifications', 'Pack_Number', 'Manufacturer', 'Molecule', 'Source', 'Corp', 
-                         'Route', 'ORG_Measure', 'Sales', 'Units', 'Units_Box', 'Path', 'Sheet']
-    df_raw_data = df_raw_data.select(std_cols_raw_data)
+    df_max_result_backfill = df_max_result_backfill.drop('version', 'provider', 'owner')
     
     # 4、其他
-    # ** prod_mapping
+    # == prod_mapping ==
     # a. pfc为0统一替换为null
     df_prod_mapping = df_prod_mapping.withColumn("pfc", func.when(col('pfc') == 0, None).otherwise(col('pfc'))).distinct()
     # b. min2处理
@@ -163,17 +153,14 @@ def execute(**kwargs):
                                     .withColumn("min2", func.regexp_replace("min2", "&amp;", "&")) \
                                     .withColumn("min2", func.regexp_replace("min2", "&lt;", "<")) \
                                     .withColumn("min2", func.regexp_replace("min2", "&gt;", ">"))
-    # ** raw_data ==
-    if df_raw_data.where(~col('Pack_Number').isNull()).count() == 0:
-            df_raw_data = df_raw_data.withColumn("Pack_Number", func.lit(0))
-            
-    # 4、ID列补位
-    df_raw_data = dealIDLength(df_raw_data)
-    df_cpa_pha_mapping = dealIDLength(df_cpa_pha_mapping)
 
     # %%
     # ========== 数据准备 =========
+    
+    # mapping用文件：注意各种mapping的去重，唯一匹配
+    
     # 1. 城市标准化
+    df_max_city_normalize
     
     # 2. master_data_map：PACK_ID - 标准通用名 - ACT, 无缺失
     df_packID_master_map = df_master_data_map.withColumnRenamed("MOLE_NAME_CH", "MOLE_NAME_CH_1") \
@@ -209,34 +196,24 @@ def execute(**kwargs):
                             func.when((col('PACK_ID').isNull()) & (~col('PackID_add').isNull()), col('PackID_add')).otherwise(col('PACK_ID'))) \
                             .drop("PackID_add")
     # 去重：保证每个min2只有一条信息, dropDuplicates会取first
-    df_product_map = df_product_map.dropDuplicates(["min1"])
+    df_product_map = df_product_map.dropDuplicates(["min2"])
 
     # %%
     # ========== 数据 mapping =========
-    # 一. raw_data 基础信息匹配
-    '''
-    raw_data 用min1匹配 product_map的标准列
-    '''
-    df_cpa_pha_mapping = df_cpa_pha_mapping.where(col("推荐版本") == 1) \
-                                        .select("ID", "PHA").distinct()
     
-    df_universe = df_universe.withColumnRenamed('新版ID', 'PHA') \
-                        .withColumnRenamed('新版名称', 'PHA医院名称')
+    # 一. max_result 基础信息匹配
+    df_max_result = df_max_result_backfill.withColumn("Prod_Name_tmp", col('Prod_Name'))
+    df_max_result = df_max_result.withColumn("Prod_Name_tmp", func.regexp_replace("Prod_Name_tmp", "&amp;", "&")) \
+                        .withColumn("Prod_Name_tmp", func.regexp_replace("Prod_Name_tmp", "&lt;", "<")) \
+                        .withColumn("Prod_Name_tmp", func.regexp_replace("Prod_Name_tmp", "&gt;", ">"))
+    if project_name == "Servier":
+        df_max_result = df_max_result.withColumn("Prod_Name_tmp", func.regexp_replace("Prod_Name_tmp", "阿托伐他汀\\+齐鲁制药\\(海南\\)有限公司", "美达信"))
+    if project_name == "NHWA":
+        df_max_result = df_max_result.withColumn("Prod_Name_tmp", func.regexp_replace("Prod_Name_tmp", "迪施宁乳剂", "迪施乐乳剂"))
     
-    df_mkt_mapping = df_mkt_mapping.withColumnRenamed("标准通用名", "通用名") \
-                                    .withColumnRenamed("mkt", "DOI")
-    # min1 生成
-    df_raw_data = df_raw_data.withColumn("Brand", func.when((col('Brand').isNull()) | (col('Brand') == 'NA'), col('Molecule')). \
-                                             otherwise(col('Brand')))
-    df_raw_data = df_raw_data.withColumn('Pack_Number', col('Pack_Number').cast(StringType()))
-    df_raw_data = df_raw_data.withColumn("min1", func.concat_ws(minimum_product_sep, 
-                                    *[func.when(col(i).isNull(), func.lit("NA")).otherwise(col(i)) for i in minimum_product_columns]))
-    
-    # 基础信息匹配
-    df_raw_data = df_raw_data.join(df_cpa_pha_mapping, on="ID", how="left") \
-                        .join(df_universe, on="PHA", how="left") \
-                        .join(df_product_map, on='min1', how="left") \
-                        .join(df_mkt_mapping, on="通用名", how="left")
+    # product_map 匹配 min2 ：获得 PACK_ID, 通用名, 标准商品名, 标准剂型, 标准规格, 标准包装数量, 标准生产企业
+    df_max_result = df_max_result.join(df_product_map, df_max_result["Prod_Name_tmp"] == df_product_map["min2"], how="left") \
+                                    .drop("min2","Prod_Name_tmp")
 
     # %%
     # 二. 标准化
@@ -297,51 +274,36 @@ def execute(**kwargs):
                                 on=["标准省份名称", "City"], how="left")
         return df_data_standard
     
-    df_raw_data_standard = getStandard(df_raw_data)
+    df_max_standard = getStandard(df_max_result)
 
     # %%
+    # ========== 数据结果 =========
+    
     # 全量结果汇总
-    std_names = ["Date", "ID", "Raw_Hosp_Name", "Brand", "Form", "Specifications", "Pack_Number", "Manufacturer", "Molecule",
-             "Source", "Sales", "Units", "Units_Box", "PHA", "PHA医院名称", "Province", "City", "min1"]
+    # df_max_standard_out = df_max_standard.withColumn("project", func.lit(project_name))
     
-    if "Raw_Hosp_Name" not in df_raw_data_standard.columns:
-        df_raw_data_standard = df_raw_data_standard.withColumn("Raw_Hosp_Name", func.lit("0"))
-    if "Units_Box" not in df_raw_data_standard.columns:
-        df_raw_data_standard = df_raw_data_standard.withColumn("Units_Box", func.lit(0))
+    df_max_standard_out = df_max_standard.select("Province", "City" ,"Date", "Prod_Name", "Molecule", "PANEL", "DOI", "Predict_Sales", "Predict_Unit", 
+                                           "标准通用名", "标准商品名", "标准剂型", "标准规格", "标准包装数量", "标准生产企业", "标准省份名称", "标准城市名称", 
+                                            "PACK_ID", "ATC")
+    
+    
+    #df_max_standard_out = df_max_standard_out.withColumn("Date_copy", col('Date'))
         
-    # 有的项目Raw_Hosp_Name全都为null，会在提数中间结果写出再读取时引起报错
-    df_raw_data_standard = df_raw_data_standard.withColumn("Raw_Hosp_Name", func.when(col('Raw_Hosp_Name').isNull(), func.lit("0")) \
-                                                                    .otherwise(col('Raw_Hosp_Name')))
-    
-    for each in df_raw_data_standard.columns:                                                                
-        df_raw_data_standard = df_raw_data_standard.withColumn(each, col(each).cast(StringType()))
-    
-    # df_raw_data_standard = df_raw_data_standard.withColumn("project", func.lit(project_name))
-        
-    df_raw_data_standard = df_raw_data_standard.select(std_names + ["DOI", "标准通用名", "标准商品名", "标准剂型", "标准规格", 
-        "标准包装数量", "标准生产企业", "标准省份名称", "标准城市名称", "PACK_ID", "ATC"])
-    
-    df_raw_data_standard = df_raw_data_standard.withColumn("SALES", col('SALES').cast('double')) \
-                                                .withColumn("UNITS", col('UNITS').cast('double')) \
-                                                .withColumn("UNITS_BOX", col('UNITS_BOX').cast('double')) \
-                                                .withColumn("PACK_ID", col('PACK_ID').cast('int'))
-    
-    # 目录结果汇总
-    df_raw_data_standard_brief = df_raw_data_standard.select("Date", "标准通用名", "ATC", "DOI", "PHA", "Source").distinct()
-    
+    # 目录结果汇总,
+    df_max_standard_brief = df_max_standard.select("Date", "标准通用名", "ATC", "DOI", "PACK_ID").distinct()
     
     # 列名转为大写
-    df_raw_data_standard = df_raw_data_standard.toDF(*[i.upper() for i in df_raw_data_standard.columns])
-    df_raw_data_standard_brief = df_raw_data_standard_brief.toDF(*[i.upper() for i in df_raw_data_standard_brief.columns])
+    df_max_standard_out = df_max_standard_out.toDF(*[i.upper() for i in df_max_standard_out.columns])
+    df_max_standard_brief = df_max_standard_brief.toDF(*[i.upper() for i in df_max_standard_brief.columns])
 
     # %%
-    # ========== 数据输出 =========
+    # =========== 数据输出 =============
     def lowerColumns(df):
         df = df.toDF(*[i.lower() for i in df.columns])
         return df
     
-    df_raw_data_standard = lowerColumns(df_raw_data_standard)
+    df_max_standard_out = lowerColumns(df_max_standard_out)
     
     logger.debug('数据执行-Finish')
     
-    return {'out_df':df_raw_data_standard}
+    return {'out_df':df_max_standard_out}
