@@ -21,6 +21,7 @@ def execute(**kwargs):
     three = kwargs['three']
     twelve = kwargs['twelve']
     g_id_molecule = kwargs['g_id_molecule']
+    g_input_version = kwargs['g_input_version']
     ### input args ###
     
     ### output args ###
@@ -50,14 +51,31 @@ def execute(**kwargs):
 
     
     # %% 
-    # =========== 输入数据读取 =========== 
+    # =========== 输入数据读取 ===========  
     def dealToNull(df):
         df = df.replace(["None", ""], None)
         return df
+    
     def dealScheme(df, dict_scheme):
         # 数据类型处理
-        for i in dict_scheme.keys():
-            df = df.withColumn(i, col(i).cast(dict_scheme[i]))
+        if dict_scheme != {}:
+            for i in dict_scheme.keys():
+                df = df.withColumn(i, col(i).cast(dict_scheme[i]))
+        return df
+    
+    def getInputVersion(df, table_name):
+        # 如果 table在g_input_version中指定了version，则读取df后筛选version，否则使用传入的df
+        version = g_input_version.get(table_name, '')
+        if version != '':
+            version_list =  version.replace(' ','').split(',')
+            df = df.where(col('version').isin(version_list))
+        return df
+    
+    def readInFile(table_name, dict_scheme={}):
+        df = kwargs[table_name]
+        df = dealToNull(df)
+        df = dealScheme(df, dict_scheme)
+        df = getInputVersion(df, table_name.replace('df_', ''))
         return df
     
     def dealIDLength(df, colname='ID'):
@@ -69,16 +87,14 @@ def execute(**kwargs):
         df = df.withColumn(colname, func.regexp_replace(colname, "\\.0", ""))
         df = df.withColumn(colname, func.when(func.length(col(colname)) < 7, func.lpad(col(colname), 6, "0")).otherwise(col(colname)))
         return df
+
     
-    Raw_data = kwargs['df_check_pretreat']
-    Raw_data = dealToNull(Raw_data)
-    Raw_data = dealScheme(Raw_data, {"pack_number":"int", "date":"int"})
+    Raw_data = readInFile('df_check_pretreat', dict_scheme={"pack_number":"int", "date":"int"})
     Raw_data_1 = Raw_data.groupby('ID', 'Date', 'min2', '通用名','商品名','Pack_ID') \
                             .agg(func.sum('Sales').alias('Sales'), func.sum('Units').alias('Units')) \
                             .withColumnRenamed('min2', 'Prod_Name')
     
-    df_cpa_pha_mapping = kwargs['df_cpa_pha_mapping']
-    df_cpa_pha_mapping = dealToNull(df_cpa_pha_mapping)
+    df_cpa_pha_mapping = readInFile('df_cpa_pha_mapping')
     df_cpa_pha_mapping = dealIDLength(df_cpa_pha_mapping)
     cpa_pha_mapping = df_cpa_pha_mapping.where(col("推荐版本") == 1).select('ID', 'PHA').distinct()
     
