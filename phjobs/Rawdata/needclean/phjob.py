@@ -117,15 +117,17 @@ def execute(**kwargs):
                               "标准生产企业":["标准生产企业", "标准企业", "生产企业_标准", "Manufacturer_std", "S_CORPORATION", "标准生产厂家"]
                              }
         df_prod_mapping = getTrueColRenamed(df_prod_mapping, dict_cols_prod_map, df_prod_mapping.columns)
-        # 2、选择标准列
-        df_prod_mapping = df_prod_mapping.select(['min1', 'min2', 'pfc', '通用名', "标准商品名", "标准剂型", "标准规格", "标准包装数量", "标准生产企业"]).distinct()
-        # 3、数据类型处理
+        # 2、数据类型处理
         df_prod_mapping = dealScheme(df_prod_mapping, dict_scheme = {"标准包装数量":"int", "pfc":"int"})
-        # 4、
-        df_prod_mapping = df_prod_mapping.distinct() \
-                                    .withColumn("min1", func.regexp_replace("min1", "&amp;", "&")) \
+        # 3、min1和min2处理
+        df_prod_mapping = df_prod_mapping.withColumn("min1", func.regexp_replace("min1", "&amp;", "&")) \
                                     .withColumn("min1", func.regexp_replace("min1", "&lt;", "<")) \
-                                    .withColumn("min1", func.regexp_replace("min1", "&gt;", ">"))
+                                    .withColumn("min1", func.regexp_replace("min1", "&gt;", ">")) \
+                                    .withColumn("min2", func.regexp_replace("min2", "&amp;", "&")) \
+                                    .withColumn("min2", func.regexp_replace("min2", "&lt;", "<")) \
+                                    .withColumn("min2", func.regexp_replace("min2", "&gt;", ">"))
+        # 4、选择标准列
+        df_prod_mapping = df_prod_mapping.select(['min1', 'min2', 'pfc', '通用名', "标准商品名", "标准剂型", "标准规格", "标准包装数量", "标准生产企业"]).distinct()
         return df_prod_mapping
         
     df_prod_mapping = cleanProdMap(df_prod_mapping)
