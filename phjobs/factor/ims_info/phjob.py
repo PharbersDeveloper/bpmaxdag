@@ -18,6 +18,7 @@ def execute(**kwargs):
     model_month_left = kwargs['model_month_left']
     ims_info_auto = kwargs['ims_info_auto']
     factor_optimize = kwargs['factor_optimize']
+    g_input_version = kwargs['g_input_version']
     ### input args ###
     
     ### output args ###
@@ -57,31 +58,39 @@ def execute(**kwargs):
     def dealToNull(df):
         df = df.replace(["None", ""], None)
         return df
+    
     def dealScheme(df, dict_scheme):
         # 数据类型处理
-        for i in dict_scheme.keys():
-            df = df.withColumn(i, col(i).cast(dict_scheme[i]))
+        if dict_scheme != {}:
+            for i in dict_scheme.keys():
+                df = df.withColumn(i, col(i).cast(dict_scheme[i]))
+        return df
+    
+    def getInputVersion(df, table_name):
+        # 如果 table在g_input_version中指定了version，则读取df后筛选version，否则使用传入的df
+        version = g_input_version.get(table_name, '')
+        if version != '':
+            version_list =  version.replace(' ','').split(',')
+            df = df.where(col('version').isin(version_list))
+        return df
+    
+    def readInFile(table_name, dict_scheme={}):
+        df = kwargs[table_name]
+        df = dealToNull(df)
+        df = dealScheme(df, dict_scheme)
+        df = getInputVersion(df, table_name.replace('df_', ''))
         return df
     
     if ims_info_auto == 'True':
-        df_ims_mapping = kwargs['df_ims_mapping']
-        df_ims_mapping = dealToNull(df_ims_mapping)
-        
-        df_ims_sales = kwargs['df_cn_IMS_Sales_Fdata']
-        df_ims_sales = dealToNull(df_ims_sales)
-        
-        df_geo_map = kwargs['df_cn_geog_dimn']
-        df_geo_map = dealToNull(df_geo_map)
+        df_ims_mapping = readInFile('df_ims_mapping') 
+        df_ims_sales = readInFile('df_cn_ims_sales_fdata')
+        df_geo_map = readInFile('df_cn_geog_dimn')
         
     else:
-        df_ims_info = kwargs['df_ims_info_upload']
-        df_ims_info = dealToNull(df_ims_info)
+        df_ims_info = readInFile('df_ims_info_upload')
 
-    df_mkt_mapping = kwargs['df_mkt_mapping']
-    df_mkt_mapping = dealToNull(df_mkt_mapping)   
-
-    df_prod_mapping = kwargs['df_prod_mapping']
-    df_prod_mapping = dealToNull(df_prod_mapping)
+    df_mkt_mapping = readInFile('df_mkt_mapping')
+    df_prod_mapping = readInFile('df_prod_mapping')
     
     
     # ============== 删除已有的s3中间文件 =============
@@ -130,36 +139,45 @@ def execute(**kwargs):
             df = df.withColumn(i, col(i).cast(dict_scheme[i]))
         return df
     
-    # 1、prod_mapping 清洗
-    dict_cols_prod_map = {"通用名":["通用名", "标准通用名", "通用名_标准", "药品名称_标准", "S_Molecule_Name"], 
-                          "min2":["min2", "min1_标准"],
-                          "pfc":["pfc", "packcode", "Pack_ID", "PackID", "packid"],
-                          "标准商品名":["标准商品名", "商品名_标准", "S_Product_Name"],
-                          "标准剂型":["标准剂型", "剂型_标准", "Form_std", "S_Dosage"],
-                          "标准规格":["标准规格", "规格_标准", "Specifications_std", "药品规格_标准", "S_Pack"],
-                          "标准包装数量":["标准包装数量", "包装数量2", "包装数量_标准", "Pack_Number_std", "S_PackNumber", "最小包装数量"],
-                          "标准生产企业":["标准生产企业", "标准企业", "生产企业_标准", "Manufacturer_std", "S_CORPORATION", "标准生产厂家"]
-                         }
-    
-    df_prod_mapping = getTrueColRenamed(df_prod_mapping, dict_cols_prod_map, df_prod_mapping.columns)
-    df_prod_mapping = dealScheme(df_prod_mapping, {"标准包装数量":"int", "pfc":"int"})
-    
-    df_prod_mapping = df_prod_mapping.withColumn("min2", func.regexp_replace("min2", "&amp;", "&")) \
+    def cleanProdMap(df_prod_mapping):   
+        # 1、列名清洗
+        # 待清洗列名
+        dict_cols_prod_map = {"通用名":["通用名", "标准通用名", "通用名_标准", "药品名称_标准", "S_Molecule_Name"], 
+                              "min2":["min2", "min1_标准"],
+                              "pfc":["pfc", "packcode", "Pack_ID", "PackID", "packid"],
+                              "标准商品名":["标准商品名", "商品名_标准", "S_Product_Name"],
+                              "标准剂型":["标准剂型", "剂型_标准", "Form_std", "S_Dosage"],
+                              "标准规格":["标准规格", "规格_标准", "Specifications_std", "药品规格_标准", "S_Pack"],
+                              "标准包装数量":["标准包装数量", "包装数量2", "包装数量_标准", "Pack_Number_std", "S_PackNumber", "最小包装数量"],
+                              "标准生产企业":["标准生产企业", "标准企业", "生产企业_标准", "Manufacturer_std", "S_CORPORATION", "标准生产厂家"]
+                             }
+        df_prod_mapping = getTrueColRenamed(df_prod_mapping, dict_cols_prod_map, df_prod_mapping.columns)
+        # 2、数据类型处理
+        df_prod_mapping = dealScheme(df_prod_mapping, dict_scheme = {"标准包装数量":"int", "pfc":"int"})
+        # 3、min1和min2处理
+        df_prod_mapping = df_prod_mapping.withColumn("min1", func.regexp_replace("min1", "&amp;", "&")) \
+                                    .withColumn("min1", func.regexp_replace("min1", "&lt;", "<")) \
+                                    .withColumn("min1", func.regexp_replace("min1", "&gt;", ">")) \
+                                    .withColumn("min2", func.regexp_replace("min2", "&amp;", "&")) \
                                     .withColumn("min2", func.regexp_replace("min2", "&lt;", "<")) \
                                     .withColumn("min2", func.regexp_replace("min2", "&gt;", ">"))
-    df_prod_mapping = df_prod_mapping.select('通用名', '标准商品名', '标准剂型', '标准规格', '标准包装数量',
-                                             
-                                        '标准生产企业', 'min2', 'pfc') \
-                                    .distinct() \
-                                    .withColumnRenamed('通用名', 'Molecule') \
-                                    .withColumnRenamed('标准商品名', 'Brand') \
-                                    .withColumnRenamed('标准剂型', 'Form') \
-                                    .withColumnRenamed('标准规格', 'Specifications') \
-                                    .withColumnRenamed('标准包装数量', 'Pack_Number') \
-                                    .withColumnRenamed('标准生产企业', 'Manufacturer') \
-                                    .withColumnRenamed('pfc', 'Pack_ID')
+        # 4、选择标准列
+        df_prod_mapping = df_prod_mapping.select(['min1', 'min2', 'pfc', '通用名', "标准商品名", "标准剂型", "标准规格", "标准包装数量", "标准生产企业"]).distinct()
+        return df_prod_mapping
+    
+    
+    # df_prod_mapping 处理
+    df_prod_mapping = cleanProdMap(df_prod_mapping).select('通用名', '标准商品名', '标准剂型', '标准规格', '标准包装数量','标准生产企业', 'min2', 'pfc') \
+                                                    .distinct() \
+                                                    .withColumnRenamed('通用名', 'Molecule') \
+                                                    .withColumnRenamed('标准商品名', 'Brand') \
+                                                    .withColumnRenamed('标准剂型', 'Form') \
+                                                    .withColumnRenamed('标准规格', 'Specifications') \
+                                                    .withColumnRenamed('标准包装数量', 'Pack_Number') \
+                                                    .withColumnRenamed('标准生产企业', 'Manufacturer') \
+                                                    .withColumnRenamed('pfc', 'Pack_ID')
         
-    # 2. df_mkt_mapping
+    # df_mkt_mapping 处理
     df_mkt_mapping = df_mkt_mapping.withColumnRenamed("标准通用名", "通用名") \
                                     .withColumnRenamed("model", "mkt") \
                                     .select("mkt", "通用名").distinct()

@@ -20,6 +20,7 @@ def execute(**kwargs):
     universe_choice = kwargs['universe_choice']
     rf_ntree = kwargs['rf_ntree']
     rf_minnode = kwargs['rf_minnode']
+    g_input_version = kwargs['g_input_version']
     ### input args ###
     
     ### output args ###
@@ -83,49 +84,58 @@ def execute(**kwargs):
         bucket.objects.filter(Prefix=file_name).delete()
     deletePath(path_dir=f"{p_out + g_table_result}/version={run_id}/provider={project_name}/owner={owner}/")
     
+    
     # %% 
     # =========== 输入数据读取 =========== 
     def dealToNull(df):
         df = df.replace(["None", ""], None)
         return df
+    
     def dealScheme(df, dict_scheme):
         # 数据类型处理
-        for i in dict_scheme.keys():
-            df = df.withColumn(i, col(i).cast(dict_scheme[i]))
-        return df
-    def lowCol(df):
-        df = df.toDF(*[c.lower() for c in df.columns])
+        if dict_scheme != {}:
+            for i in dict_scheme.keys():
+                df = df.withColumn(i, col(i).cast(dict_scheme[i]))
         return df
     
-    df_raw_data = kwargs['df_raw_data']
-    df_raw_data = dealToNull(df_raw_data)
-    df_raw_data = lowCol(df_raw_data)
+    def getInputVersion(df, table_name):
+        # 如果 table在g_input_version中指定了version，则读取df后筛选version，否则使用传入的df
+        version = g_input_version.get(table_name, '')
+        if version != '':
+            version_list =  version.replace(' ','').split(',')
+            df = df.where(col('version').isin(version_list))
+        return df
+    
+    def readInFile(table_name, dict_scheme={}):
+        df = kwargs[table_name]
+        df = dealToNull(df)
+        df = dealScheme(df, dict_scheme)
+        df = getInputVersion(df, table_name.replace('df_', ''))
+        return df
+    
+    def getUniverse(market, dict_universe_choice):
+        if market in dict_universe_choice.keys():
+            df_universe = readInFile('df_universe_other').where(col('version')==dict_universe_choice[market])
+        else:
+            df_universe = readInFile('df_universe_base')
+        return df_universe
+    
+    df_raw_data = readInFile('df_max_raw_data')
 
-    df_product_map = kwargs['df_prod_mapping']
-    df_product_map = dealToNull(df_product_map)
-    df_product_map = lowCol(df_product_map)
+    df_product_map = readInFile('df_prod_mapping')
     
-    df_cpa_pha_mapping = kwargs['df_cpa_pha_mapping']
-    df_cpa_pha_mapping = dealToNull(df_cpa_pha_mapping)
-    df_cpa_pha_mapping = lowCol(df_cpa_pha_mapping)
+    df_cpa_pha_mapping = readInFile('df_cpa_pha_mapping')
     
-    df_mkt_mapping = kwargs['df_mkt_mapping']
-    df_mkt_mapping = dealToNull(df_mkt_mapping)
-    df_mkt_mapping = lowCol(df_mkt_mapping)
+    df_mkt_mapping = readInFile('df_mkt_mapping')
     
-    df_BT_PHA = kwargs['df_BT_PHA']
-    df_BT_PHA = dealToNull(df_BT_PHA)
-    df_BT_PHA = lowCol(df_BT_PHA)
+    df_BT_PHA = readInFile('df_bt_pha')
     
-    df_doctor = kwargs['df_doctor']
-    df_doctor = dealToNull(df_doctor)
-    df_doctor = lowCol(df_doctor)
+    df_doctor = readInFile('df_doctor')
     
-    df_ind = kwargs['df_ind']
+    df_ind = readInFile('df_ind')
+       
     # 列名有点的无法识别，把点换成_
-    df_ind = df_ind.toDF(*(re.sub(r'[\.\s]+', '_', c) for c in df_ind.columns))
-    df_ind = dealToNull(df_ind)
-    df_ind = lowCol(df_ind)
+    # df_ind = df_ind.toDF(*(re.sub(r'[\.\s]+', '_', c) for c in df_ind.columns))
        
 
     # %%
@@ -194,16 +204,7 @@ def execute(**kwargs):
                         .join(df_cpa_pha_mapping, on='id', how='left').persist()
 
     # %%
-    # 2. ======== 每个市场进行 randomForest 分析 ============= 
-    def getUniverse(market, dict_universe_choice):
-        if market in dict_universe_choice.keys():
-            df_hospital_range =  kwargs['df_universe_other'].where(col('version')==dict_universe_choice[market])
-            df_hospital_range = dealToNull(df_hospital_range) 
-        else:
-            df_hospital_range =  kwargs['df_universe_base']
-            df_hospital_range = dealToNull(df_hospital_range)
-        return df_hospital_range
-    
+    # 2. ======== 每个市场进行 randomForest 分析 =============  
     def getHospitalSample(df_hospital_range):
         l_hospital_sample = df_hospital_range.where(col('panel') == 1).select('panel_id').distinct().toPandas()['panel_id'].values.tolist()
         return l_hospital_sample

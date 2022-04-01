@@ -17,6 +17,7 @@ def execute(**kwargs):
     model_month_right = kwargs['model_month_right']
     model_month_left = kwargs['model_month_left']
     all_models = kwargs['all_models']
+    g_input_version = kwargs['g_input_version']
     ### input args ###
     
     ### output args ###
@@ -52,29 +53,37 @@ def execute(**kwargs):
     def dealToNull(df):
         df = df.replace(["None", ""], None)
         return df
+    
     def dealScheme(df, dict_scheme):
         # 数据类型处理
-        for i in dict_scheme.keys():
-            df = df.withColumn(i, col(i).cast(dict_scheme[i]))
-        return df
-    def lowCol(df):
-        df = df.toDF(*[c.lower() for c in df.columns])
+        if dict_scheme != {}:
+            for i in dict_scheme.keys():
+                df = df.withColumn(i, col(i).cast(dict_scheme[i]))
         return df
     
-    df_universe = kwargs['df_universe_base']
-    df_universe = dealToNull(df_universe)
-    df_universe = lowCol(df_universe)
+    def getInputVersion(df, table_name):
+        # 如果 table在g_input_version中指定了version，则读取df后筛选version，否则使用传入的df
+        version = g_input_version.get(table_name, '')
+        if version != '':
+            version_list =  version.replace(' ','').split(',')
+            df = df.where(col('version').isin(version_list))
+        return df
+    
+    def readInFile(table_name, dict_scheme={}):
+        df = kwargs[table_name]
+        df = dealToNull(df)
+        df = dealScheme(df, dict_scheme)
+        df = getInputVersion(df, table_name.replace('df_', ''))
+        return df
+    
+    df_universe = readInFile('df_universe_base')
     # 样本ID
     ID_list = df_universe.where(col('panel') == 1).select('panel_id').distinct().toPandas()['panel_id'].values.tolist()
     
-    df_max_result = kwargs['df_max_result']
-    df_max_result = dealToNull(df_max_result)
-    df_max_result = lowCol(df_max_result)
+    df_max_result = readInFile('df_max_result_backfill')
     df_max_result = df_max_result.where((col('date') >= model_month_left) & (col('date') <= model_month_right))
     
-    df_rf_out_all = kwargs['df_randomforest_result']
-    df_rf_out_all = dealToNull(df_rf_out_all)    
-    df_rf_out_all = lowCol(df_rf_out_all)
+    df_rf_out_all = readInFile('df_randomforest_result')
     
     # ============== 删除已有的s3中间文件 =============
     import boto3
