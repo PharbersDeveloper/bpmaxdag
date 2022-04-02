@@ -115,12 +115,55 @@ def execute(**kwargs):
         else:
             df_universe = readInFile('df_universe_base')
         return df_universe
+
+    # %% 
+    # =========== 数据清洗 =============
+    #logger.debug('数据清洗-start')
+    # 函数定义
+    def getTrueCol(df, l_colnames, l_df_columns):
+        # 检索出正确列名
+        l_true_colname = []
+        for i in l_colnames:
+            if i.lower() in l_df_columns and df.where(~col(i).isNull()).count() > 0:
+                l_true_colname.append(i)
+        if len(l_true_colname) > 1:
+           raise ValueError('有重复列名: %s' %(l_true_colname))
+        if len(l_true_colname) == 0:
+           raise ValueError('缺少列信息: %s' %(l_colnames)) 
+        return l_true_colname[0]  
+    
+    def getTrueColRenamed(df, dict_cols, l_df_columns):
+        # 对列名重命名
+        for i in dict_cols.keys():
+            true_colname = getTrueCol(df, dict_cols[i], l_df_columns)
+            print(true_colname)
+            if true_colname != i:
+                if i in l_df_columns:
+                    # 删除原表中已有的重复列名
+                    df = df.drop(i)
+                df = df.withColumnRenamed(true_colname, i)
+        return df
+    
+    def dealScheme(df, dict_scheme):
+        # 数据类型处理
+        for i in dict_scheme.keys():
+            df = df.withColumn(i, col(i).cast(dict_scheme[i]))
+        return df
+    
+    def cleanUniverse(df_universe):
+        dict_cols_universe = {"City_Tier_2010":["City_Tier", "CITYGROUP", "City_Tier_2010"], "Panel_ID":["Panel_ID", "PHA"]}
+        df_universe = getTrueColRenamed(df_universe, dict_cols_universe, df_universe.columns)
+        df_universe = dealScheme(df_universe, dict_scheme = {"Est_DrugIncome_RMB":"double"})
+        df_universe = df_universe.select("Panel_ID", "City", "Province", "City_Tier_2010", "HOSP_NAME", "PANEL", "BEDSIZE", "Seg", "Est_DrugIncome_RMB").distinct() \
+                                    .withColumn('Seg', col('Seg').cast('int').cast('string'))
+        return df_universe
     
     # %%
     # ========  数据分析  ========
     
     for index, market in enumerate(all_models):
         df_universe = getUniverse(market, dict_universe_choice)
+        df_universe = cleanUniverse(df_universe)
         df_universe = df_universe.fillna(0, 'Est_DrugIncome_RMB') \
                             .withColumn('Est_DrugIncome_RMB', func.when(func.isnan('Est_DrugIncome_RMB'), 0).otherwise(col('Est_DrugIncome_RMB')))
         
