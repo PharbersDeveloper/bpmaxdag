@@ -20,6 +20,7 @@ def execute(**kwargs):
     job_choice = kwargs['job_choice']
     year_list = kwargs['year_list']
     add_imsinfo_version = kwargs['add_imsinfo_version']
+    g_input_version = kwargs['g_input_version']
     ### input args ###
     
     ### output args ###
@@ -79,31 +80,43 @@ def execute(**kwargs):
     def dealToNull(df):
         df = df.replace(["None", ""], None)
         return df
+    
     def dealScheme(df, dict_scheme):
         # 数据类型处理
-        for i in dict_scheme.keys():
-            df = df.withColumn(i, col(i).cast(dict_scheme[i]))
+        if dict_scheme != {}:
+            for i in dict_scheme.keys():
+                df = df.withColumn(i, col(i).cast(dict_scheme[i]))
         return df
+
     def lowCol(df):
         df = df.toDF(*[c.lower() for c in df.columns])
         return df
+    
+    def getInputVersion(df, table_name):
+        # 如果 table在g_input_version中指定了version，则读取df后筛选version，否则使用传入的df
+        version = g_input_version.get(table_name, '')
+        if version != '':
+            version_list =  version.replace(' ','').split(',')
+            df = df.where(col('version').isin(version_list))
+        return df
+    
+    def readInFile(table_name, dict_scheme={}):
+        df = kwargs[table_name]
+        df = dealToNull(df)
+        df = lowCol(df)
+        df = dealScheme(df, dict_scheme)
+        df = getInputVersion(df, table_name.replace('df_', ''))
+        return df
+
        
-    df_mkt_mapping = kwargs['df_mkt_mapping']
-    df_mkt_mapping = dealToNull(df_mkt_mapping)    
-    df_mkt_mapping = lowCol(df_mkt_mapping)
+    df_mkt_mapping = readInFile('df_mkt_mapping') 
+       
+    df_prod_mapping = readInFile('df_prod_mapping')
     
-   
-    df_prod_mapping = kwargs['df_prod_mapping']
-    df_prod_mapping = dealToNull(df_prod_mapping)    
-    df_prod_mapping = lowCol(df_prod_mapping)
+    df_raw_data = readInFile('df_max_raw_data')
     
-    df_raw_data = kwargs['df_raw_data']
-    df_raw_data = dealToNull(df_raw_data)    
-    df_raw_data = lowCol(df_raw_data)
+    df_ims_sales_all = readInFile('df_cn_ims_sales_fdata')
     
-    df_ims_sales_all  = kwargs['df_cn_IMS_Sales_Fdata']
-    df_ims_sales_all = dealToNull(df_ims_sales_all)    
-    df_ims_sales_all = lowCol(df_ims_sales_all)
     if add_imsinfo_version != 'Empty':
         df_ims_sales = df_ims_sales_all.where(col('version') != add_imsinfo_version)
         df_add_imsinfo_file = df_ims_sales_all.where(col('version') == add_imsinfo_version)
@@ -203,6 +216,7 @@ def execute(**kwargs):
         
     # 2. raw_data 文件
     # min1 生成
+    df_raw_data = df_raw_data.select('Date', 'ID', 'Raw_Hosp_Name', 'Brand', 'Form', 'Specifications', 'Pack_Number', 'Manufacturer', 'Molecule', 'Source', 'Corp', 'Route', 'ORG_Measure', 'Sales', 'Units', 'Units_Box', 'Path', 'Sheet')
     df_raw_data = df_raw_data.withColumn("Brand", func.when((col('Brand').isNull()) | (col('Brand') == 'NA'), col('Molecule')). \
                                              otherwise(col('Brand')))
     df_raw_data = df_raw_data.withColumn('Pack_Number', col('Pack_Number').cast(StringType()))
