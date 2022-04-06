@@ -24,6 +24,7 @@ def execute(**kwargs):
     g_min_quarter = kwargs['g_min_quarter']
     g_last_quarter = kwargs['g_last_quarter']
     g_lack_month = kwargs['g_lack_month']
+    g_input_version = kwargs['g_input_version']
     
     
     ### input args ###
@@ -51,8 +52,8 @@ def execute(**kwargs):
         return df
     
     def dealScheme(df, dict_scheme):
-        # 数据类型处理
-        if dict_scheme == {}:
+        # 数据类型处理 {"col":"type"}
+        if dict_scheme != {}:
             for i in dict_scheme.keys():
                 df = df.withColumn(i, col(i).cast(dict_scheme[i]))
         return df
@@ -61,10 +62,20 @@ def execute(**kwargs):
         df = df.toDF(*[c.lower() for c in df.columns])
         return df
     
-    def readInFile(df, dict_scheme={}):
+    def getInputVersion(df, table_name):
+        # 如果 table在g_input_version中指定了version，则读取df后筛选version，否则使用传入的df
+        version = g_input_version.get(table_name, '')
+        if version != '':
+            version_list =  version.replace(' ','').split(',')
+            df = df.where(col('version').isin(version_list))
+        return df
+    
+    def readInFile(table_name, dict_scheme={}):
+        df = kwargs[table_name]
         df = dealToNull(df)
         df = lowCol(df)
         df = dealScheme(df, dict_scheme)
+        df = getInputVersion(df, table_name.replace('df_', ''))
         return df
     
     
@@ -88,9 +99,9 @@ def execute(**kwargs):
     # df_market_molecule = readClickhouse('default', 'F9YGH7iTKuoygfrd_market_molecule', '袁毓蔚_Auto_cMax_Auto_cMax_developer_2022-02-16T02:42:54+00:00')
     # df_shanghai_packid_moleinfo = readClickhouse('default', 'F9YGH7iTKuoygfrd_shanghai_packid_moleinfo', 'shanghai_201805_202107_all')
     
-    df_ims_molecule_info = readInFile(kwargs['df_ims_molecule_info'])
-    df_market_molecule = readInFile(kwargs['df_market_molecule'])
-    df_shanghai_raw = readInFile(kwargs['df_shanghai_packid_moleinfo'])
+    df_ims_molecule_info = readInFile('df_ims_molecule_info')
+    df_market_molecule = readInFile('df_market_molecule')
+    df_shanghai_raw = readInFile('df_shanghai_packid_moleinfo')
 
     # %% 
     # =========== 函数定义 =============

@@ -14,6 +14,7 @@ def execute(**kwargs):
     depends_path = kwargs["depends_path"]
     
     ### input args ###
+    g_input_version = kwargs['g_input_version']
     ### input args ###
     
     ### output args ###
@@ -37,7 +38,7 @@ def execute(**kwargs):
     
     def dealScheme(df, dict_scheme):
         # 数据类型处理
-        if dict_scheme == {}:
+        if dict_scheme != {}:
             for i in dict_scheme.keys():
                 df = df.withColumn(i, col(i).cast(dict_scheme[i]))
         return df
@@ -46,10 +47,20 @@ def execute(**kwargs):
         df = df.toDF(*[c.lower() for c in df.columns])
         return df
     
-    def readInFile(df, dict_scheme={}):
+    def getInputVersion(df, table_name):
+        # 如果 table在g_input_version中指定了version，则读取df后筛选version，否则使用传入的df
+        version = g_input_version.get(table_name, '')
+        if version != '':
+            version_list =  version.replace(' ','').split(',')
+            df = df.where(col('version').isin(version_list))
+        return df
+    
+    def readInFile(table_name, dict_scheme={}):
+        df = kwargs[table_name]
         df = dealToNull(df)
         df = lowCol(df)
         df = dealScheme(df, dict_scheme)
+        df = getInputVersion(df, table_name.replace('df_', ''))
         return df
     
     
@@ -74,9 +85,9 @@ def execute(**kwargs):
     # df_hospital_universe = readClickhouse('default', 'ftZnwL38MzTJPr1s_hospital_universe', '袁毓蔚_Auto_cMax_enlarge_Auto_cMax_enlarge_developer_2022-02-23T03:37:29+00:00')
     # 64700
     
-    df_pchc_city_tier = readInFile(kwargs["df_pchc_city_tier"])
-    df_project_sample = readInFile(kwargs["df_project_sample"])
-    df_hospital_universe = readInFile(kwargs["df_hospital_universe"])
+    df_pchc_city_tier = readInFile("df_pchc_city_tier")
+    df_project_sample = readInFile("df_project_sample")
+    df_hospital_universe = readInFile("df_hospital_universe")
     # %% 
     # =========== 函数定义 =============
     def reName(df, dict_rename={}):

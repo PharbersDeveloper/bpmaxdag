@@ -14,6 +14,7 @@ def execute(**kwargs):
     depends_path = kwargs["depends_path"]
     
     ### input args ###
+    g_input_version = kwargs['g_input_version']
     ### input args ###
     
     ### output args ###
@@ -36,8 +37,8 @@ def execute(**kwargs):
         return df
     
     def dealScheme(df, dict_scheme):
-        # 数据类型处理
-        if dict_scheme == {}:
+        # 数据类型处理 {"col":"type"}
+        if dict_scheme != {}:
             for i in dict_scheme.keys():
                 df = df.withColumn(i, col(i).cast(dict_scheme[i]))
         return df
@@ -46,13 +47,22 @@ def execute(**kwargs):
         df = df.toDF(*[c.lower() for c in df.columns])
         return df
     
-    def readInFile(df, dict_scheme={}):
+    def getInputVersion(df, table_name):
+        # 如果 table在g_input_version中指定了version，则读取df后筛选version，否则使用传入的df
+        version = g_input_version.get(table_name, '')
+        if version != '':
+            version_list =  version.replace(' ','').split(',')
+            df = df.where(col('version').isin(version_list))
+        return df
+    
+    def readInFile(table_name, dict_scheme={}):
+        df = kwargs[table_name]
         df = dealToNull(df)
         df = lowCol(df)
         df = dealScheme(df, dict_scheme)
+        df = getInputVersion(df, table_name.replace('df_', ''))
         return df
-    
-    
+        
     def readClickhouse(database, dbtable, version):
         version = version.replace(" ","").split(',')
         df = spark.read.format("jdbc") \
@@ -74,11 +84,11 @@ def execute(**kwargs):
     #df_cn_mol_ref = readClickhouse('default', 'F9YGH7iTKuoygfrd_cn_mol_ref', 'cn_mol_ref_201912_1')
     #df_cn_corp_ref = readClickhouse('default', 'F9YGH7iTKuoygfrd_cn_corp_ref', 'cn_corp_ref_201912_1')
     
-    df_cn_prod_ref = readInFile(kwargs['df_cn_prod_ref'])
-    df_ims_chpa = readInFile(kwargs['df_ims_chpa'])
-    df_cn_mol_lkp = readInFile(kwargs['df_cn_mol_lkp'])
-    df_ims_mol_ref = readInFile(kwargs['df_cn_mol_ref'])
-    df_ims_corp_ref = readInFile(kwargs['df_cn_corp_ref'])
+    df_cn_prod_ref = readInFile('df_cn_prod_ref')
+    df_ims_chpa = readInFile('df_ims_chpa')
+    df_cn_mol_lkp = readInFile('df_cn_mol_lkp')
+    df_ims_mol_ref = readInFile('df_cn_mol_ref')
+    df_ims_corp_ref = readInFile('df_cn_corp_ref')
 
     # %%
     # ==========  数据执行  ============
