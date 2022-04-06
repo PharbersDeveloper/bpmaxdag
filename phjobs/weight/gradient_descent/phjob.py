@@ -21,6 +21,7 @@ def execute(**kwargs):
     max_iteration = kwargs['max_iteration']
     gradient_type = kwargs['gradient_type']
     year_list = kwargs['year_list']
+    g_input_version = kwargs['g_input_version']
     ### input args ###
     
     ### output args ###
@@ -97,26 +98,39 @@ def execute(**kwargs):
     def dealToNull(df):
         df = df.replace(["None", ""], None)
         return df
+    
     def dealScheme(df, dict_scheme):
         # 数据类型处理
-        for i in dict_scheme.keys():
-            df = df.withColumn(i, col(i).cast(dict_scheme[i]))
+        if dict_scheme != {}:
+            for i in dict_scheme.keys():
+                df = df.withColumn(i, col(i).cast(dict_scheme[i]))
         return df
+
     def lowCol(df):
         df = df.toDF(*[c.lower() for c in df.columns])
         return df
+    
+    def getInputVersion(df, table_name):
+        # 如果 table在g_input_version中指定了version，则读取df后筛选version，否则使用传入的df
+        version = g_input_version.get(table_name, '')
+        if version != '':
+            version_list =  version.replace(' ','').split(',')
+            df = df.where(col('version').isin(version_list))
+        return df
+    
+    def readInFile(table_name, dict_scheme={}):
+        df = kwargs[table_name]
+        df = dealToNull(df)
+        df = lowCol(df)
+        df = dealScheme(df, dict_scheme)
+        df = getInputVersion(df, table_name.replace('df_', ''))
+        return df
        
-    df_ims_sales_gr_all = kwargs['df_ims_growth_rate']
-    df_ims_sales_gr_all = dealToNull(df_ims_sales_gr_all)    
-    df_ims_sales_gr_all = lowCol(df_ims_sales_gr_all)
+    df_ims_sales_gr_all = readInFile('df_ims_growth_rate')
     
-    df_data_target_all = kwargs['df_weight_data_target']
-    df_data_target_all = dealToNull(df_data_target_all)    
-    df_data_target_all = lowCol(df_data_target_all)
+    df_data_target_all = readInFile('df_weight_data_target')
     
-    df_universe = kwargs['df_universe_base']
-    df_universe = dealToNull(df_universe)    
-    df_universe = lowCol(df_universe)
+    df_universe = readInFile('df_universe_base')
     
     # %%
     # ==========  数据执行  ============

@@ -14,6 +14,7 @@ def execute(**kwargs):
     depends_path = kwargs["depends_path"]
     
     ### input args ###  
+    g_input_version = kwargs['g_input_version']
     p_out = kwargs['p_out']
     out_mode = kwargs['out_mode']
     run_id = kwargs['run_id']
@@ -56,12 +57,32 @@ def execute(**kwargs):
         df = df.replace(["None", ""], None)
         return df
     
-    # 上传的 raw_data
-    raw_data = kwargs['df_raw_data_upload']
-    raw_data = dealToNull(raw_data)
+    def dealScheme(df, dict_scheme):
+        # 数据类型处理
+        if dict_scheme != {}:
+            for i in dict_scheme.keys():
+                df = df.withColumn(i, col(i).cast(dict_scheme[i]))
+        return df
     
-    molecule_adjust = kwargs['df_molecule_adjust']
-    molecule_adjust = dealToNull(molecule_adjust)
+    def getInputVersion(df, table_name):
+        # 如果 table在g_input_version中指定了version，则读取df后筛选version，否则使用传入的df
+        version = g_input_version.get(table_name, '')
+        if version != '':
+            version_list =  version.replace(' ','').split(',')
+            df = df.where(col('version').isin(version_list))
+        return df
+    
+    def readInFile(table_name, dict_scheme={}):
+        df = kwargs[table_name]
+        df = dealToNull(df)
+        df = dealScheme(df, dict_scheme)
+        df = getInputVersion(df, table_name.replace('df_', ''))
+        return df
+    
+    # 上传的 raw_data
+    raw_data = readInFile('df_max_raw_data_upload')
+    
+    molecule_adjust = readInFile('df_molecule_adjust')
             
     
     # %%

@@ -191,7 +191,8 @@ def execute(**kwargs):
     def cleanUniverse(df_universe):
         dict_cols_universe = {"City_Tier_2010":["City_Tier", "CITYGROUP", "City_Tier_2010"], "PHA":["Panel_ID", "PHA"]}
         df_universe = getTrueColRenamed(df_universe, dict_cols_universe, df_universe.columns)
-        df_universe = df_universe.select("PHA", "City", "Province", "City_Tier_2010", "HOSP_NAME", "PANEL", "BEDSIZE", "Seg", "Est_DrugIncome_RMB").distinct()
+        df_universe = df_universe.select("PHA", "City", "Province", "City_Tier_2010", "HOSP_NAME", "PANEL", "BEDSIZE", "Seg", "Est_DrugIncome_RMB").distinct() \
+                                    .withColumn('Seg', col('Seg').cast('int').cast('string'))
         return df_universe
     def cleanFactor(df_factor):
         dict_factor_universe = {"factor":["factor_new", "factor"]}

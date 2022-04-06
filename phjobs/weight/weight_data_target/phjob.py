@@ -24,6 +24,7 @@ def execute(**kwargs):
 
     year_list = kwargs['year_list']
     add_imsinfo_version = kwargs['add_imsinfo_version']
+    g_input_version = kwargs['g_input_version']
     ### input args ###
     
     ### output args ###
@@ -107,66 +108,65 @@ def execute(**kwargs):
         bucket = s3.Bucket('ph-platform')
         bucket.objects.filter(Prefix=file_name).delete()
     deletePath(path_dir=f"{p_out + g_table_result}/version={run_id}/provider={project_name}/owner={owner}/")
-        
+
     
     # %% 
     # =========== 输入数据读取 =========== 
     def dealToNull(df):
         df = df.replace(["None", ""], None)
         return df
+    
     def dealScheme(df, dict_scheme):
         # 数据类型处理
-        for i in dict_scheme.keys():
-            df = df.withColumn(i, col(i).cast(dict_scheme[i]))
+        if dict_scheme != {}:
+            for i in dict_scheme.keys():
+                df = df.withColumn(i, col(i).cast(dict_scheme[i]))
         return df
+
     def lowCol(df):
         df = df.toDF(*[c.lower() for c in df.columns])
         return df
     
+    def getInputVersion(df, table_name):
+        # 如果 table在g_input_version中指定了version，则读取df后筛选version，否则使用传入的df
+        version = g_input_version.get(table_name, '')
+        if version != '':
+            version_list =  version.replace(' ','').split(',')
+            df = df.where(col('version').isin(version_list))
+        return df
+    
+    def readInFile(table_name, dict_scheme={}):
+        df = kwargs[table_name]
+        df = dealToNull(df)
+        df = lowCol(df)
+        df = dealScheme(df, dict_scheme)
+        df = getInputVersion(df, table_name.replace('df_', ''))
+        return df
+            
     def getUniverse(market, dict_universe_choice):
         if market in dict_universe_choice.keys():
-            df_universe =  kwargs['df_universe_other'].where(col('version')==dict_universe_choice[market])
-            df_universe = dealToNull(df_universe) 
+            df_universe = readInFile('df_universe_other').where(col('version')==dict_universe_choice[market])
         else:
-            df_universe =  kwargs['df_universe_base']
-            df_universe = dealToNull(df_universe)
+            df_universe = readInFile('df_universe_base')
         return df_universe
     
-    df_id_bedsize = kwargs['df_ID_Bedsize']
-    df_id_bedsize = dealToNull(df_id_bedsize)
-    df_id_bedsize = lowCol(df_id_bedsize)
+    df_id_bedsize = readInFile('df_id_bedsize')
 
-    df_city_info = kwargs['df_province_city_mapping']
-    df_city_info = dealToNull(df_city_info)
-    df_city_info = lowCol(df_city_info)
+    df_city_info = readInFile('df_province_city_mapping')
     
-    df_mkt_mapping = kwargs['df_mkt_mapping']
-    df_mkt_mapping = dealToNull(df_mkt_mapping)    
-    df_mkt_mapping = lowCol(df_mkt_mapping)
+    df_mkt_mapping = readInFile('df_mkt_mapping')
     
-    df_cpa_pha_mapping = kwargs['df_cpa_pha_mapping']
-    df_cpa_pha_mapping = dealToNull(df_cpa_pha_mapping)    
-    df_cpa_pha_mapping = lowCol(df_cpa_pha_mapping)
+    df_cpa_pha_mapping = readInFile('df_cpa_pha_mapping')
     
-    df_prod_mapping = kwargs['df_prod_mapping']
-    df_prod_mapping = dealToNull(df_prod_mapping)    
-    df_prod_mapping = lowCol(df_prod_mapping)
+    df_prod_mapping = readInFile('df_prod_mapping')
     
-    df_raw_data = kwargs['df_raw_data']
-    df_raw_data = dealToNull(df_raw_data)    
-    df_raw_data = lowCol(df_raw_data)
+    df_raw_data = readInFile('df_max_raw_data')
           
-    df_universe_outlier_all = kwargs['df_universe_outlier']
-    df_universe_outlier_all = dealToNull(df_universe_outlier_all)
-    df_universe_outlier_all = lowCol(df_universe_outlier_all)
+    df_universe_outlier_all = readInFile('df_universe_outlier')
     
-    df_universe = kwargs['df_universe_base']
-    df_universe = dealToNull(df_universe)    
-    df_universe = lowCol(df_universe)
+    df_universe = readInFile('df_universe_base')
     
-    df_factor_all = kwargs['df_factor']
-    df_factor_all = dealToNull(df_factor_all)
-    df_factor_all = lowCol(df_factor_all)
+    df_factor_all = readInFile('df_factor')
     
     # %% 
     # =========== 数据清洗 =============

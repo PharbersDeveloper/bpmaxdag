@@ -17,6 +17,7 @@ def execute(**kwargs):
     if_two_source = kwargs['if_two_source']
     cut_time_left = kwargs['cut_time_left']
     if_union = kwargs['if_union']
+    g_input_version = kwargs['g_input_version']
     ### input args ###
     
     ### output args ###
@@ -53,23 +54,39 @@ def execute(**kwargs):
         df = df.replace(["None", ""], None)
         return df
     
+    def dealScheme(df, dict_scheme):
+        # 数据类型处理
+        if dict_scheme != {}:
+            for i in dict_scheme.keys():
+                df = df.withColumn(i, col(i).cast(dict_scheme[i]))
+        return df
+    
+    def getInputVersion(df, table_name):
+        # 如果 table在g_input_version中指定了version，则读取df后筛选version，否则使用传入的df
+        version = g_input_version.get(table_name, '')
+        if version != '':
+            version_list =  version.replace(' ','').split(',')
+            df = df.where(col('version').isin(version_list))
+        return df
+    
+    def readInFile(table_name, dict_scheme={}):
+        df = kwargs[table_name]
+        df = dealToNull(df)
+        df = dealScheme(df, dict_scheme)
+        df = getInputVersion(df, table_name.replace('df_', ''))
+        return df
+    
     if if_two_source == 'True':
-        raw_data_dedup_delivery = kwargs['df_dropdup_cross_source_raw_std']
-        raw_data_dedup_delivery = dealToNull(raw_data_dedup_delivery)
-        
-        cpa_pha_map = kwargs['df_cpa_pha_mapping_common']
-        cpa_pha_map = dealToNull(cpa_pha_map)
+        raw_data_dedup_delivery = readInFile('df_dropdup_cross_source_raw_std')
+        cpa_pha_map = readInFile('df_cpa_pha_mapping_common')
     else:
-        raw_data_dedup_delivery = kwargs['df_dropdup_cross_source_raw']
-        raw_data_dedup_delivery = dealToNull(raw_data_dedup_delivery)
+        raw_data_dedup_delivery = readInFile('df_dropdup_cross_source_raw')
         
-        cpa_pha_map = kwargs['df_cpa_pha_mapping']
-        cpa_pha_map = dealToNull(cpa_pha_map)
+        cpa_pha_map = readInFile('df_cpa_pha_mapping')
         
     
     # 历史数据 raw_data_std
-    history_raw_data_delivery = kwargs['df_history_raw_data_delivery']
-    history_raw_data_delivery = dealToNull(history_raw_data_delivery)
+    history_raw_data_delivery = readInFile('df_max_raw_data_delivery')
             
     
     # %%
@@ -123,7 +140,7 @@ def execute(**kwargs):
         history_raw_data = history_raw_data.join(new_date_mole_id, on=['Date', 'Molecule', 'ID'], how='left_anti') \
                                             .join(new_date_mole_pha, on=['Date', 'Molecule', 'PHA'], how='left_anti')
         # 4.合并数据
-        all_raw_data = new_raw_data.select(history_raw_data.columns).union(history_raw_data) \
+        all_raw_data = new_raw_data.union(history_raw_data.select(new_raw_data.columns)) \
                                     .drop('PHA')
         all_raw_data = dealIDLength(all_raw_data)
     
@@ -146,6 +163,6 @@ def execute(**kwargs):
     def lowerColumns(df):
         df = df.toDF(*[i.lower() for i in df.columns])
         return df
-    raw_data_dedup_delivery_all = lowerColumns(raw_data_dedup_delivery_all)   
+    raw_data_dedup_delivery_all = lowerColumns(raw_data_dedup_delivery_all)
     return {"out_df":raw_data_dedup_delivery_all}
 
