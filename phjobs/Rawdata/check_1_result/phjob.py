@@ -62,6 +62,7 @@ def execute(**kwargs):
     
     check_1 = kwargs['df_check_1']
     check_1 = dealToNull(check_1)
+    check_1 = dealScheme(check_1, {'date':'int', '每月产品个数_min2':'int'})
     
     # %%
     # ================= 数据执行 ==================	
@@ -100,7 +101,7 @@ def execute(**kwargs):
         df_out = spark.createDataFrame(df) 
         return df_out
     
-    df_check_result_1 = getResultDf(check_result_1, colname = '产品个数与历史相差不超过0.08')
+    df_check_result_1 = getResultDf(check_result_1, colname = '产品个数与历史相差不超过008')
 
     # %%
     # =========== 数据输出 =============
