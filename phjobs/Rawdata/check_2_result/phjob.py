@@ -103,7 +103,7 @@ def execute(**kwargs):
         df_out = spark.createDataFrame(df) 
         return df_out
     
-    df_check_result_2 = getResultDf(check_result_2, colname = '缺失产品销售额占比不超过0.02')
+    df_check_result_2 = getResultDf(check_result_2, colname = '缺失产品销售额占比不超过002')
     
     # %%
     # =========== 数据输出 =============

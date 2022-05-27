@@ -8,10 +8,8 @@ from phcli.ph_logs.ph_logs import phs3logger, LOG_DEBUG_LEVEL
 
 
 def execute(**kwargs):
-    logger = phs3logger(kwargs["job_id"], LOG_DEBUG_LEVEL)
-    spark = kwargs['spark']()
-    result_path_prefix = kwargs["result_path_prefix"]
-    depends_path = kwargs["depends_path"]
+    logger = phs3logger(kwargs["run_id"], LOG_DEBUG_LEVEL)
+    spark = kwargs['spark']
     
     ### input args ###
     time_left = kwargs['time_left']
@@ -111,8 +109,10 @@ def execute(**kwargs):
     df_prod_mapping = readInFile('df_prod_mapping')
 
     df_raw_data = readInFile(g_raw_data_type)
+    df_raw_data = dealScheme(df_raw_data, {'date':'int'})
 
     df_max_result_raw = readInFile("df_max_result_raw")
+    df_max_result_raw = dealScheme(df_max_result_raw, {'date':'int'})
 
     # %% 
     # =========== 数据清洗 =============

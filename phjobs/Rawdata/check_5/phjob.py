@@ -62,7 +62,7 @@ def execute(**kwargs):
     
     Raw_data = kwargs['df_check_pretreat']
     Raw_data = dealToNull(Raw_data)
-    Raw_data = dealScheme(Raw_data, {"Pack_Number":"int", "Date":"int"})
+    Raw_data = dealScheme(Raw_data, {"Pack_Number":"int", "Date":"int", 'sales':'double', 'units':'double'})
     Raw_data_1 = Raw_data.groupby('ID', 'Date', 'min2', '通用名','商品名','Pack_ID') \
                             .agg(func.sum('Sales').alias('Sales'), func.sum('Units').alias('Units')) \
                             .withColumnRenamed('min2', 'Prod_Name')

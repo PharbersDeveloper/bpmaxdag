@@ -62,6 +62,7 @@ def execute(**kwargs):
     
     check_3 = kwargs['df_check_3']
     check_3 = dealToNull(check_3)
+    check_3 = dealScheme(check_3, {'date':'int', '医院个数':'int'})
     
     # %%
     # ================= 数据执行 ==================	
@@ -101,7 +102,7 @@ def execute(**kwargs):
         df_out = spark.createDataFrame(df) 
         return df_out
     
-    df_check_result_3 = getResultDf(check_result_3, colname = '医院个数和历史相差不超过0.01')    
+    df_check_result_3 = getResultDf(check_result_3, colname = '医院个数和历史相差不超过001')    
 
     # %%
     # =========== 数据输出 =============

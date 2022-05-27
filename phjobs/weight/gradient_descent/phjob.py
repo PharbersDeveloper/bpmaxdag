@@ -9,10 +9,8 @@ from phcli.ph_logs.ph_logs import phs3logger, LOG_DEBUG_LEVEL
 
 
 def execute(**kwargs):
-    logger = phs3logger(kwargs["job_id"], LOG_DEBUG_LEVEL)
-    spark = kwargs['spark']()
-    result_path_prefix = kwargs["result_path_prefix"]
-    depends_path = kwargs["depends_path"]
+    logger = phs3logger(kwargs["run_id"], LOG_DEBUG_LEVEL)
+    spark = kwargs['spark']
     
     ### input args ###
     market_city_brand = kwargs['market_city_brand']
@@ -127,8 +125,10 @@ def execute(**kwargs):
         return df
        
     df_ims_sales_gr_all = readInFile('df_ims_growth_rate')
+    df_ims_sales_gr_all = dealScheme(df_ims_sales_gr_all, {'gr':'double','share':'double', 'share_ly':'double'})
     
     df_data_target_all = readInFile('df_weight_data_target')
+    df_data_target_all = dealScheme(df_data_target_all, {'weight':'double','sales':'double', 'max_weighted':'double'})
     
     df_universe = readInFile('df_universe_base')
     

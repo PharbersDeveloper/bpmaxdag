@@ -8,10 +8,8 @@ from phcli.ph_logs.ph_logs import phs3logger, LOG_DEBUG_LEVEL
 
 
 def execute(**kwargs):
-    logger = phs3logger(kwargs["job_id"], LOG_DEBUG_LEVEL)
-    spark = kwargs['spark']()
-    result_path_prefix = kwargs["result_path_prefix"]
-    depends_path = kwargs["depends_path"]
+    logger = phs3logger(kwargs["run_id"], LOG_DEBUG_LEVEL)
+    spark = kwargs['spark']
     
     ### input args ###
     project_name = kwargs['project_name']
@@ -94,6 +92,7 @@ def execute(**kwargs):
         df = dealToNull(df)
         df = dealScheme(df, dict_scheme)
         df = getInputVersion(df, table_name.replace('df_', ''))
+        df = df.drop('traceId')
         return df
     
     df_raw_data = readInFile('df_raw_data_deal_poi', dict_scheme={'date':'int', 'year':'int', 'month':'int'}) 

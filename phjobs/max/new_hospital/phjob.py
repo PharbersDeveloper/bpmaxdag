@@ -8,10 +8,8 @@ from phcli.ph_logs.ph_logs import phs3logger, LOG_DEBUG_LEVEL
 
 
 def execute(**kwargs):
-    logger = phs3logger(kwargs["job_id"], LOG_DEBUG_LEVEL)
-    spark = kwargs['spark']()
-    result_path_prefix = kwargs["result_path_prefix"]
-    depends_path = kwargs["depends_path"]
+    logger = phs3logger(kwargs["run_id"], LOG_DEBUG_LEVEL)
+    spark = kwargs['spark']
     
     ### input args ###
     model_month_right = kwargs['model_month_right']
@@ -115,8 +113,11 @@ def execute(**kwargs):
         logger.debug('数据执行-Finish')   
     else:
         # 创建空dataframe
+        # schema = StructType([StructField("pha", StringType(), True)])
+        # df_new_hospital = spark.createDataFrame(spark.sparkContext.emptyRDD(), schema)
         schema = StructType([StructField("pha", StringType(), True)])
-        df_new_hospital = spark.createDataFrame(spark.sparkContext.emptyRDD(), schema)
+        df = pd.DataFrame({'PHA':['PHA_kong']})
+        df_new_hospital = spark.createDataFrame(df, schema)
     
     return {'out_df':df_new_hospital}
 
