@@ -8,10 +8,8 @@ from phcli.ph_logs.ph_logs import phs3logger, LOG_DEBUG_LEVEL
 
 
 def execute(**kwargs):
-    logger = phs3logger(kwargs["job_id"], LOG_DEBUG_LEVEL)
-    spark = kwargs['spark']()
-    result_path_prefix = kwargs["result_path_prefix"]
-    depends_path = kwargs["depends_path"]
+    logger = phs3logger(kwargs["run_id"], LOG_DEBUG_LEVEL)
+    spark = kwargs['spark']
     
     ### input args ###
     project_name = kwargs['project_name']
@@ -181,6 +179,10 @@ def execute(**kwargs):
         df.repartition(1).write.format("parquet") \
                  .mode("append").partitionBy("version", "provider", "owner") \
                  .parquet(p_out)
+        
+    def readResult(p_path):
+        df = spark.read.parquet(p_path + '/version=' + run_id + '/provider=' + project_name + '/owner=' + owner)
+        return df
 
 
 
@@ -274,10 +276,12 @@ def execute(**kwargs):
             outResult(growth_rate_month, p_out_growth_rate)
     
     # 读回中间文件
-    createPartition(p_out_growth_rate)
-    df_out = spark.sql("SELECT * FROM %s.%s WHERE version='%s' AND provider='%s' AND  owner='%s'" 
-                                     %(g_database_temp, g_out_growth_rate, run_id, project_name, owner)) \
-                            .drop("version", "provider", "owner")
+    # createPartition(p_out_growth_rate)
+    # df_out = spark.sql("SELECT * FROM %s.%s WHERE version='%s' AND provider='%s' AND  owner='%s'" 
+    #                                 %(g_database_temp, g_out_growth_rate, run_id, project_name, owner)) \
+    #                        .drop("version", "provider", "owner")
+    df_out = readResult(p_out_growth_rate)
+    
     # %%
     # =========== 数据输出 =============
     def lowerColumns(df):
