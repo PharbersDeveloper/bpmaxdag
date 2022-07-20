@@ -19,10 +19,8 @@ def execute(**kwargs):
     current_month = kwargs['current_month']
     monthly_update = kwargs['monthly_update']
     if_add_data = kwargs['if_add_data']
-    out_path = kwargs['out_path']
     run_id = kwargs['run_id'].replace(":","_")
     owner = kwargs['owner']
-    g_database_temp = kwargs['g_database_temp']
     g_input_version = kwargs['g_input_version']
     ### input args ###
     
@@ -140,37 +138,6 @@ def execute(**kwargs):
     df_price = df_price.select('min2', 'date', 'city_tier_2010', 'price')
     df_price_city = df_price_city.select('min2', 'date', 'city', 'province', 'price')
     df_growth_rate = df_growth_rate.drop('version', 'provider', 'owner')
-
-    
-
-    # %%
-    # =========== 函数定义：输出结果 =============
-    # def createPartition(p_out):
-    #     # 创建分区
-    #     logger.debug('创建分区')
-    #     Location = p_out + '/version=' + run_id + '/provider=' + project_name + '/owner=' + owner
-    #     g_out_table = p_out.split('/')[-1]
-
-    #     partition_input_list = [{
-    #      "Values": [run_id, project_name,  owner], 
-    #     "StorageDescriptor": {
-    #         "SerdeInfo": {
-    #             "SerializationLibrary": "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"
-    #         }, 
-    #         "Location": Location, 
-    #     } 
-    #         }]    
-    #     client = boto3.client('glue', region_name='cn-northwest-1')
-    #     glue_info = client.batch_create_partition(DatabaseName=g_database_temp, TableName=g_out_table, PartitionInputList=partition_input_list)
-    #     logger.debug(glue_info)
-        
-    # def outResult(df, p_out):
-    #     df = df.withColumn('version', func.lit(run_id)) \
-    #             .withColumn('provider', func.lit(project_name)) \
-    #             .withColumn('owner', func.lit(owner))
-    #     df.repartition(1).write.format("parquet") \
-    #              .mode("append").partitionBy("version", "provider", "owner") \
-    #              .parquet(p_out)
 
 
     # %%

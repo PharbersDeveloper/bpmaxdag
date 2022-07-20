@@ -21,10 +21,8 @@ def execute(**kwargs):
     current_month = kwargs['current_month']
     monthly_update = kwargs['monthly_update']
     if_add_data = kwargs['if_add_data']
-    out_path = kwargs['out_path']
     run_id = kwargs['run_id'].replace(":","_")
     owner = kwargs['owner']
-    g_database_temp = kwargs['g_database_temp']
     g_input_version = kwargs['g_input_version']
     ### input args ###
     
