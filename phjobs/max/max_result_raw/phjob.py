@@ -21,10 +21,8 @@ def execute(**kwargs):
     factor_choice = kwargs['factor_choice']
     universe_outlier_choice = kwargs['universe_outlier_choice']
     use_d_weight = kwargs['use_d_weight']
-    out_path = kwargs['out_path']
     run_id = kwargs['run_id'].replace(":","_")
     owner = kwargs['owner']
-    g_database_temp = kwargs['g_database_temp']
     g_input_version = kwargs['g_input_version']
     ### input args ###
     
@@ -152,7 +150,7 @@ def execute(**kwargs):
         # 对列名重命名
         for i in dict_cols.keys():
             true_colname = getTrueCol(df, dict_cols[i], l_df_columns)
-            logger.debug(true_colname)
+            #logger.debug(true_colname)
             if true_colname != i:
                 if i in l_df_columns:
                     # 删除原表中已有的重复列名
@@ -207,17 +205,20 @@ def execute(**kwargs):
 
     def getUniverse(all_models, dict_universe_choice, df_universe_base, df_universe_other):
         # universe 读取
-        df_universe_base_doi = reduce(lambda df1,df2:df1.union(df2), 
-                   list(map(lambda i: cleanUniverse(df_universe_base).withColumn('doi', func.lit(i)), [i for i in all_models if i not in dict_universe_choice.keys()]))
+        dict_universe = {}
+        l_models_use_universe_base = [i for i in all_models if i not in dict_universe_choice.keys()]
+        if len(l_models_use_universe_base) > 0:
+            df_universe_base_doi = reduce(lambda df1,df2:df1.union(df2), 
+                   list(map(lambda i: cleanUniverse(df_universe_base).withColumn('doi', func.lit(i)), l_models_use_universe_base))
                               )
+            dict_universe['df_universe_base_doi'] = df_universe_base_doi
         if universe_choice != 'Empty':
             df_universe_other_doi = reduce(lambda df1,df2:df1.union(df2), 
                    list(map(lambda k,v: cleanUniverse(df_universe_other.where(col('version')==v)).withColumn('doi', func.lit(k)), dict_universe_choice.keys(), dict_universe_choice.values()))
                               )
-            df_universe = df_universe_other_doi.union(df_universe_base_doi)
-        else:
-            df_universe = df_universe_base_doi   
+            dict_universe['df_universe_other_doi'] = df_universe_other_doi
 
+        df_universe = reduce(lambda df1,df2:df1.union(df2), dict_universe.values())
         df_universe = df_universe.withColumn("City_Tier_2010", col("City_Tier_2010").cast(StringType()))
         return df_universe
 
@@ -321,13 +322,13 @@ def execute(**kwargs):
 
     # =========== 执行 =============
     # 文件处理
-    df_PHA_weight = getPhaWeight(use_d_weight, df_PHA_weight, df_PHA_weight_default)
+    df_PHA_weight_final = getPhaWeight(use_d_weight, df_PHA_weight, df_PHA_weight_default)
     df_universe = getUniverse(all_models, dict_universe_choice, df_universe_base, df_universe_other)
     df_universe_outlier_doi = getUniverseOutlier(df_universe_outlier, dict_universe_outlier)
     df_factor_doi = getFactor(df_factor_all, df_factor_base, all_models, dict_factor)
 
     # 放大分析
-    dict_panel_result = getPanelData(df_panel_result, all_models, time_left, time_right, df_universe, df_universe_outlier_doi, df_PHA_weight)
+    dict_panel_result = getPanelData(df_panel_result, all_models, time_left, time_right, df_universe, df_universe_outlier_doi, df_PHA_weight_final)
     df_panel_seg_weight = dict_panel_result['df_panel_seg_weight']
     df_panel_seg = dict_panel_result['df_panel_seg']
     df_panel = dict_panel_result['df_panel']
