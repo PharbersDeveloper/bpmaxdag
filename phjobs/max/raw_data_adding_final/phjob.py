@@ -19,10 +19,8 @@ def execute(**kwargs):
     current_month = kwargs['current_month']
     monthly_update = kwargs['monthly_update']
     if_add_data = kwargs['if_add_data']
-    out_path = kwargs['out_path']
     run_id = kwargs['run_id'].replace(":","_")
     owner = kwargs['owner']
-    g_database_temp = kwargs['g_database_temp']
     g_input_version = kwargs['g_input_version']
     ### input args ###
     
@@ -40,7 +38,7 @@ def execute(**kwargs):
     # %% 
     # =========== 数据执行 =========== 
     # 输入参数设置
-    g_out_adding_data = 'adding_data'
+    # g_out_adding_data = 'adding_data'
     # g_out_new_hospital = 'new_hospital'
     # g_out_raw_data_adding_final = 'raw_data_adding_final'
     
@@ -62,9 +60,6 @@ def execute(**kwargs):
         current_month = int(current_month)
     else:
         current_year = model_month_right//100
-        
-    # 输出
-    p_out_adding_data = out_path + g_out_adding_data
 
     # %% 
     # =========== 输入数据读取 =========== 
@@ -104,7 +99,6 @@ def execute(**kwargs):
     df_growth_rate = readInFile('df_growth_rate')
     
     df_original_range_raw = readInFile('df_original_range_raw')
-    # df_original_range_raw = changeColToInt(df_original_range_raw, ['year', 'month'])
         
     if monthly_update == "False":
         # 只在最新一年出现的医院
@@ -120,7 +114,7 @@ def execute(**kwargs):
                             aws_secret_access_key="YYX+0pQCGqNtvXqN/ByhYFcbp3PTC5+8HWmfPcRN")
         bucket = s3.Bucket('ph-platform')
         bucket.objects.filter(Prefix=file_name).delete()
-    deletePath(path_dir=f"{p_out_adding_data}/version={run_id}/provider={project_name}/owner={owner}/")
+    # deletePath(path_dir=f"{p_out_adding_data}/version={run_id}/provider={project_name}/owner={owner}/")
 
     # %% 
     # =========== 数据清洗 =============
@@ -143,61 +137,118 @@ def execute(**kwargs):
     df_raw_data = df_raw_data.drop('version', 'provider', 'owner')
     df_price = df_price.select('min2', 'date', 'city_tier_2010', 'price')
     df_price_city = df_price_city.select('min2', 'date', 'city', 'province', 'price')
-    growth_rate = df_growth_rate.drop('version', 'provider', 'owner')
+    df_growth_rate = df_growth_rate.drop('version', 'provider', 'owner')
 
-    
-
-    # %%
-    # =========== 函数定义：输出结果 =============
-    def createPartition(p_out):
-        # 创建分区
-        logger.debug('创建分区')
-        Location = p_out + '/version=' + run_id + '/provider=' + project_name + '/owner=' + owner
-        g_out_table = p_out.split('/')[-1]
-        
-        partition_input_list = [{
-         "Values": [run_id, project_name,  owner], 
-        "StorageDescriptor": {
-            "SerdeInfo": {
-                "SerializationLibrary": "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"
-            }, 
-            "Location": Location, 
-        } 
-            }]    
-        client = boto3.client('glue', region_name='cn-northwest-1')
-        glue_info = client.batch_create_partition(DatabaseName=g_database_temp, TableName=g_out_table, PartitionInputList=partition_input_list)
-        logger.debug(glue_info)
-        
-    def outResult(df, p_out):
-        df = df.withColumn('version', func.lit(run_id)) \
-                .withColumn('provider', func.lit(project_name)) \
-                .withColumn('owner', func.lit(owner))
-        df.repartition(1).write.format("parquet") \
-                 .mode("append").partitionBy("version", "provider", "owner") \
-                 .parquet(p_out)
 
     # %%
-    # =========== 数据执行 =============
-    logger.debug('数据执行-start')
-    
-    # 1、数据处理
-    # products_of_interest = df_poi.toPandas()["poi"].values.tolist()
-    # # raw_data 处理
-    # raw_data = df_raw_data.withColumn("S_Molecule_for_gr",
-    #                                func.when(col("标准商品名").isin(products_of_interest), col("标准商品名")).
-    #                                otherwise(col('S_Molecule')))
-    
-    raw_data = df_raw_data
-    price = df_price.withColumnRenamed('Price', 'Price_tier')
-    price_city = df_price_city.withColumnRenamed('Price', 'Price_city')
-    
-    # raw_data 处理
-    if monthly_update == "False":
-        raw_data = raw_data.where(col('Year') < ((model_month_right // 100) + 1))
+    # =========== 补数函数 =========== 
+    def addData(df_raw_data, df_growth_rate, df_original_range_raw):
+        # 1. 原始数据格式整理， 用于补数， join不同补数月份所用的 growth_rate，形成一个大表
+        df_raw_data_for_add = df_raw_data.where(~col('PHA').isNull()) \
+                                .withColumnRenamed("City_Tier_2010", "CITYGROUP") \
+                                .join(df_growth_rate, on=["S_Molecule_for_gr", "CITYGROUP", "month_for_monthly_add"], how="left")
 
-    # %%
-    # === 补数函数 === 
+        # 每年需要补数的月份
+        df_years = df_raw_data_for_add.select("Year", "month_for_monthly_add").distinct() \
+                                .orderBy("month_for_monthly_add", "Year")
+
+        # 2. 每年发表医院信息
+        df_original_range = df_years.join(df_original_range_raw, on='year', how='left')
+
+        growth_rate_index = [index for index, name in enumerate(df_raw_data_for_add.columns) if name.startswith("gr")]
+
+         # 3、对每年的缺失数据进行补数
+        # 得到 current_Year 需要补数的 PHA 以及用 可以用哪些 Year 进行补数 
+        df_year_month_pha_map = getAddMap(df_original_range, df_years)
+
+        # 选择比重最小的年份，用于补数的 PHA-Month-Year
+        df_other_years_range = df_year_month_pha_map \
+                        .withColumn("time_diff", (col('Year') - col('current_Year'))) \
+                        .withColumn("weight", func.when((col('Year') > col('current_Year')), (col('Year') - col('current_Year') - 0.5)).
+                                    otherwise(col('Year') * (-1) + col('current_Year')))
+        df_current_range_for_add = df_other_years_range.select("month_for_monthly_add", "PHA", "Month", "Year", "weight", "current_Year") \
+                                                                    .groupBy("month_for_monthly_add", "PHA", "Month", "current_Year").apply(pudf_minWeightYear)
+
+        # 生成用于补数的数据集：Year 是用于补数的数据，current_Year是给这些年补数
+        df_current_raw_data_for_add = df_raw_data_for_add.join(df_current_range_for_add, on=["month_for_monthly_add", "Month", "PHA", "Year"], how='left') \
+                                                .where(~col('current_Year').isNull())
+
+        # 计算最终增长率
+        df_min_year = df_years.withColumn('Year', col('Year').cast('int')) \
+                        .groupby('month_for_monthly_add').agg(func.min('Year').alias('min_year_for_add'))
+        df_current_raw_data_for_add = df_current_raw_data_for_add.join(df_min_year, on='month_for_monthly_add', how='left')
+        df_current_raw_data_for_add_cal = getFinalGR(df_current_raw_data_for_add, growth_rate_index)
+
+        # 为当前年的缺失数据补数：根据增长率计算 Sales，匹配 price，计算 Units=Sales/price
+        df_current_adding_data = df_current_raw_data_for_add_cal.withColumn("Sales", col('Sales') * col('final_gr')) \
+                                                    .withColumn("Year", func.lit(col('current_Year'))) \
+                                                    .drop('current_Year')
+
+        df_current_adding_data = df_current_adding_data.withColumn("Date", col('Year') * 100 + col('Month'))
+        df_current_adding_data = df_current_adding_data.withColumn("Date", col("Date").cast(DoubleType()))
+
+        df_current_adding_data = df_current_adding_data.withColumnRenamed("CITYGROUP", "City_Tier_2010") \
+                                            .join(price, on=["min2", "Date", "City_Tier_2010"], how="inner") \
+                                            .join(price_city, on=["min2", "Date", "City", "Province"], how="left")
+
+        df_current_adding_data = df_current_adding_data.withColumn('Price', func.when(col('Price_city').isNull(), 
+                                                                                col('Price_tier')) \
+                                                                         .otherwise(col('Price_city')))
+        df_current_adding_data = df_current_adding_data.withColumn("Units", func.when(col('Sales') == 0, 0).
+                                                     otherwise(col('Sales') / col('Price'))) \
+                                                        .na.fill({'Units': 0}) 
+        return {"df_original_range":df_original_range, "df_adding_data":df_current_adding_data}
+
+    def getAddMap(df_original_range, df_years):
+        # ===== 得到 每一年（current_Year） 需要补数的 PHA 以及 该年（current_Year）用哪些 Year 进行补数 ============
+        '''
+        输出：current_Year，Month，PHA，Year
+        current_Year，Month：需要补数的年份和月份
+        PHA：需要补数的医院，current_Year 没有数据，但是其他年份有的医院
+        Year： 用哪些年的数据对 current_Year 进行补数
+        '''
+        # 1、当前年 与 其他年的 map
+        df_years_monthly_add = df_years.groupby('month_for_monthly_add').agg(func.collect_set(col('year')).alias('all_Years'))
+        df_year_map = df_original_range.select('month_for_monthly_add', 'Year').distinct() \
+                        .withColumn('current_Year', func.array([col('Year')])) \
+                        .join(df_years_monthly_add, on='month_for_monthly_add', how='left') \
+                        .withColumn('other_Years', func.array_except('all_Years', 'current_Year')) \
+                        .withColumn("other_Year", func.explode(col("other_Years")))
+
+        # 2、月份 map
+        df_month_map = df_original_range.groupby('month_for_monthly_add', 'Year').agg(func.collect_set(func.col('Month')).alias('month_array'))
+        df_month_map1 = df_month_map.withColumnRenamed('month_array', 'current_Year_month_array')
+        df_month_map2 = df_month_map.withColumnRenamed('month_array', 'other_Year_month_array').withColumnRenamed('Year', 'other_Year')
+
+        # 3、当前年月 pha 的 map
+        df_pha_map = df_original_range.groupby('month_for_monthly_add', 'Year', 'Month').agg(func.collect_set(func.col('PHA')).alias('PHA_array'))
+        df_pha_map1 = df_pha_map.withColumnRenamed('PHA_array', 'current_PHA_array')
+        df_pha_map2 = df_pha_map.withColumnRenamed('PHA_array', 'other_PHA_array').withColumnRenamed('Year', 'other_Year')
+
+        # 4、联合
+        # current_Year 有的月份
+        df_year_month_map = df_year_map.join(df_month_map1, on=['month_for_monthly_add' ,'Year'], how='left')
+        # other_Year 有的月份   
+        df_year_month_map = df_year_month_map.join(df_month_map2, on=['month_for_monthly_add', 'other_Year'], how='left')
+        # current_Year 和 other_Year 相同的月份
+        df_year_month_map = df_year_month_map.withColumn('month_array', func.array_intersect('current_Year_month_array', 'other_Year_month_array'))
+        df_year_month_map = df_year_month_map.withColumn("Month", func.explode(col("month_array")))
+        # current_Year_month 有的pha
+        df_year_month_pha_map = df_year_month_map.join(df_pha_map1, on=['month_for_monthly_add', 'Year', 'Month'], how='left') 
+        # other_Year_month 有的pha
+        df_year_month_pha_map = df_year_month_pha_map.join(df_pha_map2, on=['month_for_monthly_add', 'other_Year', 'Month'], how='left')
+        # 需要补数的 PHA：other_Year 有 但是 current_Year 没有的 PHA
+        df_year_month_pha_map = df_year_month_pha_map.withColumn('PHA_array', func.array_except('other_PHA_array', 'current_PHA_array'))
+        df_year_month_pha_map = df_year_month_pha_map.withColumn("PHA", func.explode(col("PHA_array")))
+
+        # 5、结果整理
+        df_year_month_pha_map = df_year_month_pha_map.select('month_for_monthly_add', 'Year', 'other_Year', 'Month', 'PHA').distinct() \
+                                                    .withColumnRenamed('Year', 'current_Year') \
+                                                    .withColumnRenamed('other_Year', 'Year')
+        return df_year_month_pha_map
+
     schema = StructType([
+                StructField("month_for_monthly_add", IntegerType(), True),
                 StructField("PHA", StringType(), True),
                 StructField("Month", IntegerType(), True),
                 StructField("Year", IntegerType(), True),
@@ -210,61 +261,15 @@ def execute(**kwargs):
         PHA = pdf["PHA"][0]
         MONTH = int(pdf["Month"][0])
         current_Year = int(pdf["current_Year"][0])
-        return pd.DataFrame([[PHA] + [MONTH] + [minYEAR] + [current_Year]], columns=["PHA", "Month", "Year", "current_Year"])
-    
-    def getAddMap(original_range, years):
-        # ===== 得到 每一年（current_Year） 需要补数的 PHA 以及 该年（current_Year）用哪些 Year 进行补数 ============
-        '''
-        输出：current_Year，Month，PHA，Year
-        current_Year，Month：需要补数的年份和月份
-        PHA：需要补数的医院，current_Year 没有数据，但是其他年份有的医院
-        Year： 用哪些年的数据对 current_Year 进行补数
-        '''
-        # 1、当前年 与 其他年的 map
-        df_year_map = original_range.select('Year').distinct() \
-                        .withColumn('current_Year', func.array([col('Year')])) \
-                        .withColumn('all_Years', func.array([func.lit(str(i)) for i in years])) \
-                        .withColumn('other_Years', func.array_except('all_Years', 'current_Year')) \
-                        .withColumn("other_Year", func.explode(col("other_Years")))
-    
-        # 2、月份 map
-        df_month_map = original_range.groupby('Year').agg(func.collect_set(func.col('Month')).alias('month_array'))
-        df_month_map1 = df_month_map.withColumnRenamed('month_array', 'current_Year_month_array')
-        df_month_map2 = df_month_map.withColumnRenamed('month_array', 'other_Year_month_array').withColumnRenamed('Year', 'other_Year')
-    
-        # 3、当前年月 pha 的 map
-        df_pha_map = original_range.groupby('Year', 'Month').agg(func.collect_set(func.col('PHA')).alias('PHA_array'))
-        df_pha_map1 = df_pha_map.withColumnRenamed('PHA_array', 'current_PHA_array')
-        df_pha_map2 = df_pha_map.withColumnRenamed('PHA_array', 'other_PHA_array').withColumnRenamed('Year', 'other_Year')
-    
-        # 4、联合
-        # current_Year 有的月份
-        df_year_month_map = df_year_map.join(df_month_map1, on='Year', how='left')
-        # other_Year 有的月份   
-        df_year_month_map = df_year_month_map.join(df_month_map2, on='other_Year', how='left')
-        # current_Year 和 other_Year 相同的月份
-        df_year_month_map = df_year_month_map.withColumn('month_array', func.array_intersect('current_Year_month_array', 'other_Year_month_array'))
-        df_year_month_map = df_year_month_map.withColumn("Month", func.explode(col("month_array")))
-        # current_Year_month 有的pha
-        df_year_month_pha_map = df_year_month_map.join(df_pha_map1, on=['Year', 'Month'], how='left') 
-        # other_Year_month 有的pha
-        df_year_month_pha_map = df_year_month_pha_map.join(df_pha_map2, on=['other_Year', 'Month'], how='left')
-        # 需要补数的 PHA：other_Year 有 但是 current_Year 没有的 PHA
-        df_year_month_pha_map = df_year_month_pha_map.withColumn('PHA_array', func.array_except('other_PHA_array', 'current_PHA_array'))
-        df_year_month_pha_map = df_year_month_pha_map.withColumn("PHA", func.explode(col("PHA_array")))
-        
-        # 5、结果整理
-        df_year_month_pha_map = df_year_month_pha_map.select('Year', 'other_Year', 'Month', 'PHA').distinct() \
-                                                    .withColumnRenamed('Year', 'current_Year') \
-                                                    .withColumnRenamed('other_Year', 'Year')
-        return df_year_month_pha_map
-    
-    def getFinalGR(df_current_raw_data_for_add, years, growth_rate_index):
+        month_for_monthly_add = int(pdf["month_for_monthly_add"][0])
+        return pd.DataFrame([[month_for_monthly_add] + [PHA] + [MONTH] + [minYEAR] + [current_Year]], columns=["month_for_monthly_add", "PHA", "Month", "Year", "current_Year"])
+
+    def getFinalGR(df_current_raw_data_for_add, growth_rate_index):
         # 计算 index
         df_current_raw_data_for_add_cal = df_current_raw_data_for_add.withColumn("time_diff", (col('Year') - col('current_Year'))) \
                                                 .withColumn("weight", func.when((col('Year') > col('current_Year')), (col('Year') - col('current_Year') - 0.5)).
                                                             otherwise(col('Year') * (-1) + col('current_Year'))) \
-                                                .withColumn("base_index", (col('current_Year') - min(years) + min(growth_rate_index))) \
+                                                .withColumn("base_index", (col('current_Year') - col('min_year_for_add') + min(growth_rate_index))) \
                                                 .withColumn("min_index", func.when((col('Year') < col('current_Year')), (col('time_diff') + col('base_index'))).
                                                                     otherwise(col('base_index'))) \
                                                 .withColumn("max_index", func.when((col('Year') < col('current_Year')), (col('base_index') - 1)).
@@ -278,154 +283,82 @@ def execute(**kwargs):
             df_current_raw_data_for_add_cal = df_current_raw_data_for_add_cal.withColumn(col_name, func.when(col('Year') > col('current_Year'), col(col_name) ** (-1)).
                                                          otherwise(col(col_name)))
             df_current_raw_data_for_add_cal = df_current_raw_data_for_add_cal.withColumn("total_gr", col('total_gr') * col(col_name))
-    
+
         df_current_raw_data_for_add_cal = df_current_raw_data_for_add_cal.withColumn("final_gr", func.when(col('total_gr') < 2, col('total_gr')).
                                                                                                      otherwise(2))
         return df_current_raw_data_for_add_cal
-    
-    def add_data(raw_data, growth_rate):
-        # 1. 原始数据格式整理， 用于补数
-        growth_rate = growth_rate.select(["CITYGROUP", "S_Molecule_for_gr"] + [name for name in growth_rate.columns if name.startswith("gr")]).distinct()
-        raw_data_for_add = raw_data.where(~col('PHA').isNull()) \
-                                        .orderBy(col('Year').desc()) \
-                                        .withColumnRenamed("City_Tier_2010", "CITYGROUP") \
-                                        .join(growth_rate, on=["S_Molecule_for_gr", "CITYGROUP"], how="left")
-        raw_data_for_add.persist()
-            
-        years = raw_data_for_add.select("Year").distinct() \
-                    .orderBy(col('Year')) \
-                    .toPandas()["Year"].values.tolist()
-        
-        # 2. 所有发表医院信息
-        original_range = df_original_range_raw.where(col('Year').isin(years))
-        # print(years)
-    
-        growth_rate_index = [index for index, name in enumerate(raw_data_for_add.columns) if name.startswith("gr")]
-        # print(growth_rate_index)
-    
-        # 3、对每年的缺失数据进行补数
-        # 得到 current_Year 需要补数的 PHA 以及用 可以用哪些 Year 进行补数 
-        df_year_month_pha_map = getAddMap(original_range, years)
-        
-        # 选择比重最小的年份，用于补数的 PHA-Month-Year
-        df_other_years_range = df_year_month_pha_map \
-                        .withColumn("time_diff", (col('Year') - col('current_Year'))) \
-                        .withColumn("weight", func.when((col('Year') > col('current_Year')), (col('Year') - col('current_Year') - 0.5)).
-                                    otherwise(col('Year') * (-1) + col('current_Year')))
-        df_current_range_for_add = df_other_years_range.select("PHA", "Month", "Year", "weight", "current_Year") \
-                                                                    .groupBy("PHA", "Month", "current_Year").apply(pudf_minWeightYear)
-        
-        # 生成用于补数的数据集：Year 是用于补数的数据，current_Year是给这些年补数
-        df_current_raw_data_for_add = raw_data_for_add.join(df_current_range_for_add, on=["Month", "PHA", "Year"], how='left') \
-                                                .where(~col('current_Year').isNull())
-    
-        # 计算最终增长率
-        df_current_raw_data_for_add_cal = getFinalGR(df_current_raw_data_for_add, years, growth_rate_index)
-    
-        # 为当前年的缺失数据补数：根据增长率计算 Sales，匹配 price，计算 Units=Sales/price
-        df_current_adding_data = df_current_raw_data_for_add_cal.withColumn("Sales", col('Sales') * col('final_gr')) \
-                                                    .withColumn("Year", func.lit(col('current_Year'))) \
-                                                    .drop('current_Year')
-    
-        df_current_adding_data = df_current_adding_data.withColumn("Date", col('Year') * 100 + col('Month'))
-        df_current_adding_data = df_current_adding_data.withColumn("Date", col("Date").cast(DoubleType()))
-    
-        df_current_adding_data = df_current_adding_data.withColumnRenamed("CITYGROUP", "City_Tier_2010") \
-                                            .join(price, on=["min2", "Date", "City_Tier_2010"], how="inner") \
-                                            .join(price_city, on=["min2", "Date", "City", "Province"], how="left")
-    
-        df_current_adding_data = df_current_adding_data.withColumn('Price', func.when(col('Price_city').isNull(), 
-                                                                                col('Price_tier')) \
-                                                                         .otherwise(col('Price_city')))
-        df_current_adding_data = df_current_adding_data.withColumn("Units", func.when(col('Sales') == 0, 0).
-                                                     otherwise(col('Sales') / col('Price'))) \
-                                                        .na.fill({'Units': 0})    
-                                                                    
-        # ==== **** 输出 **** ====  
-        df_current_adding_data = dealScheme(df_current_adding_data, dict_scheme={'min2': 'string', 'Date': 'double', 'city': 'string', 'province': 'string', 'City_Tier_2010': 'string', 'month': 'int', 'pha': 'string', 'Year': 'int', 'S_Molecule_for_gr': 'string', 'min1': 'string', 'id': 'string', 'raw_hosp_name': 'string', 'brand': 'string', 'form': 'string', 'specifications': 'string', 'pack_number': 'string', 'manufacturer': 'string', 'molecule': 'string', 'source': 'string', 'corp': 'string', 'route': 'string', 'org_measure': 'string', 'Sales': 'double', 'Units': 'double', 'units_box': 'double', 'path': 'string', 'sheet': 'string', 's_molecule': 'string', '标准商品名': 'string'})
-        outResult(df_current_adding_data, p_out_adding_data)
-    
-        return original_range
 
-    # %%
-    # =========== 数据执行 =========== 
-    # raw_data_month = raw_data.where(col('Month') == 1)
-    # growth_rate_month = growth_rate.where(col('month_for_monthly_add') == 1)
-    # add_data(raw_data_month, growth_rate_month)
-  
-    # 2、执行补数
-    if monthly_update == "False" and if_add_data == "True":
-        logger.debug('4 补数')
-        # 补数：
-        original_range = add_data(raw_data, growth_rate)
-    
-    elif monthly_update == "True" and if_add_data == "True":
-        logger.debug('4 补数')
-        for index, month in enumerate(range(first_month, current_month + 1)):
-            raw_data_month = raw_data.where(col('Month') == month)
-            growth_rate_month = growth_rate.where(col('month_for_monthly_add') == month)
-            # 补数：
-            add_data(raw_data_month, growth_rate_month)
-            logger.debug("输出 adding_data, month：" + str(month))
-
-    # ==== **** 读回 **** ====             
-    createPartition(p_out_adding_data)
-    adding_data = spark.sql("SELECT * FROM %s.adding_data WHERE version='%s' AND provider='%s' AND  owner='%s'" 
-                                 %(g_database_temp, run_id, project_name, owner))
-
-    # %%
-    # 3、合并补数部分和原始部分:
-    if if_add_data == "True":
-        raw_data_adding = raw_data.withColumn("add_flag", func.lit(0)) \
-                            .union(adding_data.withColumn("add_flag", func.lit(1)) \
-                            .select(raw_data.columns + ["add_flag"]))
-    else:
-        raw_data_adding = raw_data.withColumn("add_flag", func.lit(0))
-        
-
-    # %%
-    # 4、其他处理
-    def getModelFinalAddDate(original_range, raw_data_adding, df_new_hospital):
+    def getModelFinalAddDate(df_original_range, df_raw_data_adding, df_new_hospital):
         # 进一步为最后一年独有的医院补最后一年的缺失月（可能也要考虑第一年）
-        years = original_range.select("Year").distinct() \
+        years = df_original_range.select("Year").distinct() \
             .orderBy(col('Year')) \
             .toPandas()["Year"].values.tolist()
-
         # 最新一年没有的月份
-        missing_months = (original_range.where(col('Year') != max(years)).select("Month").distinct()) \
-            .subtract(original_range.where(col('Year') == max(years)).select("Month").distinct())
-
+        missing_months = (df_original_range.where(col('Year') != max(years)).select("Month").distinct()) \
+            .subtract(df_original_range.where(col('Year') == max(years)).select("Month").distinct())
         # 如果最新一年有缺失月份，需要处理
         if missing_months.count() == 0:
-            logger.debug("missing_months=0")
-            raw_data_adding_final = raw_data_adding
+            print("missing_months=0")
+            df_raw_data_adding_final = df_raw_data_adding
         else:
             number_of_existing_months = 12 - missing_months.count()
             # 用于groupBy的列名：raw_data_adding列名去除list中的列名
-            group_columns = set(raw_data_adding.columns) \
+            group_columns = set(df_raw_data_adding.columns) \
                 .difference(set(['Month', 'Sales', 'Units', '季度', "sales_value__rmb_", "total_units", "counting_units", "date"]))
             # 补数重新计算
-            adding_data_new = raw_data_adding \
+            df_adding_data_new = df_raw_data_adding \
                 .where(col('add_flag') == 1) \
                 .where(col('PHA').isin(df_new_hospital["PHA"].tolist())) \
                 .groupBy(list(group_columns)).agg({"Sales": "sum", "Units": "sum"})
-            adding_data_new = adding_data_new \
+            df_adding_data_new = df_adding_data_new \
                 .withColumn("Sales", col("sum(Sales)") / number_of_existing_months) \
                 .withColumn("Units", col("sum(Units)") / number_of_existing_months) \
                 .crossJoin(missing_months)
             # 生成最终补数结果
-            same_names = list(set(raw_data_adding.columns).intersection(set(adding_data_new.columns)))
-            raw_data_adding_final = raw_data_adding.select(same_names) \
-                                            .union(adding_data_new.select(same_names)) 
-        return raw_data_adding_final
-        
+            same_names = list(set(df_raw_data_adding.columns).intersection(set(df_adding_data_new.columns)))
+            df_raw_data_adding_final = df_raw_data_adding.select(same_names) \
+                                            .union(df_adding_data_new.select(same_names)) 
+        return df_raw_data_adding_final
+
+    # %%
+    # =========== 数据执行 =========== 
+    logger.debug('数据执行-start')
+
+    price = df_price.withColumnRenamed('Price', 'Price_tier')
+    price_city = df_price_city.withColumnRenamed('Price', 'Price_city')
+    
+    # raw_data 处理
     if monthly_update == "False":
-        if if_add_data == "False":
-            raw_data_adding_final = raw_data_adding
-        elif if_add_data == "True":
-            raw_data_adding_final = getModelFinalAddDate(original_range, raw_data_adding, df_new_hospital)   
+        df_raw_data = df_raw_data.where(col('Year') < ((model_month_right // 100) + 1))
+
+        
+    if if_add_data == "True":
+        #logger.debug('4 补数')
+        # 2、执行补数
+        if monthly_update == "True":
+            df_raw_data = df_raw_data.where( (col('Month') >=first_month) & (col('Month') <= current_month) ) \
+                                .withColumn('month_for_monthly_add', col('Month'))
+        elif monthly_update == "False":
+            df_raw_data = df_raw_data.withColumn('month_for_monthly_add', func.lit('0'))
+            df_growth_rate = df_growth_rate.withColumn('month_for_monthly_add', func.lit('0'))
+
+        df_adding_data = addData(df_raw_data, df_growth_rate, df_original_range_raw)['df_adding_data']
+        df_original_range = addData(df_raw_data, df_growth_rate, df_original_range_raw)['df_original_range']
+
+        # 3、合并补数部分和原始部分:
+        df_raw_data_adding = df_raw_data.withColumn("add_flag", func.lit(0)) \
+                                    .union(df_adding_data.withColumn("add_flag", func.lit(1)) \
+                                    .select(df_raw_data.columns + ["add_flag"]))
+    else:
+        df_raw_data_adding = df_raw_data.withColumn("add_flag", func.lit(0))
+
+    # 4、其他处理
+    if monthly_update == "False":
+        df_raw_data_adding_final = (df_raw_data_adding if if_add_data == "False" else getModelFinalAddDate(df_original_range, df_raw_data_adding, df_new_hospital) )
     elif monthly_update == "True":
-        raw_data_adding_final = raw_data_adding.where((col('Year') == current_year) & (col('Month') >= first_month) & (col('Month') <= current_month) )
+        df_raw_data_adding_final = df_raw_data_adding.where((col('Year') == current_year) & (col('Month') >= first_month) & (col('Month') <= current_month) )
+    df_raw_data_adding_final = df_raw_data_adding_final.drop('month_for_monthly_add')
+        
 
     # %%
     # =========== 数据输出 =============  
@@ -433,9 +366,9 @@ def execute(**kwargs):
         df = df.toDF(*[i.lower() for i in df.columns])
         return df
     
-    raw_data_adding_final = lowerColumns(raw_data_adding_final)
+    df_raw_data_adding_final = lowerColumns(df_raw_data_adding_final)
     
     logger.debug('数据执行-Finish')
     
-    return {'out_df':raw_data_adding_final}
+    return {'out_df':df_raw_data_adding_final}
 

@@ -8,10 +8,8 @@ from phcli.ph_logs.ph_logs import phs3logger, LOG_DEBUG_LEVEL
 
 
 def execute(**kwargs):
-    logger = phs3logger(kwargs["job_id"], LOG_DEBUG_LEVEL)
-    spark = kwargs['spark']()
-    result_path_prefix = kwargs["result_path_prefix"]
-    depends_path = kwargs["depends_path"]
+    logger = phs3logger(kwargs["run_id"], LOG_DEBUG_LEVEL)
+    spark = kwargs['spark']
     
     ### input args ###
     project_name = kwargs['project_name']
@@ -23,10 +21,8 @@ def execute(**kwargs):
     current_month = kwargs['current_month']
     monthly_update = kwargs['monthly_update']
     if_add_data = kwargs['if_add_data']
-    out_path = kwargs['out_path']
     run_id = kwargs['run_id'].replace(":","_")
     owner = kwargs['owner']
-    g_database_temp = kwargs['g_database_temp']
     g_input_version = kwargs['g_input_version']
     ### input args ###
     
@@ -41,14 +37,13 @@ def execute(**kwargs):
     import pandas as pd
     from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col    
     import json
-    import boto3     
+    import boto3  
+    from functools import reduce
     
     # %% 
     # =========== 数据执行 =========== 
     logger.debug('数据执行-start')
     # 输入参数设置
-    g_out_growth_rate = 'growth_rate'
-
     if if_add_data != "False" and if_add_data != "True":
         logger.debug('wrong input: if_add_data, False or True') 
         raise ValueError('wrong input: if_add_data, False or True')
@@ -77,9 +72,6 @@ def execute(**kwargs):
     else:
         current_year = model_month_right//100
         
-    # 输出
-    p_out_growth_rate = out_path + g_out_growth_rate
-
     # %% 
     # =========== 输入数据读取 =========== 
     def dealToNull(df):
@@ -113,18 +105,7 @@ def execute(**kwargs):
         df_not_arrived = readInFile('df_not_arrived', dict_scheme={'date':'int'})
                
     raw_data = readInFile('df_raw_data_deal_poi', dict_scheme={'date':'int','year':'int','month':'int'}) 
-    
-    
-    # 删除已有的s3中间文件
-    def deletePath(path_dir):
-        file_name = path_dir.replace('//', '/').split('s3:/ph-platform/')[1]
-        s3 = boto3.resource('s3', region_name='cn-northwest-1',
-                            aws_access_key_id="AKIAWPBDTVEAEU44ZAGT",
-                            aws_secret_access_key="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")
-        bucket = s3.Bucket('ph-platform')
-        bucket.objects.filter(Prefix=file_name).delete()
-    deletePath(path_dir=f"{p_out_growth_rate}/version={run_id}/provider={project_name}/owner={owner}/")
-        
+         
     # %%
     # =========== 数据清洗 =============
     def dealScheme(df, dict_scheme):
@@ -143,46 +124,12 @@ def execute(**kwargs):
         df = df.withColumn(colname, func.when(func.length(col(colname)) < 7, func.lpad(col(colname), 6, "0")).otherwise(col(colname)))
         return df
     
-    # 1、选择标准列
+    # 1、选择标准列, ID列补位
     if monthly_update == "True":   
         df_published = df_published.select('id', 'source', 'year').distinct()
-        df_not_arrived = df_not_arrived.select('id', 'date').distinct()
-    
-    # 2、ID列补位
-    if monthly_update == "True":   
         df_published = dealIDLength(df_published)
+        df_not_arrived = df_not_arrived.select('id', 'date').distinct()
         df_not_arrived = dealIDLength(df_not_arrived)
-
-    # %%
-    # =========== 函数定义：输出结果 =============
-    def createPartition(p_out):
-        # 创建分区
-        logger.debug('创建分区')
-        Location = p_out + '/version=' + run_id + '/provider=' + project_name + '/owner=' + owner
-        g_out_table = p_out.split('/')[-1]
-        
-        partition_input_list = [{
-         "Values": [run_id, project_name,  owner], 
-        "StorageDescriptor": {
-            "SerdeInfo": {
-                "SerializationLibrary": "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"
-            }, 
-            "Location": Location, 
-        } 
-            }]    
-        client = boto3.client('glue', region_name='cn-northwest-1')
-        glue_info = client.batch_create_partition(DatabaseName=g_database_temp, TableName=g_out_table, PartitionInputList=partition_input_list)
-        logger.debug(glue_info)
-        
-    def outResult(df, p_out):
-        df = df.withColumn('version', func.lit(run_id)) \
-                .withColumn('provider', func.lit(project_name)) \
-                .withColumn('owner', func.lit(owner))
-        df.repartition(1).write.format("parquet") \
-                 .mode("append").partitionBy("version", "provider", "owner") \
-                 .parquet(p_out)
-
-
 
     # %%
     # ==== 计算增长率 ====
@@ -202,6 +149,36 @@ def execute(**kwargs):
         # 数据长变宽
         growth_calculating = growth_calculating.groupBy("S_Molecule_for_gr", "CITYGROUP").pivot("Year").agg(func.sum('value')).fillna(0)
         growth_calculating = growth_calculating.select(["S_Molecule_for_gr", "CITYGROUP"] + years)
+        # 对year列名修改
+        for i in range(0, len(years)):
+            growth_calculating = growth_calculating.withColumnRenamed(years[i], years_name[i])
+        # 计算得到年增长： add_gr_cols
+        for i in range(0, len(years) - 1):
+            growth_calculating = growth_calculating.withColumn("GR" + years[i][2:4] + years[i + 1][2:4],
+                                                        growth_calculating[years_name[i + 1]] / growth_calculating[years_name[i]])
+        growth_rate = growth_calculating     
+        # 增长率的调整：modify_gr
+        for y in [name for name in growth_rate.columns if name.startswith("GR")]:
+            growth_rate = growth_rate.withColumn(y, func.when(func.isnull(growth_rate[y]) | (growth_rate[y] > 10) | (growth_rate[y] < 0.1), 1).
+                                                 otherwise(growth_rate[y]))
+        return growth_rate  
+    
+    def calculate_growth_monthly(raw_data, max_month=12):
+        # TODO: 完整年用完整年增长，不完整年用不完整年增长
+        if max_month < 12:
+            raw_data = raw_data.where(col('Month') <= max_month)
+        # raw_data 处理
+        growth_raw_data = raw_data.na.fill({"City_Tier_2010": 5.0})
+        growth_raw_data = growth_raw_data.withColumn("CITYGROUP", col('City_Tier_2010'))
+        # 增长率计算过程
+        growth_calculating = growth_raw_data.groupBy("S_Molecule_for_gr", "CITYGROUP", "Year", "month") \
+                                                .agg(func.sum('Sales').alias("value"))
+        years = growth_calculating.select("Year").distinct().toPandas()["Year"].sort_values().values.tolist()
+        years = [str(i) for i in years]
+        years_name = ["Year_" + i for i in years]
+        # 数据长变宽
+        growth_calculating = growth_calculating.groupBy("S_Molecule_for_gr", "CITYGROUP", "month").pivot("Year").agg(func.sum('value')).fillna(0)
+        growth_calculating = growth_calculating.select(["S_Molecule_for_gr", "CITYGROUP", "month"] + years)
         # 对year列名修改
         for i in range(0, len(years)):
             growth_calculating = growth_calculating.withColumnRenamed(years[i], years_name[i])
@@ -243,41 +220,29 @@ def execute(**kwargs):
             growth_rate = growth_rate.join(
                 growth_rate_p2.select(["S_Molecule_for_gr", "CITYGROUP"] + [name for name in growth_rate_p2.columns if name.startswith("GR")]),
                 on=["S_Molecule_for_gr", "CITYGROUP"],
-                how="left")
-            
-        # ==== **** 输出 **** ====
-        growth_rate = dealScheme(growth_rate, dict_scheme={'S_Molecule_for_gr': 'string', 'CITYGROUP': 'string'})
-        outResult(growth_rate, p_out_growth_rate)
-            
-    elif monthly_update == "True":
+                how="left")  
+    elif monthly_update == "True": 
         published_right = df_published.where(col('year') == current_year).select('ID').distinct()
         published_left = df_published.where(col('year') == current_year-1 ).select('ID').distinct()
-       
-        for index, month in enumerate(range(first_month, current_month + 1)):
-            
-            raw_data_month = raw_data.where(col('Month') == month)
-            
-            if if_add_data == "False":
-                growth_rate_month = calculate_growth(raw_data_month)
-            else:
-                # publish交集，去除当月未到
-                month_hospital = published_left.intersect(published_right) \
-                    .exceptAll(df_not_arrived.where(col('Date') == current_year*100 + month).select("ID")) \
-                    .toPandas()["ID"].tolist()
-                growth_rate_month = calculate_growth(raw_data_month.where(col('ID').isin(month_hospital)))
-                # 标记是哪个月补数要用的growth_rate
-                
-            growth_rate_month = growth_rate_month.withColumn("month_for_monthly_add", func.lit(month))
-            
-            # ==== **** 输出 **** ====
-            growth_rate_month = dealScheme(growth_rate_month, dict_scheme={'S_Molecule_for_gr': 'string', 'CITYGROUP': 'string'})
-            outResult(growth_rate_month, p_out_growth_rate)
+        
+        # publish交集，去除当月未到
+        published_both = published_left.intersect(published_right)
+        published_all_month = reduce(lambda x,y:x.union(y), 
+                              list(map(lambda i:published_both.withColumn('date', func.lit(current_year*100+i)), range(first_month, current_month + 1) )) 
+                              )
+        hospital_all_month = published_all_month.join(df_not_arrived, on=['ID', 'date'], how='left_anti') \
+                                                .withColumn('month', func.lit(col('date').cast('int')%100)) \
+                                                .select('ID', 'month').distinct()
+        # 计算增长率的数据
+        raw_data_for_growth = raw_data.join(hospital_all_month, on=['ID', 'month'], how='inner')
+        
+        # 计算增长率
+        growth_rate = calculate_growth_monthly(raw_data_for_growth) \
+                            .withColumnRenamed("month", "month_for_monthly_add")
     
-    # 读回中间文件
-    createPartition(p_out_growth_rate)
-    df_out = spark.sql("SELECT * FROM %s.%s WHERE version='%s' AND provider='%s' AND  owner='%s'" 
-                                     %(g_database_temp, g_out_growth_rate, run_id, project_name, owner)) \
-                            .drop("version", "provider", "owner")
+    
+    df_out = dealScheme(growth_rate, dict_scheme={'S_Molecule_for_gr': 'string', 'CITYGROUP': 'string'})
+    
     # %%
     # =========== 数据输出 =============
     def lowerColumns(df):
