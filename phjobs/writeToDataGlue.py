@@ -89,9 +89,10 @@ def execute(**kwargs):
     
     def getS3pData(s3path, filetype, encoding):
         if filetype == 'parquet':
-            df = spark.read.parquet(projectPath)
+            df = spark.read.parquet(s3path)
         elif filetype == 'csv':
-            df = spark.read.csv(projectPath, header=True, encoding=encoding)
+            df = spark.read.csv(s3path, header=True, encoding=encoding)
+        return df
     
     def getClient():
         os.environ["AWS_DEFAULT_REGION"] = "cn-northwest-1"
@@ -104,6 +105,7 @@ def execute(**kwargs):
         outPartitions = client.get_partitions(DatabaseName="zudIcG_17yj8CEUoCTHg", TableName=table )
         outPartitionsList = [i['Values'][0] for i in outPartitions['Partitions']]
         if version in outPartitionsList:
+            print(outPartitionsList)
             raise ValueError("已经存在该version")
         return outPartitionsList
     
@@ -133,7 +135,10 @@ def execute(**kwargs):
     # 写出到数据目录
     writeToDataGlue(dfout, toTable, toVersion, toProvider)
     # 爬取到glue
-    runCrawler('ph_etl_for_max')
+    try:
+        runCrawler('ph_etl_for_max')
+    except:
+        print("Crawler 进行中")
 
 
     return {"out_df": data_frame}
