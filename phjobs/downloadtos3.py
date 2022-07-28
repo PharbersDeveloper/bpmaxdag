@@ -64,7 +64,7 @@ def execute(**kwargs):
         projectPath=f"s3://ph-platform/2020-11-11/lake/pharbers/{projectId[projectName]}/{table}"
         print(projectPath)
         df = spark.read.parquet(projectPath) \
-                    .where(col('traceId') == version)
+                    .where(col('traceId').isin(version))
         dfout = convert_normal_df(df, convert_union_schema(df))
         if dfout.count() < 0:
             raise ValueError("数据为空")
@@ -90,7 +90,7 @@ def execute(**kwargs):
         dfout = getTempData(tempArgs['projectName'], tempArgs['table'], tempArgs['version'])
     elif dataType == 'glue':
         dfout = getGlueData(glueArgs['table'], glueArgs['version'])
-        
+
     dfout.show(2)
     # 写出到S3
     writeToS3(dfout, out_path, out_encoding, out_filenum)
