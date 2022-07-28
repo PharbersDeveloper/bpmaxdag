@@ -11,7 +11,7 @@ def execute(**kwargs):
     spark = kwargs['spark']
     
 
-    data_frame = kwargs['df_kong']
+    data_frame = kwargs['df_input']
     dataType = kwargs['dataType']
     tempArgs = kwargs['tempArgs']
     s3Args = kwargs['s3Args']
