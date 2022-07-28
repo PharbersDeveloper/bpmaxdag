@@ -77,7 +77,7 @@ def execute(**kwargs):
     
     def getTempData(projectName, table, version):
         # 读取中间文件数据
-        projectId={"autorawdata":"99a5R2kIMyInYEc", "automax":"s7nBDbpqfUShq1w"}
+        projectId={"autorawdata":"99a5R2kIMyInYEc", "automax":"s7nBDbpqfUShq1w", "autoweight":"xu68bxmMFJo6-o9", "autorffactor2":"2LWyqFPIIwCSZEV", "cmax":"ZyQpzttbwmvQcCf"}
         projectPath=f"s3://ph-platform/2020-11-11/lake/pharbers/{projectId[projectName]}/{table}"
         print(projectPath)
         df = spark.read.parquet(projectPath) \
@@ -123,8 +123,16 @@ def execute(**kwargs):
             Name = crawlerName
         )
         print(response)
+        
+    def tableUse(toTable):
+        gluetables = ['max_raw_data', 'prod_mapping', 'mkt_mapping', 'cn_ims_sales_fdata', 'cpa_pha_mapping', 'id_bedsize', 'province_city_mapping', 'universe_base', 'universe_other', 'universe_outlier', 'factor', 'max_result_backfill', 'max_raw_data', 'prod_mapping', 'cn_ims_sales_fdata', 'cn_geog_dimn', 'ims_info_upload', 'ims_mapping', 'cpa_pha_mapping', 'mkt_mapping', 'universe_base', 'universe_other', 'doctor', 'bt_pha', 'ind', 'prod_mapping', 'max_raw_data_delivery', 'max_raw_data_std', 'max_raw_data', 'universe_base_common', 'universe_base', 'weight_default', 'weight', 'factor', 'universe_outlier', 'province_city_mapping_common', 'province_city_mapping', 'cpa_pha_mapping_common', 'cpa_pha_mapping', 'id_bedsize', 'product_map_all_atc', 'master_data_map', 'mkt_mapping', 'poi', 'not_arrived', 'published', 'max_raw_data_upload', 'molecule_adjust', 'cpa_pha_mapping', 'cpa_pha_mapping_common', 'max_raw_data_delivery', 'max_raw_data_std', 'max_raw_data', 'prod_mapping', 'pchc_universe', 'cn_prod_ref', 'ims_chpa', 'cn_mol_lkp', 'cn_mol_ref', 'cn_corp_ref', 'market_define', 'tianjin_packid_moleinfo', 'shanghai_packid_moleinfo', 'pchc_city_tier', 'cmax_raw_data']
+        if toTable not in gluetables:
+            raise ValueError("toTable不在数据目录中")       
             
     # ======== 执行 ======
+    # 判断输出table是否在数据目录中
+    tableUse(toTable)
+    
     # 读取 临时目录 数据
     if dataType == 'temp':
         dfout = getTempData(tempArgs['projectName'], tempArgs['table'], tempArgs['version'])
