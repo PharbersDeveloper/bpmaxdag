@@ -155,6 +155,7 @@ def execute(**kwargs):
         dfout = getTempData(tempArgs['projectName'], tempArgs['table'], tempArgs['version'])
     elif dataType == 's3':
         dfout = getS3pData(s3Args['s3path'], s3Args['filetype'], s3Args['csv_encoding'])
+    dfout = lowCol(dfout)
 
     dfout.show(2)
     # 写出到数据目录
