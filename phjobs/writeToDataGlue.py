@@ -48,6 +48,7 @@ def execute(**kwargs):
     import boto3
     from pyspark.sql.functions import lit, col, struct, to_json, json_tuple
     from functools import reduce
+    import time
     
     
     def convert_union_schema(df):
@@ -95,8 +96,7 @@ def execute(**kwargs):
         return df
     
     def getClient():
-        os.environ["AWS_DEFAULT_REGION"] = "cn-northwest-1"
-        client = boto3.client('glue')
+        client = boto3.client('glue', 'cn-northwest-1')
         return client
     
     def judgeVersionToGlue(projectId, table, version):
@@ -127,8 +127,25 @@ def execute(**kwargs):
     def tableUse(toTable):
         gluetables = ['max_raw_data', 'prod_mapping', 'mkt_mapping', 'cn_ims_sales_fdata', 'cpa_pha_mapping', 'id_bedsize', 'province_city_mapping', 'universe_base', 'universe_other', 'universe_outlier', 'factor', 'max_result_backfill', 'max_raw_data', 'prod_mapping', 'cn_ims_sales_fdata', 'cn_geog_dimn', 'ims_info_upload', 'ims_mapping', 'cpa_pha_mapping', 'mkt_mapping', 'universe_base', 'universe_other', 'doctor', 'bt_pha', 'ind', 'prod_mapping', 'max_raw_data_delivery', 'max_raw_data_std', 'max_raw_data', 'universe_base_common', 'universe_base', 'weight_default', 'weight', 'factor', 'universe_outlier', 'province_city_mapping_common', 'province_city_mapping', 'cpa_pha_mapping_common', 'cpa_pha_mapping', 'id_bedsize', 'product_map_all_atc', 'master_data_map', 'mkt_mapping', 'poi', 'not_arrived', 'published', 'max_raw_data_upload', 'molecule_adjust', 'cpa_pha_mapping', 'cpa_pha_mapping_common', 'max_raw_data_delivery', 'max_raw_data_std', 'max_raw_data', 'prod_mapping', 'pchc_universe', 'cn_prod_ref', 'ims_chpa', 'cn_mol_lkp', 'cn_mol_ref', 'cn_corp_ref', 'market_define', 'tianjin_packid_moleinfo', 'shanghai_packid_moleinfo', 'pchc_city_tier', 'cmax_raw_data']
         if toTable not in gluetables:
-            raise ValueError("toTable不在数据目录中")       
+            raise ValueError("toTable不在数据目录中") 
             
+  
+    def addToDynamodb(table_name, version_name):
+        item = {
+            'id': {'S': "zudicg_17yj8ceuocthg" + '_' + table_name},
+            'name': {'S': str(version_name)},
+            'datasetId': {'S': str(table_name)},
+            'date': {'S': str(time.time())},
+            'owner': {'S': "pharbers"},
+            'projectId': {'S': "zudicg_17yj8ceuocthg"}
+        }
+        client_dynamodb = boto3.client('dynamodb', 'cn-northwest-1')
+        respose = client_dynamodb.put_item(
+                TableName="version",
+                Item=item)
+        return respose
+
+                   
     # ======== 执行 ======
     # 判断输出table是否在数据目录中
     tableUse(toTable)
@@ -147,6 +164,7 @@ def execute(**kwargs):
         runCrawler('ph_etl_for_max')
     except:
         print("Crawler 进行中")
-
+    # 写入到dynamodb的version表
+    addToDynamodb(toTable, toVersion)
 
     return {"out_df": data_frame}
