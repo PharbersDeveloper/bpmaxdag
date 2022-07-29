@@ -63,26 +63,8 @@ def execute(**kwargs):
         df = df.drop('traceId')
         return df
     
-    
-    def readClickhouse(database, dbtable, version):
-        df = spark.read.format("jdbc") \
-                .option("url", "jdbc:clickhouse://192.168.16.117:8123/" + database) \
-                .option("dbtable", dbtable) \
-                .option("driver", "ru.yandex.clickhouse.ClickHouseDriver") \
-                .option("user", "default") \
-                .option("password", "") \
-                .option("batchsize", 1000) \
-                .option("socket_timeout", 300000) \
-                .option("rewrtieBatchedStatements", True).load()
-        if version != 'all':
-            version = version.replace(" ","").split(',')
-            df = df.where(df['version'].isin(version))
-        return df
     # %% 
     # =========== 输入数据读取 =========== 
-    # df_imp_total = readClickhouse('default', 'ftZnwL38MzTJPr1s_imp_total', '袁毓蔚_Auto_cMax_enlarge_Auto_cMax_enlarge_developer_2022-02-23T03:37:29+00:00')
-    # df_hospital_universe = readClickhouse('default', 'ftZnwL38MzTJPr1s_hospital_universe', '袁毓蔚_Auto_cMax_enlarge_Auto_cMax_enlarge_developer_2022-02-23T03:37:29+00:00')
-    
     df_imp_total = readInFile("df_imp_hz")
     df_hospital_universe = readInFile("df_hospital_universe_hz")
     df_out_sample = readInFile("df_out_sample_hz")

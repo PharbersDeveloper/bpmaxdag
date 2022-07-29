@@ -8,10 +8,8 @@ from phcli.ph_logs.ph_logs import phs3logger, LOG_DEBUG_LEVEL
 
 
 def execute(**kwargs):
-    logger = phs3logger(kwargs["job_id"], LOG_DEBUG_LEVEL)
-    spark = kwargs['spark']()
-    result_path_prefix = kwargs["result_path_prefix"]
-    depends_path = kwargs["depends_path"]
+    logger = phs3logger(kwargs["run_id"], LOG_DEBUG_LEVEL)
+    spark = kwargs['spark']
     
     ### input args ###
     g_input_version = kwargs['g_input_version']
@@ -63,28 +61,9 @@ def execute(**kwargs):
         df = getInputVersion(df, table_name.replace('df_', ''))
         return df
     
-    
-    def readClickhouse(database, dbtable, version):
-        df = spark.read.format("jdbc") \
-                .option("url", "jdbc:clickhouse://192.168.16.117:8123/" + database) \
-                .option("dbtable", dbtable) \
-                .option("driver", "ru.yandex.clickhouse.ClickHouseDriver") \
-                .option("user", "default") \
-                .option("password", "") \
-                .option("batchsize", 1000) \
-                .option("socket_timeout", 300000) \
-                .option("rewrtieBatchedStatements", True).load()
-        if version != 'all':
-            version = version.replace(" ","").split(',')
-            df = df.where(df['version'].isin(version))
-        return df
+
     # %% 
     # =========== 输入数据读取 =========== 
-    # df_pchc_city_tier = readClickhouse('default', 'ftZnwL38MzTJPr1s_pchc_city_tier', 'pchc_city_tier')
-    # df_project_sample = readClickhouse('default', 'ftZnwL38MzTJPr1s_project_sample_fromR', 'Project_Sample_20220223_R')
-    # df_hospital_universe = readClickhouse('default', 'ftZnwL38MzTJPr1s_hospital_universe', '袁毓蔚_Auto_cMax_enlarge_Auto_cMax_enlarge_developer_2022-02-23T03:37:29+00:00')
-    # 64700
-    
     df_pchc_city_tier = readInFile("df_pchc_city_tier")
     df_project_sample = readInFile("df_project_sample_hz")
     df_hospital_universe = readInFile("df_hospital_universe_hz")
