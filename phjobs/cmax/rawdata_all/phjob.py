@@ -69,30 +69,9 @@ def execute(**kwargs):
         df = df.drop('traceId')
         return df
     
-    
-    def readClickhouse(database, dbtable, version):
-        df = spark.read.format("jdbc") \
-                .option("url", "jdbc:clickhouse://192.168.16.117:8123/" + database) \
-                .option("dbtable", dbtable) \
-                .option("driver", "ru.yandex.clickhouse.ClickHouseDriver") \
-                .option("user", "default") \
-                .option("password", "") \
-                .option("batchsize", 1000) \
-                .option("socket_timeout", 300000) \
-                .option("rewrtieBatchedStatements", True).load()
-        if version != 'all':
-            version = version.replace(" ","").split(',')
-            df = df.where(df['version'].isin(version))
-        return df
     # %% 
     # =========== 输入数据读取 =========== 
-    #df_raw_data = readClickhouse('default', 'F9YGH7iTKuoygfrd_raw_data', 'all')
-    #df_rawdata_tianjin = readClickhouse('default', 'F9YGH7iTKuoygfrd_rawdata_tianjin', '袁毓蔚_Auto_cMax_Auto_cMax_developer_2022-02-18T06:54:41+00:00')
-    #df_rawdata_shanghai = readClickhouse('default', 'F9YGH7iTKuoygfrd_rawdata_shanghai', '袁毓蔚_Auto_cMax_Auto_cMax_developer_2022-02-18T06:54:41+00:00')
-    #df_ims_molecule_info = readClickhouse('default', 'F9YGH7iTKuoygfrd_ims_molecule_info', '袁毓蔚_Auto_cMax_Auto_cMax_developer_2022-02-18T06:54:41+00:00')
-    #df_market_molecule = readClickhouse('default', 'F9YGH7iTKuoygfrd_market_molecule', '袁毓蔚_Auto_cMax_Auto_cMax_developer_2022-02-18T06:54:41+00:00')
-    
-    df_raw_data = readInFile("df_raw_data")
+    df_raw_data = readInFile("df_cmax_raw_data")
     df_rawdata_tianjin = readInFile("df_rawdata_tianjin")
     df_rawdata_shanghai = readInFile("df_rawdata_shanghai")
     df_ims_molecule_info = readInFile("df_ims_molecule_info")

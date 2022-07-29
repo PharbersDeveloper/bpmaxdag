@@ -8,10 +8,8 @@ from phcli.ph_logs.ph_logs import phs3logger, LOG_DEBUG_LEVEL
 
 
 def execute(**kwargs):
-    logger = phs3logger(kwargs["job_id"], LOG_DEBUG_LEVEL)
-    spark = kwargs['spark']()
-    result_path_prefix = kwargs["result_path_prefix"]
-    depends_path = kwargs["depends_path"]
+    logger = phs3logger(kwargs["run_id"], LOG_DEBUG_LEVEL)
+    spark = kwargs['spark']
     
     ### input args ###
     g_input_version = kwargs['g_input_version']
@@ -63,27 +61,8 @@ def execute(**kwargs):
         df = getInputVersion(df, table_name.replace('df_', ''))
         return df
         
-    def readClickhouse(database, dbtable, version):
-        version = version.replace(" ","").split(',')
-        df = spark.read.format("jdbc") \
-                .option("url", "jdbc:clickhouse://192.168.16.117:8123/" + database) \
-                .option("dbtable", dbtable) \
-                .option("driver", "ru.yandex.clickhouse.ClickHouseDriver") \
-                .option("user", "default") \
-                .option("password", "") \
-                .option("batchsize", 1000) \
-                .option("socket_timeout", 300000) \
-                .option("rewrtieBatchedStatements", True).load()
-        df = df.where(df['version'].isin(version))
-        return df
     # %% 
     # =========== 输入数据读取 =========== 
-    #df_cn_prod_ref = readClickhouse('default', 'F9YGH7iTKuoygfrd_cn_prod_ref', 'cn_prod_ref_201912_1')
-    #df_ims_chpa = readClickhouse('default', 'F9YGH7iTKuoygfrd_ims_chpa', 'ims_chpa_to21Q3')
-    #df_cn_mol_lkp = readClickhouse('default', 'F9YGH7iTKuoygfrd_cn_mol_lkp', 'cn_mol_lkp_201912_1')
-    #df_cn_mol_ref = readClickhouse('default', 'F9YGH7iTKuoygfrd_cn_mol_ref', 'cn_mol_ref_201912_1')
-    #df_cn_corp_ref = readClickhouse('default', 'F9YGH7iTKuoygfrd_cn_corp_ref', 'cn_corp_ref_201912_1')
-    
     df_cn_prod_ref = readInFile('df_cn_prod_ref')
     df_ims_chpa = readInFile('df_ims_chpa')
     df_cn_mol_lkp = readInFile('df_cn_mol_lkp')

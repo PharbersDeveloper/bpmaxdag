@@ -8,10 +8,8 @@ from phcli.ph_logs.ph_logs import phs3logger, LOG_DEBUG_LEVEL
 
 
 def execute(**kwargs):
-    logger = phs3logger(kwargs["job_id"], LOG_DEBUG_LEVEL)
-    spark = kwargs['spark']()
-    result_path_prefix = kwargs["result_path_prefix"]
-    depends_path = kwargs["depends_path"]
+    logger = phs3logger(kwargs["run_id"], LOG_DEBUG_LEVEL)
+    spark = kwargs['spark']
     
     ### input args ###
     g_input_version = kwargs['g_input_version']
@@ -64,25 +62,8 @@ def execute(**kwargs):
         df = getInputVersion(df, table_name.replace('df_', ''))
         return df
     
-    
-    def readClickhouse(database, dbtable, version):
-        df = spark.read.format("jdbc") \
-                .option("url", "jdbc:clickhouse://192.168.16.117:8123/" + database) \
-                .option("dbtable", dbtable) \
-                .option("driver", "ru.yandex.clickhouse.ClickHouseDriver") \
-                .option("user", "default") \
-                .option("password", "") \
-                .option("batchsize", 1000) \
-                .option("socket_timeout", 300000) \
-                .option("rewrtieBatchedStatements", True).load()
-        if version != 'all':
-            version = version.replace(" ","").split(',')
-            df = df.where(df['version'].isin(version))
-        return df
     # %% 
     # =========== 输入数据读取 =========== 
-    # df_imp_total = readClickhouse('default', 'F9YGH7iTKuoygfrd_rawdata_all', '袁毓蔚_Auto_cMax_Auto_cMax_developer_2022-02-18T07:50:08+00:00')
-    # df_pchc_universe = readClickhouse('default', 'F9YGH7iTKuoygfrd_pchc_universe', '2021_PCHC_Universe更新维护')
     df_imp_total = readInFile("df_rawdata_all")
     df_pchc_universe = readInFile("df_pchc_universe")
     

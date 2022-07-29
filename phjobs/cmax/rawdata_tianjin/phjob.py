@@ -8,10 +8,8 @@ from phcli.ph_logs.ph_logs import phs3logger, LOG_DEBUG_LEVEL
 
 
 def execute(**kwargs):
-    logger = phs3logger(kwargs["job_id"], LOG_DEBUG_LEVEL)
-    spark = kwargs['spark']()
-    result_path_prefix = kwargs["result_path_prefix"]
-    depends_path = kwargs["depends_path"]
+    logger = phs3logger(kwargs["run_id"], LOG_DEBUG_LEVEL)
+    spark = kwargs['spark']
     
     ### input args ###
     g_tj_method = kwargs['g_tj_method']
@@ -67,28 +65,10 @@ def execute(**kwargs):
         df = getInputVersion(df, table_name.replace('df_', ''))
         return df
     
-    
-    def readClickhouse(database, dbtable, version):
-        version = version.replace(" ","").split(',')
-        df = spark.read.format("jdbc") \
-                .option("url", "jdbc:clickhouse://192.168.16.117:8123/" + database) \
-                .option("dbtable", dbtable) \
-                .option("driver", "ru.yandex.clickhouse.ClickHouseDriver") \
-                .option("user", "default") \
-                .option("password", "") \
-                .option("batchsize", 1000) \
-                .option("socket_timeout", 300000) \
-                .option("rewrtieBatchedStatements", True).load()
-        df = df.where(df['version'].isin(version))
-        return df
+
     
     # %% 
-    # =========== 输入数据读取 =========== 
-    # df_pchc_mapping = readClickhouse('default', 'F9YGH7iTKuoygfrd_pchc_mapping', '袁毓蔚_Auto_cMax_Auto_cMax_developer_2022-02-16T02:42:54+00:00')
-    # df_ims_molecule_info = readClickhouse('default', 'F9YGH7iTKuoygfrd_ims_molecule_info', '袁毓蔚_Auto_cMax_Auto_cMax_developer_2022-02-16T02:42:54+00:00')
-    # df_market_molecule = readClickhouse('default', 'F9YGH7iTKuoygfrd_market_molecule', '袁毓蔚_Auto_cMax_Auto_cMax_developer_2022-02-16T02:42:54+00:00')
-    # df_tianjin_raw = readClickhouse('default', 'F9YGH7iTKuoygfrd_tianjin_packid_moleinfo', 'tj_CHC_18Q2_21Q3_packid')
-    
+    # =========== 输入数据读取 ===========  
     df_pchc_mapping = readInFile('df_pchc_mapping')
     df_ims_molecule_info = readInFile('df_ims_molecule_info')
     df_market_molecule = readInFile('df_market_molecule')
