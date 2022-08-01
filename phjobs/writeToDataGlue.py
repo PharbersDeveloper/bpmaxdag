@@ -108,15 +108,27 @@ def execute(**kwargs):
             print(outPartitionsList)
             raise ValueError("已经存在该version")
         return outPartitionsList
-    
+
+    def judgeColumns(cols, table):
+        client = getClient()
+        columns_response = client.get_table(DatabaseName='zudIcG_17yj8CEUoCTHg', Name=table)['Table']['StorageDescriptor']['Columns']
+        glueColumns = [i['Name'] for i in columns_response]
+        not_in_glue_cols = [i for i in cols if i not in glueColumns]
+        if len(not_in_glue_cols) > 0:
+            raise ValueError(f"列名不在{table}中:{not_in_glue_cols}")
+
     def writeToDataGlue(df, gluetable, glueversion, glueprovider):
         # 写出到3s 数据目录位置
         projectId="zudIcG_17yj8CEUoCTHg"
         projectPath=f"s3://ph-platform/2020-11-11/lake/pharbers/{projectId}/{gluetable}"
         print(projectPath)
+        # 判断version是否已存在
         judgeVersionToGlue(projectId,gluetable,glueversion)
+        # 判断列名是否存在
+        judgeColumns(df.columns, gluetable)
+        # 写出
         outFile(df, glueversion, glueprovider, outpath=projectPath)
-    
+
     def runCrawler(crawlerName):
         client = getClient()
         response = client.start_crawler(
