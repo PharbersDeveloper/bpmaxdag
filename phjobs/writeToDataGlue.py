@@ -61,17 +61,16 @@ def execute(**kwargs):
         return df.select(json_tuple(col("data"), *cols)) \
         .toDF(*cols)
     
-    def lowCol(df):
-        # 列名统一小写，类型统一字符型
-        df = df.toDF(*[c.lower() for c in df.columns])
+    def dealCol(df, version, provider):
+        # 列名统一小写，类型统一字符型，点替换为-
+        df = df.toDF(*[c.lower().replace('.', '-') for c in df.columns])
         df = df.select(*[col(i).astype("string") for i in df.columns])
-        return df
-    
-    def outFile(df, version, provider, outpath):
-        # 写出到s3
-        df = lowCol(df)
         df = df.withColumn('version', func.lit(version)) \
                 .withColumn('provider', func.lit(provider))
+        return df
+    
+    def outFile(df, outpath):
+        # 写出到s3
         df.write.format("parquet") \
                      .mode("append").partitionBy("version") \
                      .parquet(outpath)
@@ -112,7 +111,7 @@ def execute(**kwargs):
     def judgeColumns(cols, table):
         client = getClient()
         columns_response = client.get_table(DatabaseName='zudIcG_17yj8CEUoCTHg', Name=table)['Table']['StorageDescriptor']['Columns']
-        glueColumns = [i['Name'] for i in columns_response]
+        glueColumns = [i['Name'] for i in columns_response] + ['version']
         not_in_glue_cols = [i for i in cols if i not in glueColumns]
         if len(not_in_glue_cols) > 0:
             raise ValueError(f"列名不在{table}中:{not_in_glue_cols}")
@@ -123,11 +122,11 @@ def execute(**kwargs):
         projectPath=f"s3://ph-platform/2020-11-11/lake/pharbers/{projectId}/{gluetable}"
         print(projectPath)
         # 判断version是否已存在
-        judgeVersionToGlue(projectId,gluetable,glueversion)
+        judgeVersionToGlue(projectId, gluetable, glueversion)
         # 判断列名是否存在
         judgeColumns(df.columns, gluetable)
         # 写出
-        outFile(df, glueversion, glueprovider, outpath=projectPath)
+        outFile(df, outpath=projectPath)
 
     def runCrawler(crawlerName):
         client = getClient()
@@ -167,7 +166,9 @@ def execute(**kwargs):
         dfout = getTempData(tempArgs['projectName'], tempArgs['table'], tempArgs['version'])
     elif dataType == 's3':
         dfout = getS3pData(s3Args['s3path'], s3Args['filetype'], s3Args['csv_encoding'])
-    dfout = lowCol(dfout)
+        
+    # 列处理
+    dfout = dealCol(dfout, toVersion, toProvider)
 
     dfout.show(2)
     # 写出到数据目录
@@ -180,4 +181,4 @@ def execute(**kwargs):
     # 写入到dynamodb的version表
     addToDynamodb(toTable, toVersion)
 
-    return {"out_df": data_frame}
+    return {"out_df": dfout}
