@@ -183,7 +183,7 @@ def execute(**kwargs):
     def cleanFactor(df_factor):
         dict_factor_universe = {"factor":["factor_new", "factor"]}
         df_factor = getTrueColRenamed(df_factor, dict_factor_universe, df_factor.columns)
-        df_factor = df_factor.select("factor", "City", "Province").distinct()
+        df_factor = df_factor.select("factor", "City", "Province", "doi").distinct()
         return df_factor
 
     # %%
@@ -232,6 +232,15 @@ def execute(**kwargs):
         return df_universe_outlier_doi
 
     def getFactor(df_factor_all, df_factor_base, all_models, dict_factor):
+        # 兼容旧factor无doi列，和新流程factor有doi列
+        def getMarketFacor(df_factor_all, v, k): 
+            df_v = df_factor_all.where( col('version')==v )
+            if df_v.where(col('doi')==k ).count() > 0:
+                df = df_v.where( col('doi')==k )
+            elif df_v.where(col('doi')==k ).count() == 0:
+                df = df_v.withColumn('doi', func.lit(k))
+            return df    
+
         # factor 读取
         if if_base == True:
             df_factor_doi = reduce(lambda df1,df2:df1.union(df2), 
@@ -239,7 +248,7 @@ def execute(**kwargs):
                               )
         else:
             df_factor_doi = reduce(lambda df1,df2:df1.union(df2), 
-                   list(map(lambda k,v: cleanFactor(df_factor_all.where(col('version')==v)).withColumn('doi', func.lit(k)), dict_factor.keys(), dict_factor.values()))
+                   list(map(lambda k,v: cleanFactor(getMarketFacor(df_factor_all, v, k)), dict_factor.keys(), dict_factor.values()))
                               )
         return df_factor_doi
 
