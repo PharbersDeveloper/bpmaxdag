@@ -8,10 +8,8 @@ from phcli.ph_logs.ph_logs import phs3logger, LOG_DEBUG_LEVEL
 
 
 def execute(**kwargs):
-    logger = phs3logger(kwargs["job_id"], LOG_DEBUG_LEVEL)
-    spark = kwargs['spark']()
-    result_path_prefix = kwargs["result_path_prefix"]
-    depends_path = kwargs["depends_path"]
+    logger = phs3logger(kwargs["run_id"], LOG_DEBUG_LEVEL)
+    spark = kwargs['spark']
     
     ### input args ###
     g_input_version = kwargs['g_input_version']
@@ -170,8 +168,8 @@ def execute(**kwargs):
                         .join(df_universe.select("PHA", "City", "City_Tier_2010").distinct(), on=["PHA", "City"], how="left")
     
     df_raw_data = df_raw_data.withColumn("Month", (col('Date') % 100).cast(IntegerType())) \
-                            .withColumn("Year", ((col('Date') - col('Month')) / 100).cast(IntegerType()))
-    
+                            .withColumn("Year", ((col('Date') - col('Month')) / 100).cast(IntegerType())) \
+                            .withColumn("City_Tier_2010", col('City_Tier_2010').cast(IntegerType()))
 
     # %%
     # =========== 数据输出 =============

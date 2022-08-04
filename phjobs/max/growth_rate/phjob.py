@@ -104,7 +104,7 @@ def execute(**kwargs):
         df_published = readInFile('df_published', dict_scheme={'year':'int'})
         df_not_arrived = readInFile('df_not_arrived', dict_scheme={'date':'int'})
                
-    raw_data = readInFile('df_raw_data_deal_poi', dict_scheme={'date':'int','year':'int','month':'int'}) 
+    raw_data = readInFile('df_raw_data_deal_poi', dict_scheme={'date':'int','year':'int','month':'int', 'city_Tier_2010':'int'}) 
          
     # %%
     # =========== 数据清洗 =============
@@ -138,7 +138,7 @@ def execute(**kwargs):
         if max_month < 12:
             raw_data = raw_data.where(col('Month') <= max_month)
         # raw_data 处理
-        growth_raw_data = raw_data.na.fill({"City_Tier_2010": 5.0})
+        growth_raw_data = raw_data.na.fill({"City_Tier_2010": 5})
         growth_raw_data = growth_raw_data.withColumn("CITYGROUP", col('City_Tier_2010'))
         # 增长率计算过程
         growth_calculating = growth_raw_data.groupBy("S_Molecule_for_gr", "CITYGROUP", "Year") \
@@ -168,7 +168,7 @@ def execute(**kwargs):
         if max_month < 12:
             raw_data = raw_data.where(col('Month') <= max_month)
         # raw_data 处理
-        growth_raw_data = raw_data.na.fill({"City_Tier_2010": 5.0})
+        growth_raw_data = raw_data.na.fill({"City_Tier_2010": 5})
         growth_raw_data = growth_raw_data.withColumn("CITYGROUP", col('City_Tier_2010'))
         # 增长率计算过程
         growth_calculating = growth_raw_data.groupBy("S_Molecule_for_gr", "CITYGROUP", "Year", "month") \
