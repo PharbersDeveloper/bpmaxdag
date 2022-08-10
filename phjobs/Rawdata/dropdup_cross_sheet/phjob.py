@@ -12,12 +12,14 @@ def execute(**kwargs):
     spark = kwargs['spark']
     
     ### input args ###    
-    p_out = kwargs['p_out']
-    out_mode = kwargs['out_mode']
     run_id = kwargs['run_id'].replace(":","_")
     owner = kwargs['owner']
     project_name = kwargs['project_name']
-    g_database_temp = kwargs['g_database_temp']
+    
+    g_database_temp = "phdatatemp"
+    p_out = "s3://ph-platform/2020-11-11/etl/temporary_files/"
+    out_mode = "append"
+    
     ### input args ###
     
     ### output args ###
