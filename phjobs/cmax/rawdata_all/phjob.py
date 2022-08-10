@@ -144,8 +144,8 @@ def execute(**kwargs):
         df_all_final = df_all.drop('province', 'city', 'district') \
                                 .join(df_pchc_map_city, on='pchc', how='left') \
                                 .groupby("year", "date", "quarter", "province", "city", "district", "pchc", "market", "packid") \
-                                .agg(func.sum('units').alias('units'), func.sum('sales').alias('sales')) \
-                            .union(df_rawdata_shanghai.select(df_raw_data.columns))
+                                .agg(func.sum('units').alias('units'), func.sum('sales').alias('sales'))
+        df_all_final = df_all_final.union(df_rawdata_shanghai.select(df_all_final.columns))
         return df_all_final
     
     # %%
