@@ -55,12 +55,12 @@ def execute(**kwargs):
         # 对多TraceId取Schema的col的并集
         rows = df.select("schema").distinct().collect()
         return list(reduce(lambda pre, next: set(pre).union(set(next)), list(map(lambda row: [schema["name"] for schema in json.loads(row["schema"])], rows))  ))
-    
+
     def convert_normal_df(df, cols):
          # 将统一Schema的DF转成正常的DataFrame
         return df.select(json_tuple(col("data"), *cols)) \
         .toDF(*cols)
-    
+
     def dealCol(df, version, provider):
         # 列名统一小写，类型统一字符型，点替换为-
         df = df.toDF(*[c.lower().replace('.', '-') for c in df.columns])
@@ -68,13 +68,14 @@ def execute(**kwargs):
         df = df.withColumn('version', func.lit(version)) \
                 .withColumn('provider', func.lit(provider))
         return df
-    
+
     def outFile(df, outpath):
         # 写出到s3
         df.write.format("parquet") \
                      .mode("append").partitionBy("version") \
                      .parquet(outpath)
-    
+        print(f"write to {outpath}")
+
     def getTempData(projectName, table, version):
         # 读取中间文件数据
         projectId={"autorawdata":"99a5R2kIMyInYEc", "automax":"s7nBDbpqfUShq1w", "autoweight":"xu68bxmMFJo6-o9", "autorffactor2":"2LWyqFPIIwCSZEV", "cmax":"ZyQpzttbwmvQcCf"}
@@ -86,26 +87,28 @@ def execute(**kwargs):
         if dfout.count() < 0:
             raise ValueError("数据为空")
         return dfout
-    
+
     def getS3pData(s3path, filetype, encoding):
         if filetype == 'parquet':
             df = spark.read.parquet(s3path)
         elif filetype == 'csv':
             df = spark.read.csv(s3path, header=True, encoding=encoding)
         return df
-    
+
     def getClient():
         client = boto3.client('glue', 'cn-northwest-1')
         return client
-    
-    def judgeVersionToGlue(projectId, table, version):
+
+    def judgeVersionToGlue(table, version):
         # 判断写入数据目录的version是否已经存在
-        client = getClient()
-        outPartitions = client.get_partitions(DatabaseName="zudIcG_17yj8CEUoCTHg", TableName=table )
-        outPartitionsList = [i['Values'][0] for i in outPartitions['Partitions']]
+        #client = getClient()
+        #outPartitions = client.get_partitions(DatabaseName="zudIcG_17yj8CEUoCTHg", TableName=table )
+        #outPartitionsList = [i['Values'][0] for i in outPartitions['Partitions']]
+        outPartitionsList = [i['version'] for i in spark.read.parquet(getOutS3Path(table)).select('version').distinct().collect()]
+
         if version in outPartitionsList:
             print(outPartitionsList)
-            raise ValueError("已经存在该version")
+            raise ValueError(f"已经存在该version:{version}")
         return outPartitionsList
 
     def judgeColumns(cols, table):
@@ -116,13 +119,19 @@ def execute(**kwargs):
         if len(not_in_glue_cols) > 0:
             raise ValueError(f"列名不在{table}中:{not_in_glue_cols}")
 
+
+    def getOutS3Path(table):
+        projectId="zudIcG_17yj8CEUoCTHg"
+        projectPath=f"s3://ph-platform/2020-11-11/lake/pharbers/{projectId}/{table}"
+        print(projectPath)
+        return projectPath
+
+
     def writeToDataGlue(df, gluetable, glueversion, glueprovider):
         # 写出到3s 数据目录位置
-        projectId="zudIcG_17yj8CEUoCTHg"
-        projectPath=f"s3://ph-platform/2020-11-11/lake/pharbers/{projectId}/{gluetable}"
-        print(projectPath)
+        projectPath = getOutS3Path(gluetable)
         # 判断version是否已存在
-        judgeVersionToGlue(projectId, gluetable, glueversion)
+        judgeVersionToGlue(gluetable, glueversion)
         # 判断列名是否存在
         judgeColumns(df.columns, gluetable)
         # 写出
@@ -134,13 +143,13 @@ def execute(**kwargs):
             Name = crawlerName
         )
         print(response)
-        
+
     def tableUse(toTable):
         gluetables = ['max_raw_data', 'prod_mapping', 'mkt_mapping', 'cn_ims_sales_fdata', 'cpa_pha_mapping', 'id_bedsize', 'province_city_mapping', 'universe_base', 'universe_other', 'universe_outlier', 'factor', 'max_result_backfill', 'max_raw_data', 'prod_mapping', 'cn_ims_sales_fdata', 'cn_geog_dimn', 'ims_info_upload', 'ims_mapping', 'cpa_pha_mapping', 'mkt_mapping', 'universe_base', 'universe_other', 'doctor', 'bt_pha', 'ind', 'prod_mapping', 'max_raw_data_delivery', 'max_raw_data_std', 'max_raw_data', 'universe_base_common', 'universe_base', 'weight_default', 'weight', 'factor', 'universe_outlier', 'province_city_mapping_common', 'province_city_mapping', 'cpa_pha_mapping_common', 'cpa_pha_mapping', 'id_bedsize', 'product_map_all_atc', 'master_data_map', 'mkt_mapping', 'poi', 'not_arrived', 'published', 'max_raw_data_upload', 'molecule_adjust', 'cpa_pha_mapping', 'cpa_pha_mapping_common', 'max_raw_data_delivery', 'max_raw_data_std', 'max_raw_data', 'prod_mapping', 'pchc_universe', 'cn_prod_ref', 'ims_chpa', 'cn_mol_lkp', 'cn_mol_ref', 'cn_corp_ref', 'market_define', 'tianjin_packid_moleinfo', 'shanghai_packid_moleinfo', 'pchc_city_tier', 'cmax_raw_data']
         if toTable not in gluetables:
             raise ValueError("toTable不在数据目录中") 
-            
-  
+
+
     def addToDynamodb(table_name, version_name):
         item = {
             'id': {'S': "zudicg_17yj8ceuocthg" + '_' + table_name},
@@ -179,6 +188,7 @@ def execute(**kwargs):
     except:
         print("Crawler 进行中")
     # 写入到dynamodb的version表
+    time.sleep(90)
     addToDynamodb(toTable, toVersion)
 
     return {"out_df": dfout}
