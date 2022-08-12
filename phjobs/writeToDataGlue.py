@@ -63,8 +63,9 @@ def execute(**kwargs):
 
     def dealCol(df, version, provider):
         # 列名统一小写，类型统一字符型，点替换为-
-        df = df.toDF(*[c.lower().replace('.', '-') for c in df.columns])
         df = df.select(*[col(i).astype("string") for i in df.columns])
+        reg = "[\r\n\n（） ， +()-./\"]"
+        df = df.toDF(*(re.sub(reg, '_', c).lower() for c in df.columns))
         df = df.withColumn('version', func.lit(version)) \
                 .withColumn('provider', func.lit(provider))
         return df
