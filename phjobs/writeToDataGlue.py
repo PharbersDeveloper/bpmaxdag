@@ -85,7 +85,7 @@ def execute(**kwargs):
         df = spark.read.parquet(projectPath) \
                     .where(col('traceId') == version)
         dfout = convert_normal_df(df, convert_union_schema(df))
-        if dfout.count() < 0:
+        if dfout.count() == 0:
             raise ValueError("数据为空")
         return dfout
 
