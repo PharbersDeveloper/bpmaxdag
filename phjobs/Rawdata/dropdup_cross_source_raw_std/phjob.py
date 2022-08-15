@@ -154,5 +154,5 @@ def execute(**kwargs):
         raw_data_dedup_std = lowerColumns(raw_data_dedup_std) 
         return {"out_df":raw_data_dedup_std}
     else:
-        return {}
+        return {"out_df":lowerColumns(raw_data).limit(1)}
         
