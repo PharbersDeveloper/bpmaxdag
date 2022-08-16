@@ -49,6 +49,7 @@ def execute(**kwargs):
     from pyspark.sql.functions import lit, col, struct, to_json, json_tuple
     from functools import reduce
     import time
+    import re
     
     
     def convert_union_schema(df):

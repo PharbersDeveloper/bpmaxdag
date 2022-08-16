@@ -134,6 +134,7 @@ def execute(**kwargs):
     # %%
     # ==== 计算增长率 ====
     def calculate_growth(raw_data, max_month=12):
+        # 模型年补数
         # TODO: 完整年用完整年增长，不完整年用不完整年增长
         if max_month < 12:
             raw_data = raw_data.where(col('Month') <= max_month)
@@ -164,7 +165,7 @@ def execute(**kwargs):
         return growth_rate  
     
     def calculate_growth_monthly(raw_data, max_month=12):
-        # TODO: 完整年用完整年增长，不完整年用不完整年增长
+        # 月更新补数
         if max_month < 12:
             raw_data = raw_data.where(col('Month') <= max_month)
         # raw_data 处理
@@ -195,8 +196,7 @@ def execute(**kwargs):
 
     # %%
     logger.debug('增长率计算')
-    
-    if monthly_update == "False":
+    def run_growth_model(raw_data, growth_rate, model_month_right, max_month, year_missing):
         raw_data = raw_data.where(col('Year') < ((model_month_right // 100) + 1))
         # AZ-Sanofi 要特殊处理
         if project_name != "Sanofi" and project_name != "AZ":
@@ -221,7 +221,8 @@ def execute(**kwargs):
                 growth_rate_p2.select(["S_Molecule_for_gr", "CITYGROUP"] + [name for name in growth_rate_p2.columns if name.startswith("GR")]),
                 on=["S_Molecule_for_gr", "CITYGROUP"],
                 how="left")  
-    elif monthly_update == "True": 
+    
+    def run_growth_monthly(raw_data, df_published, df_not_arrived, current_year, first_month, current_month):    
         published_right = df_published.where(col('year') == current_year).select('ID').distinct()
         published_left = df_published.where(col('year') == current_year-1 ).select('ID').distinct()
         
@@ -239,10 +240,19 @@ def execute(**kwargs):
         # 计算增长率
         growth_rate = calculate_growth_monthly(raw_data_for_growth) \
                             .withColumnRenamed("month", "month_for_monthly_add")
-    
-    
-    df_out = dealScheme(growth_rate, dict_scheme={'S_Molecule_for_gr': 'string', 'CITYGROUP': 'string'})
-    
+        
+    if if_add_data == "True":
+        if monthly_update == "False":
+            growth_rate = run_growth_model(raw_data, growth_rate, model_month_right, max_month, year_missing)
+        elif monthly_update == "True": 
+            growth_rate = run_growth_monthly(raw_data, df_published, df_not_arrived, current_year, first_month, current_month)
+        df_out = dealScheme(growth_rate, dict_scheme={'S_Molecule_for_gr': 'string', 'CITYGROUP': 'string'})
+    else:
+        df_out = spark.createDataFrame([
+                        ('False', 'False')
+                    ], ['if_add_data', 'if_add_data2'])
+
+        
     # %%
     # =========== 数据输出 =============
     def lowerColumns(df):

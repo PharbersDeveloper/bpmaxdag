@@ -92,29 +92,17 @@ def execute(**kwargs):
     
     df_raw_data = readInFile('df_raw_data_deal_poi', dict_scheme={'date':'int', 'year':'int', 'month':'int'}) 
     
-    df_price = readInFile('df_price', dict_scheme={'date':'int'})
-    
-    df_price_city = readInFile('df_price_city', dict_scheme={'date':'int'})
-    
-    df_growth_rate = readInFile('df_growth_rate')
-    
-    df_original_range_raw = readInFile('df_original_range_raw')
+    if if_add_data == "True":
+        df_price = readInFile('df_price', dict_scheme={'date':'int'})
+        df_price_city = readInFile('df_price_city', dict_scheme={'date':'int'})
+        df_growth_rate = readInFile('df_growth_rate')
+        df_original_range_raw = readInFile('df_original_range_raw')
         
     if monthly_update == "False":
         # 只在最新一年出现的医院
         df_new_hospital =  kwargs['df_new_hospital']
         df_new_hospital = dealToNull(df_new_hospital)
      
-        
-    # 删除已有的s3中间文件
-    def deletePath(path_dir):
-        file_name = path_dir.replace('//', '/').split('s3:/ph-platform/')[1]
-        s3 = boto3.resource('s3', region_name='cn-northwest-1',
-                            aws_access_key_id="AKIAWPBDTVEAEU44ZAGT",
-                            aws_secret_access_key="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")
-        bucket = s3.Bucket('ph-platform')
-        bucket.objects.filter(Prefix=file_name).delete()
-    # deletePath(path_dir=f"{p_out_adding_data}/version={run_id}/provider={project_name}/owner={owner}/")
 
     # %% 
     # =========== 数据清洗 =============
@@ -131,18 +119,10 @@ def execute(**kwargs):
         df = df.withColumn("ID", func.regexp_replace("ID", "\\.0", ""))
         df = df.withColumn("ID", func.when(func.length(df.ID) < 7, func.lpad(df.ID, 6, "0")).otherwise(df.ID))
         return df
-    
-    # 1、选择标准列
-    # df_poi = df_poi.select('poi').distinct()
-    df_raw_data = df_raw_data.drop('version', 'provider', 'owner')
-    df_price = df_price.select('min2', 'date', 'city_tier_2010', 'price')
-    df_price_city = df_price_city.select('min2', 'date', 'city', 'province', 'price')
-    df_growth_rate = df_growth_rate.drop('version', 'provider', 'owner')
-
 
     # %%
     # =========== 补数函数 =========== 
-    def addData(df_raw_data, df_growth_rate, df_original_range_raw):
+    def addData(df_raw_data, df_growth_rate, df_original_range_raw, price_city, price):
         # 1. 原始数据格式整理， 用于补数， join不同补数月份所用的 growth_rate，形成一个大表
         df_raw_data_for_add = df_raw_data.where(~col('PHA').isNull()) \
                                 .withColumnRenamed("City_Tier_2010", "CITYGROUP") \
@@ -323,16 +303,23 @@ def execute(**kwargs):
     # %%
     # =========== 数据执行 =========== 
     logger.debug('数据执行-start')
-
-    price = df_price.withColumnRenamed('Price', 'Price_tier')
-    price_city = df_price_city.withColumnRenamed('Price', 'Price_city')
     
+    # 1、选择标准列
+    df_raw_data = df_raw_data.drop('version', 'provider', 'owner')
+
     # raw_data 处理
     if monthly_update == "False":
         df_raw_data = df_raw_data.where(col('Year') < ((model_month_right // 100) + 1))
 
         
     if if_add_data == "True":
+        df_price = df_price.select('min2', 'date', 'city_tier_2010', 'price')
+        df_price_city = df_price_city.select('min2', 'date', 'city', 'province', 'price')
+        df_growth_rate = df_growth_rate.drop('version', 'provider', 'owner')
+    
+        price = df_price.withColumnRenamed('Price', 'Price_tier')
+        price_city = df_price_city.withColumnRenamed('Price', 'Price_city')
+    
         #logger.debug('4 补数')
         # 2、执行补数
         if monthly_update == "True":
@@ -341,9 +328,10 @@ def execute(**kwargs):
         elif monthly_update == "False":
             df_raw_data = df_raw_data.withColumn('month_for_monthly_add', func.lit('0'))
             df_growth_rate = df_growth_rate.withColumn('month_for_monthly_add', func.lit('0'))
-
-        df_adding_data = addData(df_raw_data, df_growth_rate, df_original_range_raw)['df_adding_data']
-        df_original_range = addData(df_raw_data, df_growth_rate, df_original_range_raw)['df_original_range']
+        
+        dict_addData_out = addData(df_raw_data, df_growth_rate, df_original_range_raw, price_city, price)
+        df_adding_data = dict_addData_out['df_adding_data']
+        df_original_range = dict_addData_out['df_original_range']
 
         # 3、合并补数部分和原始部分:
         df_raw_data_adding = df_raw_data.withColumn("add_flag", func.lit(0)) \
