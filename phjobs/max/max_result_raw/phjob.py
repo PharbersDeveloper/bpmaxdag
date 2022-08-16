@@ -27,7 +27,6 @@ def execute(**kwargs):
     ### input args ###
     
     ### output args ###
-    # g_out_max = kwargs['g_out_max']
     ### output args ###  
     
     import os
@@ -40,9 +39,7 @@ def execute(**kwargs):
     from functools import reduce
 
     # %% 
-    # =========== 数据执行 =========== 
-    # 输入参数设置
-    g_out_max = 'max_result_raw'
+    # =========== 参数处理 =========== 
     logger.debug('job5_max')
 
     if if_base == "False":
@@ -76,8 +73,13 @@ def execute(**kwargs):
         return dict_choice
 
     dict_universe_choice = getVersionDict(universe_choice)
-    dict_factor = getVersionDict(factor_choice)
-    dict_universe_outlier = getVersionDict(universe_outlier_choice)
+    dict_factor = {k: v for k,v in getVersionDict(factor_choice).items() if k in all_models}  
+    dict_universe_outlier = {k: v for k,v in getVersionDict(universe_outlier_choice).items() if k in all_models} 
+    
+    g_input_version['factor'] = ','.join(dict_factor.values())
+    g_input_version['universe_other'] = ','.join(dict_universe_choice.values())
+    g_input_version['universe_outlier'] = ','.join(dict_universe_outlier.values())
+    
 
     # %% 
     # =========== 输入数据读取 =========== 
