@@ -221,6 +221,7 @@ def execute(**kwargs):
                 growth_rate_p2.select(["S_Molecule_for_gr", "CITYGROUP"] + [name for name in growth_rate_p2.columns if name.startswith("GR")]),
                 on=["S_Molecule_for_gr", "CITYGROUP"],
                 how="left")  
+        return growth_rate
     
     def run_growth_monthly(raw_data, df_published, df_not_arrived, current_year, first_month, current_month):    
         published_right = df_published.where(col('year') == current_year).select('ID').distinct()
@@ -240,13 +241,14 @@ def execute(**kwargs):
         # 计算增长率
         growth_rate = calculate_growth_monthly(raw_data_for_growth) \
                             .withColumnRenamed("month", "month_for_monthly_add")
+        return growth_rate
         
     if if_add_data == "True":
         if monthly_update == "False":
-            growth_rate = run_growth_model(raw_data, growth_rate, model_month_right, max_month, year_missing)
+            growth_rate_out = run_growth_model(raw_data, growth_rate, model_month_right, max_month, year_missing)
         elif monthly_update == "True": 
-            growth_rate = run_growth_monthly(raw_data, df_published, df_not_arrived, current_year, first_month, current_month)
-        df_out = dealScheme(growth_rate, dict_scheme={'S_Molecule_for_gr': 'string', 'CITYGROUP': 'string'})
+            growth_rate_out = run_growth_monthly(raw_data, df_published, df_not_arrived, current_year, first_month, current_month)
+        df_out = dealScheme(growth_rate_out, dict_scheme={'S_Molecule_for_gr': 'string', 'CITYGROUP': 'string'})
     else:
         df_out = spark.createDataFrame([
                         ('False', 'False')
