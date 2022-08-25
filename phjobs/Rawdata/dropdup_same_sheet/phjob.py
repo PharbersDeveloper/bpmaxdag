@@ -48,7 +48,7 @@ def execute(**kwargs):
     g_table_same_sheet_dup = 'rawdata_same_sheet_dup'
     
     std_names = ["Date", "ID", "Raw_Hosp_Name", "Brand", "Form", "Specifications", "Pack_Number", "Manufacturer", 
-    "Molecule", "Source", "Corp", "Route", "ORG_Measure"]
+    "Molecule", "Source", "corp", "route", "ORG_Measure"]
     
     
     # %% 
@@ -88,10 +88,10 @@ def execute(**kwargs):
     # %%
     # =============  数据执行 ==============
     # raw_data = spark.read.csv(raw_data_path, header=True)    
-    if 'Corp' not in raw_data.columns:
-        raw_data = raw_data.withColumn('Corp', func.lit(''))
-    if 'Route' not in raw_data.columns:
-        raw_data = raw_data.withColumn('Route', func.lit(''))
+    if 'corp' not in raw_data.columns:
+        raw_data = raw_data.withColumn('corp', func.lit(''))
+    if 'route' not in raw_data.columns:
+        raw_data = raw_data.withColumn('route', func.lit(''))
     for colname, coltype in raw_data.dtypes:
         if coltype == "boolean":
             raw_data = raw_data.withColumn(colname, raw_data[colname].cast(StringType()))
