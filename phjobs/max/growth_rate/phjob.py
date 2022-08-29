@@ -196,7 +196,7 @@ def execute(**kwargs):
 
     # %%
     logger.debug('增长率计算')
-    def run_growth_model(raw_data, growth_rate, model_month_right, max_month, year_missing):
+    def run_growth_model(raw_data, model_month_right, max_month, year_missing):
         raw_data = raw_data.where(col('Year') < ((model_month_right // 100) + 1))
         # AZ-Sanofi 要特殊处理
         if project_name != "Sanofi" and project_name != "AZ":
@@ -245,7 +245,7 @@ def execute(**kwargs):
         
     if if_add_data == "True":
         if monthly_update == "False":
-            growth_rate_out = run_growth_model(raw_data, growth_rate, model_month_right, max_month, year_missing)
+            growth_rate_out = run_growth_model(raw_data, model_month_right, max_month, year_missing)
         elif monthly_update == "True": 
             growth_rate_out = run_growth_monthly(raw_data, df_published, df_not_arrived, current_year, first_month, current_month)
         df_out = dealScheme(growth_rate_out, dict_scheme={'S_Molecule_for_gr': 'string', 'CITYGROUP': 'string'})
