@@ -26,24 +26,99 @@ def execute(**kwargs):
     from pyspark.sql.functions import pandas_udf, PandasUDFType, udf, col    
     import json    
     
+
     # %% 
-    # =========== 数据执行 =========== 
-    # 输入参数设置
-    # dict_input_version = json.loads(g_input_version)
-    # logger.debug(dict_input_version)
-    # if if_others != "False" and if_others != "True":
-    #     logger.error('wrong input: if_others, False or True') 
-    #     raise ValueError('wrong input: if_others, False or True')
-        
-    # if if_others == "True":
-    #     g_raw_data_type = "data_box"
-    # else:
-    #     g_raw_data_type = "data"
+    # =========== 全局 参数检查 =========== 
+    def checkArgs(kwargs):
+        # True False 参数
+        for i in ['monthly_update', 'if_two_source', 'if_add_data', 'if_base', 'hospital_level', 'bedsize', 'add_47']:
+            arg = kwargs[i]
+            if arg not in ["False", "True"]:
+                raise ValueError(f"wrong parameter: {i}, False or True")    
+
+        # 常规参数，存在即可
+        for i in ['project_name', 'current_year', 'first_month', 'current_month', 'time_left', 'time_right', 'model_month_left', 'model_month_right', 'max_month', 'year_missing', 
+                  'minimum_product_columns', 'minimum_product_sep', 'minimum_product_newname']:
+            if kwargs[i] and kwargs[i] != "":
+                continue
+            else:
+                raise ValueError(f"need parameter: {i}")
+
+        # Empty的大小写判断，代码里会判断是否为Empty从而做一些操作
+        for i in ['max_month', 'year_missing', 'universe_choice', 'use_d_weight']:
+            if kwargs[i].lower() == 'empty' and kwargs[i] != 'Empty':
+                raise ValueError(f"wrong parameter:  {i} shoule be 'Empty'")
+
+        # 逗号分割
+        for i in ['use_d_weight', 'all_models']:
+            arg = kwargs[i]
+            if '，' in arg:
+                raise ValueError(f"wrong parameter: {i} should split by ,")
+
+        # 冒号分割
+        for i in ['factor_choice', 'universe_choice', 'universe_outlier_choice']:
+            arg = kwargs[i]
+            if '：' in arg or '，' in arg:
+                raise ValueError(f"wrong parameter: {i} should use : and ,")
+
+    def judgeVersion(table, versions, client):
+        # version 是否以逗号分割
+        if '，' in versions:
+            raise ValueError(f"wrong g_input_version: {table} should split by ,") 
+        list_version = versions.replace(' ','').split(',')
+
+        # 判断version是否存在  
+        outPartitions = client.get_partitions(DatabaseName="zudIcG_17yj8CEUoCTHg", TableName=table )
+        outPartitionsList = [i['Values'][0] for i in outPartitions['Partitions']]
+        for i in list_version:
+            if i not in outPartitionsList:
+                raise ValueError(f"wrong g_input_version: {table} 不存在该version {i}")
+
+    # 版本
+    def checkArgsVersion(kwargs, g_input_version):
+        client = boto3.client('glue', 'cn-northwest-1')
+        tables = ['prod_mapping', 'max_raw_data_delivery', 'max_raw_data', 'universe_base_common', 'universe_base', 'weight', 'province_city_mapping_common', 'province_city_mapping', 'cpa_pha_mapping_common', 'cpa_pha_mapping', 'id_bedsize', 'product_map_all_atc', 'master_data_map', 'mkt_mapping', 'poi', 'not_arrived', 'published', 'factor', 'universe_outlier']
+        if kwargs['if_two_source'] == 'True':
+            tables = tables + ['max_raw_data_std']
+        if kwargs['use_d_weight'] != 'Empty':
+            tables = tables + ['weight_default']
+        if kwargs['universe_choice'] != 'Empty':
+            tables = tables + ['universe_other']
+
+        for i in tables:
+            try:
+                versions = g_input_version[i]
+            except:
+                raise ValueError(f"need g_input_version: {i} ")
+
+            print(i,':',versions)
+            judgeVersion(i, versions, client)
+
+    def get_g_input_version(kwargs):
+        # 把 universe_choice，factor_choice，universe_outlier_choice 中指定的版本信息添加到 g_input_version中
+        def getVersionDict(str_choice):
+            dict_choice = {}
+            if str_choice != "Empty":
+                for each in str_choice.replace(", ",",").split(","):
+                    market_name = each.split(":")[0]
+                    version_name = each.split(":")[1]
+                    dict_choice[market_name]=version_name
+            return dict_choice
+        all_models = kwargs['all_models']
+        g_input_version = kwargs['g_input_version']
+
+        dict_universe_choice = getVersionDict(kwargs['universe_choice'])
+        dict_factor = {k: v for k,v in getVersionDict(kwargs['factor_choice']).items() if k in all_models}  
+        dict_universe_outlier = {k: v for k,v in getVersionDict(kwargs['universe_outlier_choice']).items() if k in all_models} 
+        g_input_version['factor'] = ','.join(dict_factor.values())
+        g_input_version['universe_other'] = ','.join(dict_universe_choice.values())
+        g_input_version['universe_outlier'] = ','.join(dict_universe_outlier.values())
+
+        return g_input_version
+
+    checkArgs(kwargs)
+    checkArgsVersion(kwargs, get_g_input_version(kwargs))   
     
-    # 输出
-    # if if_others == "True":
-    #     out_dir = out_dir + "/others_box/"
-    # p_out_path = out_path + g_out_table
     
     # %% 
     # =========== 输入数据读取 =========== 
