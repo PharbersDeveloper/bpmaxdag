@@ -60,23 +60,31 @@ def execute(**kwargs):
             arg = kwargs[i]
             if '：' in arg or '，' in arg:
                 raise ValueError(f"wrong parameter: {i} should use : and ,")
+                
+    from boto3.dynamodb.conditions import Attr, Key
+    def query_table_item(client_dynamodb, tableName, partitionKey, ValueOfpartitionKey):
+        ds_table = client_dynamodb.Table(tableName)
+        res = ds_table.query(
+            KeyConditionExpression=Key(partitionKey).eq(ValueOfpartitionKey)
+        )
+        return res["Items"]
 
-    def judgeVersion(table, versions, client):
+    def judgeVersion(table, versions, client_dynamodb):
         # version 是否以逗号分割
         if '，' in versions:
             raise ValueError(f"wrong g_input_version: {table} should split by ,") 
         list_version = versions.replace(' ','').split(',')
 
         # 判断version是否存在  
-        outPartitions = client.get_partitions(DatabaseName="zudIcG_17yj8CEUoCTHg", TableName=table )
-        outPartitionsList = [i['Values'][0] for i in outPartitions['Partitions']]
+        outPartitionsList = [i['name'] for i in query_table_item(client_dynamodb, "version", "id", f"zudicg_17yj8ceuocthg_{table}")]
+
         for i in list_version:
             if i not in outPartitionsList:
                 raise ValueError(f"wrong g_input_version: {table} 不存在该version {i}")
 
     # 版本
     def checkArgsVersion(kwargs, g_input_version):
-        client = boto3.client('glue', 'cn-northwest-1')
+        client_dynamodb = boto3.resource('dynamodb',  region_name="cn-northwest-1")
         tables = ['prod_mapping', 'max_raw_data_delivery', 'max_raw_data', 'universe_base_common', 'universe_base', 'weight', 'province_city_mapping_common', 'province_city_mapping', 'cpa_pha_mapping_common', 'cpa_pha_mapping', 'id_bedsize', 'product_map_all_atc', 'master_data_map', 'mkt_mapping', 'poi', 'not_arrived', 'published', 'factor', 'universe_outlier']
         if kwargs['if_two_source'] == 'True':
             tables = tables + ['max_raw_data_std']
@@ -92,7 +100,7 @@ def execute(**kwargs):
                 raise ValueError(f"need g_input_version: {i} ")
 
             print(i,':',versions)
-            judgeVersion(i, versions, client)
+            judgeVersion(i, versions, client_dynamodb)
 
     def get_g_input_version(kwargs):
         # 把 universe_choice，factor_choice，universe_outlier_choice 中指定的版本信息添加到 g_input_version中
@@ -117,7 +125,7 @@ def execute(**kwargs):
         return g_input_version
 
     checkArgs(kwargs)
-    checkArgsVersion(kwargs, get_g_input_version(kwargs))   
+    checkArgsVersion(kwargs, get_g_input_version(kwargs))      
     
     
     # %% 
