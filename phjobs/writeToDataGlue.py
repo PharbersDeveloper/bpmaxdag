@@ -95,6 +95,13 @@ def execute(**kwargs):
             df = spark.read.parquet(s3path)
         elif filetype == 'csv':
             df = spark.read.csv(s3path, header=True, encoding=encoding)
+            
+        # 如果文件为空，添加一行占位
+        if df.count() == 0:
+            cols = list(map(lambda x: x[0], df.dtypes))
+            values = [tuple([""] * len(cols))]
+            df = spark.createDataFrame(values, cols)
+        
         return df
 
     def getClient():

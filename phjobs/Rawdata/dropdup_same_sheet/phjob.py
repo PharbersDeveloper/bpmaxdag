@@ -34,16 +34,69 @@ def execute(**kwargs):
     import time
     import re   
     from phcli.ph_tools.addTable.addTableToGlue import AddTableToGlue
+    import boto3
     
-    # %%
-    # project_name = 'Gilead'
-    # outdir = '202101'
-    # if_two_source = 'True'
-    # cut_time_left = '202101'
-    # cut_time_right = '202101'
-    # test = 'True'
+    # %% 
+    # =========== 全局 参数检查 =========== 
+    def checkArgs(kwargs):
+        # True False 参数
+        for i in ['if_two_source', 'if_union', 'g_id_molecule']:
+            arg = kwargs[i]
+            if arg not in ["False", "True"]:
+                raise ValueError(f"wrong parameter: {i}, False or True")    
+
+        # 常规参数，存在即可
+        for i in ['project_name', 'current_year', 'current_month', 'minimum_product_columns', 'minimum_product_sep', 'minimum_product_newname', 'cut_time_left', 'three', 'twelve']:
+            if kwargs[i] and kwargs[i] != "":
+                continue
+            else:
+                raise ValueError(f"need parameter: {i}")
+
+
+    from boto3.dynamodb.conditions import Attr, Key
+    def query_table_item(client_dynamodb, tableName, partitionKey, ValueOfpartitionKey):
+        ds_table = client_dynamodb.Table(tableName)
+        res = ds_table.query(
+            KeyConditionExpression=Key(partitionKey).eq(ValueOfpartitionKey)
+        )
+        return res["Items"]
+
+    def judgeVersion(table, versions, client_dynamodb):
+        # version 是否以逗号分割
+        if '，' in versions:
+            raise ValueError(f"wrong g_input_version: {table} should split by ,") 
+        list_version = versions.replace(' ','').split(',')
+
+        # 判断version是否存在  
+        outPartitionsList = [i['name'] for i in query_table_item(client_dynamodb, "version", "id", f"zudicg_17yj8ceuocthg_{table}")]
+
+        for i in list_version:
+            if i not in outPartitionsList:
+                raise ValueError(f"wrong g_input_version: {table} 不存在该version {i}")
+
+    # 版本
+    def checkArgsVersion(kwargs, g_input_version):
+        client_dynamodb = boto3.resource('dynamodb',  region_name="cn-northwest-1")
+        tables = ['max_raw_data_upload', 'molecule_adjust', 'cpa_pha_mapping', 'max_raw_data_upload', 'max_raw_data_delivery', 'max_raw_data', 'prod_mapping']
+        if kwargs['if_two_source'] == 'True':
+            tables = tables + ['cpa_pha_mapping_common', 'max_raw_data_std']
+
+        for i in tables:
+            try:
+                versions = g_input_version[i]
+            except:
+                raise ValueError(f"need g_input_version: {i} ")
+
+            print(i,':',versions)
+            judgeVersion(i, versions, client_dynamodb)
+
+
+    checkArgs(kwargs)
+    checkArgsVersion(kwargs, kwargs['g_input_version'])      
+        
+    # %% 
+    # =========== 输入数据读取 =========== 
     
-    # %%
     # 输入 
     g_table_same_sheet_dup = 'rawdata_same_sheet_dup'
     
@@ -51,8 +104,6 @@ def execute(**kwargs):
     "Molecule", "Source", "corp", "route", "ORG_Measure"]
     
     
-    # %% 
-    # =========== 输入数据读取 =========== 
     def dealToNull(df):
         df = df.replace(["None", ""], None)
         return df
