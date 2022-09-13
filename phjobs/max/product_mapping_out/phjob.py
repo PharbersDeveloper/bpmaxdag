@@ -116,7 +116,7 @@ def execute(**kwargs):
     # 待清洗列名
     dict_cols_prod_map = {"通用名":["通用名", "标准通用名", "通用名_标准", "药品名称_标准", "S_Molecule_Name"], 
                           "min2":["min2", "min1_标准"],
-                          "pfc":["pfc", "packcode", "Pack_ID", "PackID", "packid"],
+                          "pfc":["pfc", "packcode", "Pack_ID", "PackID"],
                           "标准商品名":["标准商品名", "商品名_标准", "S_Product_Name"],
                           "标准剂型":["标准剂型", "剂型_标准", "Form_std", "S_Dosage"],
                           "标准规格":["标准规格", "规格_标准", "Specifications_std", "药品规格_标准", "S_Pack"],
