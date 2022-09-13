@@ -56,7 +56,7 @@ def execute(**kwargs):
         df = df.withColumn('Date', col('Date').cast('int')) \
                             .select(*[col(i).astype("string") for i in df.columns])
         df = dealIDLength(df, colname='Hospital_ID')
-        df = df.fillna('NA', subset=["Brand", "Form", "Specifications", "Pack_Number", "Manufacturer"])
+        df = df.replace('nan', None).fillna('NA', subset=["Brand", "Form", "Specifications", "Pack_Number", "Manufacturer"])
         return df
     
     def productLevel(df):
@@ -68,7 +68,7 @@ def execute(**kwargs):
     def change_raw(raw_data_old, change_file_product):
         raw_data_old = raw_data_old.withColumn("ID", func.when(func.length(col('ID')) < 7, func.lpad(col('ID'), 6, "0")).otherwise(col('ID')))
         # a. 产品层面
-        raw_data_old = raw_data_old.withColumn('Brand_new', func.when(col('Brand').isNull(), func.lit('nan')).otherwise(col('Brand')))
+        raw_data_old = raw_data_old.withColumn('Brand_new', func.when(col('Brand').isNull(), func.lit('NA')).otherwise(col('Brand')))
         raw_data_old = raw_data_old.withColumn('all_info', func.concat(func.col('Molecule'), func.col('Brand_new'), func.col('Form'), func.col('Specifications'),
                                  func.col('Pack_Number'), func.col('Manufacturer'), func.col('Date'), func.col('ID')))
         raw_data_new = raw_data_old.join(change_file_product, on='all_info', how='left')
