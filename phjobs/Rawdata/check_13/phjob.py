@@ -87,7 +87,7 @@ def execute(**kwargs):
         return df
 
     
-    Raw_data = readInFile('df_check_pretreat', dict_scheme={"pack_number":"int", "date":"int"})
+    Raw_data = readInFile('df_check_pretreat', dict_scheme={"pack_number":"int", "date":"int", "sales":"double", "units":"double"})
     Raw_data_1 = Raw_data.groupby('ID', 'Date', 'min2', '通用名','商品名','Pack_ID') \
                             .agg(func.sum('Sales').alias('Sales'), func.sum('Units').alias('Units')) \
                             .withColumnRenamed('min2', 'Prod_Name')
