@@ -18,11 +18,12 @@ def convert_union_schema(df):
 def convert_normal_df(df, cols):
     return df.select(json_tuple(col("data"), *cols)) \
     .toDF(*cols)
-df = spark.read.parquet('s3://ph-platform/2020-11-11/lake/pharbers/ejA5i96yvzkkIywWt8zz/mkt2_volume/traceId=cmax_county_cmax_county_developer_2022-09-16T02%3A54%3A10+00%3A00_袁毓蔚/')
-df = convert_normal_df(df, convert_union_schema(df))
-df.count()
+##df = spark.read.parquet('s3://ph-platform/2020-11-11/lake/pharbers/ejA5i96yvzkkIywWt8zz/mkt2_volume/traceId=cmax_county_cmax_county_developer_2022-09-16T02%3A54%3A10+00%3A00_袁毓蔚/')
+#df = convert_normal_df(df, convert_union_schema(df))
+#df.count()
 
 
+# **************  精度不同会造成结果不同  ,mkt2 金额设置为浮点
 
 # 参数：{"codeFree":{"$mkt2":"细菌"}}
 
@@ -43,8 +44,10 @@ sample_hosp_raw = all_raw_data_m3.where(col('MKT') == '细菌')
 
 
 # === groupby: universe_profile_m
+# Computed Columns: County --- Prefecture
 county_universe = spark.read.csv('s3://ph-max-auto/v0.0.1-2020-06-08/Test/county_universe_P1.csv', header=True, encoding='GBK')
-universe_profile_m = county_universe.groupby('Province', 'City', 'Hosp_level', '性质', 'City_Tier', 'Specialty_1_标准化', 'Specialty_2_标准化') \
+universe_profile_m = county_universe.withColumnRenamed('County', 'Prefecture') \
+                                    .groupby('Province', 'City', 'Hosp_level', '性质', 'City_Tier', 'Specialty_1_标准化', 'Specialty_2_标准化', 'Prefecture') \
                                     .agg(func.sum('Est_DrugIncome_RMB').alias('Est_DrugIncome_RMB'), func.sum('医生数').alias('医生数'), func.sum('床位数').alias('床位数'))
 
 mkt_name = "Tumor"
@@ -53,7 +56,7 @@ mkt_name = "Tumor"
 # mol = sample_hosp_raw.select('Molecule_Desc').distinct()
 
 # === groupby: sample_data_groupby
-# pre Computed Columns —— 重命名 ，类型双浮点
+# pre Computed Columns —— 重命名 ，金额 : 浮点
 sample_hosp = sample_hosp_raw.withColumnRenamed('Province', '省份') \
                             .withColumnRenamed('City', '城市') \
                             .withColumnRenamed('County', '区县') \
@@ -75,44 +78,41 @@ sample_data_join_universe = sample_data_groupby.join(universe_profile, col("PHA"
 
 
 # === groupby：mkt_data
-# pre Computed Columns —— 重命名
-mkt_data = sample_data_join_universe.groupby('Province', 'City', 'Hosp_level',  '性质', 'City_Tier', 'Specialty_1_标准化', 'Specialty_2_标准化', 'packcode', '月份') \
+# pre Computed Columns —— 重命名， 金额 : 浮点
+mkt_data = sample_data_join_universe.groupby('Province', 'City', 'Hosp_level',  '性质', 'City_Tier', 'Specialty_1_标准化', 'Specialty_2_标准化', 'packcode', '月份', 'Prefecture') \
                         .agg(func.sum('数量').alias('数量'), func.sum('最小使用单位数量').alias('最小使用单位数量'), func.sum('金额').alias('金额'))
 
 
 # == pivot: mkt_data_m 
 # Post Filter： PHA有值，不等于None
 mkt_data_m = mkt_data.where(~col('Province').isNull()) \
-                    .select('Province', 'City', 'Hosp_level', '性质', 'City_Tier', 'Specialty_1_标准化', 'Specialty_2_标准化', 'packcode', '月份', '金额', '数量') \
-                    .groupby('Province', 'City', 'Hosp_level', '性质', 'City_Tier', 'Specialty_1_标准化', 'Specialty_2_标准化', 'packcode') \
+                    .select('Province', 'City', 'Hosp_level', '性质', 'City_Tier', 'Specialty_1_标准化', 'Specialty_2_标准化', 'packcode', '月份', '金额', '数量', 'Prefecture') \
+                    .groupby('Province', 'City', 'Hosp_level', '性质', 'City_Tier', 'Specialty_1_标准化', 'Specialty_2_标准化', 'packcode', 'Prefecture') \
                     .pivot('月份').agg(func.sum('金额').alias('金额'), func.sum('数量').alias('数量'))
 
 # 低代码生成的结果文件字符型的会自动填充为None
-mkt_data_m = mkt_data_m.fillna('NA', ['Province', 'City', 'Hosp_level', '性质', 'City_Tier', 'Specialty_1_标准化', 'Specialty_2_标准化'])
-mkt_universe = universe_profile_m.fillna('NA', ['Province', 'City', 'Hosp_level', '性质', 'City_Tier', 'Specialty_1_标准化', 'Specialty_2_标准化'])
+mkt_data_m = mkt_data_m.fillna('NA', ['Province', 'City', 'Hosp_level', '性质', 'City_Tier', 'Specialty_1_标准化', 'Specialty_2_标准化', 'Prefecture'])
+mkt_universe = universe_profile_m.fillna('NA', ['Province', 'City', 'Hosp_level', '性质', 'City_Tier', 'Specialty_1_标准化', 'Specialty_2_标准化', 'Prefecture'])
 # mkt_universe 和 mkt_data_m 的字符串空值为None
 
-#  ==  join：mkt_data_m1
-mkt_data_m1 =  mkt_universe.join(mkt_data_m, on=['Province', 'City', 'Hosp_level', '性质', 'City_Tier', 'Specialty_1_标准化', 'Specialty_2_标准化'], how='inner') 
-
-#  == join：universe_profile_m + mkt_data_m1 = region_projection_1  （类型设置为double，不要用float）
-# pre Computed Columns —— 重命名
-# post Computed Columns —— est_drugincome_rmb_gap：ABS(`est_drugincome_rmb_x`-`est_drugincome_rmb_y`)
-region_projection_1 =  mkt_universe.withColumnRenamed("Est_DrugIncome_RMB", "Est_DrugIncome_RMB_x") \
-                                    .withColumnRenamed("Province", "Province_x") \
-                                    .withColumnRenamed("City", "City_x") \
-                                    .withColumnRenamed("医生数", "医生数_x") \
-                                    .withColumnRenamed("床位数", "床位数_x") \
-                                    .join(mkt_data_m1.withColumnRenamed("Est_DrugIncome_RMB", "Est_DrugIncome_RMB_y"), on =["Hosp_level", "性质", "City_Tier","Specialty_1_标准化", "Specialty_2_标准化"], how='left') \
-                                    .withColumn('Est_DrugIncome_RMB_gap', func.abs(col("Est_DrugIncome_RMB_x") - col("Est_DrugIncome_RMB_y")) )
-
-
-# ======== spark 开窗函数 + where筛选 + unpivot + factor_09：region_projection_2 
+#  == spark join：universe_profile_m + mkt_data_m = mkt_data_m1_spark
+mkt_data_m1 =  mkt_universe.join(mkt_data_m, on=['Province', 'City', 'Hosp_level', '性质', 'City_Tier', 'Specialty_1_标准化', 'Specialty_2_标准化', 'Prefecture'], how='inner') 
 '''
 def execute(**kwargs):
-    df = kwargs['df_region_projection_1']
-    
 
+    mkt_data_m = kwargs['df_mkt_data_m'].drop('version')
+    mkt_universe = kwargs['df_universe_profile_m'].drop('version')
+    
+    mkt_data_m1 = mkt_universe.join(mkt_data_m, on=['province', 'city', 'hosp_level', '性质', 'city_tier', 'specialty_1_标准化', 'specialty_2_标准化', 'prefecture'], how='inner') \
+                                    
+    return {"out_df": mkt_data_m1}
+
+'''
+
+
+# ======== spark 开窗函数 + where筛选 + unpivot + factor_09：region_projection 
+'''
+def execute(**kwargs):
     import os
     import pandas as pd
     from pyspark.sql.types import StringType, IntegerType, DoubleType, StructType, StructField
@@ -122,6 +122,14 @@ def execute(**kwargs):
     from pyspark.sql.functions import lit, col, struct, to_json, json_tuple
     from functools import reduce
     from pyspark.sql import Window
+    
+    mkt_data_m1 = kwargs['df_mkt_data_m1_spark'].drop('version')
+    mkt_data_m1 = mkt_data_m1.select([col(i).cast('string') for i in mkt_data_m1.columns])
+    
+    mkt_universe = kwargs['df_universe_profile_m'].drop('version')
+    mkt_universe = mkt_universe.select([col(i).cast('string') for i in mkt_universe.columns])
+
+
     
     def unpivot(df, keys):
         # 功能：数据宽变长
@@ -133,28 +141,49 @@ def execute(**kwargs):
         # feature, value 转换后的列名，可自定义
         df = df.selectExpr(*[f"`{i}`" for i in keys], "stack(%s, %s) as (feature, value)" % (len(cols), stack_str))
         return df
+        
+ 
+    mkt_data_m1 = mkt_data_m1.withColumnRenamed("est_drugincome_rmb_sum", "est_drugincome_rmb_y") \
+                                .withColumnRenamed("province", "province_y") \
+                                .withColumnRenamed("city", "city_y") \
+                                .withColumnRenamed("医生数_sum", "医生数_y") \
+                                .withColumnRenamed("床位数_sum", "床位数_y") \
+                                .withColumnRenamed("prefecture", "prefecture_y") \
+                                
+
+    region_projection_1 =  mkt_universe.withColumnRenamed("est_drugincome_rmb_sum", "est_drugincome_rmb_x") \
+                                    .withColumnRenamed("province", "province_x") \
+                                    .withColumnRenamed("city", "city_x") \
+                                    .withColumnRenamed("医生数_sum", "医生数_x") \
+                                    .withColumnRenamed("床位数_sum", "床位数_x") \
+                                    .withColumnRenamed("prefecture", "prefecture_x") \
+                                    .join(mkt_data_m1, on =["hosp_level", "性质", "city_tier","specialty_1_标准化", "specialty_2_标准化"], how='left') \
+                                    .withColumn('est_drugincome_rmb_gap', func.abs(col("est_drugincome_rmb_x") - col("est_drugincome_rmb_y")) ) 
+ 
+ 
+    region_projection_2_1 = region_projection_1.withColumn('est_drugincome_rmb_gap', col('est_drugincome_rmb_gap').cast('double')) \
+                                    .withColumn('est_drugIncome_rmb_x', col('est_drugIncome_rmb_x').cast('double')) \
+                                    .withColumn('est_drugIncome_rmb_y', col('est_drugIncome_rmb_y').cast('double')) \
+                                    .withColumn('count', func.count('province_x').over(Window.partitionBy(["province_x", "city_x", "hosp_level", "性质", "city_tier","specialty_1_标准化", "specialty_2_标准化", "est_drugIncome_rmb_gap", "Prefecture_x", "医生数_x", "床位数_x"]).orderBy())) \
+                                    .withColumn('row_number', func.row_number().over(Window.partitionBy("province_x", "city_x", "hosp_level", "性质", "city_tier","specialty_1_标准化", "specialty_2_标准化", "Prefecture_x", "医生数_x", "床位数_x").orderBy('est_drugIncome_rmb_gap', col("Province_y").desc(), col("city_y").desc(), col('prefecture_y').desc(), 'packcode_new')))
     
-    df = df.withColumn('est_drugincome_rmb_gap', col('est_drugincome_rmb_gap').cast('double')) \
-            .withColumn('est_drugIncome_rmb_x', col('est_drugIncome_rmb_x').cast('double')) \
-            .withColumn('est_drugIncome_rmb_y', col('est_drugIncome_rmb_y').cast('double'))
-    
-    
-    region_projection_1 = df.withColumn('count', func.count('province_x').over(Window.partitionBy(["province_x", "city_x", "hosp_level", "性质", "city_tier","specialty_1_标准化", "specialty_2_标准化",   "est_drugIncome_rmb_gap"]).orderBy())) \
-                            .withColumn('row_number', func.row_number().over(Window.partitionBy("province_x", "city_x", "hosp_level", "性质", "city_tier","specialty_1_标准化", "specialty_2_标准化").orderBy('est_drugIncome_rmb_gap', "province_y", "city_y", 'packcode_new')))
-    
-    region_projection_1 = region_projection_1.where(col('row_number') <= col('count')) \
+    region_projection_2_2 = region_projection_2_1.where(col('row_number') <= col('count')) \
                                     .withColumn('factor', col('est_drugIncome_rmb_x')/col('est_drugIncome_rmb_y') ) \
                                     .withColumn('factor', func.when(col('factor').isNull(), func.lit(1)).otherwise( col('factor') ))
     
     
-    region_projection_m = unpivot(region_projection_1, list(set(region_projection_1.columns) - set([i for i in region_projection_1.columns if i.startswith("20")]))) \
-                                .selectExpr('province_x as province ', 'city_x as city ', 'hosp_level', '`性质`', 'city_tier', '`specialty_1_标准化`', '`specialty_2_标准化`', 'est_drugIncome_rmb_x as Est_DrugIncome_RMB', 'est_drugIncome_rmb_y', 'factor', '`医生数_x` as `医生数`', '`床位数_x` as `床位数`', 'packcode_new', 'feature as date', 'value') \
+    region_projection_m = unpivot(region_projection_2_2, list(set(region_projection_2_2.columns) - set([i for i in region_projection_2_2.columns if i.startswith("20")]))) \
+                                .selectExpr('province_x as province ', 'city_x as city ', 'hosp_level', '`性质`', 'city_tier', '`specialty_1_标准化`', '`specialty_2_标准化`', 'est_drugIncome_rmb_x as Est_DrugIncome_RMB', 'est_drugIncome_rmb_y', 'factor', '`医生数_x` as `医生数`', '`床位数_x` as `床位数`', 'packcode_new', 'feature as date', 'value', 'prefecture_x as prefecture') \
                                 .withColumn('type', func.split(col('date'), '_')[1] ) \
                                 .withColumn('date', func.split(col('date'), '_')[0] )    
     region_projection_m_out = region_projection_m.where((~col('packcode_new').isNull()) & (col('packcode_new') != 'None')) \
                                         .withColumn('tmp', func.lit('tmp')) \
                                         .withColumn('factor_09', func.expr('percentile_approx(factor, 0.9)').over(Window.partitionBy('tmp'))) \
-                                        .drop('tmp')
+                                        .drop('tmp') \
+                                        .withColumn('factor', col('factor').cast('double')) \
+                                        .withColumn('factor_09', col('factor_09').cast('double')) \
+                                        .withColumn('factor_new', func.when(col('factor') > col('factor_09'), col('factor_09') ).otherwise(col('factor') ) ) \
+                                        .withColumn('value_new', col('factor_new').cast('double')*col('value').cast('double') )
                                         
                                         
     df_out = region_projection_m_out.toDF(*[i.lower() for i in region_projection_m_out.columns])
@@ -164,8 +193,17 @@ def execute(**kwargs):
     return {"out_df": df_out}
 
 '''
-region_projection_2_1 = region_projection_1.withColumn('cnt', func.count('Province_x').over(Window.partitionBy(["Province_x", "City_x", "Hosp_level", "性质", "City_Tier","Specialty_1_标准化", "Specialty_2_标准化", "Est_DrugIncome_RMB_gap"]).orderBy())) \
-                                    .withColumn('row_number', func.row_number().over(Window.partitionBy("Province_x", "City_x", "Hosp_level", "性质", "City_Tier","Specialty_1_标准化", "Specialty_2_标准化").orderBy('Est_DrugIncome_RMB_gap', "Province", "City", 'packcode')))
+region_projection_1 =  mkt_universe.withColumnRenamed("Est_DrugIncome_RMB", "Est_DrugIncome_RMB_x") \
+                                    .withColumnRenamed("Province", "Province_x") \
+                                    .withColumnRenamed("City", "City_x") \
+                                    .withColumnRenamed("医生数", "医生数_x") \
+                                    .withColumnRenamed("床位数", "床位数_x") \
+                                    .withColumnRenamed("Prefecture", "Prefecture_x") \
+                                    .join(mkt_data_m1.withColumnRenamed("Est_DrugIncome_RMB", "Est_DrugIncome_RMB_y"), on =["Hosp_level", "性质", "City_Tier","Specialty_1_标准化", "Specialty_2_标准化"], how='left') \
+                                    .withColumn('Est_DrugIncome_RMB_gap', func.abs(col("Est_DrugIncome_RMB_x") - col("Est_DrugIncome_RMB_y")) )
+
+region_projection_2_1 = region_projection_1.withColumn('cnt', func.count('Province_x').over(Window.partitionBy(["Province_x", "City_x", "Hosp_level", "性质", "City_Tier","Specialty_1_标准化", "Specialty_2_标准化", "Est_DrugIncome_RMB_gap", 'Prefecture_x', '医生数_x', '床位数_x']).orderBy())) \
+                                    .withColumn('row_number', func.row_number().over(Window.partitionBy("Province_x", "City_x", "Hosp_level", "性质", "City_Tier","Specialty_1_标准化", "Specialty_2_标准化", 'Prefecture_x', '医生数_x', '床位数_x').orderBy('Est_DrugIncome_RMB_gap', col("Province").desc(), col("City").desc(), col('Prefecture').desc(), 'packcode')))
 
 
 region_projection_2_2 = region_projection_2_1.where(col('row_number') <= col('cnt')) \
@@ -185,24 +223,53 @@ def unpivot(df, keys):
     return df
 
 region_projection_2 = unpivot(region_projection_2_2, list(set(region_projection_2_2.columns) - set([i for i in region_projection_2_2.columns if i.startswith("20")]))) \
-                            .selectExpr('Province_x as Province ', 'City_x as City ', 'Hosp_level', '`性质`', 'City_Tier', '`Specialty_1_标准化`', '`Specialty_2_标准化`', 'Est_DrugIncome_RMB_x as Est_DrugIncome_RMB', 'Est_DrugIncome_RMB_y', 'factor', '`医生数_x` as `医生数`', '`床位数_x` as `床位数`', 'packcode', 'feature as date', 'value') \
+                            .selectExpr('Province_x as Province ', 'City_x as City ', 'Hosp_level', '`性质`', 'City_Tier', '`Specialty_1_标准化`', '`Specialty_2_标准化`', 'Est_DrugIncome_RMB_x as Est_DrugIncome_RMB', 'Est_DrugIncome_RMB_y', 'factor', '`医生数_x` as `医生数`', '`床位数_x` as `床位数`', 'packcode', 'feature as date', 'value', 'Prefecture_x as Prefecture') \
                             .withColumn('type', func.split(col('date'), '_')[1] ) \
                             .withColumn('date', func.split(col('date'), '_')[0] ) \
                             .where(~col('packcode').isNull()) \
                             .withColumn('factor_09', func.expr('percentile_approx(factor, 0.9)').over(Window.partitionBy().orderBy()))
 
+# **************  精度不同会造成结果不同  .withColumn('factor', col('factor').cast('double')) 再计算 percentile_approx 结果会不一样
 
 # === groupby: region_projection_m
-region_projection_m = region_projection_2.withColumn('factor', func.when(col('factor') > col('factor_09'), col('factor_09') ).otherwise(col('factor') ) ) \
+# factor_new: if(`factor` > `factor_09`, `factor_09`, `factor`)
+# value_new: if(`factor` > `factor_09`, `factor_09`*`value`, `factor`*`value`)
+# factor 如果不转为double，结果会不一致
+region_projection_m = region_projection_2.withColumn('factor', col('factor').cast('double'))\
+                                        .withColumn('factor', func.when(col('factor') > col('factor_09'), col('factor_09') ).otherwise(col('factor') ) ) \
                                         .withColumn('value', col('factor')*col('value') ) \
-                                        .groupby('Province', 'packcode', 'date', 'type').agg(func.sum('value').alias('value')) \
+                                        .groupby('Province', 'packcode', 'date', 'type', 'city', 'Prefecture').agg(func.sum('value').alias('value')) \
                                         .withColumn('Mkt', func.lit(mkt_name) )
 
 region_projection_m.groupby('type').agg(func.sum('value')).show()
 
+# 细菌
+# R
 # +----+--------------------+
 # |type|          sum(value)|
 # +----+--------------------+
-# |金额|2.5879637527622795E9|
-# |数量| 7.942160173360413E7|
+# |数量| 117021744|
+# |金额|3634427736 |
+# +----+--------------------+
+
+# SPARK
+# +----+--------------------+
+# |type|sum(value_final_sum)|
+# +----+--------------------+
+# |金额|3.6342816640198956E9|
+# |数量|1.1700991289427409E8|
+# +----+--------------------+
+
+
+# 真菌
+# R
+# 203530221
+# 4305471
+
+# spark
+# +----+--------------------+
+# |type|sum(value_final_sum)|
+# +----+--------------------+
+# |金额| 2.035231506519976E8|
+# |数量|   4305171.015522317|
 # +----+--------------------+
