@@ -17,11 +17,11 @@ def convert_union_schema(df):
 def convert_normal_df(df, cols):
     return df.select(json_tuple(col("data"), *cols)) \
     .toDF(*cols)
-df1 = spark.read.parquet('s3://ph-platform/2020-11-11/lake/pharbers/ejA5i96yvzkkIywWt8zz/PHA_county/traceId=cmax_county_cmax_county_developer_2022-09-16T07%3A04%3A26+00%3A00_袁毓蔚/')
-df1 = convert_normal_df(df1, convert_union_schema(df1))
-df1.count()
+#df1 = spark.read.parquet('s3://ph-platform/2020-11-11/lake/pharbers/ejA5i96yvzkkIywWt8zz/PHA_county/traceId=cmax_county_cmax_county_developer_2022-09-16T07%3A04%3A26+00%3A00_袁毓蔚/')
+#df1 = convert_normal_df(df1, convert_union_schema(df1))
+#df1.count()
 
-df1.groupby('type').agg(func.sum('value_m_sum')).show()
+#df1.groupby('type').agg(func.sum('value_m_sum')).show()
 
 # +------+------------------+
 # |  type| sum(sum(value_m))|
@@ -191,6 +191,8 @@ jidu_yuefen = data.select('Province', 'Quarter','Month').distinct() \
                   .withColumnRenamed('Month', 'date')  
 
 # === groupby：mkt_universe_m_groupby
+mkt_universe_m_groupby = mkt_universe_m_4.groupby('Province','packcode', 'flag_in_zb', 'date', 'city', 'district').agg(func.sum('value_m'))
+
 # value_m_sum
 # === spark:mkt_universe_m_split
 '''
@@ -203,13 +205,11 @@ def execute(**kwargs):
 
     return {"out_df": df_out}
 '''
-
+mkt_universe_m_split = mkt_universe_m_groupby.withColumn('type', func.split(col('date'), '_')[1] ) \
+                                    .withColumn('date', func.split(col('date'), '_')[0] ) 
 
 # join: project_data_7pack
-project_data_7pack = mkt_universe_m_4.groupby('Province','packcode', 'flag_in_zb', 'date').agg(func.sum('value_m')) \
-                                    .withColumn('type', func.split(col('date'), '_')[1] ) \
-                                    .withColumn('date', func.split(col('date'), '_')[0] ) \
-                                    .join(jidu_yuefen, on=['Province', 'date'], how='left')
+project_data_7pack = mkt_universe_m_split.join(jidu_yuefen, on=['Province', 'date'], how='left')
 
 
 
@@ -248,6 +248,13 @@ project_data_7pack.groupby('type').count().show()
 # |Volume| 1590|
 # | Value| 1590|
 # +------+-----+
+# 调整后
+# +------+-----+
+# |  type|count|
+# +------+-----+
+# |Volume|37581|
+# | Value|37581|
+# +------+-----+
 
 
 #project_data_7pack.where(col('type')=='Value').groupby('Province').count().orderBy('count').show(30)
@@ -279,9 +286,26 @@ project_data_7pack.groupby('type').count().show()
 
 project_data_7pack.groupby('type').agg(func.sum('sum(value_m)')).show()
 
+# AD
 # +------+------------------+
 # |  type| sum(sum(value_m))|
 # +------+------------------+
 # |Volume| 1491245.841798905|
 # | Value|6.75332631453235E8|
 # +------+------------------+
+
+# RA
+# +------+-------------------+
+# |  type|  sum(sum(value_m))|
+# +------+-------------------+
+# |Volume|  350945.8940055265|
+# | Value|2.119262210860441E8|
+# +------+-------------------+
+
+# RCC
+# +------+--------------------+
+# |  type|   sum(sum(value_m))|
+# +------+--------------------+
+# |Volume|   67122.96549126094|
+# | Value|2.2671996300269192E8|
+# +------+--------------------+
