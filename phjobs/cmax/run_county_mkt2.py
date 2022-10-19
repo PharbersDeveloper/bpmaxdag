@@ -40,7 +40,7 @@ all_raw_data_m3 = ZB_CPA_County_181920_v2.where(~col('packcode').isNull()) \
 
 # === distinct: data_filter_mkt_2   {"codeFree":{"$mkt2":"细菌"}}
 # Pre Filter: $mkt2
-sample_hosp_raw = all_raw_data_m3.where(col('MKT') == '细菌')
+sample_hosp_raw = all_raw_data_m3.where(col('MKT') == '真菌市场')
 
 
 # === groupby: universe_profile_m
@@ -123,14 +123,28 @@ def execute(**kwargs):
     from functools import reduce
     from pyspark.sql import Window
     
-    mkt_data_m1 = kwargs['df_mkt_data_m1_spark'].drop('version')
+    mkt_data_m1 = kwargs['df_mkt_data_m1_spark'].drop('version', 'provider')
     mkt_data_m1 = mkt_data_m1.select([col(i).cast('string') for i in mkt_data_m1.columns])
     
-    mkt_universe = kwargs['df_universe_profile_m'].drop('version')
+    mkt_universe = kwargs['df_universe_profile_m'].drop('version', 'provider')
     mkt_universe = mkt_universe.select([col(i).cast('string') for i in mkt_universe.columns])
 
+    map_order_city = kwargs['df_cmax_map_order_city'].drop('version', 'provider')
+    map_order_city = map_order_city.select([col(i).cast('string') for i in map_order_city.columns]) \
+                            .withColumnRenamed("city", "city_y") \
+                            .withColumn('num_city', col('num_city').cast('int'))
+                            
+    map_order_province = kwargs['df_cmax_map_order_province'].drop('version', 'provider')
+    map_order_province = map_order_province.select([col(i).cast('string') for i in map_order_province.columns]) \
+                            .withColumnRenamed("province", "province_y") \
+                            .withColumn('num_province', col('num_province').cast('int'))
+                            
+    map_order_county = kwargs['df_cmax_map_order_county'].drop('version', 'provider')
+    map_order_county = map_order_county.select([col(i).cast('string') for i in map_order_county.columns]) \
+                            .withColumnRenamed("num_county", "num_prefecture") \
+                            .withColumnRenamed("county", "prefecture_y") \
+                            .withColumn('num_prefecture', col('num_prefecture').cast('int'))
 
-    
     def unpivot(df, keys):
         # 功能：数据宽变长
         # 参数说明 df:dataframe,  keys 待转换表中需要保留的主键key，以list[]类型传入
@@ -160,12 +174,15 @@ def execute(**kwargs):
                                     .join(mkt_data_m1, on =["hosp_level", "性质", "city_tier","specialty_1_标准化", "specialty_2_标准化"], how='left') \
                                     .withColumn('est_drugincome_rmb_gap', func.abs(col("est_drugincome_rmb_x") - col("est_drugincome_rmb_y")) ) 
  
- 
+    region_projection_1 = region_projection_1.join(map_order_city, on='city_y', how='left') \
+                                            .join(map_order_province, on='province_y', how='left') \
+                                            .join(map_order_county, on='prefecture_y', how='left')
+
     region_projection_2_1 = region_projection_1.withColumn('est_drugincome_rmb_gap', col('est_drugincome_rmb_gap').cast('double')) \
                                     .withColumn('est_drugIncome_rmb_x', col('est_drugIncome_rmb_x').cast('double')) \
                                     .withColumn('est_drugIncome_rmb_y', col('est_drugIncome_rmb_y').cast('double')) \
                                     .withColumn('count', func.count('province_x').over(Window.partitionBy(["province_x", "city_x", "hosp_level", "性质", "city_tier","specialty_1_标准化", "specialty_2_标准化", "est_drugIncome_rmb_gap", "Prefecture_x", "医生数_x", "床位数_x"]).orderBy())) \
-                                    .withColumn('row_number', func.row_number().over(Window.partitionBy("province_x", "city_x", "hosp_level", "性质", "city_tier","specialty_1_标准化", "specialty_2_标准化", "Prefecture_x", "医生数_x", "床位数_x").orderBy('est_drugIncome_rmb_gap', col("Province_y").desc(), col("city_y").desc(), col('prefecture_y').desc(), 'packcode_new')))
+                                    .withColumn('row_number', func.row_number().over(Window.partitionBy("province_x", "city_x", "hosp_level", "性质", "city_tier","specialty_1_标准化", "specialty_2_标准化", "Prefecture_x", "医生数_x", "床位数_x").orderBy('est_drugIncome_rmb_gap',  "num_province", "num_city", 'num_prefecture', 'packcode_new')))
     
     region_projection_2_2 = region_projection_2_1.where(col('row_number') <= col('count')) \
                                     .withColumn('factor', col('est_drugIncome_rmb_x')/col('est_drugIncome_rmb_y') ) \
@@ -175,13 +192,14 @@ def execute(**kwargs):
     region_projection_m = unpivot(region_projection_2_2, list(set(region_projection_2_2.columns) - set([i for i in region_projection_2_2.columns if i.startswith("20")]))) \
                                 .selectExpr('province_x as province ', 'city_x as city ', 'hosp_level', '`性质`', 'city_tier', '`specialty_1_标准化`', '`specialty_2_标准化`', 'est_drugIncome_rmb_x as Est_DrugIncome_RMB', 'est_drugIncome_rmb_y', 'factor', '`医生数_x` as `医生数`', '`床位数_x` as `床位数`', 'packcode_new', 'feature as date', 'value', 'prefecture_x as prefecture') \
                                 .withColumn('type', func.split(col('date'), '_')[1] ) \
-                                .withColumn('date', func.split(col('date'), '_')[0] )    
-    region_projection_m_out = region_projection_m.where((~col('packcode_new').isNull()) & (col('packcode_new') != 'None')) \
-                                        .withColumn('tmp', func.lit('tmp')) \
-                                        .withColumn('factor_09', func.expr('percentile_approx(factor, 0.9)').over(Window.partitionBy('tmp'))) \
-                                        .drop('tmp') \
-                                        .withColumn('factor', col('factor').cast('double')) \
-                                        .withColumn('factor_09', col('factor_09').cast('double')) \
+                                .withColumn('date', func.split(col('date'), '_')[0] )  \
+                                .where((~col('packcode_new').isNull()) & (col('packcode_new') != 'None')) \
+
+
+    percentile09 = region_projection_m.where(col('type')=='金额').withColumn('factor', col('factor').cast('double')).approxQuantile("factor", [0.9], 0)[0]
+    
+    region_projection_m_out = region_projection_m.withColumn('factor', col('factor').cast('double')) \
+                                        .withColumn('factor_09', func.lit(percentile09).cast('double')) \
                                         .withColumn('factor_new', func.when(col('factor') > col('factor_09'), col('factor_09') ).otherwise(col('factor') ) ) \
                                         .withColumn('value_new', col('factor_new').cast('double')*col('value').cast('double') )
                                         
@@ -189,6 +207,8 @@ def execute(**kwargs):
     df_out = region_projection_m_out.toDF(*[i.lower() for i in region_projection_m_out.columns])
     
     df_out.show()
+    
+    df_out.groupby('type').agg(func.sum('value')).show()
     
     return {"out_df": df_out}
 
@@ -202,13 +222,32 @@ region_projection_1 =  mkt_universe.withColumnRenamed("Est_DrugIncome_RMB", "Est
                                     .join(mkt_data_m1.withColumnRenamed("Est_DrugIncome_RMB", "Est_DrugIncome_RMB_y"), on =["Hosp_level", "性质", "City_Tier","Specialty_1_标准化", "Specialty_2_标准化"], how='left') \
                                     .withColumn('Est_DrugIncome_RMB_gap', func.abs(col("Est_DrugIncome_RMB_x") - col("Est_DrugIncome_RMB_y")) )
 
+
+map_order_city = spark.read.csv('s3://ph-max-auto/v0.0.1-2020-06-08/cmax/cmax_download_files/map_order_city.csv', header=True, encoding='GBK')
+map_order_city = map_order_city.toDF("num_City", "City").withColumn('num_City', col('num_City').cast('int'))
+
+map_order_province = spark.read.csv('s3://ph-max-auto/v0.0.1-2020-06-08/cmax/cmax_download_files/map_order_province.csv', header=True, encoding='GBK')
+map_order_province = map_order_province.toDF("num_province", "province").withColumn('num_province', col('num_province').cast('int'))
+
+map_order_county = spark.read.csv('s3://ph-max-auto/v0.0.1-2020-06-08/cmax/cmax_download_files/map_order_county.csv', header=True, encoding='GBK')
+map_order_county = map_order_county.toDF("num_Prefecture", "Prefecture").withColumn('num_Prefecture', col('num_Prefecture').cast('int'))
+
+
+region_projection_1 = region_projection_1.join(map_order_city, on='City', how='left') \
+                                    .join(map_order_province, on='Province', how='left') \
+                                    .join(map_order_county, on='Prefecture', how='left')
+
+
 region_projection_2_1 = region_projection_1.withColumn('cnt', func.count('Province_x').over(Window.partitionBy(["Province_x", "City_x", "Hosp_level", "性质", "City_Tier","Specialty_1_标准化", "Specialty_2_标准化", "Est_DrugIncome_RMB_gap", 'Prefecture_x', '医生数_x', '床位数_x']).orderBy())) \
-                                    .withColumn('row_number', func.row_number().over(Window.partitionBy("Province_x", "City_x", "Hosp_level", "性质", "City_Tier","Specialty_1_标准化", "Specialty_2_标准化", 'Prefecture_x', '医生数_x', '床位数_x').orderBy('Est_DrugIncome_RMB_gap', col("Province").desc(), col("City").desc(), col('Prefecture').desc(), 'packcode')))
+                                    .withColumn('row_number', func.row_number().over(Window.partitionBy("Province_x", "City_x", "Hosp_level", "性质", "City_Tier","Specialty_1_标准化", "Specialty_2_标准化", 'Prefecture_x', '医生数_x', '床位数_x').orderBy('Est_DrugIncome_RMB_gap', "num_Province", "num_City", 'num_Prefecture', 'packcode')))
+
+# region_projection_2_1 = region_projection_1.withColumn('cnt', func.count('Province_x').over(Window.partitionBy(["Province_x", "City_x", "Hosp_level", "性质", "City_Tier","Specialty_1_标准化", "Specialty_2_标准化", "Est_DrugIncome_RMB_gap", 'Prefecture_x', '医生数_x', '床位数_x']).orderBy())) \
+#                                     .withColumn('row_number', func.row_number().over(Window.partitionBy("Province_x", "City_x", "Hosp_level", "性质", "City_Tier","Specialty_1_标准化", "Specialty_2_标准化", 'Prefecture_x', '医生数_x', '床位数_x').orderBy('Est_DrugIncome_RMB_gap', col("Province").desc(), col("City").desc(), col('Prefecture').desc(), 'packcode')))
 
 
 region_projection_2_2 = region_projection_2_1.where(col('row_number') <= col('cnt')) \
                                     .withColumn('factor', col('Est_DrugIncome_RMB_x')/col('Est_DrugIncome_RMB_y') ) \
-                                    .withColumn('factor', func.when(col('factor').isNull(), func.lit(1)).otherwise( col('factor') ))
+                                    .withColumn('factor', func.when(col('factor').isNull(), func.lit(1).cast('double')).otherwise( col('factor') ))
 
 
 def unpivot(df, keys):
@@ -226,15 +265,16 @@ region_projection_2 = unpivot(region_projection_2_2, list(set(region_projection_
                             .selectExpr('Province_x as Province ', 'City_x as City ', 'Hosp_level', '`性质`', 'City_Tier', '`Specialty_1_标准化`', '`Specialty_2_标准化`', 'Est_DrugIncome_RMB_x as Est_DrugIncome_RMB', 'Est_DrugIncome_RMB_y', 'factor', '`医生数_x` as `医生数`', '`床位数_x` as `床位数`', 'packcode', 'feature as date', 'value', 'Prefecture_x as Prefecture') \
                             .withColumn('type', func.split(col('date'), '_')[1] ) \
                             .withColumn('date', func.split(col('date'), '_')[0] ) \
-                            .where(~col('packcode').isNull()) \
-                            .withColumn('factor_09', func.expr('percentile_approx(factor, 0.9)').over(Window.partitionBy().orderBy()))
+                            .where(~col('packcode').isNull())
+
+# 不稳定 percentile09 = region_projection_2.groupby('type').agg(func.expr('percentile_approx(factor, 0.9)').alias('factor_09'))
+percentile09 = region_projection_2.where(col('type') == '金额').withColumn('factor', col('factor').cast('double')).approxQuantile("factor", [0.9], 0)[0]
+region_projection_2 = region_projection_2.withColumn('factor_09', func.lit(percentile09).cast('double') )
+
 
 # **************  精度不同会造成结果不同  .withColumn('factor', col('factor').cast('double')) 再计算 percentile_approx 结果会不一样
 
-# === groupby: region_projection_m
-# factor_new: if(`factor` > `factor_09`, `factor_09`, `factor`)
-# value_new: if(`factor` > `factor_09`, `factor_09`*`value`, `factor`*`value`)
-# factor 如果不转为double，结果会不一致
+# === groupby: region_projection_m,只做 groupby
 region_projection_m = region_projection_2.withColumn('factor', col('factor').cast('double'))\
                                         .withColumn('factor', func.when(col('factor') > col('factor_09'), col('factor_09') ).otherwise(col('factor') ) ) \
                                         .withColumn('value', col('factor')*col('value') ) \
@@ -252,12 +292,12 @@ region_projection_m.groupby('type').agg(func.sum('value')).show()
 # |金额|3634427736 |
 # +----+--------------------+
 
-# SPARK
+#spark
 # +----+--------------------+
-# |type|sum(value_final_sum)|
+# |type|  sum(value_new_sum)|
 # +----+--------------------+
-# |金额|3.6342816640198956E9|
-# |数量|1.1700991289427409E8|
+# |金额| 3.634427736318453E9|
+# |数量|1.1702174345496187E8|
 # +----+--------------------+
 
 
@@ -267,9 +307,37 @@ region_projection_m.groupby('type').agg(func.sum('value')).show()
 # 4305471
 
 # spark
-# +----+--------------------+
-# |type|sum(value_final_sum)|
-# +----+--------------------+
-# |金额| 2.035231506519976E8|
-# |数量|   4305171.015522317|
-# +----+--------------------+
+# +----+-------------------+
+# |type| sum(value_new_sum)|
+# +----+-------------------+
+# |金额|2.035302209389894E8|
+# |数量|  4305468.486168699|
+# +----+-------------------+
+
+'''
+{
+  "codeFree": {
+    "$mkt2": "真菌市场"
+  },
+  "version": {
+    "cmax_county_data": [
+      "ZB_CPA_DATA_P1_Q3"
+    ],
+    "cmax_county_market_define": [
+      "market_def"
+    ],
+    "cmax_county_universe": [
+      "county_universe_P1"
+    ],
+    "cmax_map_order_city": [
+      "map_order_city_yyw_20221018"
+    ],
+    "cmax_map_order_province": [
+      "map_order_province_yyw_20221018"
+    ],
+    "cmax_map_order_county": [
+      "map_order_county_yyw_20221018"
+    ]
+  }
+}
+'''
