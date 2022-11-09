@@ -32,12 +32,12 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--out_dir')
 @click.option('--need_test')
 @click.option('--if_add_data')
-@click.option('--a')
-@click.option('--b')
+@click.option('--c')
+@click.option('--d')
 def debug_execute(**kwargs):
     try:
-        args = {"name": "job3_1_data_adding"}
-        outputs = ["a", "b"]
+        args = {"name": "job3_2_data_adding"}
+        outputs = ["c", "d"]
 
         args.update(kwargs)
         result = exec_before(**args)

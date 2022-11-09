@@ -17,26 +17,15 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--job_full_name')
 @click.option('--job_id')
 @click.option('--max_path')
+@click.option('--extract_path')
 @click.option('--project_name')
-@click.option('--model_month_right')
-@click.option('--max_month')
-@click.option('--year_missing')
-@click.option('--current_year')
-@click.option('--first_month')
-@click.option('--current_month')
-@click.option('--if_others')
-@click.option('--monthly_update')
-@click.option('--not_arrived_path')
-@click.option('--published_path')
-@click.option('--out_path')
+@click.option('--max_path_list')
 @click.option('--out_dir')
-@click.option('--need_test')
-@click.option('--if_add_data')
 @click.option('--a')
 @click.option('--b')
 def debug_execute(**kwargs):
     try:
-        args = {"name": "job3_1_data_adding"}
+        args = {"name": "job7_max_standard"}
         outputs = ["a", "b"]
 
         args.update(kwargs)

@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: PhJob
 metadata:
-  name: job3_1_data_adding
+  name: job4_panel
   description: "pharbers job description"
   labels:
-    name: job3_1_data_adding
+    name: job4_panel
     runtime: python3
     command: submit
 spec:
@@ -20,25 +20,25 @@ spec:
         value: 's3://ph-max-auto/v0.0.1-2020-06-08/'
       - key: project_name
         value: 'Empty'
+      - key: model_month_left
+        value: '0'
       - key: model_month_right
         value: '0'
-      - key: max_month
-        value: '0'
-      - key: year_missing
-        value: '0'
-      - key: current_year
-        value: '2020'
-      - key: first_month
-        value: 'Empty'
-      - key: current_month
-        value: 'Empty'
       - key: if_others
         value: 'False'
-      - key: monthly_update
+      - key: current_year
+        value: '2020'
+      - key: current_month
         value: 'Empty'
+      - key: paths_foradding
+        value: 's3://ph-max-auto/v0.0.1-2020-06-08/Common_files/Not_arrived202001.csv, s3://ph-max-auto/v0.0.1-2020-06-08/Common_files/Not_arrived201912.csv, s3://ph-max-auto/v0.0.1-2020-06-08/Common_files/Unpublished2020.csv'
       - key: not_arrived_path
         value: 'Empty'
       - key: published_path
+        value: 'Empty'
+      - key: panel_for_union
+        value: 'Empty'
+      - key: monthly_update
         value: 'Empty'
       - key: out_path
         value: 's3://ph-max-auto/v0.0.1-2020-06-08/'
@@ -46,8 +46,8 @@ spec:
         value: 'Empty'
       - key: need_test
         value: '0'
-      - key: if_add_data
-        value: 'True'
+      - key: add_47
+        value: 'False'
     outputs:
       - key: a
         value: 'abcde'

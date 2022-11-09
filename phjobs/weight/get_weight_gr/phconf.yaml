@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: PhJob
 metadata:
-  name: extract_data
+  name: get_weight_gr
   description: "pharbers job description"
   labels:
-    name: extract_data
+    name: get_weight_gr
     runtime: python3
     command: submit
 spec:
@@ -18,32 +18,26 @@ spec:
     args:
       - key: max_path
         value: 's3://ph-max-auto/v0.0.1-2020-06-08/'
-      - key: extract_path
-        value: 's3://ph-platform/2020-11-11/etl/extract/'
-      - key: out_path
-        value: 's3://ph-platform/2020-11-11/etl/extract/extract_data_out'
-      - key: extract_file
+      - key: project_name
         value: 'Empty'
-      - key: time_left
+      - key: outdir
         value: 'Empty'
-      - key: time_right
+      - key: minimum_product_sep
+        value: '|'
+      - key: minimum_product_columns
+        value: 'Brand, Form, Specifications, Pack_Number, Manufacturer'
+      - key: market_city_brand
         value: 'Empty'
-      - key: molecule
+      - key: universe_choice
         value: 'Empty'
-      - key: molecule_sep
+      - key: job_choice
         value: 'Empty'
-      - key: atc
+      - key: year_list
         value: 'Empty'
-      - key: project
+      - key: add_imsinfo_path
         value: 'Empty'
-      - key: doi
-        value: 'Empty'
-      - key: out_suffix
-        value: 'Empty'
-      - key: data_type
-        value: 'max'
-      - key: market_define
-        value: 'Empty'
+      - key: ims_sales_path
+        value: 's3://ph-max-auto/v0.0.1-2020-06-08/Common_files/extract_data_files/cn_IMS_Sales_Fdata_202007.csv'
     outputs:
       - key: c
         value: 'abc'

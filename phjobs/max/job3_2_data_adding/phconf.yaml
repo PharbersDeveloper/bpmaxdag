@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: PhJob
 metadata:
-  name: job3_1_data_adding
+  name: job3_2_data_adding
   description: "pharbers job description"
   labels:
-    name: job3_1_data_adding
+    name: job3_2_data_adding
     runtime: python3
     command: submit
 spec:
@@ -49,10 +49,10 @@ spec:
       - key: if_add_data
         value: 'True'
     outputs:
-      - key: a
-        value: 'abcde'
-      - key: b
-        value: '6789'
+      - key: c
+        value: 'abc'
+      - key: d
+        value: 'def'
 
 
 
