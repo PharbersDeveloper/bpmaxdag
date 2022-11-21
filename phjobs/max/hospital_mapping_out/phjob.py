@@ -60,7 +60,7 @@ def execute(**kwargs):
             arg = kwargs[i]
             if '：' in arg or '，' in arg:
                 raise ValueError(f"wrong parameter: {i} should use : and ,")
-                
+
     from boto3.dynamodb.conditions import Attr, Key
     def query_table_item(client_dynamodb, tableName, partitionKey, ValueOfpartitionKey):
         ds_table = client_dynamodb.Table(tableName)
@@ -102,19 +102,19 @@ def execute(**kwargs):
             print(i,':',versions)
             judgeVersion(i, versions, client_dynamodb)
 
+    def getVersionDict(str_choice):
+        dict_choice = {}
+        if str_choice != "Empty":
+            for each in str_choice.replace(", ",",").split(","):
+                market_name = each.split(":")[0]
+                version_name = each.split(":")[1]
+                dict_choice[market_name]=version_name
+        return dict_choice
+        
     def get_g_input_version(kwargs):
         # 把 universe_choice，factor_choice，universe_outlier_choice 中指定的版本信息添加到 g_input_version中
-        def getVersionDict(str_choice):
-            dict_choice = {}
-            if str_choice != "Empty":
-                for each in str_choice.replace(", ",",").split(","):
-                    market_name = each.split(":")[0]
-                    version_name = each.split(":")[1]
-                    dict_choice[market_name]=version_name
-            return dict_choice
-        all_models = kwargs['all_models']
+        all_models =  kwargs['all_models'].replace(" ","").split(",")
         g_input_version = kwargs['g_input_version']
-
         dict_universe_choice = getVersionDict(kwargs['universe_choice'])
         dict_factor = {k: v for k,v in getVersionDict(kwargs['factor_choice']).items() if k in all_models}  
         dict_universe_outlier = {k: v for k,v in getVersionDict(kwargs['universe_outlier_choice']).items() if k in all_models} 
@@ -124,8 +124,22 @@ def execute(**kwargs):
 
         return g_input_version
 
+    def checkModelArg(arg):
+        universe_outlier_lack = []
+        for i in kwargs['all_models'].replace(" ","").split(","):
+            if getVersionDict(kwargs[arg]).get(i, "none") == "none":
+                universe_outlier_lack.append(i)
+        if len(universe_outlier_lack) > 0:
+            raise ValueError(f"{arg} 缺少市场: {universe_outlier_lack} ")
+            
+
+    # 检查参数写法
     checkArgs(kwargs)
+    # 检查table的version是否存在
     checkArgsVersion(kwargs, get_g_input_version(kwargs))      
+    # 检查factor和outlier参数的model是否齐全
+    checkModelArg('universe_outlier_choice')
+    checkModelArg('factor_choice')      
     
     
     # %% 
