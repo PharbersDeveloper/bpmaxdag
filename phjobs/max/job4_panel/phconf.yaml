@@ -48,6 +48,10 @@ spec:
         value: '0'
       - key: add_47
         value: 'False'
+      - key: time_left
+        value: 'Empty'
+      - key: time_right
+        value: 'Empty'
     outputs:
       - key: a
         value: 'abcde'

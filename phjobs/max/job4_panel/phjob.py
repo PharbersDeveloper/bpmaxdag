@@ -30,6 +30,8 @@ def execute(**kwargs):
     out_dir = kwargs['out_dir']
     need_test = kwargs['need_test']
     add_47 = kwargs['add_47']
+    time_left = kwargs['time_left']
+    time_right = kwargs['time_right']
     ### input args ###
     
     ### output args ###
@@ -276,45 +278,13 @@ def execute(**kwargs):
     panel_filtered = panel_filtered.repartition(2)
     panel_filtered.write.format("parquet") \
         .mode("overwrite").save(panel_path)
+        
+    panel_filtered.where( (col('Date') >= time_left) & (col('Date') <= time_right) ) \
+                .repartition(1).write.format("csv").option("header", "true") \
+                .mode("overwrite").save(f"{panel_path}.csv")
+                
     logger.debug("输出 panel_filtered 结果：" + panel_path)
     logger.debug('数据执行-Finish')
 
-    # %%
-    # =========== 数据验证 =============
-    # 与原R流程运行的结果比较正确性: Sanofi与Sankyo测试通过
-    if int(need_test) > 0:
-        logger.debug('数据验证-start')
-        my_out = spark.read.parquet(panel_path)
-        
-        if project_name == "Sanofi":
-            R_out_path = "/user/ywyuan/max/Sanofi/Rout/panel-result"
-        elif project_name == "AZ":
-            R_out_path = "/user/ywyuan/max/AZ/Rout/panel-result"
-        elif project_name == "Sankyo":
-            R_out_path = "/user/ywyuan/max/Sankyo/Rout/panel-result"
-        elif project_name == "Astellas":
-            R_out_path = "/common/projects/max/Astellas/panel-result"
-        elif project_name == "京新":
-            R_out_path = "/common/projects/max/京新/panel-result/panel-result_京新_202004"
-        
-        R_out = spark.read.parquet(R_out_path)
-        if project_name == "AZ" or project_name == "Astellas" or project_name == "京新":
-            R_out = R_out.where(R_out.Date/100 < 2020)
-        # 检查内容：列缺失，列的类型，列的值
-        for colname, coltype in R_out.dtypes:
-            # 列是否缺失
-            if colname not in my_out.columns:
-                logger.warning ("miss columns:", colname)
-            else:
-                # 数据类型检查
-                if my_out.select(colname).dtypes[0][1] != coltype:
-                    logger.debug("different type columns: " + colname + ", " + my_out.select(colname).dtypes[0][1] + ", " + "right type: " + coltype)
-                # 数值列的值检查
-                if coltype == "double" or coltype == "int":
-                    sum_my_out = my_out.groupBy().sum(colname).toPandas().iloc[0, 0]
-                    sum_R = R_out.groupBy().sum(colname).toPandas().iloc[0, 0]
-                    # print(colname, sum_raw_data, sum_R)
-                    if (sum_my_out - sum_R) != 0:
-                        logger.debug("different value(sum) columns: " + colname + ", " + str(sum_my_out) + ", " + "right value: " + str(sum_R))
-        logger.debug('数据验证-Finish')
+
 

@@ -34,6 +34,8 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--add_47')
 @click.option('--a')
 @click.option('--b')
+@click.option('--time_left')
+@click.option('--time_right')
 def debug_execute(**kwargs):
     try:
         args = {"name": "job4_panel"}
@@ -56,7 +58,34 @@ def debug_execute(**kwargs):
         raise e
 
 
-if __name__ == '__main__':
-    debug_execute()
+@click.command()
+@click.option('--owner')
+@click.option('--dag_name')
+@click.option('--run_id')
+@click.option('--job_full_name')
+@click.option('--job_id')
+@click.option('--job_args_name')
+def online_debug_execute(**kwargs):
+    try:
+        args = {"name": "job4_panel"}
+        outputs = ["a", "b"]
 
+        args.update(kwargs)
+        result = exec_before(**args)
+
+        args.update(result if isinstance(result, dict) else {})
+        result = execute(**args)
+
+        args.update(result if isinstance(result, dict) else {})
+        result = exec_after(outputs=outputs, **args)
+
+        return result
+    except Exception as e:
+        logger = phs3logger(kwargs["job_id"])
+        logger.error(traceback.format_exc())
+        print(traceback.format_exc())
+        raise e
+
+if __name__ == '__main__':
+    online_debug_execute()
 
