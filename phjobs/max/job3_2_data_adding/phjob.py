@@ -257,6 +257,7 @@ def execute(**kwargs):
     price = price.withColumnRenamed('Price', 'Price_tier')
     
     growth_rate = spark.read.parquet(growth_rate_path)
+    growth_rate = growth_rate.fillna(1, subset= [i for i in growth_rate.columns if i.startswith("GR")])
     growth_rate.persist()
     
     price_city = spark.read.parquet(price_city_path)
