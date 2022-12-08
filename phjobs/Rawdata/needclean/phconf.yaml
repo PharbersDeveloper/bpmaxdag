@@ -28,6 +28,10 @@ spec:
         value: 'Brand, Form, Specifications, Pack_Number, Manufacturer'
       - key: test
         value: 'False'
+      - key: if_two_source
+        value: 'False'
+      - key: path_change_file
+        value: 'False'
     outputs:
       - key: c
         value: 'abc'
