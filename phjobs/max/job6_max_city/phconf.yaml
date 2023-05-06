@@ -56,6 +56,8 @@ spec:
         value: 'True'
       - key: id_bedsize_path
         value: 'Empty'
+      - key: for_nh_model
+        value: 'False'
     outputs:
       - key: c
         value: 'abc'
