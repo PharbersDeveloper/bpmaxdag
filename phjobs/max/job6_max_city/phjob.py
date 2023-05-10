@@ -372,7 +372,7 @@ def execute(**kwargs):
 
     # %%
     # 3. 合并raw_data 和 max文件处理
-    max_result_city_all = max_result_all.union(raw_data_city)
+    max_result_city_all = max_result_all.union(raw_data_city.select(max_result_all.columns))
 
     # 4. 合并后再进行一次group
     max_result_city = max_result_city_all \
@@ -391,9 +391,7 @@ def execute(**kwargs):
     else:
         file_name = max_result_city_csv_path.replace('//', '/').split('s3:/ph-max-auto/')[1]
 
-    s3 = boto3.resource('s3', region_name='cn-northwest-1',
-                            aws_access_key_id="AKIAWPBDTVEAEU44ZAGT",
-                            aws_secret_access_key="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")
+    s3 = boto3.resource('s3', region_name='cn-northwest-1')
     bucket = s3.Bucket('ph-max-auto')
     judge = 0
     for obj in bucket.objects.filter(Prefix = file_name):
