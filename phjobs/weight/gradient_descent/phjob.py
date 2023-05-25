@@ -415,11 +415,9 @@ def execute(**kwargs):
     如果已经存在 weight_path 则用新的结果对已有结果进行(Province,City,DOI)替换和补充
     '''
     
-    file_name = weight_path.replace('//', '/').split('s3a:/ph-max-auto/')[1]
+    file_name = weight_path.replace('//', '/').split('s3:/ph-max-auto/')[1]
     
-    s3 = boto3.resource('s3', region_name='cn-northwest-1',
-                            aws_access_key_id="AKIAWPBDTVEAEU44ZAGT",
-                            aws_secret_access_key="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")
+    s3 = boto3.resource('s3', region_name='cn-northwest-1')
     bucket = s3.Bucket('ph-max-auto')
     judge = 0
     for obj in bucket.objects.filter(Prefix = file_name):
