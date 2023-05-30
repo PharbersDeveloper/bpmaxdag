@@ -67,6 +67,8 @@ def execute(**kwargs):
     # 输入
     universe_path = max_path + "/" + project_name + "/universe_base"
     market_path  = max_path + "/" + project_name + "/mkt_mapping"
+    cpa_pha_path = max_path + "/" + project_name + "/cpa_pha_mapping"
+	
     raw_data_adding_final_path = out_path_dir + "/raw_data_adding_final"
     new_hospital_path = out_path_dir  + "/new_hospital"
     if panel_for_union != "Empty":
@@ -231,38 +233,58 @@ def execute(**kwargs):
             .where(panel_add_data.Date < int(model_month_left)) \
             .select(panel_raw_data.columns)
         panel_filtered = panel_raw_data.union(panel_add_data_history.select(panel_raw_data.columns))
-    
+    def deal_ID_length(df):
+        # ID不足7位的补足0到6位
+        # 国药诚信医院编码长度是7位数字，cpa医院编码是6位数字，其他还有包含字母的ID
+        df = df.withColumn("ID", df["ID"].cast(StringType()))
+        # 去掉末尾的.0
+        df = df.withColumn("ID", func.regexp_replace("ID", "\\.0", ""))
+        df = df.withColumn("ID", func.when(func.length(df.ID) < 7, func.lpad(df.ID, 6, "0")).otherwise(df.ID))
+        return df
+
     if monthly_update == "True":
+        cpa_pha_mapping = spark.read.parquet(cpa_pha_path)
+        cpa_pha_mapping = deal_ID_length(cpa_pha_mapping).filter(cpa_pha_mapping["推荐版本"] == 1).select("ID", "PHA").distinct()
         # unpublished文件
         # unpublished 列表创建：published_left中有而published_right没有的ID列表，然后重复12次，时间为current_year*100 + i
         published_left = spark.read.csv(published_left_path, header=True)
         published_left = published_left.select('ID').distinct()
+        published_left = deal_ID_length(published_left).join(cpa_pha_mapping, on='ID', how='left').where(~col('PHA').isNull()).select('PHA').distinct()
         
-        published_right = spark.read.csv(published_right_path, header=True)
-        published_right = published_right.select('ID').distinct()
+        published_right_raw = spark.read.csv(published_right_path, header=True)
+        published_right_raw = published_right_raw.select('ID').distinct()
+        published_right_raw = deal_ID_length(published_right_raw).join(cpa_pha_mapping, on='ID', how='left').where(~col('PHA').isNull())
+        published_right = published_right_raw.select('PHA').distinct()
         
-        unpublished_ID=published_left.subtract(published_right).toPandas()['ID'].values.tolist()
+        unpublished_ID=published_left.subtract(published_right).toPandas()['PHA'].values.tolist()
         unpublished_ID_num=len(unpublished_ID)
         all_month=list(range(1,13,1))*unpublished_ID_num
         all_month.sort()
-        unpublished_dict={"ID":unpublished_ID*12,"Date":[current_year*100 + i for i in all_month]}
-        
+        unpublished_dict={"PHA":unpublished_ID*12,"Date":[current_year*100 + i for i in all_month]}
+
         df = pd.DataFrame(data=unpublished_dict)
-        df = df[["ID","Date"]]
-        schema = StructType([StructField("ID", StringType(), True), StructField("Date", StringType(), True)])
+        df = df[["PHA","Date"]]
+        schema = StructType([StructField("PHA", StringType(), True), StructField("Date", StringType(), True)])
         unpublished = spark.createDataFrame(df, schema)
-        unpublished = unpublished.select("ID","Date")
+        unpublished = unpublished.select("PHA","Date")
         
         # not_arrive文件
+        # published_right：cpa独有pha，not_arrive文件只保留这部分pha（用项目内的pha文件）
+        published_right_raw = published_right_raw.withColumn("source", func.length('ID'))
+        published_right_only_cpa = published_right_raw.where(col('source')==6).select('PHA').distinct().subtract(published_right_raw.where(col('source')==7).select('PHA').distinct())
+
         Notarrive = spark.read.csv(not_arrived_path, header=True)
         Notarrive = Notarrive.select("ID","Date")
+        Notarrive = deal_ID_length(Notarrive).join(cpa_pha_mapping, on='ID', how='left').where(~col('PHA').isNull()).select("PHA","Date").distinct() \
+                    .join(published_right_only_cpa, on='PHA', how='inner')
         
         # 合并unpublished和not_arrive文件
         Notarrive_unpublished = unpublished.union(Notarrive).distinct()
         
         future_range = Notarrive_unpublished.withColumn("Date", Notarrive_unpublished["Date"].cast(DoubleType()))
-        panel_add_data_future = panel_add_data.where(panel_add_data.Date > int(model_month_right)) \
-            .join(future_range, on=["Date", "ID"], how="inner") \
+        panel_add_data_future = deal_ID_length(panel_add_data).where(panel_add_data.Date > int(model_month_right)) \
+            .join(cpa_pha_mapping, on=["ID"], how="left")  \
+            .join(future_range, on=["Date", "PHA"], how="inner") \
             .select(panel_raw_data.columns)
         panel_filtered = panel_raw_data.union(panel_add_data_future)
         # 与之前的panel结果合并
