@@ -195,12 +195,12 @@ def execute(**kwargs):
         raw_data = raw_data.withColumn("tmp", func.when(func.isnull(raw_data[minimum_product_columns[0]]), func.lit("NA")).
                                        otherwise(raw_data[minimum_product_columns[0]]))
 
-        for col in minimum_product_columns[1:]:
-            raw_data = raw_data.withColumn(col, raw_data[col].cast(StringType()))
+        for i in minimum_product_columns[1:]:
+            raw_data = raw_data.withColumn(i, raw_data[i].cast(StringType()))
             raw_data = raw_data.withColumn("tmp", func.concat(
                 raw_data["tmp"],
                 func.lit(minimum_product_sep),
-                func.when(func.isnull(raw_data[col]), func.lit("NA")).otherwise(raw_data[col])))
+                func.when(func.isnull(raw_data[i]), func.lit("NA")).otherwise(raw_data[i])))
 
         # Mylan不重新生成minimum_product_newname: min1，其他项目生成min1
         # if project_name == "Mylan":
