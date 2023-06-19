@@ -52,6 +52,8 @@ spec:
         value: 'Empty'
       - key: time_right
         value: 'Empty'
+      - key: source_type
+        value: 'Empty'
     outputs:
       - key: a
         value: 'abcde'

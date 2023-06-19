@@ -32,6 +32,7 @@ def execute(**kwargs):
     add_47 = kwargs['add_47']
     time_left = kwargs['time_left']
     time_right = kwargs['time_right']
+    source_type = kwargs['source_type']
     ### input args ###
     
     ### output args ###
@@ -68,7 +69,7 @@ def execute(**kwargs):
     universe_path = max_path + "/" + project_name + "/universe_base"
     market_path  = max_path + "/" + project_name + "/mkt_mapping"
     cpa_pha_path = max_path + "/" + project_name + "/cpa_pha_mapping"
-	
+    
     raw_data_adding_final_path = out_path_dir + "/raw_data_adding_final"
     new_hospital_path = out_path_dir  + "/new_hospital"
     if panel_for_union != "Empty":
@@ -247,11 +248,19 @@ def execute(**kwargs):
         cpa_pha_mapping = deal_ID_length(cpa_pha_mapping).filter(cpa_pha_mapping["推荐版本"] == 1).select("ID", "PHA").distinct()
         # unpublished文件
         # unpublished 列表创建：published_left中有而published_right没有的ID列表，然后重复12次，时间为current_year*100 + i
-        published_left = spark.read.csv(published_left_path, header=True)
+        if source_type =='GYC':
+            published_left = spark.read.csv(published_left_path, header=True).where(col('Source')=='GYC')
+            published_right_raw = spark.read.csv(published_right_path, header=True).where(col('Source')=='GYC')
+        elif source_type =='CPA':
+            published_left = spark.read.csv(published_left_path, header=True).where(col('Source')=='CPA')
+            published_right_raw = spark.read.csv(published_right_path, header=True).where(col('Source')=='CPA') 
+        else:
+            published_left = spark.read.csv(published_left_path, header=True)
+            published_right_raw = spark.read.csv(published_right_path, header=True)
+        
         published_left = published_left.select('ID').distinct()
         published_left = deal_ID_length(published_left).join(cpa_pha_mapping, on='ID', how='left').where(~col('PHA').isNull()).select('PHA').distinct()
         
-        published_right_raw = spark.read.csv(published_right_path, header=True)
         published_right_raw = published_right_raw.select('ID').distinct()
         published_right_raw = deal_ID_length(published_right_raw).join(cpa_pha_mapping, on='ID', how='left').where(~col('PHA').isNull())
         published_right = published_right_raw.select('PHA').distinct()
@@ -268,18 +277,21 @@ def execute(**kwargs):
         unpublished = spark.createDataFrame(df, schema)
         unpublished = unpublished.select("PHA","Date")
         
-        # not_arrive文件
-        # published_right：cpa独有pha，not_arrive文件只保留这部分pha（用项目内的pha文件）
-        published_right_raw = published_right_raw.withColumn("source", func.length('ID'))
-        published_right_only_cpa = published_right_raw.where(col('source')==6).select('PHA').distinct().subtract(published_right_raw.where(col('source')==7).select('PHA').distinct())
+        if source_type !='GYC':
+            # not_arrive文件
+            # published_right：cpa独有pha，not_arrive文件只保留这部分pha（用项目内的pha文件）
+            published_right_raw = published_right_raw.withColumn("source", func.length('ID'))
+            published_right_only_cpa = published_right_raw.where(col('source')==6).select('PHA').distinct().subtract(published_right_raw.where(col('source')==7).select('PHA').distinct())
 
-        Notarrive = spark.read.csv(not_arrived_path, header=True)
-        Notarrive = Notarrive.select("ID","Date")
-        Notarrive = deal_ID_length(Notarrive).join(cpa_pha_mapping, on='ID', how='left').where(~col('PHA').isNull()).select("PHA","Date").distinct() \
-                    .join(published_right_only_cpa, on='PHA', how='inner')
-        
-        # 合并unpublished和not_arrive文件
-        Notarrive_unpublished = unpublished.union(Notarrive).distinct()
+            Notarrive = spark.read.csv(not_arrived_path, header=True)
+            Notarrive = Notarrive.select("ID","Date")
+            Notarrive = deal_ID_length(Notarrive).join(cpa_pha_mapping, on='ID', how='left').where(~col('PHA').isNull()).select("PHA","Date").distinct() \
+                        .join(published_right_only_cpa, on='PHA', how='inner')
+            
+            # 合并unpublished和not_arrive文件
+            Notarrive_unpublished = unpublished.union(Notarrive).distinct()
+        else:
+            Notarrive_unpublished = unpublished.distinct()
         
         future_range = Notarrive_unpublished.withColumn("Date", Notarrive_unpublished["Date"].cast(DoubleType()))
         panel_add_data_future = deal_ID_length(panel_add_data).where(panel_add_data.Date > int(model_month_right)) \

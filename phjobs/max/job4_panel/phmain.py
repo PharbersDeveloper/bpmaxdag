@@ -36,6 +36,7 @@ from phcli.ph_max_auto.ph_hook.ph_hook import exec_before, exec_after
 @click.option('--b')
 @click.option('--time_left')
 @click.option('--time_right')
+@click.option('--source_type')
 def debug_execute(**kwargs):
     try:
         args = {"name": "job4_panel"}
