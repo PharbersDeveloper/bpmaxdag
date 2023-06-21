@@ -32,6 +32,8 @@ spec:
         value: 'Empty'
       - key: factor_optimize
         value: 'True'
+      - key: for_nh_model
+        value: 'False'
     outputs:
       - key: c
         value: 'abc'

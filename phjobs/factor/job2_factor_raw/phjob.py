@@ -22,6 +22,7 @@ def execute(**kwargs):
     all_models = kwargs['all_models']
     max_file = kwargs['max_file']
     factor_optimize = kwargs['factor_optimize']
+    for_nh_model = kwargs['for_nh_model']
     ### input args ###
     
     ### output args ###
@@ -57,7 +58,10 @@ def execute(**kwargs):
     universe_path = max_path + '/' + project_name + '/universe_base'
     max_result_path = max_path + '/' + project_name + '/' + outdir + '/MAX_result/' + max_file
     #panel_result_path = max_path + '/' + project_name + '/' + outdir + '/panel_result'
-
+    if for_nh_model == 'True':
+        NH_in_old_universe_path = max_path + "/Common_files/NH_in_old_universe"
+        df_NH_in_old_universe = spark.read.parquet(NH_in_old_universe_path).select('Panel_ID').withColumnRenamed('Panel_ID','PHA_ID').distinct()
+        
     # %%
     # =========== 数据执行 ============
     logger.debug("job2_factor_raw")
@@ -96,6 +100,10 @@ def execute(**kwargs):
     
         # rf 非样本
         rf_out = spark.read.parquet(rf_out_path)
+        
+        if for_nh_model == 'True':
+            rf_out = rf_out.join(df_NH_in_old_universe, on='PHA_ID', how='inner')
+            
         rf_out = rf_out.select('PHA_ID', 'final_sales') \
                         .join(universe.select('Panel_ID', 'Province', 'City').distinct(), 
                                 rf_out.PHA_ID == universe.Panel_ID, how='left') \
