@@ -385,9 +385,9 @@ def job3_1_data_adding(kwargs):
     model_month_right = kwargs['model_month_right']
     max_month = kwargs.get('max_month', '0')
     year_missing = kwargs.get('year_missing', '0')
-    current_year = kwargs['current_year']
-    first_month = kwargs['first_month']
-    current_month = kwargs['current_month']
+    current_year = kwargs.get('current_year', 'Empty')
+    first_month = kwargs.get('first_month', 'Empty')
+    current_month = kwargs.get('current_month', 'Empty')
     if_others = kwargs.get('if_others', 'False')
     monthly_update = kwargs['monthly_update']
     not_arrived_path = kwargs.get('not_arrived_path', 'Empty')
@@ -703,9 +703,9 @@ def job3_2_data_adding(kwargs):
     model_month_right = kwargs['model_month_right']
     max_month = kwargs.get('max_month', '0')
     year_missing = kwargs.get('year_missing', '0')
-    current_year = kwargs['current_year']
-    first_month = kwargs['first_month']
-    current_month = kwargs['current_month']
+    current_year = kwargs.get('current_year', 'Empty')
+    first_month = kwargs.get('first_month', 'Empty')
+    current_month = kwargs.get('current_month', 'Empty')
     if_others = kwargs.get('if_others', 'False')
     monthly_update = kwargs['monthly_update']
     not_arrived_path = kwargs.get('not_arrived_path', 'Empty')
@@ -1206,8 +1206,8 @@ def job4_panel(kwargs):
     model_month_left = kwargs['model_month_left']
     model_month_right = kwargs['model_month_right']
     if_others = kwargs.get('if_others', 'False')
-    current_year = kwargs['current_year']
-    current_month = kwargs['current_month']
+    current_year = kwargs.get('current_year', 'Empty')
+    current_month = kwargs.get('current_month', 'Empty')
     paths_foradding = kwargs.get('paths_foradding', 'D:/Auto_MAX/MAX/Common_files/Not_arrived202001.csv, D:/Auto_MAX/MAX/Common_files/Not_arrived201912.csv, D:/Auto_MAX/MAX/Common_files/Unpublished2020.csv')
     not_arrived_path = kwargs.get('not_arrived_path', 'Empty')
     published_path = kwargs.get('published_path', 'Empty')
